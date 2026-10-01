@@ -34,12 +34,10 @@ REPL_ENV = "LEAN_REPL"
 REPL_PATH_ENV = "LEAN_REPL_PATH"
 REPL_TIMEOUT_ENV = "LEAN_REPL_TIMEOUT"
 REPL_MEM_MB_ENV = "LEAN_REPL_MEM_MB"
-STATE_SEARCH_URL_ENV = "LEAN_STATE_SEARCH_URL"
 HAMMER_URL_ENV = "LEAN_HAMMER_URL"
 
 # --- Default backends (the shared public services) ---
 DEFAULT_LOOGLE_URL = "https://loogle.lean-lang.org"
-DEFAULT_STATE_SEARCH_URL = "https://premise-search.com"
 DEFAULT_HAMMER_URL = "http://leanpremise.net"
 
 _TRUTHY = ("1", "true", "yes")
@@ -156,25 +154,11 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "leansearch": (90, 30),
     "loogle": (3, 30),
     "leanfinder": (10, 30),
-    "lean_state_search": (6, 30),
     "hammer_premise": (6, 30),
 }
 
-STATE_SEARCH_REV_ENV = "LEAN_STATE_SEARCH_REV"
-DEFAULT_STATE_SEARCH_REV = "v4.22.0"
-
 LEANFINDER_URL_ENV = "LEAN_FINDER_URL"
-DEFAULT_LEANFINDER_URL = (
-    "https://bxrituxuhpc70w8w.us-east-1.aws.endpoints.huggingface.cloud"
-)
-
-
-def state_search_url() -> str:
-    return os.environ.get(STATE_SEARCH_URL_ENV, DEFAULT_STATE_SEARCH_URL)
-
-
-def state_search_rev() -> str:
-    return os.environ.get(STATE_SEARCH_REV_ENV, DEFAULT_STATE_SEARCH_REV)
+DEFAULT_LEANFINDER_URL = "https://lean-lsp-proxy.leanfinder.workers.dev"
 
 
 def leanfinder_url() -> str:
@@ -229,3 +213,25 @@ def repl_mem_mb() -> int:
         )
         return 16384
     return mem_mb
+
+
+MAX_OUTPUT_CHARS_ENV = "LEAN_MCP_MAX_OUTPUT_CHARS"
+
+
+def max_output_chars() -> int:
+    """Per-field character budget for goal states and diagnostic messages.
+
+    A goal from a function with nested branches can reach tens of kilobytes
+    after `simp` or `unfold`, and a diagnostic usually repeats it verbatim
+    ("unsolved goals\\n<goal>"), so one response can carry the same wall of
+    text several times over. Set to 0 to return everything untruncated.
+    """
+    raw_value = os.environ.get(MAX_OUTPUT_CHARS_ENV, "6000")
+    try:
+        value = int(raw_value)
+    except ValueError:
+        logger.warning(
+            "Invalid %s=%s, defaulting to 6000.", MAX_OUTPUT_CHARS_ENV, raw_value
+        )
+        return 6000
+    return max(value, 0)

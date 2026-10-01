@@ -505,11 +505,11 @@ class MultipleResourceIdByNameFound(WMLClientError, ValueError):
 
 
 class MissingToolRequiredProperties(WMLClientError, KeyError):
-    def __init__(self, required_properties: str):
+    def __init__(self, required_properties: str | list, schema_type: str = "input"):
         WMLClientError.__init__(
             self,
             (
-                f"Missing required properties of the tool's input schema. "
+                f"Missing required properties of the tool's {schema_type} schema. "
                 f"The following properties are required: {required_properties}."
             ),
         )

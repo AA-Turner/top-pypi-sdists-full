@@ -45,9 +45,7 @@ class ProviderLoader:
         "Cohere",
         "CohereForAI_C4AI_Command",
         "Copilot",
-        "CopilotAccount",
         "CopilotApp",
-        "CopilotSession",
         "DeepInfra",
         "DeepSeek",
         "EdgeTTS",
@@ -85,11 +83,8 @@ class ProviderLoader:
         "OpenCode",
         "OpenRouter",
         "OpenRouterFree",
-        "OrcaRouter",
         "OpenaiAPI",
-        "OpenaiAccount",
-        "OpenaiChat",
-        "ChatGPTLightweight",
+        "ChatGPT",
         "OpenaiTemplate",
         "OperaAria",
         "Perplexity",
@@ -201,7 +196,7 @@ class ProviderLoader:
             )
 
             return CohereForAI_C4AI_Command
-        elif name == "Copilot":
+        elif name == "Copilot" or name == "CopilotSession":
             from g4f.Provider.Copilot import Copilot
 
             return Copilot
@@ -433,14 +428,10 @@ class ProviderLoader:
             from g4f.Provider.needs_auth.OpenaiAccount import OpenaiAccount
 
             return OpenaiAccount
-        elif name == "OpenaiChat":
-            from g4f.Provider.needs_auth.OpenaiChat import OpenaiChat
+        elif name == "ChatGPT" or name == "OpenaiChat":
+            from g4f.Provider.ChatGPT import ChatGPT
 
-            return OpenaiChat
-        elif name == "ChatGPTLightweight":
-            from g4f.Provider.ChatGPTLightweight import ChatGPTLightweight
-
-            return ChatGPTLightweight
+            return ChatGPT
         elif name == "OpenaiTemplate":
             from g4f.Provider.template.OpenaiTemplate import OpenaiTemplate
 

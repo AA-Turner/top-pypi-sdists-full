@@ -360,6 +360,14 @@ class AuthRequiredParameters:
     """AuthRequiredParameters."""
 
     response: Any | None = None
+    context: Any | None = None
+    is_blocked: bool | None = None
+    navigation: Any | None = None
+    redirect_count: Any | None = None
+    request: Any | None = None
+    timestamp: Any | None = None
+    user_context: Any | None = None
+    intercepts: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -367,6 +375,14 @@ class BeforeRequestSentParameters:
     """BeforeRequestSentParameters."""
 
     initiator: Any | None = None
+    context: Any | None = None
+    is_blocked: bool | None = None
+    navigation: Any | None = None
+    redirect_count: Any | None = None
+    request: Any | None = None
+    timestamp: Any | None = None
+    user_context: Any | None = None
+    intercepts: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -374,6 +390,14 @@ class FetchErrorParameters:
     """FetchErrorParameters."""
 
     error_text: str | None = None
+    context: Any | None = None
+    is_blocked: bool | None = None
+    navigation: Any | None = None
+    redirect_count: Any | None = None
+    request: Any | None = None
+    timestamp: Any | None = None
+    user_context: Any | None = None
+    intercepts: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -381,6 +405,14 @@ class ResponseCompletedParameters:
     """ResponseCompletedParameters."""
 
     response: Any | None = None
+    context: Any | None = None
+    is_blocked: bool | None = None
+    navigation: Any | None = None
+    redirect_count: Any | None = None
+    request: Any | None = None
+    timestamp: Any | None = None
+    user_context: Any | None = None
+    intercepts: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -388,6 +420,14 @@ class ResponseStartedParameters:
     """ResponseStartedParameters."""
 
     response: Any | None = None
+    context: Any | None = None
+    is_blocked: bool | None = None
+    navigation: Any | None = None
+    redirect_count: Any | None = None
+    request: Any | None = None
+    timestamp: Any | None = None
+    user_context: Any | None = None
+    intercepts: list[Any] = field(default_factory=list)
 
 
 @dataclass

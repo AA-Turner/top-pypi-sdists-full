@@ -20,9 +20,9 @@ thiserror.workspace = true
 log.workspace = true
 
 # SSH client
-russh = "0.46"
-russh-keys = "0.46"
-ssh-key = "0.6"
+russh.workspace = true
+russh-keys.workspace = true
+ssh-key.workspace = true
 
 # Utilities
 base64.workspace = true

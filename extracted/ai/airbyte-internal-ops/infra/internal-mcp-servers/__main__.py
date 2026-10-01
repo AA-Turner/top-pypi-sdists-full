@@ -74,6 +74,13 @@ CLOUD_MCP_JWT_ISSUER = f"{OAUTH_REALMS_BASE}/_airbyte-application-clients"
 CLOUD_MCP_JWT_JWKS_URI = f"{CLOUD_MCP_JWT_ISSUER}/protocol/openid-connect/certs"
 CLOUD_MCP_JWT_AUDIENCE = "account"
 CLOUD_MCP_JWT_ALGORITHM = "RS256"
+# `airbyte`-realm user tokens forwarded by trusted first-party apps (the
+# Ops Webapp /chat page). Trust is bounded by the `azp` allowlist.
+CLOUD_MCP_USER_JWT_ISSUER = OAUTH_ISSUER
+CLOUD_MCP_USER_JWT_JWKS_URI = f"{OAUTH_ISSUER}/protocol/openid-connect/certs"
+CLOUD_MCP_USER_TOKEN_CLIENT_IDS = (
+    config.get("user-token-client-ids") or "airbyte-ops-webapp-client"
+)
 
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
 DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
@@ -111,6 +118,20 @@ services (cloud-mcp today; ops-mcp once its runtime lands) so their OTel
 trace exporters authenticate to Datadog. Created during bootstrap; see
 `BOOTSTRAP.md`."""
 
+KAPA_API_KEY_SECRET_ID = "internal-mcp-kapa-api-key"
+"""Kapa Retrieval API key injected into cloud-mcp as `KAPA_API_KEY`.
+
+Sent by PyAirbyte's `search_airbyte_knowledge_sources` tool as the `X-API-KEY`
+header. Created during bootstrap; see `BOOTSTRAP.md`."""
+
+KAPA_RETRIEVAL_API_URL = config.get("kapa-retrieval-api-url") or ""
+"""Non-secret Kapa Retrieval API endpoint injected into cloud-mcp as `KAPA_RETRIEVAL_API_URL`.
+
+The URL embeds the Kapa project ID
+(`https://api.kapa.ai/query/v1/projects/<project_id>/retrieval/`). While it is
+blank, neither Kapa env var is set and the knowledge search tool stays off.
+Constrained to https `api.kapa.ai` (see the guard below)."""
+
 # OTLP HTTP endpoint the services' OTel trace exporters POST spans to.
 # Datadog's intake endpoint; overridable via Pulumi config but constrained
 # to Datadog intake hosts and https (see the guard below).
@@ -130,6 +151,15 @@ if _otel_url.scheme != "https" or not (_otel_url.hostname or "").endswith(
     raise ValueError(
         f"otelTracesEndpoint must be an https Datadog OTLP intake URL, got {OTEL_TRACES_ENDPOINT!r}"
     )
+
+# `KAPA_API_KEY` is sent as `X-API-KEY` to this URL, so it must stay an https
+# Kapa API URL.
+if KAPA_RETRIEVAL_API_URL:
+    _kapa_url = urlsplit(KAPA_RETRIEVAL_API_URL)
+    if _kapa_url.scheme != "https" or _kapa_url.hostname != "api.kapa.ai":
+        raise ValueError(
+            f"kapa-retrieval-api-url must be an https api.kapa.ai URL, got {KAPA_RETRIEVAL_API_URL!r}"
+        )
 
 # Backend credential secrets consumed by the Ops MCP server (prod + preview).
 # Created during bootstrap (see `BOOTSTRAP.md`) and looked up read-only here;
@@ -262,6 +292,9 @@ AUTH_ISSUER_ENV = "AIRBYTE_MCP_AUTH_ISSUER"
 AUTH_AUDIENCE_ENV = "AIRBYTE_MCP_AUTH_AUDIENCE"
 AUTH_ALGORITHM_ENV = "AIRBYTE_MCP_AUTH_ALGORITHM"
 AUTH_ALLOW_CLIENT_CREDENTIALS_ENV = "AIRBYTE_MCP_AUTH_ALLOW_CLIENT_CREDENTIALS"
+AUTH_USER_JWKS_URI_ENV = "AIRBYTE_MCP_AUTH_USER_JWKS_URI"
+AUTH_USER_ISSUER_ENV = "AIRBYTE_MCP_AUTH_USER_ISSUER"
+AUTH_USER_TOKEN_CLIENT_IDS_ENV = "AIRBYTE_MCP_AUTH_USER_TOKEN_CLIENT_IDS"
 # Default-on for the PyAirbyte MCP server's insiders-only tool modules (e.g. `agents`);
 # clients no longer need `X-MCP-Insiders: 1` but may still opt out with `X-MCP-Insiders: 0`.
 MCP_INSIDERS_ENV = "AIRBYTE_MCP_INSIDERS"
@@ -313,6 +346,7 @@ def define_secrets() -> dict[str, SecretRef]:
         OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         *OPS_MCP_BACKEND_SECRET_IDS,
         OTEL_TRACES_HEADERS_SECRET_ID,
+        *([KAPA_API_KEY_SECRET_ID] if KAPA_RETRIEVAL_API_URL else []),
     ]
     return {
         secret_id: gcp.secretmanager.get_secret(
@@ -408,7 +442,9 @@ def _cloud_mcp_auth_envs() -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArg
 
     Supplies the branded `AIRBYTE_MCP_*` realm values the cloud-mcp PyAirbyte
     image reads: the interactive-OIDC discovery URL and the headless
-    bearer-token verifier's JWKS/issuer/audience/algorithm. The image declares
+    bearer-token verifier's JWKS/issuer/audience/algorithm, plus the optional
+    second verifier for `airbyte`-realm user tokens forwarded by trusted
+    first-party apps (bounded by the `azp` allowlist). The image declares
     only the env-var names; these concrete values are owned here in the
     deployment repo rather than baked into the generic library.
     """
@@ -425,6 +461,9 @@ def _cloud_mcp_auth_envs() -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArg
         _env(AUTH_ISSUER_ENV, CLOUD_MCP_JWT_ISSUER),
         _env(AUTH_AUDIENCE_ENV, CLOUD_MCP_JWT_AUDIENCE),
         _env(AUTH_ALGORITHM_ENV, CLOUD_MCP_JWT_ALGORITHM),
+        _env(AUTH_USER_JWKS_URI_ENV, CLOUD_MCP_USER_JWT_JWKS_URI),
+        _env(AUTH_USER_ISSUER_ENV, CLOUD_MCP_USER_JWT_ISSUER),
+        _env(AUTH_USER_TOKEN_CLIENT_IDS_ENV, CLOUD_MCP_USER_TOKEN_CLIENT_IDS),
     ]
 
 
@@ -474,6 +513,20 @@ def _otel_envs(
         _env("OTEL_RESOURCE_ATTRIBUTES", f"deployment.environment.name={environment}"),
         _env("AIRBYTE_MCP_OTEL_VENDOR", "datadog"),
         _env("AIRBYTE_MCP_INTENT_CAPTURE", "1"),
+    ]
+
+
+def _cloud_mcp_kapa_envs() -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
+    """Build the Kapa knowledge search env for a cloud-mcp service.
+
+    Returns nothing while `KAPA_RETRIEVAL_API_URL` is blank, so the secret is
+    only referenced once the endpoint is configured.
+    """
+    if not KAPA_RETRIEVAL_API_URL:
+        return []
+    return [
+        _env("KAPA_RETRIEVAL_API_URL", KAPA_RETRIEVAL_API_URL),
+        _secret_env("KAPA_API_KEY", KAPA_API_KEY_SECRET_ID),
     ]
 
 
@@ -1144,6 +1197,7 @@ def main() -> None:
             *_cloud_mcp_auth_envs(),
             *_cloud_mcp_storage_envs(cloud_mcp_firestore),
             *_otel_envs(CLOUD_MCP_SERVICE_NAME, "prod"),
+            *_cloud_mcp_kapa_envs(),
         ],
         extra_depends=[firestore_iam],
         **mcp_common,
@@ -1163,6 +1217,7 @@ def main() -> None:
             # and tested without client-side header configuration.
             _env(MCP_INSIDERS_ENV, "true"),
             *_otel_envs(CLOUD_MCP_PREVIEW_SERVICE_NAME, "preview"),
+            *_cloud_mcp_kapa_envs(),
         ],
         extra_depends=[firestore_iam],
         **mcp_common,

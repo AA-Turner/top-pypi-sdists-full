@@ -44,6 +44,7 @@ from .paginator import (
     ListKnowledgeBaseDocumentsPaginator,
     ListKnowledgeBasesPaginator,
     ListPromptsPaginator,
+    ListVpcConfigurationsPaginator,
 )
 from .type_defs import (
     AssociateAgentCollaboratorRequestTypeDef,
@@ -70,6 +71,8 @@ from .type_defs import (
     CreatePromptResponseTypeDef,
     CreatePromptVersionRequestTypeDef,
     CreatePromptVersionResponseTypeDef,
+    CreateVpcConfigurationRequestTypeDef,
+    CreateVpcConfigurationResponseTypeDef,
     DeleteAgentActionGroupRequestTypeDef,
     DeleteAgentAliasRequestTypeDef,
     DeleteAgentAliasResponseTypeDef,
@@ -93,6 +96,8 @@ from .type_defs import (
     DeletePromptResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteResourcePolicyResponseTypeDef,
+    DeleteVpcConfigurationRequestTypeDef,
+    DeleteVpcConfigurationResponseTypeDef,
     DisassociateAgentCollaboratorRequestTypeDef,
     DisassociateAgentKnowledgeBaseRequestTypeDef,
     GetAgentActionGroupRequestTypeDef,
@@ -125,6 +130,8 @@ from .type_defs import (
     GetPromptResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    GetVpcConfigurationRequestTypeDef,
+    GetVpcConfigurationResponseTypeDef,
     IngestKnowledgeBaseDocumentsRequestTypeDef,
     IngestKnowledgeBaseDocumentsResponseTypeDef,
     ListAgentActionGroupsRequestTypeDef,
@@ -157,6 +164,8 @@ from .type_defs import (
     ListPromptsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListVpcConfigurationsRequestTypeDef,
+    ListVpcConfigurationsResponseTypeDef,
     PrepareAgentRequestTypeDef,
     PrepareAgentResponseTypeDef,
     PrepareFlowRequestTypeDef,
@@ -272,9 +281,8 @@ class AgentsforBedrockClient(AioBaseClient):
         self, **kwargs: Unpack[CreateAgentRequestTypeDef]
     ) -> CreateAgentResponseTypeDef:
         """
-        Creates an agent that orchestrates interactions between foundation models, data
-        sources, software applications, user conversations, and APIs to carry out tasks
-        to help customers.
+        <note> <p>Amazon Bedrock Agents (now Amazon Bedrock Agents Classic) is no
+        longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_agent.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#create_agent)
@@ -369,6 +377,17 @@ class AgentsforBedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_prompt_version.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#create_prompt_version)
+        """
+
+    async def create_vpc_configuration(
+        self, **kwargs: Unpack[CreateVpcConfigurationRequestTypeDef]
+    ) -> CreateVpcConfigurationResponseTypeDef:
+        """
+        Creates a VPC configuration that lets a knowledge base connect to a resource in
+        your private VPC.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_vpc_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#create_vpc_configuration)
         """
 
     async def delete_agent(
@@ -491,6 +510,16 @@ class AgentsforBedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_resource_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#delete_resource_policy)
+        """
+
+    async def delete_vpc_configuration(
+        self, **kwargs: Unpack[DeleteVpcConfigurationRequestTypeDef]
+    ) -> DeleteVpcConfigurationResponseTypeDef:
+        """
+        Deletes a VPC configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_vpc_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#delete_vpc_configuration)
         """
 
     async def disassociate_agent_collaborator(
@@ -662,6 +691,16 @@ class AgentsforBedrockClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#get_resource_policy)
         """
 
+    async def get_vpc_configuration(
+        self, **kwargs: Unpack[GetVpcConfigurationRequestTypeDef]
+    ) -> GetVpcConfigurationResponseTypeDef:
+        """
+        Returns the details and current status of a single VPC configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_vpc_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#get_vpc_configuration)
+        """
+
     async def ingest_knowledge_base_documents(
         self, **kwargs: Unpack[IngestKnowledgeBaseDocumentsRequestTypeDef]
     ) -> IngestKnowledgeBaseDocumentsResponseTypeDef:
@@ -825,6 +864,16 @@ class AgentsforBedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_tags_for_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#list_tags_for_resource)
+        """
+
+    async def list_vpc_configurations(
+        self, **kwargs: Unpack[ListVpcConfigurationsRequestTypeDef]
+    ) -> ListVpcConfigurationsResponseTypeDef:
+        """
+        Returns a paginated list of the VPC configurations for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_vpc_configurations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#list_vpc_configurations)
         """
 
     async def prepare_agent(
@@ -1152,6 +1201,17 @@ class AgentsforBedrockClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_prompts"]
     ) -> ListPromptsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_vpc_configurations"]
+    ) -> ListVpcConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

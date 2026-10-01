@@ -40,6 +40,7 @@ from src.middleware.rbac import (
 )
 from src.routers.projects import resolve_project
 from src.services.board_sync_service import sync_board_tickets_task
+from src.services.release_board_sync import sync_project_releases
 from src.services.ticket_release import (
     CURRENT_RELEASE,
     NO_CURRENT_RELEASE_DETAIL,
@@ -719,6 +720,16 @@ async def update_ticket(
 
     session.add(ticket)
     session.commit()
+    if ticket_update.release is not None and ticket.project_id:
+        # Attach/detach on the board now; best-effort, never fails the update.
+        # This person's answer wins over any board change not yet synced.
+        await sync_project_releases(
+            session,
+            ticket.project_id,
+            innoday_wins={ticket.external_ticket_id}
+            if ticket.external_ticket_id
+            else None,
+        )
     session.refresh(ticket)
 
     return ticket
@@ -883,6 +894,13 @@ async def create_ticket_by_id(
                     pushed.release = release
                     session.add(pushed)
                     session.commit()
+                    await sync_project_releases(
+                        session,
+                        ticket_data.project_id,
+                        innoday_wins={pushed.external_ticket_id}
+                        if pushed.external_ticket_id
+                        else None,
+                    )
                     session.refresh(pushed)
                 track_usage(organization_id, current_user.id, "ticket_created", session)
                 return pushed
@@ -996,6 +1014,16 @@ async def update_ticket_by_id(
 
     session.add(ticket)
     session.commit()
+    if ticket_update.release is not None and ticket.project_id:
+        # Attach/detach on the board now; best-effort, never fails the update.
+        # This person's answer wins over any board change not yet synced.
+        await sync_project_releases(
+            session,
+            ticket.project_id,
+            innoday_wins={ticket.external_ticket_id}
+            if ticket.external_ticket_id
+            else None,
+        )
     session.refresh(ticket)
 
     return ticket

@@ -73,8 +73,8 @@ class StreamingDataset(IterableDataset):
         max_cache_size: int | float | str | None = None,
         subsample: float = 1.0,
         encryption: Encryption | None = None,
-        storage_options: dict | None = {},
-        session_options: dict | None = {},
+        storage_options: dict | None = None,
+        session_options: dict | None = None,
         max_pre_download: int = 2,
         index_path: str | None = None,
         force_override_state_dict: bool = False,
@@ -82,10 +82,14 @@ class StreamingDataset(IterableDataset):
         num_canonical_nodes: int | None = None,
         batch_decode: int | str | bool = "auto",
         item_shuffle_window: int | str | None = None,
+        window_direct_io: bool = False,
     ) -> None:
         """The streaming dataset can be used once your data have been optimised using the DatasetOptimiser class.
 
         Args:
+            window_direct_io: Read windows through Linux NFS O_DIRECT handles, bypassing the client page cache.
+                Only ``read_window`` / ``aread_window`` are supported in this mode; ordinary iteration is disabled.
+                Requires an uncompressed, unencrypted local NFS dataset. Defaults to False.
             input_dir: Path to the folder where the input data is stored. Supports paths ending with `.parquet`
                 with wildcards in the basename to stream specific Parquet files.
             cache_dir: Path to the folder where the cache data is stored. If not provided, the cache will be stored
@@ -161,6 +165,20 @@ class StreamingDataset(IterableDataset):
 
             item_loader = item_loader or ParquetLoader()
 
+        if not isinstance(window_direct_io, bool):
+            raise ValueError("window_direct_io must be a boolean.")
+        self.window_direct_io = window_direct_io
+        if window_direct_io:
+            from litdata.utilities.direct_io import _check_nfs, _check_platform
+
+            _check_platform()
+            if input_dir.url is not None or input_dir.path is None:
+                raise ValueError("window_direct_io requires a local NFS dataset path.")
+            fd = os.open(input_dir.path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+            try:
+                _check_nfs(fd)
+            finally:
+                os.close(fd)
         self.input_dir = input_dir
         self.cache_dir = cache_dir
         self.subsampled_files: list[str] = []
@@ -217,6 +235,7 @@ class StreamingDataset(IterableDataset):
                 )
 
         self.cache: Cache | None = None
+        self._window_pid = os.getpid()
         self.worker_env: _WorkerEnv | None = None
         self.worker_chunks: list[int] = []  # chunk indexes that the current worker will download, read & stream
         self.worker_intervals: list[list[int]] = []  # chunk index intervals for the current worker
@@ -331,7 +350,7 @@ class StreamingDataset(IterableDataset):
             self.current_epoch = current_epoch
 
     def _create_cache(self, worker_env: _WorkerEnv) -> Cache:
-        skip_copy = self.posix_fast is not None and self.posix_fast.skip_cache_copy
+        skip_copy = self.window_direct_io or (self.posix_fast is not None and self.posix_fast.skip_cache_copy)
         if not skip_copy and _should_replace_path(self.input_dir.path):
             cache_path = _try_create_cache_dir(
                 input_dir=self.input_dir.path if self.input_dir.path else self.input_dir.url,
@@ -340,7 +359,7 @@ class StreamingDataset(IterableDataset):
             if cache_path is not None:
                 self.input_dir.path = cache_path
 
-        if _should_replace_path_filestores(self.input_dir.path):
+        if not self.window_direct_io and _should_replace_path_filestores(self.input_dir.path):
             # Load the config to know whether the dataset has been compressed
             config = ChunksConfig.load(
                 self.input_dir.path or "",
@@ -402,7 +421,12 @@ class StreamingDataset(IterableDataset):
         if self.posix_fast is not None and not posix_fast_supports_config(cache._reader._config):
             self.posix_fast = None
 
-        if self.posix_fast is not None and self.posix_fast.in_place and cache._reader._config is not None:
+        if (
+            not self.window_direct_io
+            and self.posix_fast is not None
+            and self.posix_fast.in_place
+            and cache._reader._config is not None
+        ):
             chunks = cache._reader._config._chunks or []
             cache._reader.enable_posix_fast(
                 list(range(len(chunks))), keep=max(4, self.max_pre_download), prefetch=False
@@ -513,6 +537,8 @@ class StreamingDataset(IterableDataset):
         )
 
     def __iter__(self) -> "StreamingDataset":
+        if self.window_direct_io:
+            raise RuntimeError("Use read_window/aread_window when window_direct_io=True.")
         # When the StreamingDataset is used within map or optimize, let's refetch the distributed env.
         if os.getenv("DATA_OPTIMIZER_GLOBAL_RANK"):
             self.distributed_env = _DistributedEnv.detect()
@@ -770,6 +796,8 @@ class StreamingDataset(IterableDataset):
         return workers_chunks
 
     def __getitem__(self, index: ChunkedIndex | int | slice | str) -> Any:
+        if self.window_direct_io:
+            raise RuntimeError("Use read_window/aread_window when window_direct_io=True.")
         if self.cache is None:
             self.worker_env = _WorkerEnv.detect()
             self.cache = self._create_cache(worker_env=self.worker_env)
@@ -812,6 +840,143 @@ class StreamingDataset(IterableDataset):
             )
 
         return item
+
+    @property
+    def frame_counts(self) -> list[int]:
+        """Frame counts in record-index order for data written with ``TemporalArrayLoader``.
+
+        Reads index metadata only, including the dataset's subsample/split selection.
+        Use these counts to keep application-specific window sampling outside storage code.
+        """
+        self._ensure_window_reader()
+        assert self.cache is not None
+        config = self.cache._reader.config
+        if config.config.get("item_loader") != "TemporalArrayLoader":
+            raise ValueError("frame_counts requires data written with TemporalArrayLoader.")
+        chunks = config._chunks
+        assert chunks is not None
+        return [
+            count
+            for chunk, interval in zip(chunks, config.intervals)
+            for count in chunk["temporal_frames"][interval[1] - interval[0] : interval[2] - interval[0]]
+        ]
+
+    def _ensure_window_reader(self) -> Any:
+        from litdata.streaming.window import _WindowReader
+
+        if getattr(self, "_window_pid", os.getpid()) != os.getpid():
+            self.cache = None
+            self.shuffler = None
+        self._window_pid = os.getpid()
+        if self.cache is None:
+            self.worker_env = _WorkerEnv.detect()
+            self.cache = self._create_cache(worker_env=self.worker_env)
+            self.shuffler = self._create_shuffler(self.cache)
+        reader = self.cache._reader
+        if reader._config is None:
+            reader._try_load_config()
+        config = reader.config
+        window_reader = getattr(reader, "_window_reader", None)
+        if window_reader is None or window_reader.config is not config:
+            window_reader = reader._window_reader = _WindowReader(
+                config,
+                posix_fast=reader._posix_fast,
+                mmap_keep=reader._posix_keep,
+                posix_willneed=reader._posix_willneed,
+                direct_io=self.window_direct_io,
+            )
+        return window_reader
+
+    def read_window(
+        self,
+        index: int,
+        start: int,
+        frames: int,
+        fields: Sequence[str] | None = None,
+        *,
+        max_concurrent_reads: int = 8,
+    ) -> dict[str, Any]:
+        """Read selected axis-0 frames directly from a record written by ``optimize``.
+
+        Records must be flat dictionaries; selected fields must be fixed-width NumPy arrays
+        or CPU tensors with matching frame-axis lengths. ``fields=None`` selects all fields;
+        an empty sequence returns an empty dictionary without payload I/O. Windows use
+        ``[start, start + frames)`` and must fit entirely within the selected arrays.
+
+        Requires uncompressed, unencrypted PyTree chunks and built-in array serializers.
+        S3/R2 fetch array ranges plus small, bounded-cache metadata reads. Other cloud
+        backends may download a whole chunk. Returned arrays/tensors are writable and
+        independent of the source. Dataset transforms are not applied to partial records.
+
+        POSIX TemporalArrayLoader windows use bounded in-place chunk mappings when
+        POSIX-fast is enabled. Only selected group views are decoded; source chunks
+        must remain immutable while in use. The synchronous path executes in the
+        caller's thread; the async path offloads page faults and decoding to a thread.
+
+        This explicit random-access operation does not advance the iteration/checkpoint
+        position or assign requests to ranks/workers. Use ``aread_window`` for async callers.
+        Dataset objects should be initialized independently in each process, as usual.
+
+        For example, ``read_window(0, start=3, frames=4, fields=["features", "valid"])``
+        returns frames 3, 4, 5 and 6 from record 0. A field shaped ``(T, 2)`` becomes
+        ``(4, 2)``. Windows never cross records, pad or wrap; the application's sampler
+        chooses valid starts using ``frame_counts`` for TemporalArrayLoader datasets.
+        That loader stores whole tracks in field groups: selecting any field fetches
+        its group's window, but returns only requested fields. See temporal.py and
+        window.py for the binary layout and the corresponding byte-range calculation.
+        """
+        # A synchronous POSIX window need not make a round-trip through the
+        # async cloud runner. Callers may already have their own worker threads.
+        if self.posix_fast is not None:
+            reader, chunked_index = self._prepare_window_request(index, start, frames, max_concurrent_reads)
+            if reader.posix_windows:
+                return reader.read_posix_window(chunked_index, start, frames, fields)
+        from litdata.raw.dataset import _get_loop_runner
+
+        return _get_loop_runner().run(
+            self.aread_window(index, start, frames, fields, max_concurrent_reads=max_concurrent_reads)
+        )
+
+    async def aread_window(
+        self,
+        index: int,
+        start: int,
+        frames: int,
+        fields: Sequence[str] | None = None,
+        *,
+        max_concurrent_reads: int = 8,
+    ) -> dict[str, Any]:
+        """Async :meth:`read_window`, with bounded parallel field reads per call.
+
+        The first call initializes dataset metadata synchronously. Reuse one dataset per
+        worker/event loop; callers bound simultaneous window requests. Cancellation drains
+        child tasks, but an SDK/thread fallback may finish its underlying I/O afterward.
+        """
+        window_reader, chunked_index = self._prepare_window_request(index, start, frames, max_concurrent_reads)
+        return await window_reader.read(chunked_index, start, frames, fields, max_concurrent_reads)
+
+    def _prepare_window_request(
+        self, index: int, start: int, frames: int, max_concurrent_reads: int
+    ) -> tuple[Any, ChunkedIndex]:
+        for name, value in (("index", index), ("start", start), ("frames", frames)):
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{name} must be an integer.")
+        if index < 0 or start < 0 or frames < 1:
+            raise IndexError("index/start must be nonnegative and frames must be positive.")
+        if (
+            not isinstance(max_concurrent_reads, int)
+            or isinstance(max_concurrent_reads, bool)
+            or max_concurrent_reads < 1
+        ):
+            raise ValueError("max_concurrent_reads must be a positive integer.")
+        if self.serializers:
+            raise ValueError("Window reads require the built-in array serializers.")
+        window_reader = self._ensure_window_reader()
+        assert self.cache is not None
+        if index >= window_reader.length:
+            raise IndexError("Unknown record index.")
+        chunked_index = ChunkedIndex(*self.cache._get_chunk_index_from_index(index))
+        return window_reader, chunked_index
 
     def get_by_key(self, key: Any) -> Any:
         """Load a sample by entity key from the ``keys/`` store (str or int keys).

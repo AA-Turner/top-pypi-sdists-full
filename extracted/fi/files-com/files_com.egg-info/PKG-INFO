@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 1.6.496
+Version: 1.6.501
 Summary: Python bindings for the Files.com API
 License: MIT
 Requires-Python: >=3.5
@@ -611,6 +611,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`BillingPermissionRequiredError`|  `NotAuthorizedError` |
 |`BundleMaximumUsesReachedError`|  `NotAuthorizedError` |
 |`BundlePermissionRequiredError`|  `NotAuthorizedError` |
+|`CannotAdministerHigherLevelUserError`|  `NotAuthorizedError` |
 |`CannotLoginWhileUsingKeyError`|  `NotAuthorizedError` |
 |`CantActForOtherUserError`|  `NotAuthorizedError` |
 |`ContactAdminForPasswordChangeHelpError`|  `NotAuthorizedError` |
@@ -712,6 +713,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`MultipleProcessingErrorsError`|  `ProcessingFailureError` |
 |`PathTooLongError`|  `ProcessingFailureError` |
 |`RecipientAlreadySharedError`|  `ProcessingFailureError` |
+|`RemoteEntryReadOnlyError`|  `ProcessingFailureError` |
 |`RemoteServerErrorError`|  `ProcessingFailureError` |
 |`ResourceBelongsToParentSiteError`|  `ProcessingFailureError` |
 |`ResourceLockedError`|  `ProcessingFailureError` |
@@ -732,6 +734,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`TooManySharesError`|  `RateLimitedError` |
 |`AutomationsUnavailableError`|  `ServiceUnavailableError` |
 |`MigrationInProgressError`|  `ServiceUnavailableError` |
+|`SearchUnavailableError`|  `ServiceUnavailableError` |
 |`SiteDisabledError`|  `ServiceUnavailableError` |
 |`UploadsUnavailableError`|  `ServiceUnavailableError` |
 |`AccountAlreadyExistsError`|  `SiteConfigurationError` |

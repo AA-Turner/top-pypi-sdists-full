@@ -3,12 +3,9 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Generator, Optional, Union
-from uuid import UUID
+from typing import Optional, Union
 
 # Other libraries
-import httpx
-import jwt
 from dlt._workspace._workspace_context import WorkspaceRunContext, active
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.config_toml_writer import WritableConfigValue, write_values
@@ -19,51 +16,33 @@ from dlt.common.configuration.providers.toml import (
 )
 from dlt.common.configuration.specs.pluggable_run_context import RunContextBase
 from dlt.common.configuration.specs.runtime_configuration import RuntimeConfiguration
-from jwt.exceptions import PyJWTError
 
 # Current package
 from dlt_runtime._telemetry import DEVICE_ID_HEADER, get_telemetry_device_id
 from dlt_runtime.exceptions import (
     ApiKeyInvalid,
     OrgRegionRequired,
+    RuntimeClientException,
     RuntimeNotAuthenticated,
     RuntimeOperationNotAuthorized,
-    exception_from_response,
     handle_client_exceptions,
 )
 from dlt_runtime.strings import API_KEY_UNRECOGNIZED
 from dlt_runtime.typing import CallerInfo, WorkspaceInfo
 from dlt_runtime.urls import normalize_api_base_url
-from dlt_runtime.version import __version__
-from dlthub_sdk._gen.api.api.me import get_current_user, organization_me
-from dlthub_sdk._gen.api.api.organizations import (
-    list_organizations,
-    set_organization_region,
+from dlt_runtime.version import USER_AGENT
+from dlthub_sdk import (
+    Organization,
+    OrganizationCaller,
+    Runtime,
+    Sync,
+    Workspace,
+    connect,
 )
-from dlthub_sdk._gen.api.api.workspaces import create_workspace
-from dlthub_sdk._gen.api.client import Client as ApiClient
-from dlthub_sdk._gen.api.models import (
-    CreateWorkspaceResponse409,
-    CurrentUserResponse,
-    ErrorCode,
-    ListPageOrganizationResponse,
-    OrganizationMeResponse,
-    OrganizationResponse,
-    PrincipalKind,
-    SetOrganizationRegionRequest,
-    WorkspaceCreateRequest,
-    WorkspaceResponse,
-)
-from dlthub_sdk._gen.auth.api.default import (
-    create_session_swap_code as swap_code_api,
-    refresh as refresh_api,
-)
-from dlthub_sdk._gen.auth.client import Client as AuthClient
-from dlthub_sdk._gen.auth.models import (
-    RefreshRequest,
-    RefreshResponse,
-    SwapCodeRequest,
-    SwapCodeResponse,
+from dlthub_sdk._auth import AuthTransport, decode_token
+from dlthub_sdk.errors import (
+    Conflict as SdkConflict,
+    NotAuthenticated as SdkNotAuthenticated,
 )
 
 PERSONAL_API_KEY_PREFIX = "dlt_u_"
@@ -75,6 +54,17 @@ class AuthenticationMethod(str, Enum):
 
     JWT = "jwt"
     API_KEY = "api_key"
+
+
+class PrincipalKind(str, Enum):
+    """Who the stored credential acts as.
+
+    Derived from the credential the CLI holds, never read off a response, so it
+    is the CLI's own vocabulary rather than the platform's.
+    """
+
+    HUMAN = "human"
+    SERVICE_ACCOUNT = "service_account"
 
 
 def _tls_verify() -> bool:
@@ -96,13 +86,13 @@ class AuthInfo:
     feature_flags: list[str] = field(default_factory=list)
 
 
-class RuntimeAuthService:
-    """
-    Implements login, logout and auth check internals
+class CliSession:
+    """Who the caller is, what proves it, and which workspace they are on.
 
-    Authentication is performed based on the JWT token stored in the global secrets. On top of that,
-    authorization uses organization and workspace id stored in the local config. For that, depending on the usage,
-    either workspace run context or base run context is required.
+    One per command. Owns the credential on disk — the JWT and refresh token in
+    the global secrets, the workspace and organization pinned in the local
+    config — so the SDK never touches the filesystem. Most reads need a
+    `WorkspaceRunContext`; `has_workspace` probes for one.
     """
 
     auth_info: Optional[AuthInfo] = None
@@ -198,13 +188,10 @@ class RuntimeAuthService:
         if not stored_refresh_token:
             return False
 
-        # Call the refresh endpoint — 400/401 mean the token is invalid,
-        # any other error (5xx, network) should propagate to the caller.
-        response = refresh_api.sync_detailed(
-            client=get_auth_client(),
-            body=RefreshRequest(refresh_token=stored_refresh_token),
-        )
-        if not isinstance(response.parsed, RefreshResponse):
+        # A rejected token is an answer, not a failure; anything else (5xx,
+        # network) propagates to the caller.
+        tokens = get_auth_transport().refresh(refresh_token=stored_refresh_token)
+        if tokens is None:
             return False
 
         # Persist the new JWT and refresh token in a single file write so
@@ -212,9 +199,7 @@ class RuntimeAuthService:
         # JWT was updated but the refresh token still holds the old (now
         # server-side revoked) value — that stale token would trigger theft
         # detection on the next refresh attempt.
-        self._save_token_and_refresh_token(
-            response.parsed.jwt, response.parsed.refresh_token
-        )
+        self._save_token_and_refresh_token(tokens.access_token, tokens.refresh_token)
         return True
 
     def mint_swap_code(self) -> Optional[str]:
@@ -227,15 +212,11 @@ class RuntimeAuthService:
         if not stored_refresh_token:
             return None
         try:
-            response = swap_code_api.sync_detailed(
-                client=get_auth_client(),
-                body=SwapCodeRequest(refresh_token=stored_refresh_token),
+            return get_auth_transport().create_session_swap_code(
+                refresh_token=stored_refresh_token
             )
         except Exception:
             return None
-        if isinstance(response.parsed, SwapCodeResponse):
-            return response.parsed.swap_code
-        return None
 
     def _write_runtime_config(self, **values: Optional[str]) -> None:
         """Persist `[runtime]` keys to .dlt/config.toml and mirror onto the
@@ -322,78 +303,58 @@ class RuntimeAuthService:
     def _bootstrap_caller(self) -> None:
         """Call /user at login to self-bootstrap the caller's org, then validate local state."""
         error_message = "Failed to get your user info from the dltHub API. Run 'dlthub login' or update your API key"
-        client = get_api_client(self)
+        # Only a user token reaches `/user`; login always holds one by here.
         with handle_client_exceptions(error_message):
-            user_response = get_current_user.sync_detailed(client=client)
-
-        if not isinstance(user_response.parsed, CurrentUserResponse):
-            raise exception_from_response(error_message, user_response)
+            get_sdk_runtime(self).me()
 
         self.fetch_caller_info()
 
     def fetch_caller_info(self) -> CallerInfo:
         """Workspaces and organizations of the caller, via org endpoints available to all principals."""
         error_message = "Failed to get workspace info from the dltHub API. Run 'dlthub login' or update your API key"
-        client = get_api_client(self)
         with handle_client_exceptions(error_message):
-            orgs_response = list_organizations.sync_detailed(client=client)
-
-        orgs_page = orgs_response.parsed
-        if not isinstance(orgs_page, ListPageOrganizationResponse):
-            raise exception_from_response(error_message, orgs_response)
-        orgs = list(orgs_page.items) if orgs_page.items else []
-
-        org_mes: list[OrganizationMeResponse] = []
-        for org in orgs:
-            with handle_client_exceptions(error_message):
-                org_me_response = organization_me.sync_detailed(
-                    organization_id=org.id, client=client
-                )
-            org_me = org_me_response.parsed
-            if not isinstance(org_me, OrganizationMeResponse):
-                raise exception_from_response(error_message, org_me_response)
-            org_mes.append(org_me)
+            runtime = get_sdk_runtime(self)
+            # One `me` per organization; the SDK keeps the fan-out visible.
+            callers = [(org, org.me()) for org in runtime.organizations.list()]
 
         caller_info: CallerInfo = {
             "workspaces": [
                 ws
-                for org_me in org_mes
-                for ws in self._org_me_response_to_workspace_infos(org_me)
+                for org, caller in callers
+                for ws in self._caller_to_workspace_infos(org, caller)
             ],
             # list_organizations only returns active memberships.
             "organizations": [
                 {
-                    "id": str(org_me.organization.id),
-                    "name": org_me.organization.name,
-                    "role": org_me.role,
+                    "id": org.id,
+                    "name": org.name,
+                    "role": caller.role,
                     "active": True,
                 }
-                for org_me in org_mes
+                for org, caller in callers
             ],
         }
-        if org_mes:
+        if callers:
+            first = callers[0][1]
             caller_info["identity"] = {
-                "email": org_mes[0].email,
-                "user_id": str(org_mes[0].user_id),
-                "identity_id": str(org_mes[0].identity_id),
+                "email": first.email,
+                "user_id": first.user_id,
+                "identity_id": first.identity_id,
             }
         if self.principal_kind() is PrincipalKind.HUMAN:
             self._validate_local_workspace(caller_info)
         return caller_info
 
-    def _org_me_response_to_workspace_infos(
-        self, org_me: OrganizationMeResponse
+    def _caller_to_workspace_infos(
+        self, org: "Organization[Sync]", caller: "OrganizationCaller[Sync]"
     ) -> list[WorkspaceInfo]:
-        """Workspaces in an OrganizationMe response, each stamped with its organization."""
-        assert isinstance(org_me.workspaces, list), (
-            "OrganizationMe must return workspaces. Server contract requires it"
-        )
+        """The caller's workspaces in one organization, each stamped with it."""
         workspaces = []
-        for wm in org_me.workspaces:
-            info = self._convert_workspace(wm.workspace)
-            info["role"] = wm.role
-            info["organization_id"] = str(org_me.organization.id)
-            info["organization_name"] = org_me.organization.name
+        for membership in caller.memberships:
+            info = self._convert_workspace(membership.workspace)
+            info["role"] = membership.role
+            info["organization_id"] = org.id
+            info["organization_name"] = org.name
             workspaces.append(info)
         return workspaces
 
@@ -413,20 +374,15 @@ class RuntimeAuthService:
             " cleared. Reconnect with `dlthub workspace connect`."
         )
 
-    def _convert_workspace(self, workspace: WorkspaceResponse) -> WorkspaceInfo:
-        # Current package
-        from dlthub_sdk._gen.api.types import Unset
-
+    def _convert_workspace(self, workspace: "Workspace[Sync]") -> WorkspaceInfo:
         info: WorkspaceInfo = {
-            "id": str(workspace.id),
+            "id": workspace.id,
             "name": workspace.name,
         }
-        if not isinstance(workspace.description, Unset) and workspace.description:
+        if workspace.description:
             info["description"] = workspace.description
-        if not isinstance(workspace.predefined_profiles, Unset):
-            info["predefined_profiles"] = dict(
-                workspace.predefined_profiles.additional_properties
-            )
+        if workspace.predefined_profiles:
+            info["predefined_profiles"] = dict(workspace.predefined_profiles)
         return info
 
     def create_new_workspace(
@@ -437,28 +393,27 @@ class RuntimeAuthService:
         organization_id: str,
     ) -> str:
         """Create a new workspace via the API."""
-        with handle_client_exceptions("Failed to create workspace"):
-            create_result = create_workspace.sync_detailed(
-                organization_id=UUID(organization_id),
-                client=get_api_client(self),
-                body=WorkspaceCreateRequest(name=name, description=description),
-            )
-        if isinstance(create_result.parsed, WorkspaceResponse):
-            return str(create_result.parsed.id)
-        if isinstance(create_result.parsed, CreateWorkspaceResponse409):
-            raise OrgRegionRequired()
-        raise exception_from_response("Failed to create workspace", create_result)
+        try:
+            with handle_client_exceptions("Failed to create workspace"):
+                created = get_sdk_runtime(self).workspaces.create(
+                    name=name,
+                    description=description,
+                    organization_id=organization_id,
+                )
+        except RuntimeClientException as e:
+            # 409 means the organization has no region pinned yet.
+            if isinstance(e.__cause__, SdkConflict):
+                raise OrgRegionRequired() from e
+            raise
+        return created.id
 
     def set_organization_region(self, organization_id: str, dataplane_id: str) -> None:
         """Set the org's region (set-once). Raises on failure (e.g. already set)."""
         with handle_client_exceptions("Failed to set organization region"):
-            result = set_organization_region.sync_detailed(
-                organization_id=UUID(organization_id),
-                client=get_api_client(self),
-                body=SetOrganizationRegionRequest(dataplane_id=dataplane_id),
+            runtime = get_sdk_runtime(self)
+            runtime.organizations.get(id=organization_id).set_dataplane(
+                dataplane_id=dataplane_id
             )
-        if not isinstance(result.parsed, OrganizationResponse):
-            raise exception_from_response("Failed to set organization region", result)
 
     def _delete_token(self) -> None:
         # delete from global secrets directly, because in other cases config deletion is not supported
@@ -493,195 +448,164 @@ class RuntimeAuthService:
         secrets.write_toml()
 
     def _validate_and_decode_user_jwt(self, token: Union[str, bytes]) -> AuthInfo:
-        if isinstance(token, str):
-            token = token.encode("utf-8")
+        # The SDK reads the claims; the CLI owns the type callers recover on and
+        # the wording of the remedy, which names a CLI command.
         try:
-            payload = jwt.decode(
-                token,
-                key="",
-                algorithms=["EdDSA"],
-                options={
-                    "verify_signature": False,
-                    "verify_exp": False,
-                    "verify_aud": False,
-                },
-            )
-        except PyJWTError as e:
-            raise RuntimeNotAuthenticated("Failed to decode JWT") from e
-
-        token_expiry = payload.get("exp")
-        if token_expiry is not None and token_expiry < time.time():
+            claims = decode_token(token)
+        except SdkNotAuthenticated as e:
+            raise RuntimeNotAuthenticated(f"Failed to decode JWT: {e}") from e
+        if claims.expires_at is not None and claims.expires_at < time.time():
             raise RuntimeNotAuthenticated(
                 "Your authentication token has expired. Please run 'dlthub login' to re-authenticate"
             )
-
-        raw_flags = payload.get("feature_flags") or []
-        feature_flags = [flag for flag in raw_flags if isinstance(flag, str)]
-
-        try:
-            auth_info = AuthInfo(
-                jwt_token=token.decode("utf-8"),
-                email=payload["email"],
-                user_id=payload["sub"],
-                token_expiry=token_expiry,
-                feature_flags=feature_flags,
-            )
-        except (KeyError, TypeError) as e:
-            raise RuntimeNotAuthenticated("Failed to validate JWT payload") from e
-
-        return auth_info
+        raw = token.decode("utf-8") if isinstance(token, bytes) else token
+        return AuthInfo(
+            jwt_token=raw,
+            email=claims.email,
+            user_id=claims.user_id,
+            token_expiry=claims.expires_at,
+            feature_flags=list(claims.feature_flags),
+        )
 
 
-def get_auth_client(*, include_device_id: bool = False) -> AuthClient:
+def get_auth_transport(*, include_device_id: bool = False) -> AuthTransport:
+    """Build a transport for the configured auth service.
+
+    Args:
+        include_device_id: Send the telemetry device id, which the login flows
+            do so a device can be recognised across attempts.
+
+    Returns:
+        A transport bound to the configured auth service.
+
+    Raises:
+        RuntimeError: No api_base_url is configured.
+    """
     api_base_url = active().runtime_config.api_base_url
     if not api_base_url:
         raise RuntimeError(
             "api_base_url is not configured in the runtime configuration"
         )
-    api_base_url = normalize_api_base_url(api_base_url)
-    headers = {"User-Agent": f"dlt-runtime-cli/{__version__}"}
+    headers = {"User-Agent": USER_AGENT}
     if include_device_id:
         device_id = get_telemetry_device_id()
         if device_id:
             headers[DEVICE_ID_HEADER] = device_id
-    return AuthClient(
-        base_url=api_base_url,
-        verify_ssl=_tls_verify(),
+    return AuthTransport(
+        normalize_api_base_url(api_base_url),
         headers=headers,
-        raise_on_unexpected_status=True,
+        verify_ssl=_tls_verify(),
     )
 
 
-# Fallback for a server predating the machine-readable code.
-_EXPIRED_TOKEN_MARKER = "Token expired"
+class _JwtCredentials:
+    """The SDK's read of the stored user JWT, renewed against the stored grant.
 
+    Args:
+        session: Owner of the stored token and the refresh grant.
+    """
 
-class JwtAuth(httpx.Auth):
-    """httpx Auth that sets the Bearer token and refreshes on 401."""
+    def __init__(self, session: "CliSession") -> None:
+        self._session = session
 
-    requires_response_body = True
+    def token(self) -> str:
+        """Return the JWT to send, renewing first if it is close to expiry.
 
-    def __init__(self, auth_service: RuntimeAuthService) -> None:
-        self._auth_service = auth_service
-
-    def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
-        proactive_refresh_succeeded = False
-
-        # Proactive refresh: if the token expires within 60 s, refresh now
-        # to avoid a wasted 401 round-trip.
-        if self._auth_service.auth_info and self._is_token_expiring():
+        Returns:
+            The bearer token, or an empty string when nothing is stored — the
+            platform's 401 is a better error than one invented here.
+        """
+        auth = self._session.auth_info
+        if auth is not None and self._is_expiring():
             try:
-                proactive_refresh_succeeded = self._auth_service.refresh()
+                self._session.refresh()
             except Exception:
                 pass
+        auth = self._session.auth_info
+        return auth.jwt_token if auth is not None else ""
 
-        # Attach current JWT (possibly freshly refreshed)
-        if self._auth_service.auth_info:
-            request.headers["Authorization"] = (
-                f"Bearer {self._auth_service.auth_info.jwt_token}"
-            )
+    def refreshed(self) -> Optional[str]:
+        """Renew after the platform rejected the token, or give up and log out.
 
-        response = yield request
+        Returns:
+            A token to retry with, or ``None`` once there is nothing left to try.
+        """
+        # Renewed even right after a renewal: a 401 need not mean expiry, and
+        # the SDK asks at most once per request, so this cannot loop.
+        if not self._session.refresh():
+            self._session.logout()
+            return None
+        auth = self._session.auth_info
+        return auth.jwt_token if auth is not None else None
 
-        if response.status_code != 401:
-            return
-
-        # If the proactive refresh succeeded and the server still returned
-        # 401-expired, the problem isn't a stale token. Clear everything.
-        if proactive_refresh_succeeded and self._is_expired_token_response(response):
-            self._auth_service.logout()
-            return
-
-        # Try to obtain a new JWT using the stored refresh token.
-        # This handles both expired tokens and corrupted/invalid tokens
-        # (e.g. wrong signature) — as long as a valid refresh_token exists.
-        if not self._auth_service.refresh():
-            self._auth_service.logout()
-            return
-
-        # Retry with the refreshed token
-        assert self._auth_service.auth_info is not None
-        request.headers["Authorization"] = (
-            f"Bearer {self._auth_service.auth_info.jwt_token}"
-        )
-        yield request
-
-    def _is_token_expiring(self, offset_seconds: int = 60) -> bool:
-        """True if the stored JWT expires within `offset_seconds`."""
-        auth = self._auth_service.auth_info
+    def _is_expiring(self, offset_seconds: int = 60) -> bool:
+        auth = self._session.auth_info
         if auth is None or auth.token_expiry is None:
             return False
         return auth.token_expiry < time.time() + offset_seconds
 
-    @staticmethod
-    def _is_expired_token_response(response: httpx.Response) -> bool:
-        """True if the 401 names an expired token, by code or by legacy detail string."""
-        try:
-            body = response.json()
-        except Exception:
-            return _EXPIRED_TOKEN_MARKER in response.text
-        if not isinstance(body, dict):
-            return False
-        if body.get("code") == ErrorCode.TOKEN_EXPIRED:
-            return True
-        detail = body.get("detail", "")
-        return isinstance(detail, str) and _EXPIRED_TOKEN_MARKER in detail
 
+class _ApiKeyCredentials:
+    """An API key, which never rotates.
 
-class ApiKeyAuth(httpx.Auth):
-    """httpx Auth that sets an API key as the Bearer token and surfaces
-    an ApiKeyInvalid error on 401 without a refresh path.
+    Args:
+        api_key: The configured key.
     """
-
-    requires_response_body = True
 
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
 
-    def auth_flow(
-        self, request: httpx.Request
-    ) -> Generator[httpx.Request, httpx.Response, None]:
-        request.headers["Authorization"] = f"Bearer {self._api_key}"
-        response = yield request
-        if response.status_code == 401:
-            try:
-                detail = response.json().get("detail", "")
-            except Exception:
-                detail = response.text
-            raise ApiKeyInvalid(
-                detail=detail if isinstance(detail, str) and detail else None
-            )
+    def token(self) -> str:
+        """Return the key.
+
+        Returns:
+            The bearer token.
+        """
+        return self._api_key
+
+    def refreshed(self) -> Optional[str]:
+        """Give up: there is no grant to renew an API key with.
+
+        Returns:
+            Always ``None``, which the SDK turns into ``NotAuthenticated``.
+        """
+        return None
 
 
-def get_api_client(auth_service: Optional[RuntimeAuthService] = None) -> ApiClient:
+def get_sdk_runtime(session: Optional[CliSession] = None) -> Runtime[Sync]:
+    """Build the SDK client the CLI reads the platform through.
+
+    The only client the CLI reads the platform through.
+
+    Args:
+        session: Owner of the stored token. Built and authenticated here
+            when the caller has none.
+
+    Returns:
+        A blocking SDK runtime, scoped to the pinned organization when there is one.
+
+    Raises:
+        RuntimeError: No `api_base_url` in the runtime configuration.
+    """
     config = active().runtime_config
     if not config.api_base_url:
         raise RuntimeError(
             "api_base_url is not configured in the runtime configuration"
         )
-    api_base_url = normalize_api_base_url(config.api_base_url)
-
-    headers = {"User-Agent": f"dlt-runtime-cli/{__version__}"}
-
+    credentials: Union[_JwtCredentials, _ApiKeyCredentials]
     if config.api_key:
-        return ApiClient(
-            base_url=api_base_url,
-            verify_ssl=_tls_verify(),
-            headers=headers,
-            raise_on_unexpected_status=True,
-            httpx_args={"auth": ApiKeyAuth(config.api_key)},
-        )
-
-    if auth_service is None:
-        auth_service = RuntimeAuthService(run_context=active())
-        auth_service.authenticate()
-
-    return ApiClient(
-        base_url=api_base_url,
+        credentials = _ApiKeyCredentials(config.api_key)
+    else:
+        if session is None:
+            session = CliSession(run_context=active())
+            session.authenticate()
+        credentials = _JwtCredentials(session)
+    return connect(
+        credentials=credentials,
+        base_url=normalize_api_base_url(config.api_base_url),
+        # Read off the config, not the auth service: the pin is the same either
+        # way, and an api key reaches here without one.
+        organization_id=config.organization_id,
         verify_ssl=_tls_verify(),
-        headers=headers,
-        raise_on_unexpected_status=True,
-        httpx_args={"auth": JwtAuth(auth_service)},
+        headers={"User-Agent": USER_AGENT},
     )

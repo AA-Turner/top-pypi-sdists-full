@@ -9,7 +9,8 @@ Google Workspace SSO before requests reach Cloud Run.
 
 Primary host: `ops.internal.airbyte.ai/chat` via the ops-webapp URL map
 (`/chat/api/*` -> agui-server, `/chat/*` -> agui-playground). The standalone
-`chat.internal.airbyte.ai` LB/DNS below stays as a secondary entrypoint.
+`chat.internal.airbyte.ai` LB/DNS below now 301-redirects every request there
+instead of serving the app itself.
 
 Container images are built and pushed by the publish workflows in
 `airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`. The tags in
@@ -38,6 +39,10 @@ PROJECT = gcp_config.require("project")
 PROJECT_NUMBER = gcp.organizations.get_project_output(project_id=PROJECT).number
 REGION = gcp_config.get("region") or "us-west3"
 DOMAIN = config.get("domain") or "chat.internal.airbyte.ai"
+# The standalone host no longer serves the app; every request redirects to the
+# primary entrypoint on the ops-webapp host.
+REDIRECT_HOST = config.get("redirect-host") or "ops.internal.airbyte.ai"
+REDIRECT_PATH = config.get("redirect-path") or "/chat/"
 MIN_INSTANCES = int(config.get("min-instances") or "0")
 MAX_INSTANCES = int(config.get("max-instances") or "5")
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
@@ -257,14 +262,15 @@ def _define_neg_and_backend(
 
 
 def define_load_balancer(
-    server_backend: gcp.compute.BackendService,
-    playground_backend: gcp.compute.BackendService,
     api_services: list[gcp.projects.Service],
 ) -> gcp.compute.GlobalAddress:
-    """Define the external HTTPS load balancer with path-based routing.
+    """Define the external HTTPS load balancer as a redirect to the primary host.
 
-    `/api` and `/api/*` route to the `agui-server` backend; everything else
-    goes to `agui-playground`. HTTP traffic redirects to HTTPS.
+    Every request to `chat.internal.airbyte.ai` 301-redirects to
+    `ops.internal.airbyte.ai/chat/` (`REDIRECT_HOST` + `REDIRECT_PATH`).
+    HTTP traffic redirects to HTTPS first. The backends stay provisioned for
+    the ops-webapp stack's `/chat` path rules, which look them up by name with
+    `gcp.compute.get_backend_service_output`.
     """
     ip_address = gcp.compute.GlobalAddress(
         "agent-chat-internal-lb-ip",
@@ -283,43 +289,15 @@ def define_load_balancer(
         "agent-chat-internal-url-map",
         name="agent-chat-internal-url-map",
         project=PROJECT,
-        default_service=playground_backend.self_link,
-        host_rules=[
-            gcp.compute.URLMapHostRuleArgs(
-                hosts=[DOMAIN],
-                path_matcher="chat",
-            )
-        ],
-        path_matchers=[
-            gcp.compute.URLMapPathMatcherArgs(
-                name="chat",
-                default_service=playground_backend.self_link,
-                path_rules=(
-                    [
-                        gcp.compute.URLMapPathMatcherPathRuleArgs(
-                            paths=[f"/{PATH_PREFIX}/api", f"/{PATH_PREFIX}/api/*"],
-                            service=server_backend.self_link,
-                        ),
-                        gcp.compute.URLMapPathMatcherPathRuleArgs(
-                            paths=[f"/{PATH_PREFIX}", f"/{PATH_PREFIX}/*"],
-                            service=playground_backend.self_link,
-                            route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
-                                url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(
-                                    path_prefix_rewrite="/",
-                                ),
-                            ),
-                        ),
-                    ]
-                    if PATH_PREFIX
-                    else [
-                        gcp.compute.URLMapPathMatcherPathRuleArgs(
-                            paths=["/api", "/api/*"],
-                            service=server_backend.self_link,
-                        )
-                    ]
-                ),
-            )
-        ],
+        default_url_redirect=gcp.compute.URLMapDefaultUrlRedirectArgs(
+            host_redirect=REDIRECT_HOST,
+            path_redirect=REDIRECT_PATH,
+            # `https_redirect` is only permitted on maps behind a TargetHttpProxy;
+            # this map is served over HTTPS already, so the scheme is preserved.
+            https_redirect=False,
+            strip_query=False,
+            redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+        ),
     )
     https_proxy = gcp.compute.TargetHttpsProxy(
         "agent-chat-internal-https-proxy",
@@ -455,14 +433,12 @@ def main() -> None:
     )
 
     server_backend = _define_neg_and_backend(SERVER_SERVICE_NAME, server_service)
-    playground_backend = _define_neg_and_backend(
-        PLAYGROUND_SERVICE_NAME, playground_service
-    )
+    _define_neg_and_backend(PLAYGROUND_SERVICE_NAME, playground_service)
     server_preview_backend = _define_neg_and_backend(
         SERVER_PREVIEW_SERVICE_NAME, server_preview_service
     )
     _define_neg_and_backend(PLAYGROUND_PREVIEW_SERVICE_NAME, playground_preview_service)
-    lb_ip = define_load_balancer(server_backend, playground_backend, api_services)
+    lb_ip = define_load_balancer(api_services)
     dns_record = define_dns(lb_ip)
 
     outputs: OutputMap = {

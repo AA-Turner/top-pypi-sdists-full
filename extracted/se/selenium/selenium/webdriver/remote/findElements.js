@@ -64,7 +64,16 @@
         if (target === '') {
             throw botError(INVALID_SELECTOR, 'Unable to locate an element with the tagName ""');
         }
-        return Array.from(root.getElementsByTagName(target));
+        if ('getElementsByTagName' in root) {
+            return Array.from(root.getElementsByTagName(target));
+        }
+        const elements = Array.from(root.querySelectorAll('*'));
+        if (target === '*') {
+            return elements;
+        }
+        const html = 'http://www.w3.org/1999/xhtml';
+        const folded = target.toLowerCase();
+        return elements.filter(el => el.namespaceURI === html ? el.localName === folded : el.localName === target);
     }
     const DEFAULT_NS_RESOLVER = (function () {
         const ns = { svg: 'http://www.w3.org/2000/svg' };
@@ -147,7 +156,10 @@
             return resolveAnchor(selector());
         }
         if (selector && typeof selector === 'object') {
-            const found = findElements(selector);
+            let found = root ? findElements(selector, root) : [];
+            if (!found.length) {
+                found = findElements(selector);
+            }
             if (!found.length) {
                 throw botError(NO_SUCH_ELEMENT, 'No element has been found by ' + JSON.stringify(selector));
             }

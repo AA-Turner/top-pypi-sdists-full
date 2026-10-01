@@ -181,8 +181,10 @@ from dlthub_sdk.credentials import AsyncCredentials, Credentials, _AsyncStatic, 
 from dlthub_sdk.errors import (
     ApiError,
     BadRequest,
+    ClientUpdate,
     Conflict,
     ConnectionFailed,
+    DataplaneTokenRejected,
     DlthubError,
     FieldError,
     InvalidResponse,
@@ -193,6 +195,7 @@ from dlthub_sdk.errors import (
     TransportError,
     TransportTimeout,
 )
+from dlthub_sdk.version import USER_AGENT
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -213,6 +216,9 @@ class _Reply(Protocol[P]):
     status_code: HTTPStatus
     content: bytes
     parsed: P
+
+    @property
+    def headers(self) -> Mapping[str, str]: ...
 
 
 @dataclass
@@ -323,6 +329,8 @@ class _Op(Generic[T]):
 
     model: type[T]
     kind: EntityKind
+    #: Answered by the data plane, whose token the platform issued, not the caller.
+    dataplane: bool = False
 
 
 _ORGANIZATION: _Op[OrganizationResponse] = _Op(
@@ -346,19 +354,21 @@ _CONFIGURATION_LIST: _Op[ListPageConfigurationResponse] = _Op(
     ListPageConfigurationResponse, EntityKind.WORKSPACE
 )
 _CONFIGURATION_FILES: _Op[TFilesManifest] = _Op(
-    TFilesManifest, EntityKind.CONFIGURATION
+    TFilesManifest, EntityKind.CONFIGURATION, dataplane=True
 )
 _DEPLOYMENT: _Op[DeploymentResponse] = _Op(DeploymentResponse, EntityKind.DEPLOYMENT)
 #: The upload answers with the data plane's own class. Structurally identical to
 #: the control plane's, and `isinstance` still tells them apart — so an upload
 #: needs its own op or `_unwrap` rejects a perfectly good response.
 _DP_DEPLOYMENT: _Op[DataplaneDeploymentResponse] = _Op(
-    DataplaneDeploymentResponse, EntityKind.DEPLOYMENT
+    DataplaneDeploymentResponse, EntityKind.DEPLOYMENT, dataplane=True
 )
 _DP_CONFIGURATION: _Op[DataplaneConfigurationResponse] = _Op(
-    DataplaneConfigurationResponse, EntityKind.CONFIGURATION
+    DataplaneConfigurationResponse, EntityKind.CONFIGURATION, dataplane=True
 )
-_DEPLOYMENT_FILES: _Op[TFilesManifest] = _Op(TFilesManifest, EntityKind.DEPLOYMENT)
+_DEPLOYMENT_FILES: _Op[TFilesManifest] = _Op(
+    TFilesManifest, EntityKind.DEPLOYMENT, dataplane=True
+)
 _DEPLOYMENT_LIST: _Op[ListPageDeploymentResponse] = _Op(
     ListPageDeploymentResponse, EntityKind.WORKSPACE
 )
@@ -374,34 +384,36 @@ _DATAPLANE_TOKEN: _Op[DataplaneAccessTokenResponse] = _Op(
 )
 _TRIGGERED_JOB: _Op[TriggeredJob] = _Op(TriggeredJob, EntityKind.JOB)
 _VARIABLE_CHANGE: _Op[VariablesChangeResponse] = _Op(
-    VariablesChangeResponse, EntityKind.VARIABLE
+    VariablesChangeResponse, EntityKind.VARIABLE, dataplane=True
 )
 _TELEMETRY_WATERMARK: _Op[TelemetryWatermarkResponse] = _Op(
-    TelemetryWatermarkResponse, EntityKind.WORKSPACE
+    TelemetryWatermarkResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _PIPELINE_RUN: _Op[PipelineRunDetailResponse] = _Op(
-    PipelineRunDetailResponse, EntityKind.PIPELINE_RUN
+    PipelineRunDetailResponse, EntityKind.PIPELINE_RUN, dataplane=True
 )
 #: Addressed by run id, so a missing result reports as that run.
-_JOB_RESULT: _Op[JobResultResponse] = _Op(JobResultResponse, EntityKind.JOB_RUN)
+_JOB_RESULT: _Op[JobResultResponse] = _Op(
+    JobResultResponse, EntityKind.JOB_RUN, dataplane=True
+)
 #: Addressed by run id too, so a missing envelope reports as that run.
 _JOB_RESULT_TRACE: _Op[GetJobResultTraceResponse200] = _Op(
-    GetJobResultTraceResponse200, EntityKind.JOB_RUN
+    GetJobResultTraceResponse200, EntityKind.JOB_RUN, dataplane=True
 )
 _PIPELINE_RUN_LIST: _Op[ListPagePipelineRunResponse] = _Op(
-    ListPagePipelineRunResponse, EntityKind.WORKSPACE
+    ListPagePipelineRunResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _PIPELINE_RUN_TRACE: _Op[GetPipelineRunTraceResponse200] = _Op(
-    GetPipelineRunTraceResponse200, EntityKind.PIPELINE_RUN
+    GetPipelineRunTraceResponse200, EntityKind.PIPELINE_RUN, dataplane=True
 )
 _PIPELINE_OVERVIEW: _Op[ListPagePipelineOverviewResponse] = _Op(
-    ListPagePipelineOverviewResponse, EntityKind.WORKSPACE
+    ListPagePipelineOverviewResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _DATASET_OVERVIEW: _Op[ListPageDatasetOverviewResponse] = _Op(
-    ListPageDatasetOverviewResponse, EntityKind.WORKSPACE
+    ListPageDatasetOverviewResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _VARIABLES: _Op[WorkspaceVariablesResponse] = _Op(
-    WorkspaceVariablesResponse, EntityKind.WORKSPACE
+    WorkspaceVariablesResponse, EntityKind.WORKSPACE, dataplane=True
 )
 _TRIGGERED_JOBS: _Op[TriggerJobsResponse] = _Op(
     TriggerJobsResponse, EntityKind.WORKSPACE
@@ -420,7 +432,7 @@ _SCRIPT_LIST: _Op[ListPageDetailedScriptResponse] = _Op(
     ListPageDetailedScriptResponse, EntityKind.WORKSPACE
 )
 _SCRIPT: _Op[ScriptResponse] = _Op(ScriptResponse, EntityKind.JOB)
-_LOG: _Op[LogLine] = _Op(LogLine, EntityKind.JOB_RUN)
+_LOG: _Op[LogLine] = _Op(LogLine, EntityKind.JOB_RUN, dataplane=True)
 
 #: The logs service is reached on the workspace's own data plane, so its reads go
 #: through the client already minted for that plane rather than a second one.
@@ -812,15 +824,15 @@ class HttpTransport:
             ValueError: Both ``token`` and ``credentials``, or neither.
         """
         self._credentials = _one_credential(token, credentials, _Static)
+        self._headers = _with_user_agent(headers)
         self._api = Client(
             base_url=base_url,
             verify_ssl=verify_ssl,
-            headers=dict(headers or {}),
+            headers=dict(self._headers),
             httpx_args={"auth": _CredentialsAuth(self._credentials)},
         )
         self._base_url = base_url
         self._verify_ssl = verify_ssl
-        self._headers = dict(headers or {})
         self._dataplane_clients: dict[str, _Minted] = {}
 
     def __repr__(self) -> str:
@@ -921,7 +933,9 @@ class HttpTransport:
             run_id: The run being read.
             sse: Whether the body is SSE rather than NDJSON.
             follow: Keep the stream open. False replays what is already there
-                and stops, which the platform marks only by going quiet.
+                and stops, which the platform marks only by going quiet — so
+                a read timeout once the body has started is the end, not a
+                failure.
 
         Yields:
             One generated model per log line.
@@ -944,11 +958,19 @@ class HttpTransport:
                     if resp.status_code != HTTPStatus.OK:
                         resp.read()
                         _unwrap(
-                            _StreamReply(HTTPStatus(resp.status_code), resp.content),
+                            _StreamReply(
+                                HTTPStatus(resp.status_code),
+                                resp.content,
+                                resp.headers,
+                            ),
                             _LOG,
                             run_id,
                         )
-                    yield from _log_rows(resp.iter_lines(), run_id, sse)
+                    try:
+                        yield from _log_rows(resp.iter_lines(), run_id, sse)
+                    except httpx.ReadTimeout:
+                        if follow:
+                            raise
                     return
 
     def read_logs(
@@ -1992,15 +2014,15 @@ class AsyncHttpTransport:
             ValueError: Both ``token`` and ``credentials``, or neither.
         """
         self._credentials = _one_credential(token, credentials, _AsyncStatic)
+        self._headers = _with_user_agent(headers)
         self._api = Client(
             base_url=base_url,
             verify_ssl=verify_ssl,
-            headers=dict(headers or {}),
+            headers=dict(self._headers),
             httpx_args={"auth": _AsyncCredentialsAuth(self._credentials)},
         )
         self._base_url = base_url
         self._verify_ssl = verify_ssl
-        self._headers = dict(headers or {})
         self._dataplane_clients: dict[str, _Minted] = {}
 
     def __repr__(self) -> str:
@@ -2119,15 +2141,23 @@ class AsyncHttpTransport:
                     if resp.status_code != HTTPStatus.OK:
                         await resp.aread()
                         _unwrap(
-                            _StreamReply(HTTPStatus(resp.status_code), resp.content),
+                            _StreamReply(
+                                HTTPStatus(resp.status_code),
+                                resp.content,
+                                resp.headers,
+                            ),
                             _LOG,
                             run_id,
                         )
                     reader = _Sse()
-                    async for line in resp.aiter_lines():
-                        row = _log_row(reader, line, run_id, sse)
-                        if row is not None:
-                            yield row
+                    try:
+                        async for line in resp.aiter_lines():
+                            row = _log_row(reader, line, run_id, sse)
+                            if row is not None:
+                                yield row
+                    except httpx.ReadTimeout:
+                        if follow:
+                            raise
                     return
 
     def read_logs(
@@ -2898,6 +2928,7 @@ class _StreamReply:
 
     status_code: HTTPStatus
     content: bytes
+    headers: Mapping[str, str]
     parsed: Any = None
 
 
@@ -3050,6 +3081,13 @@ def _as_file(content: bytes | BinaryIO, name: str, mime: str) -> File:
         file_name=name,
         mime_type=mime,
     )
+
+
+def _with_user_agent(headers: Mapping[str, str] | None) -> dict[str, str]:
+    merged = dict(headers or {})
+    if not any(k.lower() == "user-agent" for k in merged):
+        merged["User-Agent"] = USER_AGENT
+    return merged
 
 
 def _upload_target(
@@ -3323,6 +3361,7 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
     Raises:
         NotFound: The platform returned 404.
         NotAuthenticated: The platform returned 401.
+        DataplaneTokenRejected: The data plane returned 401, for a data-plane op.
         NotAuthorized: The platform returned 403.
         Conflict: The platform returned 409.
         BadRequest: The platform returned 400.
@@ -3330,6 +3369,8 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
         InvalidResponse: A success status whose body did not parse.
         ApiError: Any other status.
     """
+    status = int(resp.status_code)
+    update = ClientUpdate.from_headers(resp.headers)
     parsed = resp.parsed
     if isinstance(parsed, op.model):
         return parsed
@@ -3337,16 +3378,27 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
     # Every generated error model carries the same code/detail shape, so the
     # status alone picks the class.
     kind = op.kind
-    status = int(resp.status_code)
     code = _text(parsed, "code")
-    detail = _text(parsed, "detail")
+    detail = _text(parsed, "detail") or _raw_detail(resp)
     fields = _field_errors(resp)
 
     if status == 404:
-        raise NotFound(kind, ref, code=code, status=status, fields=fields)
+        raise NotFound(
+            kind,
+            ref,
+            code=code,
+            status=status,
+            fields=fields,
+            client_update=update,
+        )
     if status == 401:
-        raise NotAuthenticated(
-            detail or "not authenticated", code=code, status=status, fields=fields
+        rejected = DataplaneTokenRejected if op.dataplane else NotAuthenticated
+        raise rejected(
+            detail or "not authenticated",
+            code=code,
+            status=status,
+            fields=fields,
+            client_update=update,
         )
     if status == 403:
         raise NotAuthorized(
@@ -3354,6 +3406,7 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
             code=code,
             status=status,
             fields=fields,
+            client_update=update,
         )
     if status == 409:
         raise Conflict(
@@ -3361,6 +3414,7 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
             code=code,
             status=status,
             fields=fields,
+            client_update=update,
         )
     if status == 400:
         raise BadRequest(
@@ -3368,6 +3422,7 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
             code=code,
             status=status,
             fields=fields,
+            client_update=update,
         )
     if status >= 500:
         raise ServerError(
@@ -3376,6 +3431,7 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
             code=code,
             status=status,
             fields=fields,
+            client_update=update,
         )
     if status < 300:
         raise InvalidResponse(
@@ -3383,18 +3439,30 @@ def _unwrap(resp: _Reply[T | E], op: _Op[T], ref: str | None) -> T:
             code=code,
             status=status,
             fields=fields,
+            client_update=update,
         )
     raise ApiError(
         detail or f"unexpected response for {_subject(kind, ref)}",
         code=code,
         status=status,
         fields=fields,
+        client_update=update,
     )
 
 
 def _text(parsed: Any, name: str) -> str | None:
     value = getattr(parsed, name, None)
     return value if isinstance(value, str) else None
+
+
+def _raw_detail(resp: _Reply[Any]) -> str | None:
+    """Read ``detail`` off the raw body, for a status the operation never declared."""
+    try:
+        body = json.loads(resp.content)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    return detail if isinstance(detail, str) and detail else None
 
 
 if TYPE_CHECKING:

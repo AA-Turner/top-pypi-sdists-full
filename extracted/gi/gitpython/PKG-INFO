@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: GitPython
-Version: 3.1.62
+Version: 3.2.0
 Summary: GitPython is a Python library used to interact with Git repositories
-Home-page: https://github.com/gitpython-developers/GitPython
-Author: Sebastian Thiel, Michael Trier
-Author-email: byronimo@gmail.com, mtrier@gmail.com
+Author-email: Sebastian Thiel <byronimo@gmail.com>, Michael Trier <mtrier@gmail.com>
 License: BSD-3-Clause
+Project-URL: Source code, https://github.com/gitpython-developers/GitPython
+Project-URL: Documentation, https://gitpython.readthedocs.io/en/stable/
+Keywords: git
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -16,7 +17,6 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
@@ -35,7 +35,7 @@ Provides-Extra: test
 Requires-Dist: coverage[toml]; extra == "test"
 Requires-Dist: basedpyright==1.39.9; (python_version >= "3.9" and sys_platform != "cygwin") and extra == "test"
 Requires-Dist: ddt!=1.4.3,>=1.1.1; extra == "test"
-Requires-Dist: mock; python_version < "3.8" and extra == "test"
+Requires-Dist: mock; extra == "test"
 Requires-Dist: mypy==1.18.2; python_version >= "3.9" and extra == "test"
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest>=7.3.1; extra == "test"
@@ -44,22 +44,8 @@ Requires-Dist: pytest-instafail; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"
 Requires-Dist: pytest-sugar; extra == "test"
 Requires-Dist: typing-extensions; python_version < "3.11" and extra == "test"
-Provides-Extra: doc
-Requires-Dist: sphinx<8,>=7.4.7; extra == "doc"
-Requires-Dist: sphinx_rtd_theme; extra == "doc"
-Requires-Dist: sphinx-autodoc-typehints; extra == "doc"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ![Python package](https://github.com/gitpython-developers/GitPython/workflows/Python%20package/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/gitpython/badge/?version=stable)](https://readthedocs.org/projects/gitpython/?badge=stable)
@@ -107,7 +93,7 @@ GitPython needs the `git` executable to be installed on the system and available
 by setting the `GIT_PYTHON_GIT_EXECUTABLE=<path/to/git>` environment variable.
 
 - Git (1.7.x or newer)
-- Python >= 3.7
+- Python >= 3.8
 
 The list of dependencies are listed in [`./requirements.txt`](https://github.com/gitpython-developers/GitPython/blob/main/requirements.txt) and [`./test-requirements.txt`](https://github.com/gitpython-developers/GitPython/blob/main/test-requirements.txt).
 The installer takes care of installing them for you.

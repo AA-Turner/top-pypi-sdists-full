@@ -785,13 +785,39 @@ class CfnApplicationVersion(
         
         cfn_application_version = elasticbeanstalk.CfnApplicationVersion(self, "MyCfnApplicationVersion",
             application_name="applicationName",
+        
+            # the properties below are optional
+            build_configuration=elasticbeanstalk.CfnApplicationVersion.BuildConfigurationProperty(
+                code_build_service_role="codeBuildServiceRole",
+                image="image",
+        
+                # the properties below are optional
+                artifact_name="artifactName",
+                compute_type="computeType",
+                timeout_in_minutes=123
+            ),
+            description="description",
+            image_configuration=elasticbeanstalk.CfnApplicationVersion.ImageConfigurationProperty(
+                build_property=elasticbeanstalk.CfnApplicationVersion.ImageBuildConfigurationProperty(
+                    code_build_service_role="codeBuildServiceRole",
+                    type="type",
+        
+                    # the properties below are optional
+                    architecture="architecture",
+                    buildpack="buildpack",
+                    compute_type="computeType",
+                    dockerfile_location="dockerfileLocation",
+                    timeout_in_minutes=123
+                ),
+                source=elasticbeanstalk.CfnApplicationVersion.ImageSourceProperty(
+                    uri="uri"
+                )
+            ),
+            process=False,
             source_bundle=elasticbeanstalk.CfnApplicationVersion.SourceBundleProperty(
                 s3_bucket="s3Bucket",
                 s3_key="s3Key"
-            ),
-        
-            # the properties below are optional
-            description="description"
+            )
         )
     '''
 
@@ -801,16 +827,22 @@ class CfnApplicationVersion(
         id: builtins.str,
         *,
         application_name: typing.Union[builtins.str, "_aws_elasticbeanstalk_018cea16.IApplicationRef"],
-        source_bundle: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
+        build_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.BuildConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        image_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        process: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        source_bundle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticBeanstalk::ApplicationVersion``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_name: The name of the Elastic Beanstalk application that is associated with this application version.
-        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
+        :param build_configuration: 
         :param description: A description of this application version.
+        :param image_configuration: 
+        :param process: Pre-process and validate the environment manifest (``env.yaml``) and configuration files in the source bundle. Leave unset for the service default.
+        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c1516c528cdf5646f1fbc2db47de8d7888e64c08ccc28b6b1ea3f1c451b19a4)
@@ -818,8 +850,11 @@ class CfnApplicationVersion(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationVersionProps(
             application_name=application_name,
-            source_bundle=source_bundle,
+            build_configuration=build_configuration,
             description=description,
+            image_configuration=image_configuration,
+            process=process,
+            source_bundle=source_bundle,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -906,22 +941,21 @@ class CfnApplicationVersion(
         jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="sourceBundle")
-    def source_bundle(
+    @jsii.member(jsii_name="buildConfiguration")
+    def build_configuration(
         self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]:
-        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"], jsii.get(self, "sourceBundle"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.BuildConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.BuildConfigurationProperty"]], jsii.get(self, "buildConfiguration"))
 
-    @source_bundle.setter
-    def source_bundle(
+    @build_configuration.setter
+    def build_configuration(
         self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.BuildConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e851d2ec17de05de650c602ffaa2d9d6d18f2cb17466abca441fe30ac1b50d80)
+            type_hints = cached_type_hints(_typecheckingstub__595d2a83a741c98553bc8c9bbf032e42d35408147bd9e6c0fe829c119a9681a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceBundle", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "buildConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -935,6 +969,470 @@ class CfnApplicationVersion(
             type_hints = cached_type_hints(_typecheckingstub__2990bd41c8492714f738e92c7d46621588e6d2d20631de262c28b3b7bad07ce2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imageConfiguration")
+    def image_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageConfigurationProperty"]], jsii.get(self, "imageConfiguration"))
+
+    @image_configuration.setter
+    def image_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74bea5e18d6054d17fc59c8acfa047b4c87c5de68733b3528653b5e859795e16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imageConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="process")
+    def process(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Pre-process and validate the environment manifest (``env.yaml``) and configuration files in the source bundle. Leave unset for the service default.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "process"))
+
+    @process.setter
+    def process(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a924b3e9068b55800f8b1a34045a8b7bdc03a72177fed555419e7f9b542f6ab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "process", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceBundle")
+    def source_bundle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]]:
+        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]], jsii.get(self, "sourceBundle"))
+
+    @source_bundle.setter
+    def source_bundle(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e851d2ec17de05de650c602ffaa2d9d6d18f2cb17466abca441fe30ac1b50d80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceBundle", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersion.BuildConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code_build_service_role": "codeBuildServiceRole",
+            "image": "image",
+            "artifact_name": "artifactName",
+            "compute_type": "computeType",
+            "timeout_in_minutes": "timeoutInMinutes",
+        },
+    )
+    class BuildConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            code_build_service_role: builtins.str,
+            image: builtins.str,
+            artifact_name: typing.Optional[builtins.str] = None,
+            compute_type: typing.Optional[builtins.str] = None,
+            timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param code_build_service_role: The ARN of the IAM role that AWS CodeBuild assumes to build the application version.
+            :param image: The CodeBuild image used for the build environment.
+            :param artifact_name: The name of the build artifact.
+            :param compute_type: The compute type for the CodeBuild build environment.
+            :param timeout_in_minutes: The timeout for the CodeBuild build, in minutes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                build_configuration_property = elasticbeanstalk.CfnApplicationVersion.BuildConfigurationProperty(
+                    code_build_service_role="codeBuildServiceRole",
+                    image="image",
+                
+                    # the properties below are optional
+                    artifact_name="artifactName",
+                    compute_type="computeType",
+                    timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0944fd2709f1e6a1b353ce38dc3545a2f277ee43af586d8e296b101795b5d5b1)
+                check_type(argname="argument code_build_service_role", value=code_build_service_role, expected_type=type_hints["code_build_service_role"])
+                check_type(argname="argument image", value=image, expected_type=type_hints["image"])
+                check_type(argname="argument artifact_name", value=artifact_name, expected_type=type_hints["artifact_name"])
+                check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
+                check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code_build_service_role": code_build_service_role,
+                "image": image,
+            }
+            if artifact_name is not None:
+                self._values["artifact_name"] = artifact_name
+            if compute_type is not None:
+                self._values["compute_type"] = compute_type
+            if timeout_in_minutes is not None:
+                self._values["timeout_in_minutes"] = timeout_in_minutes
+
+        @builtins.property
+        def code_build_service_role(self) -> builtins.str:
+            '''The ARN of the IAM role that AWS CodeBuild assumes to build the application version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration-codebuildservicerole
+            '''
+            result = self._values.get("code_build_service_role")
+            assert result is not None, "Required property 'code_build_service_role' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def image(self) -> builtins.str:
+            '''The CodeBuild image used for the build environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration-image
+            '''
+            result = self._values.get("image")
+            assert result is not None, "Required property 'image' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def artifact_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the build artifact.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration-artifactname
+            '''
+            result = self._values.get("artifact_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def compute_type(self) -> typing.Optional[builtins.str]:
+            '''The compute type for the CodeBuild build environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration-computetype
+            '''
+            result = self._values.get("compute_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The timeout for the CodeBuild build, in minutes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-buildconfiguration.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration-timeoutinminutes
+            '''
+            result = self._values.get("timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BuildConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersion.ImageBuildConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code_build_service_role": "codeBuildServiceRole",
+            "type": "type",
+            "architecture": "architecture",
+            "buildpack": "buildpack",
+            "compute_type": "computeType",
+            "dockerfile_location": "dockerfileLocation",
+            "timeout_in_minutes": "timeoutInMinutes",
+        },
+    )
+    class ImageBuildConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            code_build_service_role: builtins.str,
+            type: builtins.str,
+            architecture: typing.Optional[builtins.str] = None,
+            buildpack: typing.Optional[builtins.str] = None,
+            compute_type: typing.Optional[builtins.str] = None,
+            dockerfile_location: typing.Optional[builtins.str] = None,
+            timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param code_build_service_role: The ARN of the IAM role that AWS CodeBuild assumes to build the application version.
+            :param type: The type of image build: docker or buildpack.
+            :param architecture: The target architecture for the built container image.
+            :param buildpack: The buildpack to use for building the image.
+            :param compute_type: The compute type for the CodeBuild build environment.
+            :param dockerfile_location: The path to the Dockerfile, relative to the source root.
+            :param timeout_in_minutes: The timeout for the CodeBuild build, in minutes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                image_build_configuration_property = elasticbeanstalk.CfnApplicationVersion.ImageBuildConfigurationProperty(
+                    code_build_service_role="codeBuildServiceRole",
+                    type="type",
+                
+                    # the properties below are optional
+                    architecture="architecture",
+                    buildpack="buildpack",
+                    compute_type="computeType",
+                    dockerfile_location="dockerfileLocation",
+                    timeout_in_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8c36307f78d09ed2dba6e40e377e65c8bc1a62d2c714f52901b909b74a08b689)
+                check_type(argname="argument code_build_service_role", value=code_build_service_role, expected_type=type_hints["code_build_service_role"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
+                check_type(argname="argument buildpack", value=buildpack, expected_type=type_hints["buildpack"])
+                check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
+                check_type(argname="argument dockerfile_location", value=dockerfile_location, expected_type=type_hints["dockerfile_location"])
+                check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code_build_service_role": code_build_service_role,
+                "type": type,
+            }
+            if architecture is not None:
+                self._values["architecture"] = architecture
+            if buildpack is not None:
+                self._values["buildpack"] = buildpack
+            if compute_type is not None:
+                self._values["compute_type"] = compute_type
+            if dockerfile_location is not None:
+                self._values["dockerfile_location"] = dockerfile_location
+            if timeout_in_minutes is not None:
+                self._values["timeout_in_minutes"] = timeout_in_minutes
+
+        @builtins.property
+        def code_build_service_role(self) -> builtins.str:
+            '''The ARN of the IAM role that AWS CodeBuild assumes to build the application version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-codebuildservicerole
+            '''
+            result = self._values.get("code_build_service_role")
+            assert result is not None, "Required property 'code_build_service_role' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of image build: docker or buildpack.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def architecture(self) -> typing.Optional[builtins.str]:
+            '''The target architecture for the built container image.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-architecture
+            '''
+            result = self._values.get("architecture")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def buildpack(self) -> typing.Optional[builtins.str]:
+            '''The buildpack to use for building the image.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-buildpack
+            '''
+            result = self._values.get("buildpack")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def compute_type(self) -> typing.Optional[builtins.str]:
+            '''The compute type for the CodeBuild build environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-computetype
+            '''
+            result = self._values.get("compute_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dockerfile_location(self) -> typing.Optional[builtins.str]:
+            '''The path to the Dockerfile, relative to the source root.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-dockerfilelocation
+            '''
+            result = self._values.get("dockerfile_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''The timeout for the CodeBuild build, in minutes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagebuildconfiguration.html#cfn-elasticbeanstalk-applicationversion-imagebuildconfiguration-timeoutinminutes
+            '''
+            result = self._values.get("timeout_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageBuildConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersion.ImageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"build_property": "buildProperty", "source": "source"},
+    )
+    class ImageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            build_property: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.ImageBuildConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.ImageSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param build_property: 
+            :param source: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                image_configuration_property = elasticbeanstalk.CfnApplicationVersion.ImageConfigurationProperty(
+                    build_property=elasticbeanstalk.CfnApplicationVersion.ImageBuildConfigurationProperty(
+                        code_build_service_role="codeBuildServiceRole",
+                        type="type",
+                
+                        # the properties below are optional
+                        architecture="architecture",
+                        buildpack="buildpack",
+                        compute_type="computeType",
+                        dockerfile_location="dockerfileLocation",
+                        timeout_in_minutes=123
+                    ),
+                    source=elasticbeanstalk.CfnApplicationVersion.ImageSourceProperty(
+                        uri="uri"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__659de65dad69373e869aa76fa2af2e159b72b9884845743955f666f06862dada)
+                check_type(argname="argument build_property", value=build_property, expected_type=type_hints["build_property"])
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if build_property is not None:
+                self._values["build_property"] = build_property
+            if source is not None:
+                self._values["source"] = source
+
+        @builtins.property
+        def build_property(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageBuildConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imageconfiguration.html#cfn-elasticbeanstalk-applicationversion-imageconfiguration-build
+            '''
+            result = self._values.get("build_property")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageBuildConfigurationProperty"]], result)
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageSourceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imageconfiguration.html#cfn-elasticbeanstalk-applicationversion-imageconfiguration-source
+            '''
+            result = self._values.get("source")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageSourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersion.ImageSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"uri": "uri"},
+    )
+    class ImageSourceProperty:
+        def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param uri: The URI of the container image, e.g. an ECR image URI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagesource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                image_source_property = elasticbeanstalk.CfnApplicationVersion.ImageSourceProperty(
+                    uri="uri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e57489e8d074e2df6db71e834816e82261a93398e7dfa4afdda80182c583c48c)
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if uri is not None:
+                self._values["uri"] = uri
+
+        @builtins.property
+        def uri(self) -> typing.Optional[builtins.str]:
+            '''The URI of the container image, e.g. an ECR image URI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-applicationversion-imagesource.html#cfn-elasticbeanstalk-applicationversion-imagesource-uri
+            '''
+            result = self._values.get("uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersion.SourceBundleProperty",
@@ -1010,8 +1508,11 @@ class CfnApplicationVersion(
     jsii_struct_bases=[],
     name_mapping={
         "application_name": "applicationName",
-        "source_bundle": "sourceBundle",
+        "build_configuration": "buildConfiguration",
         "description": "description",
+        "image_configuration": "imageConfiguration",
+        "process": "process",
+        "source_bundle": "sourceBundle",
     },
 )
 class CfnApplicationVersionProps:
@@ -1019,14 +1520,20 @@ class CfnApplicationVersionProps:
         self,
         *,
         application_name: typing.Union[builtins.str, "_aws_elasticbeanstalk_018cea16.IApplicationRef"],
-        source_bundle: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
+        build_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.BuildConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        image_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.ImageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        process: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        source_bundle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplicationVersion``.
 
         :param application_name: The name of the Elastic Beanstalk application that is associated with this application version.
-        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
+        :param build_configuration: 
         :param description: A description of this application version.
+        :param image_configuration: 
+        :param process: Pre-process and validate the environment manifest (``env.yaml``) and configuration files in the source bundle. Leave unset for the service default.
+        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html
         :exampleMetadata: fixture=_generated
@@ -1039,26 +1546,62 @@ class CfnApplicationVersionProps:
             
             cfn_application_version_props = elasticbeanstalk.CfnApplicationVersionProps(
                 application_name="applicationName",
+            
+                # the properties below are optional
+                build_configuration=elasticbeanstalk.CfnApplicationVersion.BuildConfigurationProperty(
+                    code_build_service_role="codeBuildServiceRole",
+                    image="image",
+            
+                    # the properties below are optional
+                    artifact_name="artifactName",
+                    compute_type="computeType",
+                    timeout_in_minutes=123
+                ),
+                description="description",
+                image_configuration=elasticbeanstalk.CfnApplicationVersion.ImageConfigurationProperty(
+                    build_property=elasticbeanstalk.CfnApplicationVersion.ImageBuildConfigurationProperty(
+                        code_build_service_role="codeBuildServiceRole",
+                        type="type",
+            
+                        # the properties below are optional
+                        architecture="architecture",
+                        buildpack="buildpack",
+                        compute_type="computeType",
+                        dockerfile_location="dockerfileLocation",
+                        timeout_in_minutes=123
+                    ),
+                    source=elasticbeanstalk.CfnApplicationVersion.ImageSourceProperty(
+                        uri="uri"
+                    )
+                ),
+                process=False,
                 source_bundle=elasticbeanstalk.CfnApplicationVersion.SourceBundleProperty(
                     s3_bucket="s3Bucket",
                     s3_key="s3Key"
-                ),
-            
-                # the properties below are optional
-                description="description"
+                )
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument source_bundle", value=source_bundle, expected_type=type_hints["source_bundle"])
+            check_type(argname="argument build_configuration", value=build_configuration, expected_type=type_hints["build_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
+            check_type(argname="argument process", value=process, expected_type=type_hints["process"])
+            check_type(argname="argument source_bundle", value=source_bundle, expected_type=type_hints["source_bundle"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_name": application_name,
-            "source_bundle": source_bundle,
         }
+        if build_configuration is not None:
+            self._values["build_configuration"] = build_configuration
         if description is not None:
             self._values["description"] = description
+        if image_configuration is not None:
+            self._values["image_configuration"] = image_configuration
+        if process is not None:
+            self._values["process"] = process
+        if source_bundle is not None:
+            self._values["source_bundle"] = source_bundle
 
     @builtins.property
     def application_name(
@@ -1073,20 +1616,14 @@ class CfnApplicationVersionProps:
         return typing.cast(typing.Union[builtins.str, "_aws_elasticbeanstalk_018cea16.IApplicationRef"], result)
 
     @builtins.property
-    def source_bundle(
+    def build_configuration(
         self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]:
-        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.
-
-        .. epigraph::
-
-           The Amazon S3 bucket must be in the same region as the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-sourcebundle
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.BuildConfigurationProperty"]]:
         '''
-        result = self._values.get("source_bundle")
-        assert result is not None, "Required property 'source_bundle' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"], result)
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-buildconfiguration
+        '''
+        result = self._values.get("build_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.BuildConfigurationProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1096,6 +1633,42 @@ class CfnApplicationVersionProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-imageconfiguration
+        '''
+        result = self._values.get("image_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.ImageConfigurationProperty"]], result)
+
+    @builtins.property
+    def process(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Pre-process and validate the environment manifest (``env.yaml``) and configuration files in the source bundle. Leave unset for the service default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-process
+        '''
+        result = self._values.get("process")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def source_bundle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]]:
+        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.
+
+        .. epigraph::
+
+           The Amazon S3 bucket must be in the same region as the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-sourcebundle
+        '''
+        result = self._values.get("source_bundle")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationVersion.SourceBundleProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2752,8 +3325,11 @@ def _typecheckingstub__1c1516c528cdf5646f1fbc2db47de8d7888e64c08ccc28b6b1ea3f1c4
     id: builtins.str,
     *,
     application_name: typing.Union[builtins.str, _aws_elasticbeanstalk_018cea16.IApplicationRef],
-    source_bundle: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]],
+    build_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.BuildConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    image_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.ImageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    process: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_bundle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2782,14 +3358,71 @@ def _typecheckingstub__27168377f8f2dcb4108fbfe1e434ca0369c6eb4b5fde30de3223efb36
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e851d2ec17de05de650c602ffaa2d9d6d18f2cb17466abca441fe30ac1b50d80(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationVersion.SourceBundleProperty],
+def _typecheckingstub__595d2a83a741c98553bc8c9bbf032e42d35408147bd9e6c0fe829c119a9681a3(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationVersion.BuildConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2990bd41c8492714f738e92c7d46621588e6d2d20631de262c28b3b7bad07ce2(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74bea5e18d6054d17fc59c8acfa047b4c87c5de68733b3528653b5e859795e16(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationVersion.ImageConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a924b3e9068b55800f8b1a34045a8b7bdc03a72177fed555419e7f9b542f6ab0(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e851d2ec17de05de650c602ffaa2d9d6d18f2cb17466abca441fe30ac1b50d80(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationVersion.SourceBundleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0944fd2709f1e6a1b353ce38dc3545a2f277ee43af586d8e296b101795b5d5b1(
+    *,
+    code_build_service_role: builtins.str,
+    image: builtins.str,
+    artifact_name: typing.Optional[builtins.str] = None,
+    compute_type: typing.Optional[builtins.str] = None,
+    timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c36307f78d09ed2dba6e40e377e65c8bc1a62d2c714f52901b909b74a08b689(
+    *,
+    code_build_service_role: builtins.str,
+    type: builtins.str,
+    architecture: typing.Optional[builtins.str] = None,
+    buildpack: typing.Optional[builtins.str] = None,
+    compute_type: typing.Optional[builtins.str] = None,
+    dockerfile_location: typing.Optional[builtins.str] = None,
+    timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__659de65dad69373e869aa76fa2af2e159b72b9884845743955f666f06862dada(
+    *,
+    build_property: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.ImageBuildConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.ImageSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e57489e8d074e2df6db71e834816e82261a93398e7dfa4afdda80182c583c48c(
+    *,
+    uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2805,8 +3438,11 @@ def _typecheckingstub__bab0ce5312d0bfddca943d9bb19c1093f2bc6756b952bafc260c4c84b
 def _typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96(
     *,
     application_name: typing.Union[builtins.str, _aws_elasticbeanstalk_018cea16.IApplicationRef],
-    source_bundle: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]],
+    build_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.BuildConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    image_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.ImageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    process: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    source_bundle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

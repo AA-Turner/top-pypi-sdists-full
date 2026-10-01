@@ -43,6 +43,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "ReviewSourceIdType",
+    "SaasQuickLaunchStatusType",
     "SearchFacetTypeType",
     "SearchFacetsPaginatorName",
     "SearchFilterTypeType",
@@ -84,7 +85,9 @@ ListingBadgeTypeType = Literal[
 ]
 PricingModelTypeType = Literal["BYOL", "CONTRACT", "FREE", "USAGE"]
 PricingUnitTypeType = Literal["BANDWIDTH", "DATA", "HOSTS", "REQUESTS", "TIERS", "UNITS", "USERS"]
-PurchaseOptionBadgeTypeType = Literal["FUTURE_DATED", "PRIVATE_PRICING", "REPLACEMENT_OFFER"]
+PurchaseOptionBadgeTypeType = Literal[
+    "AUTO_RENEW", "FUTURE_DATED", "PRIVATE_PRICING", "REPLACEMENT_OFFER"
+]
 PurchaseOptionFilterTypeType = Literal[
     "AVAILABILITY_STATUS",
     "PRODUCT_ID",
@@ -97,6 +100,7 @@ RateCardConstraintTypeType = Literal["Allowed", "Disallowed"]
 ResourceContentTypeType = Literal["EMAIL", "LINK", "OTHER", "PHONE_NUMBER"]
 ResourceTypeType = Literal["MANUFACTURER_INSTRUCTIONS", "MANUFACTURER_SUPPORT"]
 ReviewSourceIdType = Literal["AWS_MARKETPLACE"]
+SaasQuickLaunchStatusType = Literal["DISABLED", "ENABLED"]
 SearchFacetTypeType = Literal[
     "AVERAGE_CUSTOMER_RATING",
     "CATEGORY",
@@ -221,6 +225,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -295,6 +300,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -323,6 +329,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -417,6 +424,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

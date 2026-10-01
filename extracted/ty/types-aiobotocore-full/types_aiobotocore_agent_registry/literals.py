@@ -39,7 +39,7 @@ BatchGetDiscoverableRegistryRecordErrorCodeType = Literal[
     "ACCESS_DENIED", "INTERNAL_ERROR", "RESOURCE_NOT_FOUND"
 ]
 ListDiscoverableRegistryRecordsPaginatorName = Literal["list_discoverable_registry_records"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "MCP", "SKILL"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
 RegistryRecordFilterNameType = Literal["descriptorType", "recordType"]
 RegistryRecordStatusType = Literal[
     "APPROVED",
@@ -133,6 +133,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -207,6 +208,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -235,6 +237,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -329,6 +332,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

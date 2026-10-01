@@ -57,8 +57,8 @@ def subsample_streaming_dataset(
     subsample: float = 1.0,
     shuffle: bool = False,
     seed: int = 42,
-    storage_options: dict | None = {},
-    session_options: dict | None = {},
+    storage_options: dict | None = None,
+    session_options: dict | None = None,
     index_path: str | None = None,
     fnmatch_pattern: str | None = None,
 ) -> tuple[list[str], list[tuple[int, int]]]:
@@ -91,12 +91,15 @@ def subsample_streaming_dataset(
 
     cache_index_filepath = os.path.join(input_dir.path, _INDEX_FILENAME)
 
-    # Check if `index.json` file exists in cache path
-    if not os.path.exists(cache_index_filepath) and isinstance(input_dir.url, str):
-        assert input_dir.url is not None
+    # Check if `index.json` file exists in cache path.
+    # Honor a custom ``index_path`` for both remote and local ``input_dir`` values;
+    # previously this ran only when ``input_dir.url`` was set, so local directories
+    # ignored ``index_path`` (see https://github.com/Lightning-AI/litData/issues/800).
+    if not os.path.exists(cache_index_filepath):
         if index_path is not None:
             copy_index_to_cache_index_filepath(index_path, cache_index_filepath)
-        else:
+        elif isinstance(input_dir.url, str):
+            assert input_dir.url is not None
             # Merge data_connection_id from resolved directory into storage_options for R2 connections
             merged_storage_options = storage_options.copy() if storage_options is not None else {}
             if hasattr(input_dir, "data_connection_id") and input_dir.data_connection_id:
@@ -202,6 +205,9 @@ def _should_replace_path(path: str | None) -> bool:
     if path is None or path == "":
         return True
 
+    if path.startswith("/teamspace/lightning_storage/") and _resolve_dir(path).url is None:
+        return False
+
     return (
         path.startswith("/teamspace/datasets/")
         or path.startswith("/teamspace/s3_connections/")
@@ -226,8 +232,8 @@ def _should_replace_path_filestores(path: str | None) -> bool:
 
 def _read_updated_at(
     input_dir: Dir | None,
-    storage_options: dict | None = {},
-    session_options: dict | None = {},
+    storage_options: dict | None = None,
+    session_options: dict | None = None,
     index_path: str | None = None,
 ) -> str:
     """Read last updated timestamp from index.json file."""
@@ -309,8 +315,8 @@ def get_default_cache_dir() -> str:
 def _try_create_cache_dir(
     input_dir: str | None,
     cache_dir: str | None = None,
-    storage_options: dict | None = {},
-    session_options: dict | None = {},
+    storage_options: dict | None = None,
+    session_options: dict | None = None,
     index_path: str | None = None,
 ) -> str | None:
     """Prepare and return the cache directory for a dataset."""

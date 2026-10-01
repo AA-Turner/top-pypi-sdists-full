@@ -48,6 +48,7 @@ if typing.TYPE_CHECKING:
     from typing_extensions import Literal, Self
 
     from urwid.display import BaseScreen
+    from urwid.display.common import PaletteEntry
     from urwid.widget import AbstractWidget
 
     from .abstract_loop import EventLoop
@@ -143,12 +144,27 @@ class MainLoop:
         :attr:`event_loop`; whether it actually does anything still depends on :attr:`event_loop`.
     """
 
+    __slots__ = (
+        "__dict__",
+        "__weakref__",
+        "_input_filter",
+        "_pop_ups",
+        "_topmost_widget",
+        "_unhandled_input",
+        "_watch_pipes",
+        "_widget",
+        "event_loop",
+        "handle_mouse",
+        "idle_handle",
+        "logger",
+        "screen",
+        "screen_size",
+    )
+
     def __init__(
         self,
         widget: AbstractWidget,
-        palette: Iterable[
-            tuple[str, str] | tuple[str, str, str] | tuple[str, str, str, str] | tuple[str, str, str, str, str, str]
-        ] = (),
+        palette: Iterable[PaletteEntry] = (),
         screen: BaseScreen | None = None,
         handle_mouse: bool = True,
         input_filter: (
@@ -187,6 +203,7 @@ class MainLoop:
         if event_loop is None:
             event_loop = SelectEventLoop()
         self.event_loop: EventLoop = event_loop
+        self.idle_handle: typing.Any = None
 
         if hasattr(self.screen, "signal_handler_setter"):
             # Tell the screen what function it must use to set
@@ -477,7 +494,7 @@ class MainLoop:
         Only call this if you're managing the event loop yourself, after the loop stops.
         """
         self.event_loop.remove_enter_idle(self.idle_handle)
-        del self.idle_handle
+        self.idle_handle = None
         signals.disconnect_signal(self.screen, INPUT_DESCRIPTORS_CHANGED, self._reset_input_descriptors)
         typing.cast("_ExternalLoopScreen", self.screen).unhook_event_loop(self.event_loop)
 

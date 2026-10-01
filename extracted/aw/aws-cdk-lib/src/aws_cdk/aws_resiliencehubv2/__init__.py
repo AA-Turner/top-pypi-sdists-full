@@ -118,6 +118,7 @@ class CfnPolicy(
                 rpo_in_minutes=123,
                 rto_in_minutes=123
             ),
+            sharing_enabled=False,
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -137,6 +138,7 @@ class CfnPolicy(
         kms_key_id: typing.Optional[builtins.str] = None,
         multi_az: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.MultiAzTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         multi_region: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.MultiRegionTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sharing_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ResilienceHubV2::Policy``.
@@ -150,6 +152,7 @@ class CfnPolicy(
         :param kms_key_id: The KMS key ID for encrypting policy data.
         :param multi_az: 
         :param multi_region: 
+        :param sharing_enabled: Whether the policy is enabled to be shared with other members of the Organization. Only applicable if the policy owner is a management account or delegated admin. Default: - false
         :param tags: Tags assigned to the policy.
         '''
         if __debug__:
@@ -164,6 +167,7 @@ class CfnPolicy(
             kms_key_id=kms_key_id,
             multi_az=multi_az,
             multi_region=multi_region,
+            sharing_enabled=sharing_enabled,
             tags=tags,
         )
 
@@ -389,6 +393,24 @@ class CfnPolicy(
             type_hints = cached_type_hints(_typecheckingstub__1b113d1c1a16d9a88d7758c26ad9a6eac43b4a8995ad9a6dfcb5c065a458e2aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sharingEnabled")
+    def sharing_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the policy is enabled to be shared with other members of the Organization.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "sharingEnabled"))
+
+    @sharing_enabled.setter
+    def sharing_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e7f5052d3b009fbb8c921698743bcc3bbf0b7e4bd833c9732351fe23680ba182)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sharingEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -700,6 +722,7 @@ class CfnPolicy(
         "kms_key_id": "kmsKeyId",
         "multi_az": "multiAz",
         "multi_region": "multiRegion",
+        "sharing_enabled": "sharingEnabled",
         "tags": "tags",
     },
 )
@@ -714,6 +737,7 @@ class CfnPolicyProps:
         kms_key_id: typing.Optional[builtins.str] = None,
         multi_az: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.MultiAzTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         multi_region: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.MultiRegionTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sharing_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPolicy``.
@@ -725,6 +749,7 @@ class CfnPolicyProps:
         :param kms_key_id: The KMS key ID for encrypting policy data.
         :param multi_az: 
         :param multi_region: 
+        :param sharing_enabled: Whether the policy is enabled to be shared with other members of the Organization. Only applicable if the policy owner is a management account or delegated admin. Default: - false
         :param tags: Tags assigned to the policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehubv2-policy.html
@@ -759,6 +784,7 @@ class CfnPolicyProps:
                     rpo_in_minutes=123,
                     rto_in_minutes=123
                 ),
+                sharing_enabled=False,
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -774,6 +800,7 @@ class CfnPolicyProps:
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument multi_az", value=multi_az, expected_type=type_hints["multi_az"])
             check_type(argname="argument multi_region", value=multi_region, expected_type=type_hints["multi_region"])
+            check_type(argname="argument sharing_enabled", value=sharing_enabled, expected_type=type_hints["sharing_enabled"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -790,6 +817,8 @@ class CfnPolicyProps:
             self._values["multi_az"] = multi_az
         if multi_region is not None:
             self._values["multi_region"] = multi_region
+        if sharing_enabled is not None:
+            self._values["sharing_enabled"] = sharing_enabled
         if tags is not None:
             self._values["tags"] = tags
 
@@ -862,6 +891,21 @@ class CfnPolicyProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.MultiRegionTargetsProperty"]], result)
 
     @builtins.property
+    def sharing_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the policy is enabled to be shared with other members of the Organization.
+
+        Only applicable if the policy owner is a management account or delegated admin.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehubv2-policy.html#cfn-resiliencehubv2-policy-sharingenabled
+        '''
+        result = self._values.get("sharing_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags assigned to the policy.
 
@@ -923,7 +967,21 @@ class CfnService(
                     design_file_s3_url="designFileS3Url",
                     eks=resiliencehubv2.CfnService.EksSourceProperty(
                         cluster_arn="clusterArn",
-                        namespaces=["namespaces"]
+                        namespaces=["namespaces"],
+        
+                        # the properties below are optional
+                        label_selector=resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                            match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                                key="key",
+                                operator="operator",
+        
+                                # the properties below are optional
+                                values=["values"]
+                            )],
+                            match_labels={
+                                "match_labels_key": "matchLabels"
+                            }
+                        )
                     ),
                     resource_tags=[resiliencehubv2.CfnService.ResourceTagProperty(
                         key="key",
@@ -1761,9 +1819,196 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnService.EksLabelSelectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_expressions": "matchExpressions",
+            "match_labels": "matchLabels",
+        },
+    )
+    class EksLabelSelectorProperty:
+        def __init__(
+            self,
+            *,
+            match_expressions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.EksLabelSelectorRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            match_labels: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Kubernetes label selector that scopes discovery to matching objects in the specified namespaces.
+
+            An object must satisfy both MatchLabels and MatchExpressions. Specify at least one of them; a selector carrying neither is treated as though no selector were supplied, and all supported objects in the specified namespaces are discovered.
+
+            :param match_expressions: Label selector requirements an object must satisfy to be discovered. Up to 20 requirements, all of which must match.
+            :param match_labels: Label key/value pairs an object must carry to be discovered. Up to 20 pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_resiliencehubv2 as resiliencehubv2
+                
+                eks_label_selector_property = resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                    match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                        key="key",
+                        operator="operator",
+                
+                        # the properties below are optional
+                        values=["values"]
+                    )],
+                    match_labels={
+                        "match_labels_key": "matchLabels"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1ed5a475b3c995912fe22dc15cf2c2c2c82fe82faa1a2fa44d16000eaf8829a0)
+                check_type(argname="argument match_expressions", value=match_expressions, expected_type=type_hints["match_expressions"])
+                check_type(argname="argument match_labels", value=match_labels, expected_type=type_hints["match_labels"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if match_expressions is not None:
+                self._values["match_expressions"] = match_expressions
+            if match_labels is not None:
+                self._values["match_labels"] = match_labels
+
+        @builtins.property
+        def match_expressions(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EksLabelSelectorRequirementProperty"]]]]:
+            '''Label selector requirements an object must satisfy to be discovered.
+
+            Up to 20 requirements, all of which must match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselector.html#cfn-resiliencehubv2-service-ekslabelselector-matchexpressions
+            '''
+            result = self._values.get("match_expressions")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EksLabelSelectorRequirementProperty"]]]], result)
+
+        @builtins.property
+        def match_labels(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Label key/value pairs an object must carry to be discovered.
+
+            Up to 20 pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselector.html#cfn-resiliencehubv2-service-ekslabelselector-matchlabels
+            '''
+            result = self._values.get("match_labels")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksLabelSelectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "operator": "operator", "values": "values"},
+    )
+    class EksLabelSelectorRequirementProperty:
+        def __init__(
+            self,
+            *,
+            key: builtins.str,
+            operator: builtins.str,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''A single label selector requirement.
+
+            Specify Values when Operator is IN or NOT_IN, and omit Values when Operator is EXISTS or DOES_NOT_EXIST.
+
+            :param key: Label key the requirement applies to.
+            :param operator: Operator applied to the label key.
+            :param values: Label values the requirement compares against. Up to 20 values. Required for IN and NOT_IN; omit for EXISTS and DOES_NOT_EXIST.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselectorrequirement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_resiliencehubv2 as resiliencehubv2
+                
+                eks_label_selector_requirement_property = resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                    key="key",
+                    operator="operator",
+                
+                    # the properties below are optional
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4ecdb9ea638c1ae46a02b80191ef5d3d3c76c504f221e1990c908af3d83cb8d1)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "operator": operator,
+            }
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''Label key the requirement applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselectorrequirement.html#cfn-resiliencehubv2-service-ekslabelselectorrequirement-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator(self) -> builtins.str:
+            '''Operator applied to the label key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselectorrequirement.html#cfn-resiliencehubv2-service-ekslabelselectorrequirement-operator
+            '''
+            result = self._values.get("operator")
+            assert result is not None, "Required property 'operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Label values the requirement compares against.
+
+            Up to 20 values. Required for IN and NOT_IN; omit for EXISTS and DOES_NOT_EXIST.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekslabelselectorrequirement.html#cfn-resiliencehubv2-service-ekslabelselectorrequirement-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksLabelSelectorRequirementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnService.EksSourceProperty",
         jsii_struct_bases=[],
-        name_mapping={"cluster_arn": "clusterArn", "namespaces": "namespaces"},
+        name_mapping={
+            "cluster_arn": "clusterArn",
+            "namespaces": "namespaces",
+            "label_selector": "labelSelector",
+        },
     )
     class EksSourceProperty:
         def __init__(
@@ -1771,10 +2016,12 @@ class CfnService(
             *,
             cluster_arn: builtins.str,
             namespaces: typing.Sequence[builtins.str],
+            label_selector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.EksLabelSelectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param cluster_arn: ARN of the EKS cluster.
             :param namespaces: EKS namespaces.
+            :param label_selector: Kubernetes label selector that scopes discovery to matching objects in the specified namespaces. An object must satisfy both MatchLabels and MatchExpressions. Specify at least one of them; a selector carrying neither is treated as though no selector were supplied, and all supported objects in the specified namespaces are discovered.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekssource.html
             :exampleMetadata: fixture=_generated
@@ -1787,17 +2034,34 @@ class CfnService(
                 
                 eks_source_property = resiliencehubv2.CfnService.EksSourceProperty(
                     cluster_arn="clusterArn",
-                    namespaces=["namespaces"]
+                    namespaces=["namespaces"],
+                
+                    # the properties below are optional
+                    label_selector=resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                        match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                            key="key",
+                            operator="operator",
+                
+                            # the properties below are optional
+                            values=["values"]
+                        )],
+                        match_labels={
+                            "match_labels_key": "matchLabels"
+                        }
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__e8222153171bacb58425e667eddaf39b74006a9c713bec1af7ab5451917df746)
                 check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument label_selector", value=label_selector, expected_type=type_hints["label_selector"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cluster_arn": cluster_arn,
                 "namespaces": namespaces,
             }
+            if label_selector is not None:
+                self._values["label_selector"] = label_selector
 
         @builtins.property
         def cluster_arn(self) -> builtins.str:
@@ -1818,6 +2082,19 @@ class CfnService(
             result = self._values.get("namespaces")
             assert result is not None, "Required property 'namespaces' is missing"
             return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def label_selector(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EksLabelSelectorProperty"]]:
+            '''Kubernetes label selector that scopes discovery to matching objects in the specified namespaces.
+
+            An object must satisfy both MatchLabels and MatchExpressions. Specify at least one of them; a selector carrying neither is treated as though no selector were supplied, and all supported objects in the specified namespaces are discovered.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-ekssource.html#cfn-resiliencehubv2-service-ekssource-labelselector
+            '''
+            result = self._values.get("label_selector")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.EksLabelSelectorProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1860,7 +2137,21 @@ class CfnService(
                         design_file_s3_url="designFileS3Url",
                         eks=resiliencehubv2.CfnService.EksSourceProperty(
                             cluster_arn="clusterArn",
-                            namespaces=["namespaces"]
+                            namespaces=["namespaces"],
+                
+                            # the properties below are optional
+                            label_selector=resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                                match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                                    key="key",
+                                    operator="operator",
+                
+                                    # the properties below are optional
+                                    values=["values"]
+                                )],
+                                match_labels={
+                                    "match_labels_key": "matchLabels"
+                                }
+                            )
                         ),
                         resource_tags=[resiliencehubv2.CfnService.ResourceTagProperty(
                             key="key",
@@ -2090,7 +2381,21 @@ class CfnService(
                     design_file_s3_url="designFileS3Url",
                     eks=resiliencehubv2.CfnService.EksSourceProperty(
                         cluster_arn="clusterArn",
-                        namespaces=["namespaces"]
+                        namespaces=["namespaces"],
+                
+                        # the properties below are optional
+                        label_selector=resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                            match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                                key="key",
+                                operator="operator",
+                
+                                # the properties below are optional
+                                values=["values"]
+                            )],
+                            match_labels={
+                                "match_labels_key": "matchLabels"
+                            }
+                        )
                     ),
                     resource_tags=[resiliencehubv2.CfnService.ResourceTagProperty(
                         key="key",
@@ -2925,7 +3230,21 @@ class CfnServiceProps:
                         design_file_s3_url="designFileS3Url",
                         eks=resiliencehubv2.CfnService.EksSourceProperty(
                             cluster_arn="clusterArn",
-                            namespaces=["namespaces"]
+                            namespaces=["namespaces"],
+            
+                            # the properties below are optional
+                            label_selector=resiliencehubv2.CfnService.EksLabelSelectorProperty(
+                                match_expressions=[resiliencehubv2.CfnService.EksLabelSelectorRequirementProperty(
+                                    key="key",
+                                    operator="operator",
+            
+                                    # the properties below are optional
+                                    values=["values"]
+                                )],
+                                match_labels={
+                                    "match_labels_key": "matchLabels"
+                                }
+                            )
                         ),
                         resource_tags=[resiliencehubv2.CfnService.ResourceTagProperty(
                             key="key",
@@ -3855,6 +4174,7 @@ def _typecheckingstub__b2e629fc4862e28e629f2d24cf4a00a9ca948681ba5b90659c1dcc619
     kms_key_id: typing.Optional[builtins.str] = None,
     multi_az: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.MultiAzTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     multi_region: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.MultiRegionTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sharing_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3926,6 +4246,12 @@ def _typecheckingstub__1b113d1c1a16d9a88d7758c26ad9a6eac43b4a8995ad9a6dfcb5c065a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e7f5052d3b009fbb8c921698743bcc3bbf0b7e4bd833c9732351fe23680ba182(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6a07e642dc63b7980c82a54120ed7d01ba6c8a726bdfc0589953ca23747bd214(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -3973,6 +4299,7 @@ def _typecheckingstub__b6c906443be9003dedeed32d06ee8a6f0d9a43e95506b85846be31638
     kms_key_id: typing.Optional[builtins.str] = None,
     multi_az: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.MultiAzTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     multi_region: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.MultiRegionTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sharing_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4138,10 +4465,28 @@ def _typecheckingstub__af3bf83c642b175e56cedcc2597cb09cfc5891dedf9b6e0c22b4876f0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ed5a475b3c995912fe22dc15cf2c2c2c82fe82faa1a2fa44d16000eaf8829a0(
+    *,
+    match_expressions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.EksLabelSelectorRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    match_labels: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ecdb9ea638c1ae46a02b80191ef5d3d3c76c504f221e1990c908af3d83cb8d1(
+    *,
+    key: builtins.str,
+    operator: builtins.str,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e8222153171bacb58425e667eddaf39b74006a9c713bec1af7ab5451917df746(
     *,
     cluster_arn: builtins.str,
     namespaces: typing.Sequence[builtins.str],
+    label_selector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.EksLabelSelectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

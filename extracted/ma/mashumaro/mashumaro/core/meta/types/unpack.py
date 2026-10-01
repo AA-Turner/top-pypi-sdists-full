@@ -1,3 +1,4 @@
+import builtins
 import collections
 import collections.abc
 import datetime
@@ -25,10 +26,11 @@ from contextlib import suppress
 from dataclasses import is_dataclass
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, ForwardRef, Tuple
+from typing import Tuple  # noqa: UP035
+from typing import Any, ForwardRef
 
 import typing_extensions
-from typing_extensions import NotRequired
+from typing_extensions import Buffer, NotRequired, TypeForm
 
 from mashumaro.core.const import PY_311_MIN
 from mashumaro.core.helpers import parse_timezone
@@ -38,6 +40,7 @@ from mashumaro.core.meta.helpers import (
     get_class_that_defines_method,
     get_function_arg_annotation,
     get_literal_values,
+    get_slice_type_args,
     get_type_origin,
     get_type_var_default,
     is_final,
@@ -60,7 +63,9 @@ from mashumaro.core.meta.helpers import (
     is_unpack,
     iter_all_subclasses,
     not_none_type_arg,
+    resolve_type_alias_type,
     resolve_type_params,
+    resolve_typed_dict_annotations,
     substitute_type_params,
     type_name,
     type_var_has_default,
@@ -96,9 +101,8 @@ from mashumaro.types import (
 )
 
 if sys.version_info >= (3, 14):
-    from typing import evaluate_forward_ref
-
     from annotationlib import get_annotations
+    from typing import evaluate_forward_ref
 else:
     from typing_extensions import evaluate_forward_ref, get_annotations
 
@@ -112,7 +116,10 @@ except ImportError:  # pragma: no cover
     pendulum: types.ModuleType | None = None  # type: ignore
 
 
-__all__ = ["UnpackerRegistry", "SubtypeUnpackerBuilder"]
+_FROZENDICT_TYPE = getattr(builtins, "frozendict", None)
+
+
+__all__ = ["SubtypeUnpackerBuilder", "UnpackerRegistry"]
 
 
 UnpackerRegistry = Registry()
@@ -171,7 +178,7 @@ class AbstractUnpackerBuilder(AbstractMethodBuilder, ABC):
 
 
 class UnionUnpackerBuilder(AbstractUnpackerBuilder):
-    def __init__(self, args: tuple[type, ...]):
+    def __init__(self, args: tuple[TypeForm, ...]):
         self.union_args = args
         self.method_name: str | None = None
 
@@ -207,10 +214,11 @@ class UnionUnpackerBuilder(AbstractUnpackerBuilder):
             unpacker_block = CodeLines()
             if isinstance(unpacker, TypeMatchEligibleExpression):
                 do_try = False
+                match_type = resolve_type_alias_type(type_arg)
                 if type_match_statements > 1:
-                    condition = f"__value_type is {type_arg.__name__}"
+                    condition = f"__value_type is {match_type.__name__}"
                 else:
-                    condition = f"type(value) is {type_arg.__name__}"
+                    condition = f"type(value) is {match_type.__name__}"
                 if (condition, unpacker) in unpackers:  # pragma: no cover
                     # we shouldn't be here because condition is always unique
                     continue
@@ -304,8 +312,9 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
         base_variants: tuple[type, ...] | None = None,
     ):
         self.discriminator = discriminator
-        self.base_variants = base_variants or tuple()
+        self.base_variants = base_variants or ()
         self._variants_attr: str | None = None
+        self._unpackers_attr: str | None = None
 
     def get_method_prefix(self) -> str:
         return ""
@@ -327,6 +336,19 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
             return f"{typ_name}.{variants_attr}"
         else:
             return f"{spec.cls_attrs_name}.{variants_attr}"
+
+    def _get_unpackers_attr(self, spec: ValueSpec) -> str:
+        if self._unpackers_attr is None:
+            self._unpackers_attr = (
+                f"__mashumaro_{spec.field_ctx.name}_unpackers_"
+                f"{random_hex()}__"
+            )
+        return self._unpackers_attr
+
+    def _get_unpackers_map(self, spec: ValueSpec) -> str:
+        unpackers_attr = self._get_unpackers_attr(spec)
+        typ_name = spec.builder.get_type_name_identifier(spec.builder.cls)
+        return f"{typ_name}.{unpackers_attr}"
 
     def _get_variant_names(self, spec: ValueSpec) -> list[str]:
         base_variants = self.base_variants or (spec.origin_type,)
@@ -373,15 +395,21 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
         variants_attr_holder = self._get_variants_attr_holder(spec)
         variants = self._get_variant_names_iterable(spec)
         variants_type_expr = spec.builder.get_type_name_identifier(spec.type)
-
-        if variants_attr not in variants_attr_holder.__dict__:
-            setattr(variants_attr_holder, variants_attr, {})
         variant_method_name = spec.builder.get_unpack_method_name(
             format_name=spec.builder.format_name
         )
+
+        if variants_attr not in variants_attr_holder.__dict__:
+            setattr(variants_attr_holder, variants_attr, {})
         variant_method_call = self._get_variant_method_call(
             variant_method_name, spec
         )
+        if not discriminator.field and spec.builder.is_nailed:
+            unpackers_attr = self._get_unpackers_attr(spec)
+            if unpackers_attr not in variants_attr_holder.__dict__:
+                setattr(variants_attr_holder, unpackers_attr, {})
+            lines.append(f"unpackers = {self._get_unpackers_map(spec)}")
+            unpacker_call = self._get_variant_method_call("unpacker", spec)
         if discriminator.variant_tagger_fn:
             spec.builder.ensure_object_imported(
                 discriminator.variant_tagger_fn, "variant_tagger_fn"
@@ -454,23 +482,34 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
                     )
         else:
             with lines.indent(f"for variant in {variants}:"):
-                with lines.indent("try:"):
-                    if spec.builder.is_nailed:
-                        lines.append(f"return variant.{variant_method_call}")
-                    else:
+                if spec.builder.is_nailed:
+                    with lines.indent("try:"):
+                        lines.append("unpacker = unpackers[variant]")
+                    with lines.indent("except KeyError:"):
+                        self._add_build_nailed_variant_unpacker(
+                            spec, lines, variant_method_name
+                        )
+                        lines.append(
+                            f"unpacker = variant.{variant_method_name}"
+                        )
+                        lines.append("unpackers[variant] = unpacker")
+                    with lines.indent("try:"):
+                        lines.append(f"return {unpacker_call}")
+                    lines.append("except Exception: pass")
+                else:
+                    with lines.indent("try:"):
                         lines.append(
                             f"return {spec.attrs_registry_name}"
                             f"[variant].{variant_method_call}"
                         )
-                if spec.builder.is_nailed:
-                    exc_to_catch = "AttributeError"
-                else:
-                    exc_to_catch = "(KeyError, AttributeError)"
-                with lines.indent(f"except {exc_to_catch}:"):
-                    self._add_build_variant_unpacker(
-                        spec, lines, variant_method_name, variant_method_call
-                    )
-                lines.append("except Exception: pass")
+                    with lines.indent("except (KeyError, AttributeError):"):
+                        self._add_build_variant_unpacker(
+                            spec,
+                            lines,
+                            variant_method_name,
+                            variant_method_call,
+                        )
+                    lines.append("except Exception: pass")
             lines.append(
                 f"raise SuitableVariantNotFoundError({variants_type_expr}) "
                 "from None"
@@ -498,24 +537,9 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
         variant_method_call: str,
     ) -> None:
         if spec.builder.is_nailed:
-            spec.builder.ensure_object_imported(get_class_that_defines_method)
-            lines.append(
-                "if get_class_that_defines_method("
-                f"'{variant_method_name}',variant) != variant:"
+            self._add_build_nailed_variant_unpacker(
+                spec, lines, variant_method_name
             )
-            with lines.indent():
-                spec.builder.ensure_object_imported(spec.builder.__class__)
-                lines.append(
-                    "CodeBuilder(variant, "
-                    "dialect=_dialect, "
-                    f"format_name={repr(spec.builder.format_name)}, "
-                    "default_dialect=_default_dialect)"
-                    ".add_unpack_method()"
-                )
-                if not self.discriminator.field:
-                    with lines.indent("try:"):
-                        lines.append(f"return variant.{variant_method_call}")
-                    lines.append("except Exception: pass")
         else:
             spec.builder.ensure_object_imported(AttrsHolder)
             attrs = f"attrs_{random_hex()}"
@@ -524,7 +548,7 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
             lines.append(
                 "CodeBuilder(variant, "
                 "dialect=_dialect, "
-                f"format_name={repr(spec.builder.format_name)}, "
+                f"format_name={spec.builder.format_name!r}, "
                 "default_dialect=_default_dialect,"
                 f"attrs={attrs},"
                 f"attrs_registry={spec.attrs_registry_name})"
@@ -534,6 +558,21 @@ class DiscriminatedUnionUnpackerBuilder(AbstractUnpackerBuilder):
                 with lines.indent("try:"):
                     lines.append(f"return {attrs}.{variant_method_call}")
                 lines.append("except Exception: pass")
+
+    @staticmethod
+    def _add_build_nailed_variant_unpacker(
+        spec: ValueSpec, lines: CodeLines, variant_method_name: str
+    ) -> None:
+        lines.append(f"if '{variant_method_name}' not in variant.__dict__:")
+        with lines.indent():
+            spec.builder.ensure_object_imported(spec.builder.__class__)
+            lines.append(
+                "CodeBuilder(variant, "
+                "dialect=_dialect, "
+                f"format_name={spec.builder.format_name!r}, "
+                "default_dialect=_default_dialect)"
+                ".add_unpack_method()"
+            )
 
     def _add_register_variant_tags(
         self, lines: CodeLines, variant_tagger_expr: str
@@ -562,7 +601,7 @@ def _unpack_with_annotated_serialization_strategy(
 ) -> Expression:
     strategy_type = type(strategy)
     try:
-        value_type: type | Any = get_function_arg_annotation(
+        value_type: Any = get_function_arg_annotation(
             strategy.deserialize, arg_pos=0
         )
     except (KeyError, ValueError):
@@ -697,7 +736,7 @@ def unpack_generic_serializable_type(spec: ValueSpec) -> Expression | None:
 
 @register
 def unpack_dataclass(spec: ValueSpec) -> Expression | None:
-    if is_dataclass(spec.origin_type):
+    if isinstance(spec.origin_type, type) and is_dataclass(spec.origin_type):
         for annotation in spec.annotations:
             if isinstance(annotation, Discriminator):
                 return DiscriminatedUnionUnpackerBuilder(annotation).build(
@@ -708,17 +747,15 @@ def unpack_dataclass(spec: ValueSpec) -> Expression | None:
             type_args, spec.builder.format_name
         )
         method_loc = spec.origin_type if spec.builder.is_nailed else spec.attrs
-        if get_class_that_defines_method(
-            method_name, method_loc
-        ) != method_loc and (
-            spec.origin_type is not spec.builder.cls
-            or spec.builder.get_unpack_method_name(
-                type_args=type_args,
-                format_name=spec.builder.format_name,
-                decoder=spec.builder.decoder,
-            )
-            != method_name
-        ):
+        method_is_defined = (
+            get_class_that_defines_method(method_name, method_loc)
+            == method_loc
+        )
+        method_is_in_progress = (
+            not method_is_defined
+            and (method_loc, method_name) in spec.builder.methods_in_progress
+        )
+        if not method_is_defined and not method_is_in_progress:
             builder = spec.builder.__class__(
                 spec.origin_type,
                 type_args,
@@ -732,6 +769,7 @@ def unpack_dataclass(spec: ValueSpec) -> Expression | None:
                 allow_postponed_evaluation=(
                     spec.builder.allow_postponed_evaluation
                 ),
+                methods_in_progress=spec.builder.methods_in_progress,
             )
             builder.add_unpack_method()
         method_args = ", ".join(
@@ -748,6 +786,8 @@ def unpack_dataclass(spec: ValueSpec) -> Expression | None:
             spec.builder.ensure_object_imported(spec.origin_type, cls_alias)
             return f"{cls_alias}.{method_name}({method_args})"
         else:
+            if method_is_in_progress:
+                return f"{spec.cls_attrs_name}.{method_name}({method_args})"
             method_name_alias = f"{cls_alias}_{method_name}"
             spec.builder.ensure_object_imported(
                 getattr(spec.attrs, method_name), method_name_alias
@@ -795,14 +835,16 @@ def unpack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
         elif is_type_var_any(spec.type):
             return spec.expression
         elif is_type_var(spec.type):
-            constraints = getattr(spec.type, "__constraints__")
+            if type_var_has_default(spec.type):
+                uv = UnpackerRegistry.get(
+                    spec.copy(type=get_type_var_default(spec.type))
+                )
+                return expr_or_maybe_none(spec, uv)
+            constraints = spec.type.__constraints__
             if constraints:
                 return TypeVarUnpackerBuilder(constraints).build(spec)
             else:
-                if type_var_has_default(spec.type):
-                    bound = get_type_var_default(spec.type)
-                else:
-                    bound = getattr(spec.type, "__bound__")
+                bound = spec.type.__bound__
                 # act as if it was Optional[bound]
                 uv = UnpackerRegistry.get(spec.copy(type=bound))
                 return expr_or_maybe_none(spec, uv)
@@ -821,9 +863,16 @@ def unpack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
             method_loc = (
                 spec.builder.cls if spec.builder.is_nailed else spec.attrs
             )
+            method_is_in_progress = (
+                get_class_that_defines_method(method_name, method_loc)
+                != method_loc
+                and (method_loc, method_name)
+                in spec.builder.methods_in_progress
+            )
             if (
                 get_class_that_defines_method(method_name, method_loc)
                 != method_loc
+                and not method_is_in_progress
                 # not hasattr(spec.builder.cls, method_name)
                 and spec.builder.get_unpack_method_name(
                     format_name=spec.builder.format_name,
@@ -842,6 +891,7 @@ def unpack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
                         if not spec.builder.is_nailed
                         else None
                     ),
+                    methods_in_progress=spec.builder.methods_in_progress,
                 )
                 builder.add_unpack_method()
             method_args = ", ".join(
@@ -967,6 +1017,20 @@ def unpack_timezone(spec: ValueSpec) -> Expression | None:
 
 
 @register
+def unpack_slice(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is slice:
+        unpackers = []
+        for index, type_arg in enumerate(get_slice_type_args(spec.type)):
+            expression = f"{spec.expression}[{index}]"
+            component_spec = spec.copy(
+                type=type_arg, expression=expression, could_be_none=True
+            )
+            unpacker = UnpackerRegistry.get(component_spec)
+            unpackers.append(expr_or_maybe_none(component_spec, unpacker))
+        return f"slice({', '.join(unpackers)})"
+
+
+@register
 def unpack_zone_info(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is zoneinfo.ZoneInfo:
         method = "__zoneinfo_ZoneInfo"
@@ -1013,7 +1077,7 @@ def unpack_fraction(spec: ValueSpec) -> Expression | None:
 
 def unpack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
     if not args:
-        if spec.type in (Tuple, tuple):
+        if spec.type in (Tuple, tuple):  # noqa: UP006
             args = [Any, ...]  # type: ignore
         else:
             return "()"
@@ -1073,7 +1137,7 @@ def unpack_named_tuple(spec: ValueSpec) -> Expression:
     }
     fields = getattr(spec.type, "_fields", ())
     defaults = getattr(spec.type, "_field_defaults", {})
-    unpackers = []
+    unpackers: dict[str, Expression] = {}
     as_dict = spec.builder.get_dialect_or_config_option(
         "namedtuple_as_dict", False
     )
@@ -1107,11 +1171,11 @@ def unpack_named_tuple(spec: ValueSpec) -> Expression:
                 could_be_none=True,
             )
         )
-        unpackers.append(unpacker)
+        unpackers[field] = unpacker
 
     if not defaults:
         field_type = spec.builder.get_type_name_identifier(spec.type)
-        return f"{field_type}({', '.join(unpackers)})"
+        return f"{field_type}({', '.join(unpackers.values())})"
 
     lines = CodeLines()
     method_name = (
@@ -1130,14 +1194,30 @@ def unpack_named_tuple(spec: ValueSpec) -> Expression:
         # we shouldn't be here because there will be default_kwargs
         lines.append(f"def {method_name}({method_args}):")
     with lines.indent():
-        lines.append("fields = []")
-        with lines.indent("try:"):
-            for unpacker in unpackers:
-                lines.append(f"fields.append({unpacker})")
-        with lines.indent("except IndexError:"):
-            lines.append("pass")
+        use_fields_list = not as_dict or len(fields) - len(defaults) > 0
+        if use_fields_list:
+            lines.append("fields_list = []")
+        if as_dict:
+            lines.append("fields_dict = {}")
+        if use_fields_list:
+            with lines.indent("try:"):
+                for field, unpacker in unpackers.items():
+                    if not as_dict or as_dict and field not in defaults:
+                        lines.append(f"fields_list.append({unpacker})")
+            with lines.indent("except IndexError:"):
+                lines.append("pass")
+        if as_dict:
+            for field, unpacker in unpackers.items():
+                if field in defaults:
+                    with lines.indent("try:"):
+                        lines.append(f"fields_dict['{field}'] = {unpacker}")
+                    with lines.indent("except KeyError:"):
+                        lines.append("pass")
         field_type = spec.builder.get_type_name_identifier(spec.type)
-        lines.append(f"return {field_type}(*fields)")
+        args = "*fields_list" if use_fields_list else ""
+        if as_dict:
+            args = ", ".join(filter(None, (args, "**fields_dict")))
+        lines.append(f"return {field_type}({args})")
     lines.append(
         f"setattr({spec.cls_attrs_name}, '{method_name}', {method_name})"
     )
@@ -1152,16 +1232,12 @@ def unpack_named_tuple(spec: ValueSpec) -> Expression:
 
 
 def unpack_typed_dict(spec: ValueSpec) -> Expression:
-    resolved = resolve_type_params(spec.origin_type, get_args(spec.type))[
-        spec.origin_type
-    ]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
-    }
+    annotations = resolve_typed_dict_annotations(spec.type)
     all_keys = list(annotations.keys())
-    required_keys = set(getattr(spec.type, "__required_keys__", all_keys))
-    optional_keys = set(getattr(spec.type, "__optional_keys__", []))
+    required_keys = set(
+        getattr(spec.origin_type, "__required_keys__", all_keys)
+    )
+    optional_keys = set(getattr(spec.origin_type, "__optional_keys__", []))
 
     # workaround for https://github.com/python/cpython/issues/97727
     for key, annotation in annotations.items():
@@ -1227,7 +1303,7 @@ def unpack_typed_dict(spec: ValueSpec) -> Expression:
 
 @register
 def unpack_collection(spec: ValueSpec) -> Expression | None:
-    if not issubclass(spec.origin_type, Collection):
+    if not issubclass(spec.origin_type, Collection):  # noqa: SIM114
         return None
     elif issubclass(spec.origin_type, enum.Enum):
         return None
@@ -1255,13 +1331,15 @@ def unpack_collection(spec: ValueSpec) -> Expression | None:
                 )
             )
 
-    if issubclass(spec.origin_type, typing.ByteString):  # type: ignore
-        if spec.origin_type is bytes:
-            spec.builder.ensure_object_imported(decodebytes)
-            return f"decodebytes({spec.expression}.encode())"
-        elif spec.origin_type is bytearray:
-            spec.builder.ensure_object_imported(decodebytes)
-            return f"bytearray(decodebytes({spec.expression}.encode()))"
+    if spec.origin_type is bytes:
+        spec.builder.ensure_object_imported(decodebytes)
+        return f"decodebytes({spec.expression}.encode())"
+    elif spec.origin_type is bytearray:
+        spec.builder.ensure_object_imported(decodebytes)
+        return f"bytearray(decodebytes({spec.expression}.encode()))"
+    elif spec.origin_type is memoryview:
+        spec.builder.ensure_object_imported(decodebytes)
+        return f"memoryview(decodebytes({spec.expression}.encode()))"
     elif issubclass(spec.origin_type, str):
         return TypeMatchEligibleExpression(f"str({spec.expression})")
     elif ensure_generic_collection_subclass(spec, list):
@@ -1316,6 +1394,13 @@ def unpack_collection(spec: ValueSpec) -> Expression | None:
             f'types.MappingProxyType({{{inner_expr(0, "key")}: {inner_expr(1)}'
             f" for key, value in {spec.expression}.items()}})"
         )
+    elif _FROZENDICT_TYPE is not None and ensure_generic_mapping(
+        spec, args, _FROZENDICT_TYPE
+    ):
+        return (
+            f'frozendict({{{inner_expr(0, "key")}: {inner_expr(1)} '
+            f"for key, value in {spec.expression}.items()}})"
+        )
     elif ensure_generic_mapping(spec, args, Mapping):
         return (
             f'{{{inner_expr(0, "key")}: {inner_expr(1)} '
@@ -1323,6 +1408,13 @@ def unpack_collection(spec: ValueSpec) -> Expression | None:
         )
     elif ensure_generic_collection_subclass(spec, Sequence):
         return f"[{inner_expr()} for value in {spec.expression}]"
+
+
+@register
+def unpack_buffer(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is Buffer:
+        spec.builder.ensure_object_imported(decodebytes)
+        return f"decodebytes({spec.expression}.encode())"
 
 
 @register

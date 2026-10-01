@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltR
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Insight
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios import ContainerCRUD, DataModelIO, ResourceIO, ViewIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible
@@ -39,14 +40,16 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
     def get_status(self) -> RuleSetStatus:
         if self.client is None:
-            message = "No client provided, will only validate dependencies between resources within the provided modules, but not validate against CDF."
+            return RuleSetStatus(
+                code="reduced",
+                message="No client provided, will only validate dependencies between resources within the provided modules, but not validate against CDF.",
+            )
         else:
-            message = "Will validate dependencies and state changes against CDF."
-        return RuleSetStatus(code="ready", message=message)
+            return RuleSetStatus(code="ready", message="Will validate dependencies and state changes against CDF.")
 
     def validate(self) -> Iterable[Insight | InternalValidatorException]:
         yield from self._validate_dependencies()
-        if self.client is not None:
+        if self.client is not None and not Flags.ALPHA_RULES.is_enabled():
             yield from self._validate_data_modeling_changes(self.client)
 
     def _validate_dependencies(self) -> Iterable[Insight | InternalValidatorException]:
@@ -65,7 +68,7 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
 
         if self.client:
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
-                crud = crud_cls(self.client, None, None)
+                crud = crud_cls(self.client)
                 resource_label = crud_cls.kind.lower()
                 try:
                     existing_in_cdf = {
@@ -115,9 +118,9 @@ class DependencyRuleSet(ToolkitGlobalRuleSet):
         during ``cdf build``.
         """
         cruds: tuple[ResourceIO[Any, Any, Any, Any], ...] = (
-            ContainerCRUD(client, None, None),
-            ViewIO(client, None, None),
-            DataModelIO(client, None, None),
+            ContainerCRUD(client),
+            ViewIO(client),
+            DataModelIO(client),
         )
         for crud in cruds:
             try:

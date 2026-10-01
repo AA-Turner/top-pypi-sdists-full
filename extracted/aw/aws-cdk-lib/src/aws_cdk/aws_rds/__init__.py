@@ -4709,6 +4709,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_18_4")
+    def VER_18_4(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "18.4".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_4"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
     def VER_9_6_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.11".

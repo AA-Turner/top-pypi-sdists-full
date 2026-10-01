@@ -384,12 +384,17 @@ class OCSPMode(Enum):
 
     OCSP mode descriptions:
         FAIL_CLOSED: If the client or driver does not receive a valid OCSP CA response for any reason,
-            the connection fails.
+            the connection fails. Selected by setting ocsp_fail_open=False when disable is not true.
         FAIL_OPEN: A response indicating a revoked certificate results in a failed connection. A response with any
             other certificate errors or statuses allows the connection to occur, but denotes the message in the logs
-            at the WARNING level with the relevant details in JSON format.
+            at the WARNING level with the relevant details in JSON format. Selected by setting ocsp_fail_open=True
+            when disable is not true. disable_ocsp_checks=True (or insecure_mode=True) always
+            turns OCSP off, including when ocsp_fail_open is set. ocsp_fail_open=None
+            (the stored default) and disable_ocsp_checks=False / insecure_mode=False
+            are not an opt-in.
         INSECURE (deprecated): The connection will occur anyway.
         DISABLE_OCSP_CHECKS: The OCSP check will not happen. If the certificate is valid then connection will occur.
+            This is the default unless the user opts into OCSP.
     """
 
     FAIL_CLOSED = "FAIL_CLOSED"
@@ -470,6 +475,7 @@ ENV_VAR_TEST_MODE = "SNOWFLAKE_TEST_MODE"
 ENV_VAR_DISABLE_PLATFORM_DETECTION = "SNOWFLAKE_DISABLE_PLATFORM_DETECTION"
 ENV_VAR_ENABLE_CUSTOM_REVOCATION_ERRORS = "SNOWFLAKE_ENABLE_CUSTOM_REVOCATION_ERRORS"
 ENV_VAR_MIN_TLS_VERSION = "SNOWFLAKE_MIN_TLS_VERSION"
+ENV_VAR_TLS_CIPHERS = "SNOWFLAKE_TLS_CIPHERS"
 
 # Boolean positive values (lowercased) for environment variable checks
 ENV_VAR_BOOL_POSITIVE_VALUES_LOWERCASED = ["true"]
@@ -523,6 +529,66 @@ def get_min_tls_version() -> ssl.TLSVersion:
     if not raw:
         return DEFAULT_MIN_TLS_VERSION
     return _parse_min_tls_version(raw)
+
+
+class TlsCipherPolicy(NamedTuple):
+    """Cipher names from ENV_VAR_TLS_CIPHERS, split by the protocol they apply to.
+
+    OpenSSL configures the two protocol generations through separate calls that do
+    not overlap: ``SSL_CTX_set_cipher_list`` governs TLS 1.2 and below, while TLS
+    1.3 suites are only reachable through ``SSL_CTX_set_ciphersuites``. Either side
+    may be empty, meaning "leave OpenSSL's defaults for that protocol alone".
+    """
+
+    tls12: str | None
+    """Colon-separated OpenSSL cipher list for TLS 1.2 and below."""
+    tls13: str | None
+    """Colon-separated TLS 1.3 suite names."""
+
+
+@lru_cache(maxsize=None)
+def _parse_tls_ciphers(raw: str) -> TlsCipherPolicy:
+    """Split a colon-separated cipher list into its TLS 1.2 and TLS 1.3 halves.
+
+    Routing is by name shape: every TLS 1.3 suite name begins with ``TLS_``
+    (``TLS_AES_256_GCM_SHA384``) and no OpenSSL cipher-list name does
+    (``ECDHE-RSA-AES256-GCM-SHA384``), so the two are unambiguous.
+
+    Names are passed to OpenSSL as given -- it owns the vocabulary and rejects
+    anything it does not recognize, so an IANA-style spelling of a TLS 1.2 cipher
+    fails loudly rather than being silently dropped.
+
+    Raises:
+        ValueError: if the value contains no cipher names at all.
+
+    Cached per distinct input string so that repeated handshakes don't re-parse.
+    """
+    names = [name.strip() for name in raw.split(":") if name.strip()]
+    if not names:
+        raise ValueError(
+            f"Invalid {ENV_VAR_TLS_CIPHERS} value {raw!r}: no cipher names found. "
+            f"Expected a colon-separated list, e.g. "
+            f"'TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256'."
+        )
+
+    tls13 = [name for name in names if name.startswith("TLS_")]
+    tls12 = [name for name in names if not name.startswith("TLS_")]
+    return TlsCipherPolicy(
+        tls12=":".join(tls12) if tls12 else None,
+        tls13=":".join(tls13) if tls13 else None,
+    )
+
+
+def get_tls_ciphers() -> TlsCipherPolicy | None:
+    """Return the process-wide cipher policy, or ``None`` when unconfigured.
+
+    Read from ENV_VAR_TLS_CIPHERS on every call, so the value is not frozen at
+    import time. ``None`` means OpenSSL's defaults apply unchanged.
+    """
+    raw = os.environ.get(ENV_VAR_TLS_CIPHERS, "").strip()
+    if not raw:
+        return None
+    return _parse_tls_ciphers(raw)
 
 
 _DOMAIN_NAME_MAP = {_DEFAULT_HOSTNAME_TLD: "GLOBAL", _CHINA_HOSTNAME_TLD: "CHINA"}

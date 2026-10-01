@@ -444,6 +444,124 @@ class Assets(WMLResource):
                 Messages.get_message(message_id="cannot_create_empty_asset")
             )
 
+    def _upload_attachment(
+        self,
+        asset_id: str,
+        name: str,
+        file_path: Path,
+        connection_id: str | None = None,
+    ) -> None:
+
+        mime_type = self._get_mime_type(file_path)
+
+        attachment_meta = self._build_attachment_metadata(
+            file_path, mime_type, connection_id
+        )
+
+        # Create attachment
+        attachment_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_attachments_href(asset_id),
+            headers=self._client._get_headers(),
+            params=self._client._params(),
+            json=attachment_meta,
+        )
+
+        attachment_details = self._handle_response(
+            201, "creating new attachment", attachment_response
+        )
+        if connection_id is not None:
+            return
+
+        attachment_id = attachment_details["attachment_id"]
+        attachment_url = attachment_details["url1"]
+
+        self._validate_file_not_empty(file_path)
+
+        # Put content to attachment
+        with file_path.open("rb") as _file:
+            if not self._client.ICP_PLATFORM_SPACES:
+                put_response = self._client.httpx_client.put(
+                    url=attachment_url, content=_file
+                )
+            else:
+                put_response = self._client.httpx_client.put(
+                    url=self._credentials.url + attachment_url,
+                    files={"file": (name, _file, "file")},
+                )
+
+        if put_response.status_code not in {200, 201}:
+            self._handle_response(200, "upload attachment", put_response)
+
+        # Complete attachment
+        complete_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_attachment_complete_href(
+                asset_id, attachment_id
+            ),
+            headers=self._client._get_headers(),
+            params=self._client._params(),
+        )
+
+        self._handle_response(200, "complete attachment", complete_response)
+
+    async def _aupload_attachment(
+        self,
+        asset_id: str,
+        name: str,
+        file_path: Path,
+        connection_id: str | None = None,
+    ) -> None:
+
+        mime_type = self._get_mime_type(file_path)
+
+        attachment_meta = self._build_attachment_metadata(
+            file_path, mime_type, connection_id
+        )
+
+        # Create attachment
+        attachment_response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_attachments_href(asset_id),
+            headers=await self._client._aget_headers(),
+            params=self._client._params(),
+            json=attachment_meta,
+        )
+
+        attachment_details = self._handle_response(
+            201, "creating new attachment", attachment_response
+        )
+        if connection_id is not None:
+            return
+
+        attachment_id = attachment_details["attachment_id"]
+        attachment_url = attachment_details["url1"]
+
+        self._validate_file_not_empty(file_path)
+
+        # Put content to attachment
+        if not self._client.ICP_PLATFORM_SPACES:
+            put_response = await self._client.async_httpx_client.put(
+                url=attachment_url, content=AsyncFileReader(file_path)
+            )
+        else:
+            with file_path.open("rb") as _file:
+                put_response = await self._client.async_httpx_client.put(
+                    url=self._credentials.url + attachment_url,
+                    files={"file": (name, _file, "file")},
+                )
+
+        if put_response.status_code not in {200, 201}:
+            self._handle_response(200, "upload attachment", put_response)
+
+        # Complete attachment
+        complete_response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_attachment_complete_href(
+                asset_id, attachment_id
+            ),
+            headers=await self._client._aget_headers(),
+            params=self._client._params(),
+        )
+
+        self._handle_response(200, "complete attachment", complete_response)
+
     def _create_asset(
         self,
         name: str,
@@ -460,7 +578,7 @@ class Assets(WMLResource):
 
         params = self._prepare_params_with_duplicate_action(duplicate_action)
 
-        # Step1  : Create an asset
+        # Create an asset
         print(Messages.get_message(message_id="creating_data_asset"))
 
         creation_response = self._client.httpx_client.post(
@@ -473,103 +591,29 @@ class Assets(WMLResource):
         asset_details = self._handle_response(
             201, "creating new asset", creation_response
         )
-        # Step2: Create attachment
+        # Create attachment
 
         asset_id = asset_details["metadata"]["asset_id"]
-        attachment_meta = self._build_attachment_metadata(
-            file_path, mime_type, connection_id
-        )
-
-        attachment_response = self._client.httpx_client.post(
-            url=self._client._href_definitions.get_attachments_href(asset_id),
-            headers=self._client._get_headers(),
-            params=self._client._params(),
-            json=attachment_meta,
-        )
 
         try:
-            attachment_details = self._handle_response(
-                201, "creating new attachment", attachment_response
-            )
-            if connection_id is None:
-                attachment_id = attachment_details["attachment_id"]
-                attachment_url = attachment_details["url1"]
-                # Step3: Put content to attachment
-                try:
-                    with file_path.open("rb") as _file:
-                        if not self._client.ICP_PLATFORM_SPACES:
-                            put_response = self._client.httpx_client.put(
-                                url=attachment_url, content=_file
-                            )
-                        else:
-                            put_response = self._client.httpx_client.put(
-                                url=self._credentials.url + attachment_url,
-                                files={"file": (name, _file, "file")},
-                            )
-                except Exception as e:
-                    deletion_response = self._client.httpx_client.delete(
-                        url=self._client._href_definitions.get_data_asset_href(
-                            asset_id
-                        ),
-                        params=self._client._params(),
-                        headers=self._client._get_headers(),
-                    )
-                    print(deletion_response.status_code)
-                    raise WMLClientError(
-                        Messages.get_message(
-                            message_id="failed_while_creating_a_data_asset"
-                        ),
-                        str(e),
-                    )
-
-                if put_response.status_code in {200, 201}:
-                    # Step4: Complete attachment
-
-                    complete_response = self._client.httpx_client.post(
-                        url=self._client._href_definitions.get_attachment_complete_href(
-                            asset_id, attachment_id
-                        ),
-                        headers=self._client._get_headers(),
-                        params=self._client._params(),
-                    )
-
-                    if complete_response.status_code == 200:
-                        print(Messages.get_message(message_id="success"))
-                        return self._get_required_element_from_response(asset_details)
-                    else:
-                        try:
-                            self.delete(asset_id)
-                        except Exception:
-                            pass
-
-                        self._validate_file_not_empty(file_path)
-
-                        raise WMLClientError(
-                            Messages.get_message(
-                                message_id="failed_while_creating_a_data_asset"
-                            )
-                        )
-                else:
-                    try:
-                        self.delete(asset_id)
-                    except Exception:
-                        pass
-                    raise WMLClientError(
-                        Messages.get_message(
-                            message_id="failed_while_creating_a_data_asset"
-                        )
-                    )
-            else:
-                print(Messages.get_message(message_id="success"))
-                return self._get_required_element_from_response(asset_details)
-        except ApiRequestFailure:
+            self._upload_attachment(asset_id, name, file_path, connection_id)
+        except Exception as e:
             try:
                 self.delete(asset_id)
             except Exception:
                 pass
-            raise WMLClientError(
-                Messages.get_message(message_id="failed_while_creating_a_data_asset")
-            )
+
+            if isinstance(e, ApiRequestFailure) or not isinstance(e, WMLClientError):
+                raise WMLClientError(
+                    Messages.get_message(
+                        message_id="failed_while_creating_a_data_asset"
+                    )
+                ) from e
+            else:
+                raise e
+
+        print(Messages.get_message(message_id="success"))
+        return self._get_required_element_from_response(asset_details)
 
     async def _acreate_asset(
         self,
@@ -587,7 +631,7 @@ class Assets(WMLResource):
 
         params = self._prepare_params_with_duplicate_action(duplicate_action)
 
-        # Step1  : Create an asset
+        # Create an asset
         print(Messages.get_message(message_id="creating_data_asset"))
 
         creation_response = await self._client.async_httpx_client.post(
@@ -600,102 +644,29 @@ class Assets(WMLResource):
         asset_details = self._handle_response(
             201, "creating new asset", creation_response
         )
-        # Step2: Create attachment
-        asset_id = asset_details["metadata"]["asset_id"]
-        attachment_meta = self._build_attachment_metadata(
-            file_path, mime_type, connection_id
-        )
+        # Create attachment
 
-        attachment_response = await self._client.async_httpx_client.post(
-            url=self._client._href_definitions.get_attachments_href(asset_id),
-            headers=await self._client._aget_headers(),
-            params=self._client._params(),
-            json=attachment_meta,
-        )
+        asset_id = asset_details["metadata"]["asset_id"]
 
         try:
-            attachment_details = self._handle_response(
-                201, "creating new attachment", attachment_response
-            )
-            if connection_id is None:
-                attachment_id = attachment_details["attachment_id"]
-                attachment_url = attachment_details["url1"]
-                # Step3: Put content to attachment
-                try:
-                    if not self._client.ICP_PLATFORM_SPACES:
-                        put_response = await self._client.async_httpx_client.put(
-                            url=attachment_url, content=AsyncFileReader(file_path)
-                        )
-                    else:
-                        with file_path.open("rb") as _file:
-                            put_response = await self._client.async_httpx_client.put(
-                                url=self._credentials.url + attachment_url,
-                                files={"file": (name, _file, "file")},
-                            )
-                except Exception as e:
-                    deletion_response = await self._client.async_httpx_client.delete(
-                        url=self._client._href_definitions.get_data_asset_href(
-                            asset_id
-                        ),
-                        params=self._client._params(),
-                        headers=await self._client._aget_headers(),
-                    )
-                    print(deletion_response.status_code)
-                    raise WMLClientError(
-                        Messages.get_message(
-                            message_id="failed_while_creating_a_data_asset"
-                        ),
-                        str(e),
-                    )
-
-                if put_response.status_code in {200, 201}:
-                    # Step4: Complete attachment
-
-                    complete_response = await self._client.async_httpx_client.post(
-                        url=self._client._href_definitions.get_attachment_complete_href(
-                            asset_id, attachment_id
-                        ),
-                        headers=await self._client._aget_headers(),
-                        params=self._client._params(),
-                    )
-
-                    if complete_response.status_code == 200:
-                        print(Messages.get_message(message_id="success"))
-                        return self._get_required_element_from_response(asset_details)
-                    else:
-                        try:
-                            await self.adelete(asset_id)
-                        except Exception:
-                            pass
-
-                        self._validate_file_not_empty(file_path)
-
-                        raise WMLClientError(
-                            Messages.get_message(
-                                message_id="failed_while_creating_a_data_asset"
-                            )
-                        )
-                else:
-                    try:
-                        await self.adelete(asset_id)
-                    except Exception:
-                        pass
-                    raise WMLClientError(
-                        Messages.get_message(
-                            message_id="failed_while_creating_a_data_asset"
-                        )
-                    )
-            else:
-                print(Messages.get_message(message_id="success"))
-                return self._get_required_element_from_response(asset_details)
-        except ApiRequestFailure:
+            await self._aupload_attachment(asset_id, name, file_path, connection_id)
+        except Exception as e:
             try:
                 await self.adelete(asset_id)
             except Exception:
                 pass
-            raise WMLClientError(
-                Messages.get_message(message_id="failed_while_creating_a_data_asset")
-            )
+
+            if isinstance(e, ApiRequestFailure) or not isinstance(e, WMLClientError):
+                raise WMLClientError(
+                    Messages.get_message(
+                        message_id="failed_while_creating_a_data_asset"
+                    )
+                ) from e
+            else:
+                raise e
+
+        print(Messages.get_message(message_id="success"))
+        return self._get_required_element_from_response(asset_details)
 
     def list(self, limit: int | None = None) -> DataFrame:
         """Lists stored data assets in a table format.
@@ -751,8 +722,8 @@ class Assets(WMLResource):
             )
         elif filename and index_of_attachment > 0:
             final_filename = self._prepare_file_path(filename)
-            final_filename = "{}_{}.{}".format(
-                final_filename.stem, index_of_attachment, final_filename.suffix
+            final_filename = (
+                f"{final_filename.stem}_{index_of_attachment}{final_filename.suffix}"
             )
 
         resolved = final_filename if final_filename else attachment_name
@@ -814,7 +785,7 @@ class Assets(WMLResource):
             final_filename = self._determine_final_downloaded_attachment_name(
                 filename, attachment_name, index
             )
-            final_filenames += self._write_content_to_file(content, final_filename)
+            final_filenames.append(self._write_content_to_file(content, final_filename))
 
         return final_filenames
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyxcp
-Version: 0.29.18
+Version: 0.29.19
 Summary: Universal Calibration Protocol for Python
 Keywords: automotive,ecu,xcp,asam,autosar
 Author-Email: Christoph Schueler <cpu.gems@googlemail.com>
@@ -22,7 +22,7 @@ Requires-Dist: construct<3,>=2.10.68
 Requires-Dist: pyserial<4,>=3.5
 Requires-Dist: pyusb<2,>=1.2
 Requires-Dist: python-can<5,>=4.2
-Requires-Dist: rich<15,>=13.0
+Requires-Dist: rich<16,>=13.0
 Requires-Dist: chardet>=7.0.0
 Requires-Dist: traitlets<6,>=5.9
 Requires-Dist: toml<1,>=0.10

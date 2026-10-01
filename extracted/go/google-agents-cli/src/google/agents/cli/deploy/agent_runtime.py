@@ -21,7 +21,6 @@ with runtime checks via ProjectConfig.
 from __future__ import annotations
 
 import datetime
-import json
 import logging
 import os
 import re
@@ -58,7 +57,12 @@ from google.agents.cli._project import (
 from google.agents.cli._remote import build_agent_runtime_passthrough_url
 from google.agents.cli.deploy._operation import (
     METADATA_FILE,
+    METADATA_LOCK_FILE,
+    OperationClaim,
+    claim_operation,
     clear_operation,
+    complete_operation,
+    is_starting_claim_stale,
     read_operation,
     read_remote_agent_runtime_id,
     write_operation,
@@ -261,8 +265,9 @@ def build_agent_engine_logs_url(operation_name: str, project: str) -> str:
 def write_deployment_metadata(
     remote_agent: AgentEngine,
     cfg: ProjectConfig,
+    owner_id: str | None = None,
 ) -> None:
-    """Write deployment metadata to file."""
+    """Write deployment metadata to file, merging siblings and clearing owned claim."""
     api_resource = remote_agent.api_resource
     assert api_resource is not None, "deployed agent has no api_resource"
     metadata = {
@@ -274,9 +279,7 @@ def write_deployment_metadata(
         "deployment_timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(),
     }
 
-    with open(METADATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
-
+    complete_operation(metadata_update=metadata, owner_id=owner_id)
     logging.info(f"Agent Runtime ID written to {METADATA_FILE}")
 
 
@@ -476,7 +479,7 @@ def _missing_dockerfile_error(cfg: ProjectConfig) -> str:
 
 
 # Always ignored, mirroring gcloud's generated .gcloudignore defaults.
-_DEFAULT_IGNORE_LINES = (".git", ".gcloudignore", ".gitignore")
+_DEFAULT_IGNORE_LINES = (".git", ".gcloudignore", ".gitignore", METADATA_LOCK_FILE)
 _INCLUDE_DIRECTIVE = "#!include:"
 
 
@@ -742,173 +745,7 @@ def deploy_agent_runtime(
         language=cfg.language,
     )
 
-    # Initialize agentplatform client
-    client = AgentPlatformClient(
-        project=project,
-        location=location,
-        api_version="v1beta1" if (agent_identity is not None) else None,
-    )
-    agentplatform.init(project=project, location=location)
-
-    matching_agents = _resolve_target_agent(client, display_name)
-
-    # Pre-existence flag must be computed before setup_agent_identity: that call
-    # creates a bare identity agent (no deployment spec), but it's still a
-    # first-time spec deploy so the conservative defaults must apply.
-    is_update = bool(matching_agents)
-
-    # An engine whose configuration is owned elsewhere (Terraform, a platform
-    # template) is unusable when this deploy creates it instead: it comes up
-    # without the env vars its owner would have set. Refuse rather than create.
-    if update_only and not is_update:
-        raise click.ClickException(
-            f"No Agent Runtime engine named '{display_name}' exists in "
-            f"{project}/{location}, and --update-only forbids creating one.\n"
-            "  Create it first (for example with `agents-cli infra single-project "
-            "--apply`), or drop --update-only to let this deploy create it."
-        )
-
-    # Setup agent identity on first deployment
-    if agent_identity and not matching_agents:
-        matching_agents = [setup_agent_identity(client, project, display_name)]
-    if not is_update:
-        # Create: no existing spec to preserve; apply the conservative shape.
-        min_instances = DEFAULT_MIN_INSTANCES if min_instances is None else min_instances
-        max_instances = DEFAULT_MAX_INSTANCES if max_instances is None else max_instances
-        cpu = DEFAULT_CPU if cpu is None else cpu
-        memory = DEFAULT_MEMORY if memory is None else memory
-        container_concurrency = (
-            DEFAULT_CONCURRENCY
-            if container_concurrency is None
-            else container_concurrency
-        )
-
-    # Set it to true if an agent without Agent Identity is being re-deployed
-    # with Agent Identity.
-    migrates_to_agent_identity = False
-
-    if matching_agents:
-        matching_api_resource = matching_agents[0].api_resource
-        assert matching_api_resource is not None, "listed agent has no api_resource"
-        resource_name = matching_api_resource.name
-        # list() may return a summary without deployment_spec; get() guarantees
-        # the full env/resource_limits are populated.
-        existing = client.agent_engines.get(name=resource_name)
-        existing_spec = existing.api_resource.spec
-        migrates_to_agent_identity = (
-            agent_identity
-            and is_update
-            and not _is_agent_identity_principal(
-                existing_spec.effective_identity if existing_spec else None
-            )
-        )
-        # Preserve env vars set outside this deploy; CLI/user values still win.
-        for key, value in _existing_plain_env_vars(existing).items():
-            env_vars.setdefault(key, value)
-        # A bare `labels` mask replaces the whole map, so merge with the live
-        # labels to stay additive; user-supplied values win on key conflict.
-        if labels is not None:
-            labels = {**_existing_labels(existing), **labels}
-        # Point the A2A agent card at the real Agent Engine HTTP passthrough
-        # instead of localhost; needs the existing engine's resource name, so a
-        # first-time create picks it up on the next deploy.
-        env_vars.setdefault(
-            "APP_URL",
-            f"https://{location}-aiplatform.googleapis.com/reasoningEngines/v1/"
-            f"{resource_name}/api",
-        )
-        # When only one of cpu/memory is set, fill the other half from the live
-        # spec so config_kwargs["resource_limits"] gets a complete pair. When both
-        # are None a plain redeploy must omit resource_limits to preserve the live
-        # value — only fill when exactly one side was explicitly supplied.
-        if (cpu is None) ^ (memory is None):
-            dep = existing_spec.deployment_spec if existing_spec else None
-            limits = (dep.resource_limits if dep else None) or {}
-            existing_cpu = limits.get("cpu")
-            existing_memory = limits.get("memory")
-            cpu = cpu if cpu is not None else existing_cpu
-            memory = memory if memory is not None else existing_memory
-            if cpu is None or memory is None:
-                logging.warning(
-                    "Could not resolve the existing %s to pair with the supplied value; "
-                    "resource_limits left unchanged for this update.",
-                    "memory" if memory is None else "cpu",
-                )
-
-    click.echo("\n🤖 Deploying agent to Agent Runtime...\n")
-
-    # Log deployment parameters
-    click.echo("\n📋 Deployment Parameters:")
-
-    def _shown(v: Any) -> Any:
-        return v if v is not None else "(unchanged)"
-
-    params = [
-        ("Project", project),
-        ("Location", location),
-        ("Display Name", display_name),
-        ("Min Instances", _shown(min_instances)),
-        ("Max Instances", _shown(max_instances)),
-        ("CPU", _shown(cpu)),
-        ("Memory", _shown(memory)),
-        ("Container Concurrency", _shown(container_concurrency)),
-    ]
-    if service_account:
-        params.append(("Service Account", service_account))
-    if agent_identity is not None:
-        params.append(("Agent Identity", "Enabled" if agent_identity else "Disabled"))
-    if psc_interface_config:
-        params.append(
-            ("Network Attachment", psc_interface_config.get("network_attachment", "—"))
-        )
-        for i, dc in enumerate(psc_interface_config.get("dns_peering_configs", [])):
-            params.append(
-                (
-                    f"DNS Peering [{i}]",
-                    f"{dc.get('domain', '')} → {dc.get('target_project', '')}/{dc.get('target_network', '')}",
-                )
-            )
-    if agent_gateway_config:
-        if agent_gateway_egress is not None:
-            egress_cfg = agent_gateway_config.agent_to_anywhere_config
-            new_val = egress_cfg.agent_gateway if egress_cfg else "(cleared)"
-            params.append(("Agent Gateway (egress)", new_val))
-        if agent_gateway_ingress is not None:
-            ingress_cfg = agent_gateway_config.client_to_agent_config
-            new_val = ingress_cfg.agent_gateway if ingress_cfg else "(cleared)"
-            params.append(("Agent Gateway (ingress)", new_val))
-    if port:
-        params.append(("Port", port))
-    if build_args:
-        params.append(("Build Args", build_args))
-    for name, value in params:
-        click.echo(f"  {name}: {value}")
-
-    if env_vars:
-        click.echo("\n🌍 Environment Variables:")
-        for key, value in sorted(env_vars.items()):
-            click.echo(f"  {key}: {format_env_value(value)}")
-
-    source_packages_list = list(source_packages)
-
-    config_kwargs: dict[str, Any] = {
-        "display_name": display_name,
-        "source_packages": source_packages_list,
-        "env_vars": env_vars,
-        "service_account": service_account,
-        "identity_type": _resolve_identity_type(agent_identity, is_update),
-        "description": description,
-        "labels": labels if labels else None,
-        "min_instances": min_instances,
-        "max_instances": max_instances,
-        "container_concurrency": container_concurrency,
-        "resource_limits": {"cpu": cpu, "memory": memory}
-        if (cpu is not None and memory is not None)
-        else None,
-    }
-
-    # Agent Engine builds and serves the container over HTTP, so no entrypoint
-    # module or class-method spec is needed — just the image build config.
+    # Parse build args early during local preparation
     image_spec_dict: dict[str, Any] = {}
     try:
         build_args_dict = parse_key_value_pairs(build_args)
@@ -921,97 +758,312 @@ def deploy_agent_runtime(
         build_args_dict.setdefault("PORT", str(port))
     if build_args_dict:
         image_spec_dict["build_args"] = build_args_dict
-    config_kwargs["image_spec"] = image_spec_dict
 
-    # The Console reads agent_framework to decide which playground to render.
-    config_kwargs["agent_framework"] = framework
-    if framework == DEFAULT_FRAMEWORK:
-        # An `agent_engines.get()` client turns these into Python methods, so
-        # only declare them for the container that serves the ADK contract.
-        class_methods_builder = dispatch_language(
-            "deploy", CLASS_METHODS_BUILDERS, cfg.language
-        )
-        config_kwargs["class_methods"] = class_methods_builder()
-
-    if psc_interface_config is not None:
-        config_kwargs["psc_interface_config"] = psc_interface_config
-
-    if agent_gateway_config is not None:
-        config_kwargs["agent_gateway_config"] = agent_gateway_config
-
-    config = AgentEngineConfig(**config_kwargs)
-
-    # Deploy (create or update)
-    action = "Updating" if matching_agents else "Creating"
-
-    wait_note = "not waiting for completion" if no_wait else "this can take a few minutes"
-    click.echo(f"\n🚀 {action} agent: {display_name} ({wait_note})...")
-
-    operation = _start_and_record_operation(
-        client=client,
-        config=config,
-        matching_agents=matching_agents,
+    # Initialize agentplatform client
+    client = AgentPlatformClient(
         project=project,
         location=location,
-        agent_gateway_egress=agent_gateway_egress,
-        agent_gateway_ingress=agent_gateway_ingress,
+        api_version="v1beta1" if (agent_identity is not None) else None,
     )
-    logs_url = build_agent_engine_logs_url(operation.name, project)
+    agentplatform.init(project=project, location=location)
 
-    click.echo(f"   Operation: {operation.name}\n   Monitor deploy logs: {logs_url}")
-    if no_wait:
-        click.echo("   Check status with: agents-cli deploy --status")
-        return None
-    click.echo(
-        "   If this command is interrupted, run 'agents-cli deploy --status' to check progress."
+    # Atomically claim ownership before target revalidation and mutation
+    claim = claim_operation(
+        project=project,
+        location=location,
+        deployment_target="agent_runtime",
     )
 
-    # Block until the operation completes
-    _agent_engines_utils._await_operation(
-        operation_name=operation.name,
-        get_operation_fn=client.agent_engines._get_agent_operation,
-    )
+    with claim:
+        matching_agents = _resolve_target_agent(client, display_name)
 
-    # Build AgentEngine from completed operation
-    completed_op = client.agent_engines._get_agent_operation(
-        operation_name=operation.name,
-    )
-    if completed_op.error:
-        clear_operation()
-        raise click.ClickException(f"Deployment failed: {completed_op.error}")
+        # Pre-existence flag must be computed before setup_agent_identity: that call
+        # creates a bare identity agent (no deployment spec), but it's still a
+        # first-time spec deploy so the conservative defaults must apply.
+        is_update = bool(matching_agents)
 
-    # Retrieve the newly created/updated agent engine using the public client.agent_engines.get()
-    # to ensure all fields (including the api_resource name) are fully loaded and populated.
-    resource_name = _get_resource_name_from_operation(operation.name)
-    remote_agent = client.agent_engines.get(name=resource_name)
+        # An engine whose configuration is owned elsewhere (Terraform, a platform
+        # template) is unusable when this deploy creates it instead: it comes up
+        # without the env vars its owner would have set. Refuse rather than create.
+        if update_only and not is_update:
+            raise click.ClickException(
+                f"No Agent Runtime engine named '{display_name}' exists in "
+                f"{project}/{location}, and --update-only forbids creating one.\n"
+                "  Create it first (for example with `agents-cli infra single-project "
+                "--apply`), or drop --update-only to let this deploy create it."
+            )
 
-    if migrates_to_agent_identity:
-        grant_agent_identity_roles(project, remote_agent)
+        if not is_update:
+            # Create: no existing spec to preserve; apply the conservative shape.
+            min_instances = (
+                DEFAULT_MIN_INSTANCES if min_instances is None else min_instances
+            )
+            max_instances = (
+                DEFAULT_MAX_INSTANCES if max_instances is None else max_instances
+            )
+            cpu = DEFAULT_CPU if cpu is None else cpu
+            memory = DEFAULT_MEMORY if memory is None else memory
+            container_concurrency = (
+                DEFAULT_CONCURRENCY
+                if container_concurrency is None
+                else container_concurrency
+            )
 
-    # Clear secrets if explicitly set to empty
-    if (
-        set_secrets is not None
-        and not secrets
-        and matching_agents
-        and remote_agent.api_resource
-    ):
-        clear_op = client.agent_engines._update(
-            name=remote_agent.api_resource.name,
-            config={
-                "spec": {"deployment_spec": {"secret_env": []}},
-                "update_mask": "spec.deployment_spec.secret_env",
-            },
+        # Set it to true if an agent without Agent Identity is being re-deployed
+        # with Agent Identity.
+        migrates_to_agent_identity = False
+
+        if matching_agents:
+            matching_api_resource = matching_agents[0].api_resource
+            assert matching_api_resource is not None, "listed agent has no api_resource"
+            resource_name = matching_api_resource.name
+            # list() may return a summary without deployment_spec; get() guarantees
+            # the full env/resource_limits are populated.
+            existing = client.agent_engines.get(name=resource_name)
+            existing_spec = existing.api_resource.spec
+            migrates_to_agent_identity = (
+                agent_identity
+                and is_update
+                and not _is_agent_identity_principal(
+                    existing_spec.effective_identity if existing_spec else None
+                )
+            )
+            # Preserve env vars set outside this deploy; CLI/user values still win.
+            for key, value in _existing_plain_env_vars(existing).items():
+                env_vars.setdefault(key, value)
+            # A bare `labels` mask replaces the whole map, so merge with the live
+            # labels to stay additive; user-supplied values win on key conflict.
+            if labels is not None:
+                labels = {**_existing_labels(existing), **labels}
+            # Point the A2A agent card at the real Agent Engine HTTP passthrough
+            # instead of localhost; needs the existing engine's resource name, so a
+            # first-time create picks it up on the next deploy.
+            env_vars.setdefault(
+                "APP_URL",
+                f"https://{location}-aiplatform.googleapis.com/reasoningEngines/v1/"
+                f"{resource_name}/api",
+            )
+            # When only one of cpu/memory is set, fill the other half from the live
+            # spec so config_kwargs["resource_limits"] gets a complete pair. When both
+            # are None a plain redeploy must omit resource_limits to preserve the live
+            # value — only fill when exactly one side was explicitly supplied.
+            if (cpu is None) ^ (memory is None):
+                dep = existing_spec.deployment_spec if existing_spec else None
+                limits = (dep.resource_limits if dep else None) or {}
+                existing_cpu = limits.get("cpu")
+                existing_memory = limits.get("memory")
+                cpu = cpu if cpu is not None else existing_cpu
+                memory = memory if memory is not None else existing_memory
+                if cpu is None or memory is None:
+                    logging.warning(
+                        "Could not resolve the existing %s to pair with the supplied value; "
+                        "resource_limits left unchanged for this update.",
+                        "memory" if memory is None else "cpu",
+                    )
+
+        source_packages_list = list(source_packages)
+        config_kwargs: dict[str, Any] = {
+            "display_name": display_name,
+            "source_packages": source_packages_list,
+            "env_vars": env_vars,
+            "service_account": service_account,
+            "identity_type": _resolve_identity_type(agent_identity, is_update),
+            "description": description,
+            "labels": labels if labels else None,
+            "min_instances": min_instances,
+            "max_instances": max_instances,
+            "container_concurrency": container_concurrency,
+            "resource_limits": {"cpu": cpu, "memory": memory}
+            if (cpu is not None and memory is not None)
+            else None,
+            # Agent Engine builds and serves the container over HTTP, so no entrypoint
+            # module or class-method spec is needed — just the image build config.
+            "image_spec": image_spec_dict,
+            # The Console uses agent_framework to decide which playground to render.
+            # It also selects which runtime contract the deployment declares.
+            "agent_framework": framework,
+        }
+
+        if framework == DEFAULT_FRAMEWORK:
+            class_methods_builder = dispatch_language(
+                "deploy", CLASS_METHODS_BUILDERS, cfg.language
+            )
+            config_kwargs["class_methods"] = class_methods_builder()
+
+        if psc_interface_config is not None:
+            config_kwargs["psc_interface_config"] = psc_interface_config
+
+        if agent_gateway_config is not None:
+            config_kwargs["agent_gateway_config"] = agent_gateway_config
+
+        config = AgentEngineConfig(**config_kwargs)
+
+        # Validate local SDK request-config construction prior to any remote mutation
+        action_mode = "update" if (matching_agents or agent_identity) else "create"
+        api_config = _create_api_config(
+            client=client,
+            config=config,
+            action=action_mode,
+            agent_gateway_egress=agent_gateway_egress,
+            agent_gateway_ingress=agent_gateway_ingress,
         )
+
+        click.echo("\n🤖 Deploying agent to Agent Runtime...\n")
+
+        # Log deployment parameters
+        click.echo("\n📋 Deployment Parameters:")
+
+        def _shown(v: Any) -> Any:
+            return v if v is not None else "(unchanged)"
+
+        params = [
+            ("Project", project),
+            ("Location", location),
+            ("Display Name", display_name),
+            ("Min Instances", _shown(min_instances)),
+            ("Max Instances", _shown(max_instances)),
+            ("CPU", _shown(cpu)),
+            ("Memory", _shown(memory)),
+            ("Container Concurrency", _shown(container_concurrency)),
+        ]
+        if service_account:
+            params.append(("Service Account", service_account))
+        if agent_identity is not None:
+            params.append(("Agent Identity", "Enabled" if agent_identity else "Disabled"))
+        if psc_interface_config:
+            params.append(
+                (
+                    "Network Attachment",
+                    psc_interface_config.get("network_attachment", "—"),
+                )
+            )
+            for i, dc in enumerate(psc_interface_config.get("dns_peering_configs", [])):
+                params.append(
+                    (
+                        f"DNS Peering [{i}]",
+                        f"{dc.get('domain', '')} → {dc.get('target_project', '')}/{dc.get('target_network', '')}",
+                    )
+                )
+        if agent_gateway_config:
+            if agent_gateway_egress is not None:
+                egress_cfg = agent_gateway_config.agent_to_anywhere_config
+                new_val = egress_cfg.agent_gateway if egress_cfg else "(cleared)"
+                params.append(("Agent Gateway (egress)", new_val))
+            if agent_gateway_ingress is not None:
+                ingress_cfg = agent_gateway_config.client_to_agent_config
+                new_val = ingress_cfg.agent_gateway if ingress_cfg else "(cleared)"
+                params.append(("Agent Gateway (ingress)", new_val))
+        if port:
+            params.append(("Port", port))
+        if build_args:
+            params.append(("Build Args", build_args))
+        for name, value in params:
+            click.echo(f"  {name}: {value}")
+
+        if env_vars:
+            click.echo("\n🌍 Environment Variables:")
+            for key, value in sorted(env_vars.items()):
+                click.echo(f"  {key}: {format_env_value(value)}")
+
+        # Setup agent identity on first deployment (remote identity creation pre-step)
+        if agent_identity and not matching_agents:
+            claim.mark_mutation_started()
+            matching_agents = [setup_agent_identity(client, project, display_name)]
+            api_resource = matching_agents[0].api_resource
+            assert api_resource is not None, "identity agent has no api_resource"
+            resource_name = api_resource.name
+            app_url = (
+                f"https://{location}-aiplatform.googleapis.com/reasoningEngines/v1/"
+                f"{resource_name}/api"
+            )
+            env_vars["APP_URL"] = app_url
+            config_kwargs["env_vars"] = env_vars
+            config = AgentEngineConfig(**config_kwargs)
+            api_config = _create_api_config(
+                client=client,
+                config=config,
+                action="update",
+                agent_gateway_egress=agent_gateway_egress,
+                agent_gateway_ingress=agent_gateway_ingress,
+            )
+
+        # Remote submit mutation
+        action = "Updating" if matching_agents else "Creating"
+        wait_note = (
+            "not waiting for completion" if no_wait else "this can take a few minutes"
+        )
+        click.echo(f"\n🚀 {action} agent: {display_name} ({wait_note})...")
+
+        claim.mark_mutation_started()
+        operation = _start_and_record_operation(
+            client=client,
+            matching_agents=matching_agents,
+            project=project,
+            location=location,
+            api_config=api_config,
+            config=config,
+            agent_gateway_egress=agent_gateway_egress,
+            agent_gateway_ingress=agent_gateway_ingress,
+            claim=claim,
+        )
+        logs_url = build_agent_engine_logs_url(operation.name, project)
+
+        click.echo(f"   Operation: {operation.name}\n   Monitor deploy logs: {logs_url}")
+        if no_wait:
+            click.echo("   Check status with: agents-cli deploy --status")
+            claim.completed = True
+            return None
+        click.echo(
+            "   If this command is interrupted, run 'agents-cli deploy --status' to check progress."
+        )
+
+        # Block until the operation completes
         _agent_engines_utils._await_operation(
-            operation_name=clear_op.name,
+            operation_name=operation.name,
             get_operation_fn=client.agent_engines._get_agent_operation,
         )
 
-    write_deployment_metadata(remote_agent, cfg)
-    print_deployment_success(remote_agent, location, project, cfg)
-    clear_operation()
+        # Build AgentEngine from completed operation
+        completed_op = client.agent_engines._get_agent_operation(
+            operation_name=operation.name,
+        )
+        if completed_op.error:
+            claim.completed = True
+            clear_operation(owner_id=claim.owner_id)
+            raise click.ClickException(f"Deployment failed: {completed_op.error}")
 
-    return remote_agent
+        # Retrieve the newly created/updated agent engine using the public client.agent_engines.get()
+        # to ensure all fields (including the api_resource name) are fully loaded and populated.
+        resource_name = _get_resource_name_from_operation(operation.name)
+        remote_agent = client.agent_engines.get(name=resource_name)
+
+        if migrates_to_agent_identity:
+            grant_agent_identity_roles(project, remote_agent)
+
+        # Clear secrets if explicitly set to empty
+        if (
+            set_secrets is not None
+            and not secrets
+            and matching_agents
+            and remote_agent.api_resource
+        ):
+            clear_op = client.agent_engines._update(
+                name=remote_agent.api_resource.name,
+                config={
+                    "spec": {"deployment_spec": {"secret_env": []}},
+                    "update_mask": "spec.deployment_spec.secret_env",
+                },
+            )
+            _agent_engines_utils._await_operation(
+                operation_name=clear_op.name,
+                get_operation_fn=client.agent_engines._get_agent_operation,
+            )
+
+        write_deployment_metadata(remote_agent, cfg, owner_id=claim.owner_id)
+        claim.completed = True
+        print_deployment_success(remote_agent, location, project, cfg)
+
+        return remote_agent
 
 
 def _create_api_config(
@@ -1064,23 +1116,32 @@ def _create_api_config(
 def _start_and_record_operation(
     *,
     client: Any,
-    config: AgentEngineConfig,
     matching_agents: list[Any],
     project: str,
     location: str,
-    agent_gateway_egress: str | None,
-    agent_gateway_ingress: str | None,
+    api_config: dict[str, Any] | None = None,
+    config: AgentEngineConfig | None = None,
+    agent_gateway_egress: str | None = None,
+    agent_gateway_ingress: str | None = None,
+    claim: OperationClaim | None = None,
 ) -> Any:
     """Start the create/update operation and persist it so ``deploy --status``
     can recover it if the command is interrupted."""
     action = "update" if matching_agents else "create"
-    api_config = _create_api_config(
-        client=client,
-        config=config,
-        action=action,
-        agent_gateway_egress=agent_gateway_egress,
-        agent_gateway_ingress=agent_gateway_ingress,
-    )
+    if api_config is None:
+        if config is None:
+            raise ValueError("Either api_config or config must be provided.")
+        api_config = _create_api_config(
+            client=client,
+            config=config,
+            action=action,
+            agent_gateway_egress=agent_gateway_egress,
+            agent_gateway_ingress=agent_gateway_ingress,
+        )
+
+    if claim:
+        claim.mark_mutation_started()
+
     try:
         if matching_agents:
             operation = client.agent_engines._update(
@@ -1099,12 +1160,15 @@ def _start_and_record_operation(
             f"Agent Runtime {action} request failed — {type(exc).__name__}: {exc}"
         ) from exc
 
-    write_operation(
-        operation_name=operation.name,
-        project=project,
-        location=location,
-        deployment_target="agent_runtime",
-    )
+    if claim:
+        claim.record_operation(operation.name)
+    else:
+        write_operation(
+            operation_name=operation.name,
+            project=project,
+            location=location,
+            deployment_target="agent_runtime",
+        )
     return operation
 
 
@@ -1121,9 +1185,28 @@ def check_agent_runtime_operation(
             "  Run 'agents-cli deploy' or 'agents-cli deploy --no-wait' first."
         )
 
-    operation_name = op_data["operation_name"]
+    operation_name = op_data.get("operation_name")
+    if not operation_name:
+        state = op_data.get("state", "starting")
+        started_at = op_data.get("started_at", "unknown")
+        owner_id = op_data.get("owner_id", "unknown")
+        if is_starting_claim_stale(op_data):
+            clear_operation(owner_id=owner_id)
+            click.echo(
+                f"Cleared stale deployment claim '{owner_id}' (state='{state}', started at {started_at}) "
+                "because the deploying process is no longer running."
+            )
+            return
+        raise click.ClickException(
+            f"Deployment operation is in '{state}' state (owner: {owner_id}, started at {started_at}) "
+            "without a confirmed remote operation name.\n"
+            "  The deployment process may still be initiating the remote operation, or was interrupted.\n"
+            "  Reconcile deployment_metadata.json or check Google Cloud Console before retrying."
+        )
+
     location = location if location != "us-east1" else op_data.get("location", location)
     started_at = op_data.get("started_at", "")
+    owner_id = op_data.get("owner_id")
 
     client = AgentPlatformClient(project=project, location=location)
     operation = client.agent_engines._get_agent_operation(
@@ -1132,7 +1215,7 @@ def check_agent_runtime_operation(
 
     if operation.done:
         if operation.error:
-            clear_operation()
+            clear_operation(owner_id=owner_id)
             raise click.ClickException(f"Deployment failed: {operation.error}")
 
         # Retrieve the newly created/updated agent engine using the public client.agent_engines.get()
@@ -1140,9 +1223,9 @@ def check_agent_runtime_operation(
         resource_name = _get_resource_name_from_operation(operation_name)
         remote_agent = client.agent_engines.get(name=resource_name)
 
-        write_deployment_metadata(remote_agent, cfg)
+        write_deployment_metadata(remote_agent, cfg, owner_id=owner_id)
         print_deployment_success(remote_agent, location, project, cfg)
-        clear_operation()
+        clear_operation(owner_id=owner_id)
     else:
         elapsed = ""
         if started_at:

@@ -85,71 +85,43 @@ def get_augment_ratio(train_data, should_augment_predicate, can_augment_predicat
     return ratio
 
 
-def should_augment_nopunct_predicate(sentence):
-    last_word = sentence[-1]
-    return last_word.get(UPOS, None) == 'PUNCT'
+# Spanish/Catalan-style inverted question and exclamation marks. Some UD
+# treebanks have every training sentence begin with one of these, which
+# teaches a model to always expect the mark and misparse/mistag/mistokenize
+# a sentence that's missing it. augment_initial_punct in
+# prepare_tokenizer_treebank.py handles this at dataset-preparation time
+# (currently for ¿ only); the POS tagger and dependency parser instead
+# apply the equivalent augmentation dynamically, per sentence, inside their
+# own Dataset.__getitem__ (see starts_with_initial_mark below). The
+# tokenizer needs its own character-level version of this same check
+# (see drop_initial_punct in stanza.models.tokenization.data), since it
+# operates on individual characters before word boundaries exist, but
+# imports this same tuple so the mark set itself is defined in one place.
+INITIAL_INVERTED_PUNCT_MARKS = ('¿', '¡')
 
-def can_augment_nopunct_predicate(sentence):
+def starts_with_initial_mark(words, marks=INITIAL_INVERTED_PUNCT_MARKS):
     """
-    Check that the sentence ends with PUNCT and also doesn't have any words which depend on the last word
+    True if the given list of word/token strings starts with one of the
+    given marks, and no mark from the set (of any kind, not just the
+    leading one) appears anywhere else in the list.
+
+    The restriction mirrors augment_initial_punct in
+    prepare_tokenizer_treebank.py, and exists to avoid ambiguity with
+    nested or quoted questions/exclamations -- e.g. a sentence like
+    '¿Dijo "¡hola!"?' has two candidate marks (one ¿ and one ¡) and isn't
+    a case this augmentation should touch, even though neither mark is
+    individually repeated.
+
+    Shared by the POS tagger and dependency parser, whose sentences are
+    both, at this point, plain lists of word strings -- the two models
+    diverge only in how they physically drop the first word afterward
+    (the parser also has to renumber head positions, which the tagger
+    does not need to do).
     """
-    last_word = sentence[-1]
-    if last_word.get(UPOS, None) != 'PUNCT':
+    if len(words) <= 1:
         return False
-    # don't cut off MWT
-    if len(last_word[ID]) > 1:
+    first = words[0]
+    if first not in marks:
         return False
-    if any(len(word[ID]) == 1 and word[HEAD] == last_word[ID][0] for word in sentence):
-        return False
-    return True
-
-def augment_punct(train_data, augment_ratio,
-                  should_augment_predicate=should_augment_nopunct_predicate,
-                  can_augment_predicate=can_augment_nopunct_predicate,
-                  keep_original_sentences=True):
-
-    """
-    Adds extra training data to compensate for some models having all sentences end with PUNCT
-
-    Some of the models (for example, UD_Hebrew-HTB) have the flaw that
-    all of the training sentences end with PUNCT.  The model therefore
-    learns to finish every sentence with punctuation, even if it is
-    given a sentence with non-punct at the end.
-
-    One simple way to fix this is to train on some fraction of training data with punct.
-
-    Params:
-    train_data: list of list of dicts, eg a conll doc
-    augment_ratio: the fraction to augment.  if None, a best guess is made to get to 10%
-
-    should_augment_predicate: a function which returns T/F if a sentence already ends with not PUNCT
-    can_augment_predicate: a function which returns T/F if it makes sense to remove the last PUNCT
-
-    TODO: do this dynamically, as part of the DataLoader or elsewhere?
-    One complication is the data comes back from the DataLoader as
-    tensors & indices, so it is much more complicated to manipulate
-    """
-    if len(train_data) == 0:
-        return []
-
-    if augment_ratio is None:
-        augment_ratio = get_augment_ratio(train_data, should_augment_predicate, can_augment_predicate)
-
-    if augment_ratio <= 0:
-        if keep_original_sentences:
-            return list(train_data)
-        else:
-            return []
-
-    new_data = []
-    for sentence in train_data:
-        if can_augment_predicate(sentence):
-            if random.random() < augment_ratio and len(sentence) > 1:
-                # todo: could deep copy the words
-                #       or not deep copy any of this
-                new_sentence = list(sentence[:-1])
-                new_data.append(new_sentence)
-            elif keep_original_sentences:
-                new_data.append(new_sentence)
-
-    return new_data
+    total_marks = sum(1 for w in words if w in marks)
+    return total_marks == 1

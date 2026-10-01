@@ -659,6 +659,80 @@ async fn test_experiment_group_targeting_preserves_later_direct_exposure() {
     }
 }
 
+#[cfg(feature = "ffi-support")]
+#[tokio::test]
+async fn test_typed_config_exposure_options_preserve_nested_targeting_safeguards() {
+    use statsig_rust::{DynamicConfigEvaluationOptions, user::StatsigUserInternal};
+
+    let config_name = "typed_targeted_by_experiment_group";
+    let mut specs: Value =
+        serde_json::from_str(&eval_proj_dcs_with_experiment_group_gate()).unwrap();
+    let mut config = specs["dynamic_configs"]["test_custom_config"].clone();
+    config["rules"] = specs["feature_gates"]["gate_targeted_by_experiment_group"]["rules"].clone();
+    config["rules"][0]["returnValue"] = json!({"typed": true});
+    config["version"] = json!(7);
+    specs["dynamic_configs"][config_name] = config;
+
+    for disable_exposure_logging in [false, true] {
+        let logging_adapter = Arc::new(MockEventLoggingAdapter::new_with_background_flush(false));
+        let statsig = Statsig::new(
+            "secret-key",
+            Some(Arc::new(StatsigOptions {
+                specs_adapter: Some(Arc::new(MockSpecsAdapter::with_json_data(
+                    specs.to_string(),
+                ))),
+                event_logging_adapter: Some(logging_adapter.clone()),
+                ..StatsigOptions::default()
+            })),
+        );
+        statsig.initialize().await.unwrap();
+
+        let user_internal = StatsigUserInternal::new(&USER, Some(&statsig));
+        statsig.use_typed_config(
+            &user_internal,
+            config_name,
+            DynamicConfigEvaluationOptions {
+                disable_exposure_logging,
+            },
+            |raw, source, revisions| {
+                assert_eq!(
+                    serde_json::to_value(raw.value.unwrap().get_json()).unwrap(),
+                    json!({"typed": true})
+                );
+                assert_eq!(
+                    raw.rule_id.unperformant_to_string(),
+                    "experiment-group-targeted-rule"
+                );
+                assert_eq!(source, "Bootstrap");
+                assert_eq!(raw.details.reason, "Bootstrap:Recognized");
+                assert_eq!(raw.details.version, Some(7));
+                assert!(
+                    revisions
+                        .iter()
+                        .any(|(name, version, _)| name == config_name && *version == Some(7))
+                );
+            },
+        );
+        let experiment = statsig.get_experiment(&USER, "experiment_group_source");
+        assert_eq!(experiment.group_name.as_deref(), Some("Treatment"));
+
+        statsig.shutdown().await.unwrap();
+        let payloads = logging_adapter.logged_payloads.lock().unwrap();
+        let exposed_configs: Vec<_> = payloads
+            .iter()
+            .flat_map(|payload| payload.events.as_array().unwrap())
+            .filter(|event| event["eventName"] == "statsig::config_exposure")
+            .map(|event| event["metadata"]["config"].as_str().unwrap())
+            .collect();
+        let expected = if disable_exposure_logging {
+            vec!["experiment_group_source"]
+        } else {
+            vec![config_name, "experiment_group_source"]
+        };
+        assert_eq!(exposed_configs, expected);
+    }
+}
+
 #[tokio::test]
 async fn test_scoped_snapshot_session_evaluates_experiment_group_gate() {
     let fixture = fixture_from_specs(eval_proj_dcs_with_experiment_group_gate()).await;

@@ -168,7 +168,9 @@ FlowExecutionEventTypeType = Literal["Flow", "Node"]
 FlowExecutionStatusType = Literal["Aborted", "Failed", "Running", "Succeeded", "TimedOut"]
 FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
 FlowNodeInputCategoryType = Literal["ExitLoop", "LoopCondition", "ReturnValueToLoopStart"]
-FoundationModelConfigurationTypeType = Literal["BEDROCK_FOUNDATION_MODEL"]
+FoundationModelConfigurationTypeType = Literal[
+    "BEDROCK_FOUNDATION_MODEL", "MANTLE_FOUNDATION_MODEL"
+]
 FoundationModelTypeType = Literal["CUSTOM", "MANAGED"]
 GeneratedQueryTypeType = Literal["REDSHIFT_SQL"]
 GetAgentMemoryPaginatorName = Literal["get_agent_memory"]
@@ -377,6 +379,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -451,6 +454,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -479,6 +483,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -573,6 +578,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

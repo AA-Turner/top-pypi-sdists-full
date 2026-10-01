@@ -87,6 +87,55 @@ class ClusterReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_docdbelastic.ClusterSnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_arn": "snapshotArn"},
+)
+class ClusterSnapshotReference:
+    def __init__(self, *, snapshot_arn: builtins.str) -> None:
+        '''A reference to a ClusterSnapshot resource.
+
+        :param snapshot_arn: The SnapshotArn of the ClusterSnapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_docdbelastic as interfaces_docdbelastic
+            
+            cluster_snapshot_reference = interfaces_docdbelastic.ClusterSnapshotReference(
+                snapshot_arn="snapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d773990d37421d368d546058f2af91ddac17658a59b903cd9fd9b765526a2bb8)
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_arn": snapshot_arn,
+        }
+
+    @builtins.property
+    def snapshot_arn(self) -> builtins.str:
+        '''The SnapshotArn of the ClusterSnapshot resource.'''
+        result = self._values.get("snapshot_arn")
+        assert result is not None, "Required property 'snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterSnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdbelastic.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
@@ -132,9 +181,58 @@ class _IClusterRefProxy(
 typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_docdbelastic.IClusterSnapshotRef"
+)
+class IClusterSnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterSnapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(self) -> "ClusterSnapshotReference":
+        '''(experimental) A reference to a ClusterSnapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterSnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterSnapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_docdbelastic.IClusterSnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(self) -> "ClusterSnapshotReference":
+        '''(experimental) A reference to a ClusterSnapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ClusterSnapshotReference", jsii.get(self, "clusterSnapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterSnapshotRef).__jsii_proxy_class__ = lambda : _IClusterSnapshotRefProxy
+
+
 __all__ = [
     "ClusterReference",
+    "ClusterSnapshotReference",
     "IClusterRef",
+    "IClusterSnapshotRef",
 ]
 
 publication.publish()
@@ -146,5 +244,12 @@ def _typecheckingstub__a504e6ad5a9b8c1029bc6efc2260c33908a45a38880f2723be85d03f9
     """Type checking stubs"""
     pass
 
-for cls in [IClusterRef]:
+def _typecheckingstub__d773990d37421d368d546058f2af91ddac17658a59b903cd9fd9b765526a2bb8(
+    *,
+    snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IClusterRef, IClusterSnapshotRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

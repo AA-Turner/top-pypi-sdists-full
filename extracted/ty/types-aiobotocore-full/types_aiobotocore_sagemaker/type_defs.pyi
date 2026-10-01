@@ -108,6 +108,7 @@ from .literals import (
     ContentClassifierType,
     CrossAccountFilterOptionType,
     CustomizationTechniqueType,
+    DatabaseConfigurationRollbackStatusType,
     DataDistributionTypeType,
     DataSourceNameType,
     DeepHealthCheckTypeType,
@@ -247,6 +248,7 @@ from .literals import (
     OrderKeyType,
     OutputCompressionTypeType,
     ParameterTypeType,
+    PartnerAppAuthTypeType,
     PartnerAppStatusType,
     PartnerAppTypeType,
     PipelineExecutionStatusType,
@@ -302,6 +304,8 @@ from .literals import (
     ServerlessJobTypeType,
     SharingTypeType,
     SkipModelValidationType,
+    SlurmHealthReasonType,
+    SlurmHealthStatusType,
     SoftwareUpdateStatusType,
     SortActionsByType,
     SortAssociationsByType,
@@ -476,6 +480,8 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AttachClusterNodeNetworkInterfaceRequestTypeDef",
+    "AttachClusterNodeNetworkInterfaceResponseTypeDef",
     "AttachClusterNodeVolumeRequestTypeDef",
     "AttachClusterNodeVolumeResponseTypeDef",
     "AuthorizedUrlTypeDef",
@@ -587,6 +593,7 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "ClusterAccountingDatabaseTypeDef",
     "ClusterAutoPatchConfigDetailsTypeDef",
     "ClusterAutoPatchConfigTypeDef",
     "ClusterAutoScalingConfigOutputTypeDef",
@@ -830,6 +837,7 @@ __all__ = (
     "DataSourceOutputTypeDef",
     "DataSourceTypeDef",
     "DataSourceUnionTypeDef",
+    "DatabaseConfigurationMetadataTypeDef",
     "DatasetDefinitionTypeDef",
     "DatasetSourceTypeDef",
     "DebugHookConfigOutputTypeDef",
@@ -1217,6 +1225,7 @@ __all__ = (
     "HubAccessConfigTypeDef",
     "HubContentDependencyTypeDef",
     "HubContentInfoTypeDef",
+    "HubContentTypeDef",
     "HubInfoTypeDef",
     "HubS3StorageConfigTypeDef",
     "HumanLoopActivationConditionsConfigTypeDef",
@@ -1257,6 +1266,8 @@ __all__ = (
     "HyperbandStrategyConfigTypeDef",
     "IamIdentityTypeDef",
     "IamPolicyConstraintsTypeDef",
+    "IdcConfigInputTypeDef",
+    "IdcConfigOutputTypeDef",
     "IdentityProviderOAuthSettingTypeDef",
     "IdleSettingsTypeDef",
     "ImageClassificationJobConfigTypeDef",
@@ -1314,6 +1325,9 @@ __all__ = (
     "InstancePlacementConfigUnionTypeDef",
     "InstancePoolSummaryTypeDef",
     "InstancePoolTypeDef",
+    "InstancePreferenceOutputTypeDef",
+    "InstancePreferenceTypeDef",
+    "InstancePreferenceUnionTypeDef",
     "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
@@ -1837,9 +1851,11 @@ __all__ = (
     "PrefixAwareRoutingConfigTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
+    "ProcessingClusterConfigOutputTypeDef",
     "ProcessingClusterConfigTypeDef",
     "ProcessingFeatureStoreOutputTypeDef",
     "ProcessingInputTypeDef",
+    "ProcessingInstancePreferenceTypeDef",
     "ProcessingJobStepMetadataTypeDef",
     "ProcessingJobSummaryTypeDef",
     "ProcessingJobTypeDef",
@@ -1847,7 +1863,9 @@ __all__ = (
     "ProcessingOutputConfigTypeDef",
     "ProcessingOutputConfigUnionTypeDef",
     "ProcessingOutputTypeDef",
+    "ProcessingResourcesOutputTypeDef",
     "ProcessingResourcesTypeDef",
+    "ProcessingResourcesUnionTypeDef",
     "ProcessingS3InputTypeDef",
     "ProcessingS3OutputTypeDef",
     "ProcessingStoppingConditionTypeDef",
@@ -1988,6 +2006,7 @@ __all__ = (
     "ShadowModelVariantConfigTypeDef",
     "SharingSettingsTypeDef",
     "ShuffleConfigTypeDef",
+    "SlurmHealthMetadataTypeDef",
     "SourceAlgorithmSpecificationOutputTypeDef",
     "SourceAlgorithmSpecificationTypeDef",
     "SourceAlgorithmSpecificationUnionTypeDef",
@@ -2468,6 +2487,11 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
 
+class AttachClusterNodeNetworkInterfaceRequestTypeDef(TypedDict):
+    ClusterName: str
+    NodeId: str
+    NetworkInterfaceId: str
+
 class AttachClusterNodeVolumeRequestTypeDef(TypedDict):
     ClusterArn: str
     NodeId: str
@@ -2841,6 +2865,12 @@ class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
 
+class ClusterAccountingDatabaseTypeDef(TypedDict):
+    Endpoint: str
+    SecretArn: str
+    Port: NotRequired[int]
+    Name: NotRequired[str]
+
 class ClusterPatchScheduleDetailsTypeDef(TypedDict):
     NextPatchDate: NotRequired[datetime]
 
@@ -2946,9 +2976,6 @@ UltraServerInfoTypeDef = TypedDict(
 
 class ClusterOrchestratorEksConfigTypeDef(TypedDict):
     ClusterArn: str
-
-class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
-    SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -3197,6 +3224,9 @@ class CreatePartnerAppPresignedUrlRequestTypeDef(TypedDict):
     ExpiresInSeconds: NotRequired[int]
     SessionExpirationDurationInSeconds: NotRequired[int]
 
+class IdcConfigInputTypeDef(TypedDict):
+    InstanceArn: str
+
 class PartnerAppMaintenanceConfigTypeDef(TypedDict):
     MaintenanceWindowStart: NotRequired[str]
 
@@ -3427,6 +3457,11 @@ class FileSystemDataSourceTypeDef(TypedDict):
     FileSystemAccessMode: FileSystemAccessModeType
     FileSystemType: FileSystemTypeType
     DirectoryPath: str
+
+class DatabaseConfigurationMetadataTypeDef(TypedDict):
+    RollbackStatus: NotRequired[DatabaseConfigurationRollbackStatusType]
+    Advisory: NotRequired[str]
+    FailureMessage: NotRequired[str]
 
 class RedshiftDatasetDefinitionTypeDef(TypedDict):
     ClusterId: str
@@ -4057,6 +4092,10 @@ class ErrorInfoTypeDef(TypedDict):
     Code: NotRequired[str]
     Reason: NotRequired[str]
 
+class IdcConfigOutputTypeDef(TypedDict):
+    InstanceArn: str
+    ApplicationArn: NotRequired[str]
+
 class DescribePipelineDefinitionForExecutionRequestTypeDef(TypedDict):
     PipelineExecutionArn: str
 
@@ -4422,6 +4461,11 @@ class InstanceGroupScalingMetadataTypeDef(TypedDict):
     MinCount: NotRequired[int]
     FailureMessage: NotRequired[str]
 
+class SlurmHealthMetadataTypeDef(TypedDict):
+    Component: Literal["Slurmdbd"]
+    Status: SlurmHealthStatusType
+    Reason: NotRequired[SlurmHealthReasonType]
+
 class ExtendTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanExtensionOfferingId: str
 
@@ -4673,6 +4717,16 @@ class InstancePoolTypeDef(TypedDict):
     InstanceType: ProductionVariantInstanceTypeType
     Priority: int
     ModelNameOverride: NotRequired[str]
+
+class InstancePreferenceOutputTypeDef(TypedDict):
+    InstanceType: TrainingInstanceTypeType
+    InstanceCount: NotRequired[int]
+    TrainingPlanArns: NotRequired[list[str]]
+
+class InstancePreferenceTypeDef(TypedDict):
+    InstanceType: TrainingInstanceTypeType
+    InstanceCount: NotRequired[int]
+    TrainingPlanArns: NotRequired[Sequence[str]]
 
 class IntegerParameterRangeSpecificationTypeDef(TypedDict):
     MinValue: str
@@ -5295,11 +5349,9 @@ class PriorityClassTypeDef(TypedDict):
     Name: str
     Weight: int
 
-class ProcessingClusterConfigTypeDef(TypedDict):
-    VolumeSizeInGB: int
+class ProcessingInstancePreferenceTypeDef(TypedDict):
+    InstanceType: ProcessingInstanceTypeType
     InstanceCount: NotRequired[int]
-    InstanceType: NotRequired[ProcessingInstanceTypeType]
-    VolumeKmsKeyId: NotRequired[str]
 
 class ProcessingFeatureStoreOutputTypeDef(TypedDict):
     FeatureGroupName: str
@@ -5862,6 +5914,13 @@ class AddAssociationResponseTypeDef(TypedDict):
 class AssociateTrialComponentResponseTypeDef(TypedDict):
     TrialComponentArn: str
     TrialArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AttachClusterNodeNetworkInterfaceResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    NetworkInterfaceId: str
+    AttachmentId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AttachClusterNodeVolumeResponseTypeDef(TypedDict):
@@ -6588,6 +6647,7 @@ class CreateMlflowAppRequestTypeDef(TypedDict):
     Name: str
     ArtifactStoreUri: str
     RoleArn: str
+    KmsKeyId: NotRequired[str]
     ModelRegistrationMode: NotRequired[ModelRegistrationModeType]
     WeeklyMaintenanceWindowStart: NotRequired[str]
     AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
@@ -6982,6 +7042,10 @@ class ClarifyShapConfigTypeDef(TypedDict):
     Seed: NotRequired[int]
     TextConfig: NotRequired[ClarifyTextConfigTypeDef]
 
+class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
+    SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
+    AccountingDatabase: NotRequired[ClusterAccountingDatabaseTypeDef]
+
 ClusterCapacityRequirementsUnionTypeDef = Union[
     ClusterCapacityRequirementsTypeDef, ClusterCapacityRequirementsOutputTypeDef
 ]
@@ -7024,10 +7088,6 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     PrivateDnsHostname: NotRequired[str]
     CurrentImageReleaseVersion: NotRequired[str]
     ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
-
-class ClusterOrchestratorTypeDef(TypedDict):
-    Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
-    Slurm: NotRequired[ClusterOrchestratorSlurmConfigTypeDef]
 
 class ClusterPatchScheduleTypeDef(TypedDict):
     NextPatchDate: NotRequired[TimestampTypeDef]
@@ -9204,6 +9264,29 @@ class DescribeHubContentResponseTypeDef(TypedDict):
     LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class HubContentTypeDef(TypedDict):
+    HubContentName: str
+    HubContentArn: str
+    HubContentVersion: str
+    HubContentType: HubContentTypeType
+    DocumentSchemaVersion: str
+    HubName: str
+    HubArn: str
+    HubContentStatus: HubContentStatusType
+    CreationTime: datetime
+    HubContentDisplayName: NotRequired[str]
+    HubContentDescription: NotRequired[str]
+    HubContentMarkdown: NotRequired[str]
+    HubContentDocument: NotRequired[str]
+    SageMakerPublicHubContentArn: NotRequired[str]
+    ReferenceMinVersion: NotRequired[str]
+    SupportStatus: NotRequired[HubContentSupportStatusType]
+    HubContentSearchKeywords: NotRequired[list[str]]
+    HubContentDependencies: NotRequired[list[HubContentDependencyTypeDef]]
+    FailureReason: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class DescribeHumanTaskUiResponseTypeDef(TypedDict):
     HumanTaskUiArn: str
     HumanTaskUiName: str
@@ -9661,6 +9744,8 @@ class InstancePlacementConfigTypeDef(TypedDict):
     EnableMultipleJobs: NotRequired[bool]
     PlacementSpecifications: NotRequired[Sequence[PlacementSpecificationTypeDef]]
 
+InstancePreferenceUnionTypeDef = Union[InstancePreferenceTypeDef, InstancePreferenceOutputTypeDef]
+
 class ParameterRangeOutputTypeDef(TypedDict):
     IntegerParameterRangeSpecification: NotRequired[IntegerParameterRangeSpecificationTypeDef]
     ContinuousParameterRangeSpecification: NotRequired[ContinuousParameterRangeSpecificationTypeDef]
@@ -10013,6 +10098,7 @@ class OnlineStoreConfigTypeDef(TypedDict):
 
 class OnlineStoreConfigUpdateTypeDef(TypedDict):
     TtlDuration: NotRequired[TtlDurationTypeDef]
+    StorageType: NotRequired[StorageTypeType]
 
 class OptimizationJobModelSourceS3TypeDef(TypedDict):
     S3Uri: NotRequired[str]
@@ -10060,8 +10146,23 @@ class SchedulerConfigTypeDef(TypedDict):
     FairShare: NotRequired[FairShareType]
     IdleResourceSharing: NotRequired[IdleResourceSharingType]
 
-class ProcessingResourcesTypeDef(TypedDict):
-    ClusterConfig: ProcessingClusterConfigTypeDef
+class ProcessingClusterConfigOutputTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
+    VolumeKmsKeyId: NotRequired[str]
+    InstancePreferences: NotRequired[list[ProcessingInstancePreferenceTypeDef]]
+    SelectedInstanceType: NotRequired[ProcessingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
+
+class ProcessingClusterConfigTypeDef(TypedDict):
+    VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
+    VolumeKmsKeyId: NotRequired[str]
+    InstancePreferences: NotRequired[Sequence[ProcessingInstancePreferenceTypeDef]]
+    SelectedInstanceType: NotRequired[ProcessingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 class ProcessingOutputTypeDef(TypedDict):
     OutputName: str
@@ -10548,6 +10649,10 @@ class ClarifyExplainerConfigTypeDef(TypedDict):
     EnableExplanations: NotRequired[str]
     InferenceConfig: NotRequired[ClarifyInferenceConfigTypeDef]
 
+class ClusterOrchestratorTypeDef(TypedDict):
+    Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
+    Slurm: NotRequired[ClusterOrchestratorSlurmConfigTypeDef]
+
 class ClusterNodeDetailsTypeDef(TypedDict):
     InstanceGroupName: NotRequired[str]
     InstanceId: NotRequired[str]
@@ -10862,6 +10967,7 @@ class DescribeMlflowAppResponseTypeDef(TypedDict):
     ArtifactStoreUri: str
     MlflowVersion: str
     RoleArn: str
+    KmsKeyId: str
     Status: MlflowAppStatusType
     ModelRegistrationMode: ModelRegistrationModeType
     AccountDefaultStatus: AccountDefaultStatusType
@@ -11090,6 +11196,9 @@ class ResourceConfigOutputTypeDef(TypedDict):
     InstanceGroups: NotRequired[list[InstanceGroupTypeDef]]
     TrainingPlanArn: NotRequired[str]
     InstancePlacementConfig: NotRequired[InstancePlacementConfigOutputTypeDef]
+    InstancePreferences: NotRequired[list[InstancePreferenceOutputTypeDef]]
+    SelectedInstanceType: NotRequired[TrainingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 InstancePlacementConfigUnionTypeDef = Union[
     InstancePlacementConfigTypeDef, InstancePlacementConfigOutputTypeDef
@@ -11326,12 +11435,13 @@ DescribePartnerAppResponseTypeDef = TypedDict(
         "Tier": str,
         "Version": str,
         "ApplicationConfig": PartnerAppConfigOutputTypeDef,
-        "AuthType": Literal["IAM"],
+        "AuthType": PartnerAppAuthTypeType,
         "EnableIamSessionBasedIdentity": bool,
         "Error": ErrorInfoTypeDef,
         "EnableAutoMinorVersionUpgrade": bool,
         "CurrentVersionEolDate": datetime,
         "AvailableUpgrade": AvailableUpgradeTypeDef,
+        "IdcConfig": IdcConfigOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -11355,6 +11465,12 @@ class DescribeClusterSchedulerConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 SchedulerConfigUnionTypeDef = Union[SchedulerConfigTypeDef, SchedulerConfigOutputTypeDef]
+
+class ProcessingResourcesOutputTypeDef(TypedDict):
+    ClusterConfig: ProcessingClusterConfigOutputTypeDef
+
+class ProcessingResourcesTypeDef(TypedDict):
+    ClusterConfig: ProcessingClusterConfigTypeDef
 
 class ProcessingOutputConfigOutputTypeDef(TypedDict):
     Outputs: list[ProcessingOutputTypeDef]
@@ -11691,6 +11807,8 @@ class EventMetadataTypeDef(TypedDict):
     InstanceGroup: NotRequired[InstanceGroupMetadataTypeDef]
     InstanceGroupScaling: NotRequired[InstanceGroupScalingMetadataTypeDef]
     Instance: NotRequired[InstanceMetadataTypeDef]
+    DatabaseConfiguration: NotRequired[DatabaseConfigurationMetadataTypeDef]
+    SlurmHealth: NotRequired[SlurmHealthMetadataTypeDef]
 
 DomainSettingsUnionTypeDef = Union[DomainSettingsTypeDef, DomainSettingsOutputTypeDef]
 
@@ -12120,6 +12238,9 @@ class ResourceConfigTypeDef(TypedDict):
     InstanceGroups: NotRequired[Sequence[InstanceGroupTypeDef]]
     TrainingPlanArn: NotRequired[str]
     InstancePlacementConfig: NotRequired[InstancePlacementConfigUnionTypeDef]
+    InstancePreferences: NotRequired[Sequence[InstancePreferenceUnionTypeDef]]
+    SelectedInstanceType: NotRequired[TrainingInstanceTypeType]
+    SelectedInstanceCount: NotRequired[int]
 
 class TrainingSpecificationOutputTypeDef(TypedDict):
     TrainingImage: str
@@ -12387,10 +12508,11 @@ CreatePartnerAppRequestTypeDef = TypedDict(
         "Type": PartnerAppTypeType,
         "ExecutionRoleArn": str,
         "Tier": str,
-        "AuthType": Literal["IAM"],
+        "AuthType": PartnerAppAuthTypeType,
         "KmsKeyId": NotRequired[str],
         "MaintenanceConfig": NotRequired[PartnerAppMaintenanceConfigTypeDef],
         "ApplicationConfig": NotRequired[PartnerAppConfigUnionTypeDef],
+        "IdcConfig": NotRequired[IdcConfigInputTypeDef],
         "EnableIamSessionBasedIdentity": NotRequired[bool],
         "EnableAutoMinorVersionUpgrade": NotRequired[bool],
         "ClientToken": NotRequired[str],
@@ -12403,6 +12525,8 @@ class UpdatePartnerAppRequestTypeDef(TypedDict):
     MaintenanceConfig: NotRequired[PartnerAppMaintenanceConfigTypeDef]
     Tier: NotRequired[str]
     ApplicationConfig: NotRequired[PartnerAppConfigUnionTypeDef]
+    IdcConfig: NotRequired[IdcConfigInputTypeDef]
+    AuthType: NotRequired[PartnerAppAuthTypeType]
     EnableIamSessionBasedIdentity: NotRequired[bool]
     EnableAutoMinorVersionUpgrade: NotRequired[bool]
     AppVersion: NotRequired[str]
@@ -12422,11 +12546,15 @@ class UpdateClusterSchedulerConfigRequestTypeDef(TypedDict):
     SchedulerConfig: NotRequired[SchedulerConfigUnionTypeDef]
     Description: NotRequired[str]
 
+ProcessingResourcesUnionTypeDef = Union[
+    ProcessingResourcesTypeDef, ProcessingResourcesOutputTypeDef
+]
+
 class DescribeProcessingJobResponseTypeDef(TypedDict):
     ProcessingInputs: list[ProcessingInputTypeDef]
     ProcessingOutputConfig: ProcessingOutputConfigOutputTypeDef
     ProcessingJobName: str
-    ProcessingResources: ProcessingResourcesTypeDef
+    ProcessingResources: ProcessingResourcesOutputTypeDef
     StoppingCondition: ProcessingStoppingConditionTypeDef
     AppSpecification: AppSpecificationOutputTypeDef
     Environment: dict[str, str]
@@ -12450,7 +12578,7 @@ class ProcessingJobTypeDef(TypedDict):
     ProcessingInputs: NotRequired[list[ProcessingInputTypeDef]]
     ProcessingOutputConfig: NotRequired[ProcessingOutputConfigOutputTypeDef]
     ProcessingJobName: NotRequired[str]
-    ProcessingResources: NotRequired[ProcessingResourcesTypeDef]
+    ProcessingResources: NotRequired[ProcessingResourcesOutputTypeDef]
     StoppingCondition: NotRequired[ProcessingStoppingConditionTypeDef]
     AppSpecification: NotRequired[AppSpecificationOutputTypeDef]
     Environment: NotRequired[dict[str, str]]
@@ -13312,7 +13440,7 @@ class UpdateWorkteamRequestTypeDef(TypedDict):
 
 class CreateProcessingJobRequestTypeDef(TypedDict):
     ProcessingJobName: str
-    ProcessingResources: ProcessingResourcesTypeDef
+    ProcessingResources: ProcessingResourcesUnionTypeDef
     AppSpecification: AppSpecificationUnionTypeDef
     RoleArn: str
     ProcessingInputs: NotRequired[Sequence[ProcessingInputTypeDef]]
@@ -14162,6 +14290,7 @@ class SearchRecordTypeDef(TypedDict):
     ModelCard: NotRequired[ModelCardTypeDef]
     Model: NotRequired[ModelDashboardModelTypeDef]
     Job: NotRequired[JobTypeDef]
+    HubContent: NotRequired[HubContentTypeDef]
 
 class CreateHyperParameterTuningJobRequestTypeDef(TypedDict):
     HyperParameterTuningJobName: str

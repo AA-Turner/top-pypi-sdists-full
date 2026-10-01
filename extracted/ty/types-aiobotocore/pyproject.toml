@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore"
-version = "3.9.1"
+version = "3.9.2"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore 3.9.1 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore 3.9.2 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -68,7 +68,7 @@ full = [
     "types-aiobotocore-full>=3.9.0, <3.10.0",
 ]
 aiobotocore = [
-    "aiobotocore==3.9.1",
+    "aiobotocore==3.9.2",
 ]
 all = [
     "types-aiobotocore-accessanalyzer>=3.9.0, <3.10.0",
@@ -150,6 +150,7 @@ all = [
     "types-aiobotocore-cloudtrail>=3.9.0, <3.10.0",
     "types-aiobotocore-cloudtrail-data>=3.9.0, <3.10.0",
     "types-aiobotocore-cloudwatch>=3.9.0, <3.10.0",
+    "types-aiobotocore-cloudwatchomni>=3.9.0, <3.10.0",
     "types-aiobotocore-codeartifact>=3.9.0, <3.10.0",
     "types-aiobotocore-codebuild>=3.9.0, <3.10.0",
     "types-aiobotocore-codecatalyst>=3.9.0, <3.10.0",
@@ -224,6 +225,7 @@ all = [
     "types-aiobotocore-emr-serverless>=3.9.0, <3.10.0",
     "types-aiobotocore-entityresolution>=3.9.0, <3.10.0",
     "types-aiobotocore-es>=3.9.0, <3.10.0",
+    "types-aiobotocore-eventbridgev2>=3.9.0, <3.10.0",
     "types-aiobotocore-events>=3.9.0, <3.10.0",
     "types-aiobotocore-evs>=3.9.0, <3.10.0",
     "types-aiobotocore-finspace>=3.9.0, <3.10.0",
@@ -252,6 +254,7 @@ all = [
     "types-aiobotocore-health>=3.9.0, <3.10.0",
     "types-aiobotocore-healthlake>=3.9.0, <3.10.0",
     "types-aiobotocore-iam>=3.9.0, <3.10.0",
+    "types-aiobotocore-iam-toolbox>=3.9.0, <3.10.0",
     "types-aiobotocore-identitystore>=3.9.0, <3.10.0",
     "types-aiobotocore-imagebuilder>=3.9.0, <3.10.0",
     "types-aiobotocore-importexport>=3.9.0, <3.10.0",
@@ -346,6 +349,7 @@ all = [
     "types-aiobotocore-neptune-graph>=3.9.0, <3.10.0",
     "types-aiobotocore-neptunedata>=3.9.0, <3.10.0",
     "types-aiobotocore-network-firewall>=3.9.0, <3.10.0",
+    "types-aiobotocore-network-security-manager>=3.9.0, <3.10.0",
     "types-aiobotocore-networkflowmonitor>=3.9.0, <3.10.0",
     "types-aiobotocore-networkmanager>=3.9.0, <3.10.0",
     "types-aiobotocore-networkmonitor>=3.9.0, <3.10.0",
@@ -747,6 +751,9 @@ cloudtrail-data = [
 cloudwatch = [
     "types-aiobotocore-cloudwatch>=3.9.0, <3.10.0",
 ]
+cloudwatchomni = [
+    "types-aiobotocore-cloudwatchomni>=3.9.0, <3.10.0",
+]
 codeartifact = [
     "types-aiobotocore-codeartifact>=3.9.0, <3.10.0",
 ]
@@ -969,6 +976,9 @@ entityresolution = [
 es = [
     "types-aiobotocore-es>=3.9.0, <3.10.0",
 ]
+eventbridgev2 = [
+    "types-aiobotocore-eventbridgev2>=3.9.0, <3.10.0",
+]
 events = [
     "types-aiobotocore-events>=3.9.0, <3.10.0",
 ]
@@ -1052,6 +1062,9 @@ healthlake = [
 ]
 iam = [
     "types-aiobotocore-iam>=3.9.0, <3.10.0",
+]
+iam-toolbox = [
+    "types-aiobotocore-iam-toolbox>=3.9.0, <3.10.0",
 ]
 identitystore = [
     "types-aiobotocore-identitystore>=3.9.0, <3.10.0",
@@ -1334,6 +1347,9 @@ neptunedata = [
 ]
 network-firewall = [
     "types-aiobotocore-network-firewall>=3.9.0, <3.10.0",
+]
+network-security-manager = [
+    "types-aiobotocore-network-security-manager>=3.9.0, <3.10.0",
 ]
 networkflowmonitor = [
     "types-aiobotocore-networkflowmonitor>=3.9.0, <3.10.0",

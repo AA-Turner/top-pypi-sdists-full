@@ -476,6 +476,7 @@ class _StringTable:
     CampaignCustomAudienceAssociation = "Campaign Custom Audience Association"
     CampaignNegativeCustomAudienceAssociation = "Campaign Negative Custom Audience Association"
     InMarketAudience = "In Market Audience"
+    AdGroupAIPromptAssociation = "Ad Group AI Prompt Association"
     AdGroupInMarketAudienceAssociation = "Ad Group In Market Audience Association"
     AdGroupNegativeInMarketAudienceAssociation = "Ad Group Negative In Market Audience Association"
     CampaignInMarketAudienceAssociation = "Campaign In Market Audience Association"
@@ -487,6 +488,10 @@ class _StringTable:
     CampaignNegativeCombinedListAssociation = "Campaign Negative Combined List Association"
     CustomerList = "Customer List"
     CustomerListItem = "Customer List Item"
+    CompanyList = "Company List"
+    CompanyItem = "Company Item"
+    CompanyName = "Company Name"
+    AudienceSize = "Audience Size"
     AdGroupCustomerListAssociation = "Ad Group Customer List Association"
     AdGroupNegativeCustomerListAssociation = "Ad Group Negative Customer List Association"
     CampaignCustomerListAssociation = "Campaign Customer List Association"
@@ -627,6 +632,7 @@ class _StringTable:
     CampaignLocationCriterion = 'Campaign Location Criterion'
     CampaignLocationIntentCriterion = 'Campaign Location Intent Criterion'
     CampaignNegativeAgeCriterion = 'Campaign Negative Age Criterion'
+    CampaignNegativeDeviceCriterion = 'Campaign Negative Device Criterion'
     CampaignNegativeGenderCriterion = 'Campaign Negative Gender Criterion'
     CampaignNegativeLocationCriterion = 'Campaign Negative Location Criterion'
     CampaignRadiusCriterion = 'Campaign Radius Criterion'

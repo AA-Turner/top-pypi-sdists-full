@@ -43,6 +43,7 @@ fn definition() -> ToolDefinitionWire {
         args: ToolArgsPolicyWire::Deny,
         fingerprint: ToolFingerprintSpecWire::default(),
         receipt: None,
+        duration_class: None,
         diagnostics: Vec::new(),
     }
 }
@@ -52,6 +53,7 @@ fn begin_named(path: &Path, now: i64) -> ToolRunBeginResultWire {
     begin(
         path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,
@@ -549,6 +551,7 @@ fn begin_with_log(path: &Path, now: i64, log: &Path, bytes: usize) -> String {
     begin(
         path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,
@@ -769,6 +772,7 @@ fn version_rejection_and_unknown_evidence_slots() {
     let error = begin(
         Path::new("/tmp/unused"),
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: 9,
             run_id: None,
             created_event_id: None,
@@ -941,6 +945,7 @@ fn concurrent_begins_do_not_livelock() {
         begin(
             &path_a,
             ToolRunBeginRequestWire {
+                starter: None,
                 schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
                 run_id: None,
                 created_event_id: None,
@@ -976,6 +981,7 @@ fn concurrent_begins_do_not_livelock() {
     let second = begin(
         &path_b,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,
@@ -1022,6 +1028,7 @@ fn busy_failure_is_bounded() {
     let result = begin(
         &path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,
@@ -1088,6 +1095,7 @@ fn private_argv_is_not_serialized_on_queries() {
     let started = begin(
         &path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,

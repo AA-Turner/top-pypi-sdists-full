@@ -50,6 +50,20 @@ class TestDiscoveryRunList(unittest.TestCase):
                                 scope = '0', 
                                 reason = 'permission_denied', )
                             ], 
+                        device_coverage = arthur_client.api_bindings.models.discovery_device_coverage.DiscoveryDeviceCoverage(
+                            devices_read = 0.0, 
+                            devices_in_scope = 0.0, 
+                            devices_decoded = 0.0, 
+                            devices_unreadable = 0.0, 
+                            unreadable_by_reason = arthur_client.api_bindings.models.unreadable_by_reason.Unreadable By Reason(), 
+                            devices_excluded = 0.0, 
+                            excluded_by_group = {
+                                'key' : 0.0
+                                }, 
+                            devices_outside_included_groups = 0.0, 
+                            included_by_group = {
+                                'key' : 0.0
+                                }, ), 
                         id = '', 
                         job_id = '', 
                         job_run_id = '', 
@@ -87,6 +101,20 @@ class TestDiscoveryRunList(unittest.TestCase):
                                 scope = '0', 
                                 reason = 'permission_denied', )
                             ], 
+                        device_coverage = arthur_client.api_bindings.models.discovery_device_coverage.DiscoveryDeviceCoverage(
+                            devices_read = 0.0, 
+                            devices_in_scope = 0.0, 
+                            devices_decoded = 0.0, 
+                            devices_unreadable = 0.0, 
+                            unreadable_by_reason = arthur_client.api_bindings.models.unreadable_by_reason.Unreadable By Reason(), 
+                            devices_excluded = 0.0, 
+                            excluded_by_group = {
+                                'key' : 0.0
+                                }, 
+                            devices_outside_included_groups = 0.0, 
+                            included_by_group = {
+                                'key' : 0.0
+                                }, ), 
                         id = '', 
                         job_id = '', 
                         job_run_id = '', 

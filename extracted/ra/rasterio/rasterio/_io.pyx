@@ -27,7 +27,7 @@ from rasterio.errors import (
     CRSError, DriverRegistrationError, RasterioIOError,
     NotGeoreferencedWarning, NodataShadowWarning, WindowError,
     UnsupportedOperation, OverviewCreationError, RasterBlockError, InvalidArrayError,
-    StatisticsError, RasterioDeprecationWarning
+    StatisticsError, RasterioDeprecationWarning, _suppress_affine_pending_deprecation
 )
 from rasterio.dtypes import (
     is_ndarray,
@@ -794,7 +794,8 @@ cdef class DatasetReaderBase(DatasetBase):
 
             if all_valid:
                 blank_path = _UnparsedPath('/vsimem/blank-{}.tif'.format(uuid4()))
-                transform = Affine.translation(self.transform.xoff, self.transform.yoff) * (Affine.scale(self.width / 3, self.height / 3) * (Affine.translation(-self.transform.xoff, -self.transform.yoff) * self.transform))
+                with _suppress_affine_pending_deprecation():
+                    transform = Affine.translation(self.transform.xoff, self.transform.yoff) * (Affine.scale(self.width / 3, self.height / 3) * (Affine.translation(-self.transform.xoff, -self.transform.yoff) * self.transform))
                 with DatasetWriterBase(
                         blank_path, 'w',
                         driver='GTiff', count=self.count, height=3, width=3,
@@ -1162,11 +1163,14 @@ cdef class MemoryFileBase:
         self._path = self.name.encode('utf-8')
 
         self._initial_bytes = initial_bytes
-        cdef unsigned char *buffer = self._initial_bytes
 
         if self._initial_bytes:
             self._vsif = VSIFileFromMemBuffer(
-               self._path, buffer, len(self._initial_bytes), 0)
+               <const char *>self._path,
+               <GByte *>self._initial_bytes,
+               <vsi_l_offset>len(self._initial_bytes),
+               <int>0
+            )
             self.mode = "r"
 
         else:

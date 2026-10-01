@@ -10,7 +10,7 @@ Usage::
     ```python
     from types_aiobotocore_appintegrations.literals import ApplicationTypeType
 
-    data: ApplicationTypeType = "MCP_SERVER"
+    data: ApplicationTypeType = "A2A_SERVER"
     ```
 """
 
@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AppIntegrationsServiceServiceName",
     "ApplicationTypeType",
+    "AuthTypeType",
     "ContactHandlingScopeType",
     "ExecutionModeType",
     "ExecutionStatusType",
@@ -41,7 +42,8 @@ __all__ = (
 )
 
 
-ApplicationTypeType = Literal["MCP_SERVER", "SERVICE", "STANDARD"]
+ApplicationTypeType = Literal["A2A_SERVER", "MCP_SERVER", "SERVICE", "STANDARD"]
+AuthTypeType = Literal["API_KEY"]
 ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -132,6 +134,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -206,6 +209,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -234,6 +238,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -328,6 +333,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

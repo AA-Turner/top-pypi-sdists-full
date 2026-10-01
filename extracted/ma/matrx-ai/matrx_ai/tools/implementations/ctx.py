@@ -81,6 +81,12 @@ _SUGGEST_MAX = 6
 _INVENTORY_MAX = 40
 
 
+#: Written by the host's context gate (aidream ``context_rules.EXCLUDED_KEYS_METADATA_KEY``):
+#: the keys the person turned off this turn. The two ends must agree on this literal.
+_EXCLUDED_KEYS_METADATA_KEY = "context_excluded_keys"
+_EXCLUDED_KEY_MESSAGE = "The person turned this value off."
+
+
 def _normalize_key(key: str) -> str:
     """Collapse a context key to its case/separator-insensitive identity.
 
@@ -529,6 +535,27 @@ async def _ctx_get_body(
 
         # --- load manifest ---
         app_ctx = get_app_context()
+
+        # --- a value the PERSON turned off is refused honestly, never "not found" ---
+        # The host's context gate removed it from the manifest and listed it here
+        # (aidream context_rules, RULES.md §1: off means off everywhere, including
+        # this tool). Checked before any alias reconciliation or prior-turn lookup,
+        # so nothing about the value is read or named.
+        excluded = (getattr(app_ctx, "metadata", None) or {}).get(_EXCLUDED_KEYS_METADATA_KEY) or ()
+        if key in excluded or _normalize_key(key) in {_normalize_key(k) for k in excluded}:
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="validation",
+                    message=_EXCLUDED_KEY_MESSAGE,
+                    is_retryable=False,
+                    suggested_action=(
+                        "Do not request this key again this turn. If the value is needed, "
+                        "tell the person it is turned off and ask them to turn it on."
+                    ),
+                ),
+            )
+
         try:
             manifest = load_manifest_from_ctx(app_ctx)
         except Exception as exc:

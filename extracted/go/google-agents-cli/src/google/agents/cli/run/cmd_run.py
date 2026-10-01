@@ -27,7 +27,7 @@ from typing import NamedTuple
 import click
 import httpx
 import requests
-from a2a.client import ClientConfig, create_client
+from a2a.client import ClientConfig
 from a2a.types import Message, Part, Role, SendMessageRequest
 from a2a.utils.constants import (
     AGENT_CARD_WELL_KNOWN_PATH,
@@ -62,6 +62,11 @@ from google.agents.cli._remote import (
     parse_agent_runtime_service_url,
     resolve_agent_endpoints,
     validate_agent_runtime_url,
+)
+from google.agents.cli.run._a2a_pinning import (
+    OriginPinnedAuth,
+    create_pinned_client,
+    origin_of,
 )
 from google.agents.cli.run._local_server import (
     SERVER_LOG_PATH,
@@ -983,6 +988,9 @@ async def _query_a2a_async(
 
     The client is resolved from the reachable ``base_url`` (which may differ from
     the card's advertised URL, e.g. kubectl port-forward / Agent Runtime).
+    ``base_url`` — not the card — decides where the message is actually sent:
+    see ``_a2a_pinning`` for why a card's self-declared endpoints are not
+    trusted with the caller's credentials.
     """
     agent_name = "agent"
 
@@ -996,7 +1004,12 @@ async def _query_a2a_async(
     # so including it should be safely backwards compatible.
     req_headers.setdefault(VERSION_HEADER, PROTOCOL_VERSION_1_0)
 
-    async with httpx.AsyncClient(headers=req_headers, timeout=120) as http_client:
+    # Headers ride on an origin-pinned auth rather than as client-wide defaults,
+    # which httpx would attach to every request no matter which host the agent
+    # card sends us to.
+    async with httpx.AsyncClient(
+        auth=OriginPinnedAuth(req_headers, origin_of(base_url)), timeout=120
+    ) as http_client:
         config = ClientConfig(
             httpx_client=http_client,
             # INVARIANT: keep JSONRPC here. The a2a-sdk v0.3 compat transport is
@@ -1007,13 +1020,22 @@ async def _query_a2a_async(
             ],
         )
         try:
-            a2a_client = await create_client(base_url, config)
+            a2a_client, redirected = await create_pinned_client(base_url, config)
         except Exception as exc:
             raise click.ClickException(
                 f"Could not resolve an A2A agent at {base_url}: {exc}\n"
                 "  If this is an older agent, upgrade it with "
                 "'agents-cli scaffold upgrade', or try --mode adk."
             ) from exc
+
+        if redirected:
+            click.secho(
+                "Warning: the agent card points at a different host "
+                f"({', '.join(redirected)}). Sending to {base_url} instead, "
+                "as given by --url.",
+                fg="yellow",
+                err=True,
+            )
 
         msg = Message(
             message_id=str(uuid.uuid4()),

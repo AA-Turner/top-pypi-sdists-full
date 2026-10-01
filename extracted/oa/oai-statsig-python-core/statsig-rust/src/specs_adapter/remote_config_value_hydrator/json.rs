@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use serde::{
     Deserialize, Serialize,
@@ -11,11 +12,13 @@ use serde_json::value::{RawValue, to_raw_value};
 use crate::StatsigErr;
 use crate::networking::ResponseData;
 
-use super::{
-    HydrationFailureReason, HydrationResult, RemoteConfigValueHydrator, RemoteConfigValueMetadata,
-    RemoteConfigValueMetadataWire, RemoteValueReference, TAG, add_raw_value_reference,
-    hydrated_value, hydration_error, validate_reference_limits,
+use super::errors::{HydrationFailureReason, hydration_error};
+use super::metadata::{
+    RemoteConfigValueMetadata, RemoteConfigValueMetadataWire, RemoteValueReference,
+    add_raw_value_reference, hydrated_value, validate_reference_limits,
 };
+use super::telemetry::{HydrationPhase, HydrationResult};
+use super::{RemoteConfigValueHydrator, TAG};
 
 pub(super) async fn hydrate_response(
     hydrator: &RemoteConfigValueHydrator,
@@ -23,6 +26,7 @@ pub(super) async fn hydrate_response(
     source_url: &str,
     hydration_result: &mut HydrationResult<'_>,
 ) -> Result<bool, StatsigErr> {
+    let started_at = Instant::now();
     if !response_may_contain_remote_metadata(data)? {
         return Ok(false);
     }
@@ -36,6 +40,7 @@ pub(super) async fn hydrate_response(
         return Ok(false);
     }
     let (reference_count, total_bytes) = validate_reference_limits(&references)?;
+    hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonParse);
     // Reserve the response's concurrency window before any download starts so
     // retained sibling blobs cannot deadlock against another response.
     let _response_budget = hydrator.reserve_response_bytes(total_bytes).await?;
@@ -43,10 +48,12 @@ pub(super) async fn hydrate_response(
         .download_all(references)
         .await
         .inspect_err(|error| hydration_result.record_download_error(error))?;
+    let started_at = Instant::now();
     apply_json_hydration(&mut payload, &hydrated)?;
     let hydrated_bytes = serde_json::to_vec(&payload)
         .map_err(|error| StatsigErr::SerializationError(error.to_string()))?;
     data.replace_bytes(hydrated_bytes);
+    hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
 
     hydrator.log_hydration_success(reference_count, total_bytes);
     Ok(true)

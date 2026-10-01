@@ -28,7 +28,9 @@ from .literals import (
     IpAddressTypeType,
     LambdaEventStructureVersionType,
     ListenerProtocolType,
+    PayerResponsibilityPayerType,
     PrivateDnsPreferenceType,
+    ProtocolTypeType,
     ResourceConfigDnsResolutionType,
     ResourceConfigurationIpAddressTypeType,
     ResourceConfigurationStatusType,
@@ -58,6 +60,8 @@ __all__ = (
     "ArnResourceTypeDef",
     "BatchUpdateRuleRequestTypeDef",
     "BatchUpdateRuleResponseTypeDef",
+    "CidrResourceOutputTypeDef",
+    "CidrResourceTypeDef",
     "CreateAccessLogSubscriptionRequestTypeDef",
     "CreateAccessLogSubscriptionResponseTypeDef",
     "CreateListenerRequestTypeDef",
@@ -201,12 +205,15 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PathMatchTypeDef",
     "PathMatchTypeTypeDef",
+    "PayerResponsibilityEntryTypeDef",
     "PutAuthPolicyRequestTypeDef",
     "PutAuthPolicyResponseTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "RegisterTargetsRequestTypeDef",
     "RegisterTargetsResponseTypeDef",
+    "ResourceConfigurationDefinitionOutputTypeDef",
     "ResourceConfigurationDefinitionTypeDef",
+    "ResourceConfigurationDefinitionUnionTypeDef",
     "ResourceConfigurationSummaryTypeDef",
     "ResourceEndpointAssociationSummaryTypeDef",
     "ResourceGatewaySummaryTypeDef",
@@ -287,6 +294,12 @@ class RuleUpdateFailureTypeDef(TypedDict):
     ruleIdentifier: NotRequired[str]
     failureCode: NotRequired[str]
     failureMessage: NotRequired[str]
+
+class CidrResourceOutputTypeDef(TypedDict):
+    cidrRanges: NotRequired[list[str]]
+
+class CidrResourceTypeDef(TypedDict):
+    cidrRanges: NotRequired[Sequence[str]]
 
 class CreateAccessLogSubscriptionRequestTypeDef(TypedDict):
     resourceIdentifier: str
@@ -545,21 +558,6 @@ class ListResourceEndpointAssociationsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-ResourceEndpointAssociationSummaryTypeDef = TypedDict(
-    "ResourceEndpointAssociationSummaryTypeDef",
-    {
-        "id": NotRequired[str],
-        "arn": NotRequired[str],
-        "resourceConfigurationId": NotRequired[str],
-        "resourceConfigurationArn": NotRequired[str],
-        "resourceConfigurationName": NotRequired[str],
-        "vpcEndpointId": NotRequired[str],
-        "vpcEndpointOwner": NotRequired[str],
-        "createdBy": NotRequired[str],
-        "createdAt": NotRequired[datetime],
-    },
-)
-
 class ListResourceGatewaysRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -700,6 +698,10 @@ TargetSummaryTypeDef = TypedDict(
 class PathMatchTypeTypeDef(TypedDict):
     exact: NotRequired[str]
     prefix: NotRequired[str]
+
+class PayerResponsibilityEntryTypeDef(TypedDict):
+    scope: NotRequired[Literal["ResourceGatewayCharges"]]
+    payerResponsibilityType: NotRequired[PayerResponsibilityPayerType]
 
 class PutAuthPolicyRequestTypeDef(TypedDict):
     resourceIdentifier: str
@@ -1285,10 +1287,17 @@ class HealthCheckConfigTypeDef(TypedDict):
     unhealthyThresholdCount: NotRequired[int]
     matcher: NotRequired[MatcherTypeDef]
 
+class ResourceConfigurationDefinitionOutputTypeDef(TypedDict):
+    dnsResource: NotRequired[DnsResourceTypeDef]
+    ipResource: NotRequired[IpResourceTypeDef]
+    arnResource: NotRequired[ArnResourceTypeDef]
+    cidrResource: NotRequired[CidrResourceOutputTypeDef]
+
 class ResourceConfigurationDefinitionTypeDef(TypedDict):
     dnsResource: NotRequired[DnsResourceTypeDef]
     ipResource: NotRequired[IpResourceTypeDef]
     arnResource: NotRequired[ArnResourceTypeDef]
+    cidrResource: NotRequired[CidrResourceTypeDef]
 
 class ListAccessLogSubscriptionsRequestPaginateTypeDef(TypedDict):
     resourceIdentifier: str
@@ -1368,11 +1377,6 @@ class ListResourceConfigurationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class ListResourceEndpointAssociationsResponseTypeDef(TypedDict):
-    items: list[ResourceEndpointAssociationSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListResourceGatewaysResponseTypeDef(TypedDict):
     items: list[ResourceGatewaySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1406,6 +1410,22 @@ class ListTargetsResponseTypeDef(TypedDict):
 class PathMatchTypeDef(TypedDict):
     match: PathMatchTypeTypeDef
     caseSensitive: NotRequired[bool]
+
+ResourceEndpointAssociationSummaryTypeDef = TypedDict(
+    "ResourceEndpointAssociationSummaryTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "resourceConfigurationId": NotRequired[str],
+        "resourceConfigurationArn": NotRequired[str],
+        "resourceConfigurationName": NotRequired[str],
+        "vpcEndpointId": NotRequired[str],
+        "vpcEndpointOwner": NotRequired[str],
+        "createdBy": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "payerResponsibility": NotRequired[list[PayerResponsibilityEntryTypeDef]],
+    },
+)
 
 class ListServiceNetworkResourceAssociationsResponseTypeDef(TypedDict):
     items: list[ServiceNetworkResourceAssociationSummaryTypeDef]
@@ -1466,24 +1486,6 @@ class UpdateTargetGroupRequestTypeDef(TypedDict):
     targetGroupIdentifier: str
     healthCheck: HealthCheckConfigTypeDef
 
-CreateResourceConfigurationRequestTypeDef = TypedDict(
-    "CreateResourceConfigurationRequestTypeDef",
-    {
-        "name": str,
-        "type": ResourceConfigurationTypeType,
-        "portRanges": NotRequired[Sequence[str]],
-        "protocol": NotRequired[Literal["TCP"]],
-        "resourceGatewayIdentifier": NotRequired[str],
-        "resourceConfigurationGroupIdentifier": NotRequired[str],
-        "resourceConfigurationDefinition": NotRequired[ResourceConfigurationDefinitionTypeDef],
-        "allowAssociationToShareableServiceNetwork": NotRequired[bool],
-        "customDomainName": NotRequired[str],
-        "groupDomain": NotRequired[str],
-        "domainVerificationIdentifier": NotRequired[str],
-        "clientToken": NotRequired[str],
-        "tags": NotRequired[Mapping[str, str]],
-    },
-)
 CreateResourceConfigurationResponseTypeDef = TypedDict(
     "CreateResourceConfigurationResponseTypeDef",
     {
@@ -1494,9 +1496,9 @@ CreateResourceConfigurationResponseTypeDef = TypedDict(
         "resourceConfigurationGroupId": str,
         "type": ResourceConfigurationTypeType,
         "portRanges": list[str],
-        "protocol": Literal["TCP"],
+        "protocol": ProtocolTypeType,
         "status": ResourceConfigurationStatusType,
-        "resourceConfigurationDefinition": ResourceConfigurationDefinitionTypeDef,
+        "resourceConfigurationDefinition": ResourceConfigurationDefinitionOutputTypeDef,
         "allowAssociationToShareableServiceNetwork": bool,
         "createdAt": datetime,
         "failureReason": str,
@@ -1518,10 +1520,10 @@ GetResourceConfigurationResponseTypeDef = TypedDict(
         "type": ResourceConfigurationTypeType,
         "allowAssociationToShareableServiceNetwork": bool,
         "portRanges": list[str],
-        "protocol": Literal["TCP"],
+        "protocol": ProtocolTypeType,
         "customDomainName": str,
         "status": ResourceConfigurationStatusType,
-        "resourceConfigurationDefinition": ResourceConfigurationDefinitionTypeDef,
+        "resourceConfigurationDefinition": ResourceConfigurationDefinitionOutputTypeDef,
         "createdAt": datetime,
         "amazonManaged": bool,
         "failureReason": str,
@@ -1533,13 +1535,6 @@ GetResourceConfigurationResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-class UpdateResourceConfigurationRequestTypeDef(TypedDict):
-    resourceConfigurationIdentifier: str
-    resourceConfigurationDefinition: NotRequired[ResourceConfigurationDefinitionTypeDef]
-    allowAssociationToShareableServiceNetwork: NotRequired[bool]
-    portRanges: NotRequired[Sequence[str]]
-
 UpdateResourceConfigurationResponseTypeDef = TypedDict(
     "UpdateResourceConfigurationResponseTypeDef",
     {
@@ -1551,12 +1546,15 @@ UpdateResourceConfigurationResponseTypeDef = TypedDict(
         "type": ResourceConfigurationTypeType,
         "portRanges": list[str],
         "allowAssociationToShareableServiceNetwork": bool,
-        "protocol": Literal["TCP"],
+        "protocol": ProtocolTypeType,
         "status": ResourceConfigurationStatusType,
-        "resourceConfigurationDefinition": ResourceConfigurationDefinitionTypeDef,
+        "resourceConfigurationDefinition": ResourceConfigurationDefinitionOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+ResourceConfigurationDefinitionUnionTypeDef = Union[
+    ResourceConfigurationDefinitionTypeDef, ResourceConfigurationDefinitionOutputTypeDef
+]
 
 class HttpMatchOutputTypeDef(TypedDict):
     method: NotRequired[str]
@@ -1567,6 +1565,11 @@ class HttpMatchTypeDef(TypedDict):
     method: NotRequired[str]
     pathMatch: NotRequired[PathMatchTypeDef]
     headerMatches: NotRequired[Sequence[HeaderMatchTypeDef]]
+
+class ListResourceEndpointAssociationsResponseTypeDef(TypedDict):
+    items: list[ResourceEndpointAssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 CreateListenerResponseTypeDef = TypedDict(
     "CreateListenerResponseTypeDef",
@@ -1668,6 +1671,30 @@ UpdateTargetGroupResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+CreateResourceConfigurationRequestTypeDef = TypedDict(
+    "CreateResourceConfigurationRequestTypeDef",
+    {
+        "name": str,
+        "type": ResourceConfigurationTypeType,
+        "portRanges": NotRequired[Sequence[str]],
+        "protocol": NotRequired[ProtocolTypeType],
+        "resourceGatewayIdentifier": NotRequired[str],
+        "resourceConfigurationGroupIdentifier": NotRequired[str],
+        "resourceConfigurationDefinition": NotRequired[ResourceConfigurationDefinitionUnionTypeDef],
+        "allowAssociationToShareableServiceNetwork": NotRequired[bool],
+        "customDomainName": NotRequired[str],
+        "groupDomain": NotRequired[str],
+        "domainVerificationIdentifier": NotRequired[str],
+        "clientToken": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+    },
+)
+
+class UpdateResourceConfigurationRequestTypeDef(TypedDict):
+    resourceConfigurationIdentifier: str
+    resourceConfigurationDefinition: NotRequired[ResourceConfigurationDefinitionUnionTypeDef]
+    allowAssociationToShareableServiceNetwork: NotRequired[bool]
+    portRanges: NotRequired[Sequence[str]]
 
 class RuleMatchOutputTypeDef(TypedDict):
     httpMatch: NotRequired[HttpMatchOutputTypeDef]

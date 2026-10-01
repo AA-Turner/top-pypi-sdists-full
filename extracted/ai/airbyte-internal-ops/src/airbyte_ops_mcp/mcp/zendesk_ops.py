@@ -18,7 +18,8 @@ server.
 
 __all__: list[str] = []
 
-from typing import Annotated, Any
+import re
+from typing import Annotated, Any, Literal
 
 from fastmcp import FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
@@ -28,8 +29,14 @@ from airbyte_ops_mcp.zendesk_api import (
     ZendeskAPIError,
     add_internal_note,
     add_ticket_tags,
+    create_ticket,
+    find_organizations_by_airbyte_org_id,
+    find_ticket_form_id,
+    get_current_user,
     get_ticket,
     get_ticket_comments,
+    list_tickets_by_external_id,
+    search,
 )
 
 
@@ -93,6 +100,25 @@ class ZendeskTicketResponse(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Ticket tags.")
     requester_id: int | None = Field(
         default=None, description="User ID of the ticket requester."
+    )
+    type: str | None = Field(default=None, description="Zendesk ticket type.")
+    problem_id: int | None = Field(
+        default=None, description="Associated problem ticket ID, if any."
+    )
+    assignee_id: int | None = Field(
+        default=None, description="User ID of the ticket assignee."
+    )
+    submitter_id: int | None = Field(
+        default=None, description="User ID of the ticket submitter."
+    )
+    ticket_form_id: int | None = Field(
+        default=None, description="Ticket form ID used by the ticket."
+    )
+    email_cc_ids: list[int] | None = Field(
+        default=None, description="Zendesk user IDs included as email CCs."
+    )
+    external_id: str | None = Field(
+        default=None, description="External idempotency identifier for the ticket."
     )
     organization_id: int | None = Field(
         default=None, description="Organization ID associated with the ticket."
@@ -160,6 +186,89 @@ class ZendeskTagsResponse(BaseModel):
     tags: list[str] = Field(
         default_factory=list,
         description="The ticket's full tag list after the update.",
+    )
+
+
+class ZendeskTicketSummary(BaseModel):
+    """A concise Zendesk ticket search result."""
+
+    id: int = Field(description="Zendesk ticket ID.")
+    subject: str | None = Field(default=None, description="Ticket subject.")
+    status: str | None = Field(default=None, description="Ticket status.")
+    type: str | None = Field(default=None, description="Ticket type.")
+    requester_id: int | None = Field(default=None, description="Requester user ID.")
+    assignee_id: int | None = Field(default=None, description="Assignee user ID.")
+    organization_id: int | None = Field(
+        default=None, description="Associated organization ID."
+    )
+    tags: list[str] = Field(default_factory=list, description="Ticket tags.")
+    external_id: str | None = Field(default=None, description="External ticket ID.")
+    created_at: str | None = Field(default=None, description="Ticket creation time.")
+    updated_at: str | None = Field(default=None, description="Ticket update time.")
+    url: str | None = Field(default=None, description="Agent-facing ticket URL.")
+
+
+class ZendeskTicketSearchResponse(BaseModel):
+    """Response from `search_zendesk_tickets`."""
+
+    success: bool = Field(description="Whether the search succeeded.")
+    message: str = Field(description="Human-readable status message.")
+    count: int = Field(description="Number of tickets returned.")
+    tickets: list[ZendeskTicketSummary] = Field(
+        default_factory=list, description="Matching Zendesk tickets."
+    )
+
+
+class ZendeskOrganizationSummary(BaseModel):
+    """A concise Zendesk organization search result."""
+
+    id: int = Field(description="Zendesk organization ID.")
+    name: str | None = Field(default=None, description="Organization name.")
+    url: str | None = Field(default=None, description="Zendesk API organization URL.")
+
+
+class ZendeskOrganizationSearchResponse(BaseModel):
+    """Response from `find_zendesk_organization_by_airbyte_org_id`."""
+
+    success: bool = Field(description="Whether the search succeeded.")
+    message: str = Field(description="Human-readable status message.")
+    organizations: list[ZendeskOrganizationSummary] = Field(
+        default_factory=list, description="Matching Zendesk organizations."
+    )
+
+
+class OutreachContact(BaseModel):
+    """A Zendesk outreach requester or CC contact."""
+
+    email: str = Field(description="Contact email address.")
+    name: str = Field(description="Contact name.")
+
+
+class ZendeskOutreachTicketResponse(BaseModel):
+    """Response from `create_zendesk_outreach_ticket`."""
+
+    success: bool = Field(description="Whether the ticket was found or created.")
+    message: str = Field(description="Human-readable status message.")
+    created: bool = Field(description="Whether a new ticket was created.")
+    ticket_id: int | None = Field(default=None, description="Zendesk ticket ID.")
+    url: str | None = Field(default=None, description="Agent-facing ticket URL.")
+    status: str | None = Field(default=None, description="Ticket status.")
+    type: str | None = Field(default=None, description="Ticket type.")
+    problem_id: int | None = Field(default=None, description="Problem ticket ID.")
+    requester_id: int | None = Field(default=None, description="Requester user ID.")
+    submitter_id: int | None = Field(default=None, description="Submitter user ID.")
+    assignee_id: int | None = Field(default=None, description="Assignee user ID.")
+    organization_id: int | None = Field(
+        default=None, description="Associated organization ID."
+    )
+    ticket_form_id: int | None = Field(default=None, description="Ticket form ID.")
+    email_cc_ids: list[int] | None = Field(
+        default=None, description="Zendesk user IDs included as email CCs."
+    )
+    tags: list[str] = Field(default_factory=list, description="Ticket tags.")
+    duplicate_ticket_ids: list[int] = Field(
+        default_factory=list,
+        description="Existing ticket IDs when an external ID has duplicates.",
     )
 
 
@@ -293,6 +402,13 @@ def get_zendesk_ticket(
         priority=ticket.get("priority"),
         tags=ticket.get("tags", []) or [],
         requester_id=ticket.get("requester_id"),
+        type=ticket.get("type"),
+        problem_id=ticket.get("problem_id"),
+        assignee_id=ticket.get("assignee_id"),
+        submitter_id=ticket.get("submitter_id"),
+        ticket_form_id=ticket.get("ticket_form_id"),
+        email_cc_ids=ticket.get("email_cc_ids"),
+        external_id=ticket.get("external_id"),
         organization_id=ticket.get("organization_id"),
         created_at=ticket.get("created_at"),
         updated_at=ticket.get("updated_at"),
@@ -302,6 +418,416 @@ def get_zendesk_ticket(
         follow_up_source_ticket_id=_follow_up_source_ticket_id(via_source),
         custom_fields=_map_custom_fields(ticket),
         comments=comments,
+    )
+
+
+def _ticket_summary(ticket: dict[str, Any]) -> ZendeskTicketSummary:
+    """Map a raw Zendesk ticket into a concise search result."""
+    ticket_id = ticket.get("id")
+    if not isinstance(ticket_id, int):
+        raise ZendeskAPIError("Zendesk search result is missing a valid ticket ID.")
+    return ZendeskTicketSummary(
+        id=ticket_id,
+        subject=ticket.get("subject"),
+        status=ticket.get("status"),
+        type=ticket.get("type"),
+        requester_id=ticket.get("requester_id"),
+        assignee_id=ticket.get("assignee_id"),
+        organization_id=ticket.get("organization_id"),
+        tags=ticket.get("tags", []) or [],
+        external_id=ticket.get("external_id"),
+        created_at=ticket.get("created_at"),
+        updated_at=ticket.get("updated_at"),
+        url=_agent_ticket_url(ticket.get("url"), ticket_id),
+    )
+
+
+def _outreach_ticket_response(
+    ticket: dict[str, Any],
+    *,
+    created: bool,
+    message: str,
+    fallbacks: dict[str, Any] | None = None,
+    success: bool = True,
+    duplicate_ticket_ids: list[int] | None = None,
+) -> ZendeskOutreachTicketResponse:
+    """Map a raw Zendesk ticket into an outreach response."""
+    fallbacks = fallbacks or {}
+    ticket_id = ticket.get("id")
+    return ZendeskOutreachTicketResponse(
+        success=success,
+        message=message,
+        created=created,
+        ticket_id=ticket_id,
+        url=_agent_ticket_url(ticket.get("url"), ticket_id),
+        status=ticket.get("status") or fallbacks.get("status"),
+        type=ticket.get("type") or fallbacks.get("type"),
+        problem_id=ticket.get("problem_id", fallbacks.get("problem_id")),
+        requester_id=ticket.get("requester_id", fallbacks.get("requester_id")),
+        submitter_id=ticket.get("submitter_id", fallbacks.get("submitter_id")),
+        assignee_id=ticket.get("assignee_id"),
+        organization_id=ticket.get("organization_id"),
+        ticket_form_id=ticket.get("ticket_form_id", fallbacks.get("ticket_form_id")),
+        email_cc_ids=ticket.get("email_cc_ids", fallbacks.get("email_cc_ids")),
+        tags=ticket.get("tags", fallbacks.get("tags", [])) or [],
+        duplicate_ticket_ids=duplicate_ticket_ids or [],
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def search_zendesk_tickets(
+    query: Annotated[
+        str,
+        Field(
+            description="Zendesk search query; ticket searches are scoped to tickets."
+        ),
+    ],
+    sort_by: Annotated[
+        Literal["created_at", "updated_at"] | None,
+        Field(description="Optional ticket field to sort by."),
+    ] = None,
+    sort_order: Annotated[
+        Literal["asc", "desc"],
+        Field(description="Sort direction."),
+    ] = "desc",
+    limit: Annotated[
+        int,
+        Field(description="Maximum number of tickets to return.", ge=1, le=1000),
+    ] = 100,
+) -> ZendeskTicketSearchResponse:
+    """Search Zendesk tickets, with results limited to 1,000.
+
+    If `query` has no positive `type:ticket` filter, `type:ticket` is prepended.
+    Negated type filters and queries that explicitly select another record type
+    are rejected.
+    """
+    if re.search(r"(^|\s)-\s*type\s*:", query, flags=re.IGNORECASE):
+        return ZendeskTicketSearchResponse(
+            success=False,
+            message="Zendesk ticket search does not accept negated type filters.",
+            count=0,
+        )
+    type_filters = re.findall(r"\btype\s*:\s*([^\s]+)", query, flags=re.IGNORECASE)
+    if type_filters and any(value.casefold() != "ticket" for value in type_filters):
+        return ZendeskTicketSearchResponse(
+            success=False,
+            message="Zendesk ticket search only accepts `type:ticket` queries.",
+            count=0,
+        )
+    search_query = query.strip()
+    if not type_filters:
+        search_query = f"type:ticket {search_query}".strip()
+
+    try:
+        results = search(
+            search_query,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            max_results=limit,
+        )
+        tickets = [_ticket_summary(ticket) for ticket in results]
+    except ZendeskAPIError as exc:
+        return ZendeskTicketSearchResponse(
+            success=False,
+            message=str(exc),
+            count=0,
+        )
+
+    return ZendeskTicketSearchResponse(
+        success=True,
+        message=f"Found {len(tickets)} Zendesk ticket(s).",
+        count=len(tickets),
+        tickets=tickets,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def find_zendesk_organization_by_airbyte_org_id(
+    airbyte_org_id: Annotated[
+        str,
+        Field(
+            description="Airbyte organization UUID stored on the Zendesk organization."
+        ),
+    ],
+) -> ZendeskOrganizationSearchResponse:
+    """Find Zendesk organizations by their `airbyte_org_id` custom field."""
+    try:
+        organizations = find_organizations_by_airbyte_org_id(airbyte_org_id)
+    except ZendeskAPIError as exc:
+        return ZendeskOrganizationSearchResponse(
+            success=False,
+            message=str(exc),
+        )
+
+    mapped = [
+        ZendeskOrganizationSummary(
+            id=organization["id"],
+            name=organization.get("name"),
+            url=organization.get("url"),
+        )
+        for organization in organizations
+        if isinstance(organization.get("id"), int)
+    ]
+    return ZendeskOrganizationSearchResponse(
+        success=True,
+        message=f"Found {len(mapped)} Zendesk organization(s).",
+        organizations=mapped,
+    )
+
+
+def _outreach_tags(tags: list[str]) -> list[str]:
+    """Trim and deduplicate tags, ensuring the `outreach` tag is present."""
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    has_outreach = False
+    for raw_tag in tags:
+        tag = raw_tag.strip()
+        if not tag:
+            continue
+        normalized = tag.casefold()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if normalized == "outreach":
+            cleaned.append("outreach")
+            has_outreach = True
+        else:
+            cleaned.append(tag)
+    if not has_outreach:
+        cleaned.append("outreach")
+    return cleaned
+
+
+@mcp_tool(
+    read_only=False,
+    idempotent=True,
+    open_world=True,
+)
+def create_zendesk_outreach_ticket(
+    external_id: Annotated[
+        str,
+        Field(description="Idempotency key beginning with `outreach:`."),
+    ],
+    ticket_type: Annotated[
+        Literal["problem", "incident"],
+        Field(description="Zendesk ticket type."),
+    ],
+    subject: Annotated[str, Field(description="Non-empty ticket subject.")],
+    internal_note_html: Annotated[
+        str,
+        Field(description="Non-empty first comment, posted as a private HTML note."),
+    ],
+    problem_id: Annotated[
+        int | None,
+        Field(description="Required parent problem ticket ID for an incident."),
+    ] = None,
+    tags: Annotated[list[str], Field(description="Ticket tags.")] = [],  # noqa: B006
+    ticket_form_name: Annotated[
+        str,
+        Field(description="Active ticket form name."),
+    ] = "Support Outreach",
+    requester: Annotated[
+        OutreachContact | None,
+        Field(
+            description="Requester contact; required for incidents; not allowed for problems."
+        ),
+    ] = None,
+    cc: Annotated[
+        list[OutreachContact],
+        Field(
+            description="Requester contacts to CC; incidents only; Zendesk allows at most 48."
+        ),
+    ] = [],  # noqa: B006
+    assignee_email: Annotated[
+        str | None,
+        Field(description="Optional assignee email address."),
+    ] = None,
+) -> ZendeskOutreachTicketResponse:
+    """Create an idempotent ticket for the approved outreach workflow only.
+
+    This tool cannot send anything public. The first comment is always private
+    and visible only to Zendesk agents.
+    Callers must not run concurrent calls with the same `external_id`; duplicates
+    are detected after creation but not prevented.
+    """
+    try:
+        if (
+            not external_id.startswith("outreach:")
+            or not external_id[len("outreach:") :].strip()
+        ):
+            raise ZendeskAPIError("`external_id` must begin with `outreach:`.")
+
+        existing = list_tickets_by_external_id(external_id)
+        if len(existing) > 1:
+            duplicate_ids = [
+                ticket["id"] for ticket in existing if isinstance(ticket.get("id"), int)
+            ]
+            return ZendeskOutreachTicketResponse(
+                success=False,
+                message=(
+                    "Multiple Zendesk tickets share this external ID: "
+                    f"{', '.join(map(str, duplicate_ids))}."
+                ),
+                created=False,
+                duplicate_ticket_ids=duplicate_ids,
+            )
+        if existing:
+            ticket = existing[0]
+            return _outreach_ticket_response(
+                ticket,
+                created=False,
+                message=f"Found existing Zendesk ticket {ticket.get('id')}; no ticket was created.",
+            )
+
+        if ticket_type == "incident" and problem_id is None:
+            raise ZendeskAPIError("`problem_id` is required for an incident.")
+        if ticket_type == "problem" and problem_id is not None:
+            raise ZendeskAPIError("`problem_id` is not allowed for a problem ticket.")
+        if ticket_type == "incident" and requester is None:
+            raise ZendeskAPIError("`requester` is required for an incident.")
+        if ticket_type == "problem" and requester is not None:
+            raise ZendeskAPIError(
+                "`requester` is not allowed for a problem ticket; MoonBot is the requester."
+            )
+        if ticket_type == "problem" and cc:
+            raise ZendeskAPIError("`cc` is not allowed for a problem ticket.")
+        if not subject.strip():
+            raise ZendeskAPIError("Ticket subject must not be empty.")
+        if not internal_note_html.strip():
+            raise ZendeskAPIError("Internal note body must not be empty.")
+        if requester is not None and not requester.email.strip():
+            raise ZendeskAPIError("Requester email must not be empty.")
+        if assignee_email is not None and not assignee_email.strip():
+            raise ZendeskAPIError("Assignee email must not be empty.")
+
+        current_user = get_current_user()
+        current_user_id = current_user.get("id")
+        if not isinstance(current_user_id, int):
+            raise ZendeskAPIError(
+                "Zendesk current-user response has an invalid user ID."
+            )
+
+        requester_email = (
+            requester.email.strip()
+            if requester is not None
+            else str(current_user.get("email") or "").strip()
+        )
+        cc_contacts: list[dict[str, str]] = []
+        seen_cc_emails: set[str] = set()
+        for contact in cc:
+            email = contact.email.strip()
+            if not email:
+                raise ZendeskAPIError("CC contact email must not be empty.")
+            normalized_email = email.casefold()
+            if normalized_email == requester_email.casefold():
+                continue
+            if normalized_email in seen_cc_emails:
+                continue
+            seen_cc_emails.add(normalized_email)
+            cc_contacts.append(
+                {
+                    "user_email": email,
+                    "user_name": contact.name.strip(),
+                    "action": "put",
+                }
+            )
+        if len(cc_contacts) > 48:
+            raise ZendeskAPIError("At most 48 unique CC contacts are allowed.")
+
+        ticket_form_id = find_ticket_form_id(ticket_form_name)
+        ticket_payload: dict[str, Any] = {
+            "subject": subject.strip(),
+            "comment": {"html_body": internal_note_html.strip(), "public": False},
+            "status": "new",
+            "priority": "normal",
+            "type": ticket_type,
+            "tags": _outreach_tags(tags),
+            "external_id": external_id,
+            "ticket_form_id": ticket_form_id,
+            "submitter_id": current_user_id,
+            "email_ccs": cc_contacts,
+        }
+        if ticket_type == "incident":
+            ticket_payload["problem_id"] = problem_id
+        if requester is None:
+            ticket_payload["requester_id"] = current_user_id
+        else:
+            ticket_payload["requester"] = {
+                "name": requester.name.strip(),
+                "email": requester.email.strip(),
+            }
+        if assignee_email is not None:
+            ticket_payload["assignee_email"] = assignee_email.strip()
+
+        ticket = create_ticket(ticket_payload)
+        try:
+            post_create_tickets = list_tickets_by_external_id(external_id)
+        except ZendeskAPIError as exc:
+            post_create_tickets = None
+            duplicate_check_error = str(exc)
+        else:
+            duplicate_check_error = None
+    except ZendeskAPIError as exc:
+        return ZendeskOutreachTicketResponse(
+            success=False,
+            message=str(exc),
+            created=False,
+        )
+
+    response_fallbacks: dict[str, Any] = {
+        "status": "new",
+        "type": ticket_type,
+        "problem_id": problem_id,
+        "submitter_id": current_user_id,
+        "ticket_form_id": ticket_form_id,
+        "email_cc_ids": [],
+        "tags": ticket_payload["tags"],
+    }
+    if requester is None:
+        response_fallbacks["requester_id"] = current_user_id
+    if duplicate_check_error is not None:
+        return _outreach_ticket_response(
+            ticket,
+            created=True,
+            message=(
+                f"Created ticket {ticket.get('id')} but could not check for "
+                "duplicate tickets for this external ID: "
+                f"{duplicate_check_error}."
+            ),
+            fallbacks=response_fallbacks,
+            success=False,
+        )
+    if post_create_tickets is not None and len(post_create_tickets) > 1:
+        duplicate_ids = [
+            existing_ticket["id"]
+            for existing_ticket in post_create_tickets
+            if isinstance(existing_ticket.get("id"), int)
+        ]
+        return _outreach_ticket_response(
+            ticket,
+            created=True,
+            message=(
+                f"Created ticket {ticket.get('id')} but found duplicate tickets "
+                f"for this external ID: {', '.join(map(str, duplicate_ids))}; "
+                "resolve manually."
+            ),
+            fallbacks=response_fallbacks,
+            success=False,
+            duplicate_ticket_ids=duplicate_ids,
+        )
+    return _outreach_ticket_response(
+        ticket,
+        created=True,
+        message=f"Created private outreach ticket {ticket.get('id')}.",
+        fallbacks=response_fallbacks,
     )
 
 

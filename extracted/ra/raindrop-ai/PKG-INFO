@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.69
+Version: 0.0.72
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -267,6 +267,39 @@ interaction.add_attachments([
 
 # Complete the interaction
 interaction.finish(output="Found weather data for NYC")
+```
+
+### Tool Definitions
+
+Pass `tools=` to `begin()` (or `raindrop.interaction(..., tools=[...])`, `interaction.set_tools([...])`, or the `raindrop.prompt_tools([...])` context manager) to record the tool list the model was offered. Every model-call span started inside the interaction gets `ai.prompt.tools` set to that list — one JSON string per tool in the canonical `{"type": "function", "name", "description", "inputSchema"}` shape — replacing anything the instrumentation captured. OpenAI (`{"type": "function", "function": {...}}`) and Anthropic (`{"name", "description", "input_schema"}`) tool dicts are accepted and normalised; `{"type": "provider-defined", "id", "name", "args"}` records a provider-owned tool as-is, and `tools=[]` records that the model had no tools. Non-model spans are never stamped.
+
+```python
+interaction = raindrop.begin(
+    user_id="user-123",
+    event="agent-run",
+    input="What's the weather?",
+    tools=[
+        {
+            "type": "function",
+            "name": "get_weather",
+            "description": "Look up the current weather",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        }
+    ],
+)
+```
+
+A span counts as a model call when it carries `llm.request.type`, `gen_ai.request.model`, `llm.request.model` or OpenInference's `llm.model_name`. Without an override, `ai.prompt.tools` is rebuilt at export time from the tool list the OpenLLMetry instrumentations record on model spans: `gen_ai.tool.definitions` (one JSON string, written by OpenLLMetry 0.54.0+ for Anthropic and 0.55.0+ for OpenAI/LangChain) or the older `llm.request.functions.{i}.name/.description/.parameters` attributes. SDK 0.0.72+ mirrors both shapes, consulting `llm.request.functions.*` first, and records nothing when the attribute is not valid JSON. Both the implicit capture and the override follow the content-capture setting, so `TRACELOOP_TRACE_CONTENT=false` never records the attribute.
+
+When the list you pass is a catalog rather than the exact per-request list — an agent framework's tool registry that may overstate what one model call received — mark it with `source` on the `raindrop.prompt_tools([...], source="...")` context manager. The same model spans then also carry `ai.prompt.tools.source` (a string such as `"agno.agent.tools"`), under the same content gate, so consumers can tell a catalog from exact capture. `begin(tools=...)`, `interaction.set_tools([...])` and `prompt_tools([...])` without `source` are explicit overrides and never carry `ai.prompt.tools.source`, including when they run inside a `source`-marked scope. Lists mirrored from the instrumentation attributes are exact per-request capture and carry no `source` marker either.
+
+```python
+with raindrop.prompt_tools(agent_tool_catalog, source="agno.agent.tools"):
+    agent.run("What's the weather?")
 ```
 
 ### Resuming Interactions

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litdata
-Version: 0.2.75
+Version: 0.2.76
 Summary: The Deep Learning framework to train, deploy, and ship AI products Lightning fast.
 Home-page: https://github.com/Lightning-AI/litdata
 Download-URL: https://github.com/Lightning-AI/litdata
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch
+Requires-Dist: torch>=2.4.0
 Requires-Dist: torchvision
 Requires-Dist: lightning-utilities
 Requires-Dist: filelock
@@ -44,7 +44,7 @@ Requires-Dist: lightning-sdk==2026.2.6; extra == "extras"
 Requires-Dist: orjson; extra == "extras"
 Requires-Dist: pillow; extra == "extras"
 Requires-Dist: polars; extra == "extras"
-Requires-Dist: pyarrow<25.0.0; extra == "extras"
+Requires-Dist: pyarrow; extra == "extras"
 Requires-Dist: tqdm; extra == "extras"
 Requires-Dist: uvloop; sys_platform != "win32" and extra == "extras"
 Requires-Dist: viztracer; extra == "extras"
@@ -109,6 +109,7 @@ Dynamic: summary
 <p align="center">
   <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#quick-start">Quick start</a> •
+  <a href="#litdata-vs-torchdata">vs torchdata</a> •
   <a href="#speed-up-model-training">Optimize data</a> •
   <a href="#transform-datasets">Transform data</a> •
   <a href="#modality">Modality</a> •
@@ -140,6 +141,24 @@ LitData provides tools to preprocess and optimize datasets into a format that st
 
 &nbsp;
 
+## LitData vs torchdata <a id="litdata-vs-torchdata"></a>
+
+Different layers, not competitors: **LitData is a streaming layer with its own on-disk format, plus a no-conversion path for files you already have; [torchdata](https://github.com/meta-pytorch/data) is a toolkit of dataloading primitives with no format of its own.**
+
+| | LitData | torchdata |
+|--|--|--|
+| Storage format | Own chunked binary format via [`optimize()`](#option-2-optimize-for-maximum-performance-); also reads Parquet, MDS, [raw files](#stream-raw) | None. Bring your own |
+| Remote data | Chunk-level streaming from S3, GCS, Azure, R2, HF Hub. Async batched downloads, prefetch, local cache, retries | Per-file reads (`FileLister` / `FileReader`, fsspec + smart_open). No chunk cache or prefetch pipeline |
+| Main API | `StreamingDataset` / `StreamingDataLoader`, `CombinedStreamingDataset` | `torchdata.nodes` iterators you chain yourself, `StatefulDataLoader` |
+| Mid-epoch resume | `StreamingDataLoader.state_dict()` / `load_state_dict()` | `StatefulDataLoader.state_dict()` / `load_state_dict()` |
+| Transforms | [`map()`](#transform-datasets) / `optimize()`. Preprocessing jobs that run before training and write a new dataset, distributed across machines | `ParallelMapper`. Transforms samples in the live pipeline, re-run every epoch |
+
+**Rule of thumb:** reach for **LitData** in most cases. It handles the streaming, caching, shuffling and resume for you. Reach for **torchdata** when you only want bare-bones primitives and are happy to build the loading pipeline yourself.
+
+The two compose rather than compete: a `StreamingDataset` is an `IterableDataset`, so `torchdata.nodes.IterableWrapper` can pull straight from it.
+
+&nbsp;
+
 # Looking for GPUs?
 Over 340,000 developers use [Lightning Cloud](https://lightning.ai/?utm_source=litdata&utm_medium=referral&utm_campaign=litdata) - purpose-built for PyTorch and PyTorch Lightning. 
 - [GPUs](https://lightning.ai/pricing?utm_source=litdata&utm_medium=referral&utm_campaign=litdata) from $0.19.   
@@ -155,6 +174,11 @@ First, install LitData:
 ```bash
 pip install litdata
 ```
+
+<!-- torch-support -->
+LitData supports the two most recent PyTorch minor releases, currently **2.14** and **2.13**; and
+requires **PyTorch 2.4 or newer**. CI exercises all three. Those versions are declared in
+[`.github/torch-support.json`](.github/torch-support.json), which drives the CI matrix.
 
 Choose your workflow:
 
@@ -486,6 +510,12 @@ Wrap each file so a caption is not treated as a path: Text(path=...), Image(path
 </table>
 
 Examples (path on disk → optimize → batch): [examples/modality](examples/modality).
+
+For temporal arrays, use `optimize(..., item_loader=TemporalArrayLoader(field_groups=[["clock", "valid"]]))`
+and `StreamingDataset(..., item_loader=TemporalArrayLoader()).read_window(index, start=7, frames=64)`.
+LitData owns field grouping, window offsets, range reads and decoding; the application keeps its sampling policy.
+When in-place mmap is disabled (`LITDATA_POSIX_FAST=0`), local window reads request only the selected byte ranges without Python file buffering. Operating-system caching still applies; this setting does not enable direct I/O.
+See the [built-in window example](examples/temporal_arrays) for a small training adapter and request-count tradeoffs.
 
 ----
 
@@ -2558,9 +2588,9 @@ optimize(
 )
 ```
 
-### Lightning Studio `/teamspace/...` paths (direct bucket I/O)
+### Lightning Studio `/teamspace/...` paths
 
-In Lightning Studios, data connections appear under `/teamspace/...`. **Prefer these paths in LitData** — optimize/map uploads and StreamingDataset downloads use the **backing object store URL** (and temporary credentials when needed), which is much faster than reading every file through the FUSE mount.
+In Lightning Studios, data connections appear under `/teamspace/...`. **Prefer these paths in LitData**: object-store connections use their backing URL and temporary credentials when needed. Mounted Lightning Storage filesystems are read and written in place, without redirecting the dataset to a download cache.
 
 | Path prefix | What LitData does |
 |-------------|-------------------|
@@ -2570,7 +2600,7 @@ In Lightning Studios, data connections appear under `/teamspace/...`. **Prefer t
 | `/teamspace/gcs_connections/<name>/...` | Direct GCS |
 | `/teamspace/s3_folders/<name>/...` | S3 folder connection |
 | `/teamspace/gcs_folders/<name>/...` | GCS folder connection |
-| `/teamspace/lightning_storage/<name>/...` | Lightning-managed object storage (R2-style) |
+| `/teamspace/lightning_storage/<name>/...` | Direct R2 for object-store connections; in-place file access for mounted filesystems |
 | `/teamspace/datasets/...` | Teamspace datasets mount → project datasets bucket |
 
 ```python
@@ -2607,6 +2637,52 @@ if __name__ == "__main__":
 
 &nbsp;
 
+
+### GPU-local CPU and NUMA memory affinity
+
+On Linux, opt in to placing each training rank and its DataLoader workers on the CPUs and RAM local to its GPU:
+
+```python
+import os
+
+from litdata import StreamingDataLoader, StreamingDataset
+from litdata import get_gpu_affinity
+
+
+def main():
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    affinity = get_gpu_affinity(local_rank, bind_memory=True)
+    affinity.bind()
+
+    dataset = StreamingDataset("/path/to/optimized/data")
+    loader = StreamingDataLoader(
+        dataset,
+        batch_size=32,
+        num_workers=4,
+        worker_init_fn=affinity,
+        multiprocessing_context="spawn",
+        persistent_workers=True,
+        pin_memory=True,
+    )
+    for batch in loader:
+        train_step(batch)  # Your training step.
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Launch this example with `torchrun --nproc_per_node=8 train.py`, adjusting the GPU count. `get_gpu_affinity` uses PyTorch's **logical CUDA device** and its PCI NUMA topology, so CUDA visibility and device reordering are respected. It initializes CUDA in the rank process. The returned `NumaAffinity` object contains only the node, CPU IDs and memory-binding option; it can be pickled and applied in workers without querying CUDA. It also works with `torch.utils.data.DataLoader`.
+
+- Bind the rank before creating its reader threads, model and loader. Also pass the plan as `worker_init_fn`, particularly with spawned workers. To run an existing worker initializer, call `affinity(worker_id)` first in a top-level picklable callable, then run the existing initializer.
+- CPU selection intersects the GPU-local CPUs with the calling thread's current affinity mask. An empty intersection or unknown topology raises an error; it does not select a remote node. Multiple GPUs can share one NUMA node; these helpers do not reserve or divide CPUs between GPUs.
+- `bind_memory=True` uses `libnuma.so.1` (the `libnuma1` system package) to request and verify `MPOL_BIND`. CPU-only placement, `bind_memory=False`, does not require libnuma. Kernel or container restrictions on memory binding produce an error.
+- Binding affects the **calling thread and future child threads/processes**. Existing sibling threads retain their policies, and pages already allocated are not migrated. Call the helper early; `pin_memory=True` alone does not select a NUMA node. A strict binding limits allocations to that node's available memory.
+- This is optional and does not change existing loaders. Locality does not guarantee a throughput gain; compare the same workload with and without memory binding.
+
+If the GPU topology is known already, use `get_numa_affinity(numa_node, bind_memory=True)` to build a plan without initializing CUDA. This also supports older PyTorch builds that do not expose PCI identifiers in CUDA device properties. GPU discovery requires those properties (available in PyTorch 2.8). Create plans before narrowing a parent process's CPU mask; a child resolving a different GPU after inheriting that narrowed mask will raise rather than silently expand it. Apply a previously resolved plan to that child instead.
+
+See the [Linux NUMA policy documentation](https://docs.kernel.org/admin-guide/mm/numa_memory_policy.html) for policy inheritance and allocation semantics.
 
 ## Features for transforming datasets
 
@@ -2989,6 +3065,8 @@ Papers that train or stream with LitData (`optimize` / `StreamingDataset`). Scho
 * Thomas Chaton ([tchaton](https://github.com/tchaton))
 * Bhimraj Yadav ([bhimrazy](https://github.com/bhimrazy))
 * Deependu ([deependujha](https://github.com/deependujha))
+* Peyton Gardipee ([pwgardipee](https://github.com/pwgardipee))
+* David Edey ([dhedey](https://github.com/dhedey))
 
 
 ## Emeritus Maintainers
@@ -3003,3 +3081,74 @@ Papers that train or stream with LitData (`optimize` / `StreamingDataset`). Scho
 * Adrian Wälchli ([awaelchli](https://github.com/awaelchli))
 
 </details>
+
+### Direct reads on Linux NFS
+
+For a working set larger than client RAM, direct I/O can avoid filling the client's
+page cache with streamed payloads. It is an opt-in performance option: benchmark
+it with your access pattern. Server-side caches still apply. This support is
+currently limited to Linux x86_64/aarch64 and regular files on NFS; other
+filesystems raise an error rather than silently using buffered reads.
+
+For LitData window reads, no compiler or preload library is needed:
+
+```python
+from litdata import StreamingDataset, TemporalArrayLoader
+
+windows = StreamingDataset(
+    "/mnt/dataset",
+    item_loader=TemporalArrayLoader(),
+    window_direct_io=True,
+)
+sample = windows.read_window(0, start=128, frames=64)
+```
+
+`window_direct_io=True` supports `read_window` and `aread_window` on uncompressed,
+unencrypted datasets. It disables the window mmap path and ordinary dataset
+indexing/iteration. Keep sampling in your application and call window reads from
+your DataLoader workers. Defaults remain unchanged.
+
+Custom Python loaders can use the same reader without converting to LitData:
+
+```python
+from litdata.utilities.direct_io import open_nfs_direct
+
+with open_nfs_direct("/mnt/dataset/payload.bin") as handle:
+    handle.seek(123)
+    data = handle.read(4096)
+```
+
+This returns an unbuffered, read-only `FileIO` handle. Open it inside each worker,
+close it normally, and handle short reads when an exact byte count is required.
+Linux NFS permits unaligned byte ranges; this helper does not generalize that
+assumption to local disks. Do not mmap the same payload or modify files during reads.
+
+#### Experimental launcher for Lance and other native readers
+
+A native reader opens its own files, so the Python opener above cannot change its
+behavior. The launcher below builds a small C preload helper and starts your
+command with it. A system C compiler (`cc`) and mounted `/proc` are required.
+Only read-only regular files under the resolved root with the selected suffixes
+receive `O_DIRECT`. Metadata and writes retain their existing behavior.
+
+```bash
+python -m litdata.utilities.direct_io \
+  --root /mnt/dataset --suffix .lance -- \
+  python train.py --data /mnt/dataset
+```
+
+Use `--suffix .bin` for a native reader of binary payload files, or repeat
+`--suffix` to select several types. Run from a foreground terminal and wait for
+all workers to finish. The temporary compiled helper is removed when the command
+exits. A Python application can use `nfs_direct_io_environment(root,
+suffixes=[".lance"])` as a context manager and pass its returned environment to
+`subprocess.run(..., env=env, check=True)`.
+
+This is experimental integration support, not an upstream Lance configuration
+option. It supports dynamically linked libc `open`/`openat` readers, including the
+tested Lance `file+uring` path. It does not enable io_uring by itself, change
+already-open files, or affect the current Python process. Readers using mmap,
+static binaries, raw open syscalls, or io_uring open operations are unsupported.
+Do not use it for applications that detach workers after their parent exits.
+Use an immutable dataset and verify the reader's actual direct-I/O path before
+interpreting cache-bypass or throughput results. No speedup is guaranteed.

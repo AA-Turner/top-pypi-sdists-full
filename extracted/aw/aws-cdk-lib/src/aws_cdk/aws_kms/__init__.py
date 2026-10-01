@@ -309,19 +309,27 @@ for the `AWS::KMS::Key` CloudFormation type:
 ```python
 from aws_cdk.aws_iam import AddToResourcePolicyResult
 from aws_cdk import CfnResource
-from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
-from constructs import Construct, IConstruct
+from aws_cdk.aws_iam import AddToResourcePolicyResult, IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
+from aws_cdk.interfaces import ResourceEnvironment
+from constructs import Construct
 
 # scope: Construct
+
+@jsii.implements(IResourceWithPolicyV2)
+class MyResourceWithPolicy:
+
+    def __init__(self, resource):
+        self.resource = resource
+        self.env = resource.env
+
+    def add_to_resource_policy(self, statement):
+        # custom implementation to add the statement to the resource policy
+        return AddToResourcePolicyResult(statement_added=True, policy_dependable=self.resource)
+
 @jsii.implements(IResourcePolicyFactory)
 class MyFactory:
     def for_resource(self, resource):
-        return {
-            "env": resource.env,
-            def add_to_resource_policy(self, statement):
-                # custom implementation to add the statement to the resource policy
-                return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
-        }
+        return MyResourceWithPolicy(resource)
 
 ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
 ```

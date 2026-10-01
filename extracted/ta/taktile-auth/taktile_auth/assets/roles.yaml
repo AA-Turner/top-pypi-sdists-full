@@ -5,12 +5,21 @@ d_owner/org_id:
     - w:organization/org_id
     - w+d:infrastructure/org_id
     - r:audit_logs/org_id
+org_manager/org_id:
+    - d_member/org_id
+    - ws_member/org_id,*
+    - w:organization/org_id
+    - w+d:infrastructure/org_id
+    - r:audit_logs/org_id
 d_member/org_id:
     - r:organization/org_id
     - r:organization_name/org_id
 ws_member/org_id,ws_id:
     - r:workspace_meta/org_id,ws_id
     - r:flow_meta/org_id,ws_id
+    # type definitions that flows and cases reference; records stay behind workspace_record
+    - r:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - r:workspace_management/org_id,ws_id,{env=*,type=event}
 ws_viewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - connection_viewer/org_id,ws_id
@@ -46,6 +55,7 @@ ws_editor/org_id,ws_id:
     - connection_user/org_id,ws_id
     - dh_viewer_sandbox/org_id,ws_id
     - dh_viewer_live/org_id,ws_id
+    - chart_editor_live/org_id,ws_id
     - w:workspace/org_id,ws_id
     - w:workspace_data/org_id,ws_id
     - w:workspace_routing_sandbox/org_id,ws_id
@@ -175,9 +185,28 @@ dh_viewer_sandbox/org_id,ws_id:
     - r:decision_history/org_id,ws_id,{env=sandbox}
     - r:decision_history/org_id,ws_id,{env=test}
 dh_viewer_live/org_id,ws_id:
+    - dh_viewer_sandbox/org_id,ws_id
     # legacy env-unaware string: old call sites grant all envs, so live-only
     - r:workspace_decision_history/org_id,ws_id
     - r:decision_history/org_id,ws_id,{env=live}
+
+# P141c chart roles (Insights)
+chart_viewer_sandbox/org_id,ws_id:
+    - r:workspace_analytics_dashboard/org_id,ws_id
+    - r:aggregate_decision_history/org_id,ws_id,{env=sandbox}
+    - r:aggregate_decision_history/org_id,ws_id,{env=test}
+chart_viewer_live/org_id,ws_id:
+    - chart_viewer_sandbox/org_id,ws_id
+    - r:aggregate_decision_history/org_id,ws_id,{env=live}
+chart_editor_sandbox/org_id,ws_id:
+    - chart_viewer_sandbox/org_id,ws_id
+    - dh_viewer_sandbox/org_id,ws_id
+    # Edit Charts: exploring and pinning charts is a dashboard write
+    - w:workspace_analytics_dashboard/org_id,ws_id
+chart_editor_live/org_id,ws_id:
+    - chart_viewer_live/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
+    - w:workspace_analytics_dashboard/org_id,ws_id
 
 # P141c case-management roles, carved verbatim from the ws_* roles (capability-neutral)
 case_reviewer/org_id,ws_id:
@@ -380,15 +409,6 @@ api_key_case_management_templates/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
 api_key_wizard/org_id,ws_id:
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
-
-elements_sdk_sandbox/org_id,ws_id,flow_folder_id:
-    - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
-    - r:workspace_sdk_bundle/org_id,ws_id
-    - r+w:workspace_wizard/org_id,ws_id,{env=sandbox}
-elements_sdk_live/org_id,ws_id,flow_folder_id:
-    - execute:flows/org_id,ws_id,flow_folder_id,{env=live}
-    - r:workspace_sdk_bundle/org_id,ws_id
-    - r+w:workspace_wizard/org_id,ws_id,{env=live}
 
 # scim
 scim_provisioner/org_id:

@@ -120,6 +120,78 @@ from dotenv.parser import Binding, Original, parse_stream
             ],
         ),
         (
+            "a= #b",
+            [
+                Binding(
+                    key="a",
+                    value="",
+                    original=Original(string="a= #b", line=1),
+                    error=False,
+                )
+            ],
+        ),
+        (
+            "a=  # b",
+            [
+                Binding(
+                    key="a",
+                    value="",
+                    original=Original(string="a=  # b", line=1),
+                    error=False,
+                )
+            ],
+        ),
+        (
+            "a=#b",
+            [
+                Binding(
+                    key="a",
+                    value="#b",
+                    original=Original(string="a=#b", line=1),
+                    error=False,
+                )
+            ],
+        ),
+        (
+            "a=# # comment",
+            [
+                Binding(
+                    key="a",
+                    value="#",
+                    original=Original(string="a=# # comment", line=1),
+                    error=False,
+                )
+            ],
+        ),
+        (
+            "a=\t#c",
+            [
+                Binding(
+                    key="a",
+                    value="",
+                    original=Original(string="a=\t#c", line=1),
+                    error=False,
+                )
+            ],
+        ),
+        (
+            "a= #c\nd=e",
+            [
+                Binding(
+                    key="a",
+                    value="",
+                    original=Original(string="a= #c\n", line=1),
+                    error=False,
+                ),
+                Binding(
+                    key="d",
+                    value="e",
+                    original=Original(string="d=e", line=2),
+                    error=False,
+                ),
+            ],
+        ),
+        (
             "a=b c",
             [
                 Binding(

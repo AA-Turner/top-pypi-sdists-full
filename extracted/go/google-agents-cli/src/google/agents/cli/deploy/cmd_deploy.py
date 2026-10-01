@@ -14,6 +14,7 @@
 
 """agents-cli deploy command — deploy the agent."""
 
+import json
 import logging
 import os
 import subprocess
@@ -232,7 +233,7 @@ class _TransientCloudRunDeployError(click.ClickException):
         _CLOUD_RUN_DEPLOY_MAX_TIME,
     ),
 )
-def _run_cloud_run_deploy_with_retry(args: list[str], *, project: str | None) -> None:
+def _run_cloud_run_deploy_with_retry(args: list[str], *, project: str) -> None:
     """Run ``gcloud run deploy``, streaming output, retrying transient IAM errors.
 
     Streams stderr to the terminal in real time (char by char, since gcloud
@@ -281,7 +282,7 @@ def _print_cloud_run_next_steps(
     *,
     service_name: str,
     region: str,
-    project: str | None,
+    project: str,
     service_url: str | None,
 ) -> None:
     """Print copy-pasteable next steps for talking to a deployed Cloud Run agent.
@@ -293,9 +294,17 @@ def _print_cloud_run_next_steps(
     (when the URL is known) and the local-proxy flow.
     """
     url = (service_url or "").rstrip("/")
-    proxy_parts = ["gcloud", "run", "services", "proxy", service_name, "--region", region]
-    if project:
-        proxy_parts += ["--project", project]
+    proxy_parts = [
+        "gcloud",
+        "run",
+        "services",
+        "proxy",
+        service_name,
+        "--region",
+        region,
+        "--project",
+        project,
+    ]
 
     click.secho("\n✅ Deployed to Cloud Run.", fg="green")
     click.echo("\nTalk to your agent:")
@@ -830,9 +839,7 @@ def cmd_deploy(
             "Install the Google Cloud SDK: https://cloud.google.com/sdk/docs/install",
         )
 
-        args = ["gcloud", "run", "deploy", service_name]
-        if project:
-            args.extend(["--project", project])
+        args = ["gcloud", "run", "deploy", service_name, "--project", project]
         if region:
             args.extend(["--region", region])
         if image:
@@ -892,7 +899,7 @@ def cmd_deploy(
         env_var_map.setdefault("ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS", "false")
 
         # Set APP_URL so the service knows its own URL (used by A2A agent cards, etc.)
-        if "APP_URL" not in env_var_map and project:
+        if "APP_URL" not in env_var_map:
             try:
                 result = run_resolved(
                     [
@@ -989,16 +996,6 @@ def cmd_deploy(
         )
 
 
-def _enable_cloud_run_apis(project: str | None) -> None:
-    """Enable Cloud Build and Cloud Run APIs, then retry the deployment."""
-    click.echo("Enabling required APIs (Cloud Build, Cloud Run)...")
-    enable_base = ["gcloud", "services", "enable"]
-    if project:
-        enable_base.extend(["--project", project])
-    for api in ("cloudbuild.googleapis.com", "run.googleapis.com"):
-        run([*enable_base, api], capture=True, print_cmd=False, check=False)
-
-
 def _check_deploy_status(
     cfg: ProjectConfig,
     project: str,
@@ -1021,7 +1018,7 @@ def _check_deploy_status(
 
 
 def _check_cloud_run_status(
-    project: str | None,
+    project: str,
     region: str,
     service_name: str,
 ) -> None:
@@ -1037,9 +1034,9 @@ def _check_cloud_run_status(
         "describe",
         service_name,
         "--format=json",
+        "--project",
+        project,
     ]
-    if project:
-        args.extend(["--project", project])
     if region:
         args.extend(["--region", region])
 
@@ -1049,8 +1046,6 @@ def _check_cloud_run_status(
             f"Failed to describe Cloud Run service '{service_name}'.\n"
             "  The service may not exist yet or the deployment may have failed."
         )
-
-    import json
 
     svc = json.loads(result.stdout)
     conditions = svc.get("status", {}).get("conditions", [])
@@ -1250,7 +1245,8 @@ def _deploy_gke(
             cluster_name,
             "--region",
             region,
-            *(["--project", project] if project else []),
+            "--project",
+            project,
         ],
         check_err_msg="Failed to get cluster credentials",
     )
@@ -1333,18 +1329,22 @@ def _deploy_gke(
     )
 
     # Step 6: Wait for rollout
-    run(
-        [
-            "kubectl",
-            "rollout",
-            "status",
-            f"deployment/{service_name}",
-            "-n",
-            service_name,
-            "--timeout=600s",
-        ],
-        check_err_msg="Rollout failed",
-    )
+    try:
+        run(
+            [
+                "kubectl",
+                "rollout",
+                "status",
+                f"deployment/{service_name}",
+                "-n",
+                service_name,
+                "--timeout=600s",
+            ],
+            check_err_msg="Rollout failed",
+        )
+    except click.ClickException:
+        _echo_rollout_diagnostics(service_name)
+        raise
 
     # Step 7: Print summary
     click.echo("\n\n✅ GKE deployment complete!")
@@ -1355,7 +1355,42 @@ def _deploy_gke(
     )
 
 
-def _list_deployments(cfg: ProjectConfig, project: str | None, region: str) -> None:
+def _echo_rollout_diagnostics(service_name: str) -> None:
+    """Print pod and event state for a deployment whose rollout did not finish."""
+    click.echo("\n🔍 Rollout diagnostics (the rollout above did not complete):")
+    diagnostics: list[tuple[str, list[str]]] = [
+        ("Pods", ["kubectl", "get", "pods", "-o", "wide", "-n", service_name]),
+        (
+            "Pod details",
+            [
+                "kubectl",
+                "describe",
+                "pods",
+                "-l",
+                f"app={service_name}",
+                "-n",
+                service_name,
+            ],
+        ),
+        (
+            "Events",
+            [
+                "kubectl",
+                "get",
+                "events",
+                "--sort-by=.lastTimestamp",
+                "-n",
+                service_name,
+            ],
+        ),
+    ]
+    for title, args in diagnostics:
+        click.echo(f"\n--- {title} ---")
+        # check=False: a diagnostic that fails must not replace the rollout error.
+        run(args, print_cmd=False, check=False)
+
+
+def _list_deployments(cfg: ProjectConfig, project: str, region: str) -> None:
     """List existing deployments for the current project's deployment target."""
     if cfg.deployment_target == "agent_runtime":
         _list_agent_runtime_deployments(project, region)
@@ -1367,22 +1402,13 @@ def _list_deployments(cfg: ProjectConfig, project: str | None, region: str) -> N
         raise click.ClickException(f"Unknown deployment target: {cfg.deployment_target}")
 
 
-def _list_agent_runtime_deployments(project: str | None, location: str) -> None:
+def _list_agent_runtime_deployments(project: str, location: str) -> None:
     """List Agent Runtime deployments via the Agent Platform SDK."""
     import warnings
-
-    from google.agents.cli.auth import get_adc_credentials
 
     warnings.filterwarnings(
         "ignore", category=FutureWarning, module="google.cloud.aiplatform"
     )
-
-    if not project:
-        _, project = get_adc_credentials()
-    if not project:
-        raise click.ClickException(
-            "Could not determine GCP project. Pass --project or set a default project."
-        )
 
     client = AgentPlatformClient(project=project, location=location)
     agents = list(client.agent_engines.list())
@@ -1413,7 +1439,7 @@ def _list_agent_runtime_deployments(project: str | None, location: str) -> None:
     console.print(table)
 
 
-def _list_cloud_run_deployments(project: str | None, region: str | None) -> None:
+def _list_cloud_run_deployments(project: str, region: str | None) -> None:
     """List Cloud Run services via gcloud."""
     _tools.require_tool(
         "gcloud",
@@ -1426,9 +1452,9 @@ def _list_cloud_run_deployments(project: str | None, region: str | None) -> None
         "services",
         "list",
         "--format=json",
+        "--project",
+        project,
     ]
-    if project:
-        args.extend(["--project", project])
     if region:
         args.extend(["--region", region])
 
@@ -1436,23 +1462,18 @@ def _list_cloud_run_deployments(project: str | None, region: str | None) -> None
     if result.returncode != 0:
         raise click.ClickException("Failed to list Cloud Run services.")
 
-    import json
-
     services = json.loads(result.stdout) if result.stdout.strip() else []
 
     if not services:
         location_label = f" in {region}" if region else ""
-        project_label = f" ({project})" if project else ""
-        click.echo(f"No Cloud Run services found{location_label}{project_label}.")
+        click.echo(f"No Cloud Run services found{location_label} ({project}).")
         return
 
     from rich.table import Table
 
     from google.agents.cli._output import Console
 
-    title_parts = ["Cloud Run Services"]
-    if project:
-        title_parts.append(f"— {project}")
+    title_parts = ["Cloud Run Services", f"— {project}"]
     if region:
         title_parts.append(f"({region})")
     table = Table(title=" ".join(title_parts))
@@ -1499,8 +1520,6 @@ def _list_gke_deployments() -> None:
             "Failed to list GKE deployments.\n"
             "  Ensure kubectl is configured with cluster credentials."
         )
-
-    import json
 
     data = json.loads(result.stdout) if result.stdout.strip() else {}
     items = data.get("items", [])

@@ -109,6 +109,10 @@ class CfnChannel(
                 preferred_input=123
             ),
             input_type="inputType",
+            multiview_configuration=mediapackagev2.CfnChannel.MultiviewConfigurationProperty(
+                available_layouts=["availableLayouts"],
+                available_sources=["availableSources"]
+            ),
             output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
                 publish_mqcs=False
             ),
@@ -130,6 +134,7 @@ class CfnChannel(
         description: typing.Optional[builtins.str] = None,
         input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
+        multiview_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MultiviewConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         output_locking_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -143,6 +148,7 @@ class CfnChannel(
         :param description: The description of the channel.
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
+        :param multiview_configuration:  A multiview channel composites video from several source channels into a single tiled output stream. Players receive one standard HLS or DASH stream instead of several separate streams. This setting is required when InputType is MULTIVIEW, and can't be set for any other input type.
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
         :param output_locking_mode: 
         :param tags: 
@@ -157,6 +163,7 @@ class CfnChannel(
             description=description,
             input_switch_configuration=input_switch_configuration,
             input_type=input_type,
+            multiview_configuration=multiview_configuration,
             output_header_configuration=output_header_configuration,
             output_locking_mode=output_locking_mode,
             tags=tags,
@@ -228,6 +235,16 @@ class CfnChannel(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAttachedMultiviewChannels")
+    def attr_attached_multiview_channels(self) -> typing.List[builtins.str]:
+        '''
+        This is a read-only field. You can't delete a channel while any multiview channel still lists it as a source. Use this field to find the multiview channels that you need to update first.
+
+        :cloudformationAttribute: AttachedMultiviewChannels
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAttachedMultiviewChannels"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -356,6 +373,23 @@ class CfnChannel(
             type_hints = cached_type_hints(_typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743cf024664)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="multiviewConfiguration")
+    def multiview_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MultiviewConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MultiviewConfigurationProperty"]], jsii.get(self, "multiviewConfiguration"))
+
+    @multiview_configuration.setter
+    def multiview_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MultiviewConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__868bec5e7b539cdb1b779073eef5d2e76dc423742060917c357220f9542e52df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "multiviewConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="outputHeaderConfiguration")
@@ -548,6 +582,83 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "InputSwitchConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannel.MultiviewConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "available_layouts": "availableLayouts",
+            "available_sources": "availableSources",
+        },
+    )
+    class MultiviewConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            available_layouts: typing.Sequence[builtins.str],
+            available_sources: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            A multiview channel composites video from several source channels into a single tiled output stream. Players receive one standard HLS or DASH stream instead of several separate streams. This setting is required when InputType is MULTIVIEW, and can't be set for any other input type.
+
+            :param available_layouts:  Only the layouts that you list here are available. Each layout must appear at most once.
+            :param available_sources:  Each source channel must be in the same channel group as the multiview channel, and must have an InputType of CMAF. Only the channels that you list here are available as tiles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-multiviewconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                multiview_configuration_property = mediapackagev2.CfnChannel.MultiviewConfigurationProperty(
+                    available_layouts=["availableLayouts"],
+                    available_sources=["availableSources"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__044ac4abb022906e580682c26e8c17e81b459a46a9adbfcc4a277136e347d456)
+                check_type(argname="argument available_layouts", value=available_layouts, expected_type=type_hints["available_layouts"])
+                check_type(argname="argument available_sources", value=available_sources, expected_type=type_hints["available_sources"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "available_layouts": available_layouts,
+                "available_sources": available_sources,
+            }
+
+        @builtins.property
+        def available_layouts(self) -> typing.List[builtins.str]:
+            '''
+            Only the layouts that you list here are available. Each layout must appear at most once.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-multiviewconfiguration.html#cfn-mediapackagev2-channel-multiviewconfiguration-availablelayouts
+            '''
+            result = self._values.get("available_layouts")
+            assert result is not None, "Required property 'available_layouts' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def available_sources(self) -> typing.List[builtins.str]:
+            '''
+            Each source channel must be in the same channel group as the multiview channel, and must have an InputType of CMAF. Only the channels that you list here are available as tiles.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-multiviewconfiguration.html#cfn-mediapackagev2-channel-multiviewconfiguration-availablesources
+            '''
+            result = self._values.get("available_sources")
+            assert result is not None, "Required property 'available_sources' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MultiviewConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1181,6 +1292,7 @@ class CfnChannelPolicyProps:
         "description": "description",
         "input_switch_configuration": "inputSwitchConfiguration",
         "input_type": "inputType",
+        "multiview_configuration": "multiviewConfiguration",
         "output_header_configuration": "outputHeaderConfiguration",
         "output_locking_mode": "outputLockingMode",
         "tags": "tags",
@@ -1195,6 +1307,7 @@ class CfnChannelProps:
         description: typing.Optional[builtins.str] = None,
         input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
+        multiview_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MultiviewConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         output_locking_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1206,6 +1319,7 @@ class CfnChannelProps:
         :param description: The description of the channel.
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
+        :param multiview_configuration:  A multiview channel composites video from several source channels into a single tiled output stream. Players receive one standard HLS or DASH stream instead of several separate streams. This setting is required when InputType is MULTIVIEW, and can't be set for any other input type.
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
         :param output_locking_mode: 
         :param tags: 
@@ -1231,6 +1345,10 @@ class CfnChannelProps:
                     preferred_input=123
                 ),
                 input_type="inputType",
+                multiview_configuration=mediapackagev2.CfnChannel.MultiviewConfigurationProperty(
+                    available_layouts=["availableLayouts"],
+                    available_sources=["availableSources"]
+                ),
                 output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
                     publish_mqcs=False
                 ),
@@ -1248,6 +1366,7 @@ class CfnChannelProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument input_switch_configuration", value=input_switch_configuration, expected_type=type_hints["input_switch_configuration"])
             check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
+            check_type(argname="argument multiview_configuration", value=multiview_configuration, expected_type=type_hints["multiview_configuration"])
             check_type(argname="argument output_header_configuration", value=output_header_configuration, expected_type=type_hints["output_header_configuration"])
             check_type(argname="argument output_locking_mode", value=output_locking_mode, expected_type=type_hints["output_locking_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1261,6 +1380,8 @@ class CfnChannelProps:
             self._values["input_switch_configuration"] = input_switch_configuration
         if input_type is not None:
             self._values["input_type"] = input_type
+        if multiview_configuration is not None:
+            self._values["multiview_configuration"] = multiview_configuration
         if output_header_configuration is not None:
             self._values["output_header_configuration"] = output_header_configuration
         if output_locking_mode is not None:
@@ -1323,6 +1444,18 @@ class CfnChannelProps:
         '''
         result = self._values.get("input_type")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multiview_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MultiviewConfigurationProperty"]]:
+        '''
+        A multiview channel composites video from several source channels into a single tiled output stream. Players receive one standard HLS or DASH stream instead of several separate streams. This setting is required when InputType is MULTIVIEW, and can't be set for any other input type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-multiviewconfiguration
+        '''
+        result = self._values.get("multiview_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MultiviewConfigurationProperty"]], result)
 
     @builtins.property
     def output_header_configuration(
@@ -5925,6 +6058,7 @@ def _typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e
     description: typing.Optional[builtins.str] = None,
     input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
+    multiview_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MultiviewConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_locking_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5986,6 +6120,12 @@ def _typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__868bec5e7b539cdb1b779073eef5d2e76dc423742060917c357220f9542e52df(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.MultiviewConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.OutputHeaderConfigurationProperty]],
 ) -> None:
@@ -6016,6 +6156,14 @@ def _typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080ac
     *,
     mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     preferred_input: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__044ac4abb022906e580682c26e8c17e81b459a46a9adbfcc4a277136e347d456(
+    *,
+    available_layouts: typing.Sequence[builtins.str],
+    available_sources: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6152,6 +6300,7 @@ def _typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1
     description: typing.Optional[builtins.str] = None,
     input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
+    multiview_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MultiviewConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     output_locking_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

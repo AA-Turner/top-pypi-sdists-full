@@ -1,1 +1,0 @@
-import{Ci as e,Gi as t,Hi as n,Oa as r,Ta as i,vi as a}from"./lucide-BMYRskK9.js";import{t as o}from"./utils-DojpP95n.js";var s=e({__name:`ItemActions`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(e){let s=e;return(e,c)=>(n(),a(`div`,{"data-slot":`item-actions`,class:r(i(o)(`flex items-center gap-2`,s.class))},[t(e.$slots,`default`)],2))}});export{s as t};

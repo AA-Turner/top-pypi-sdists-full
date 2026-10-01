@@ -109,9 +109,10 @@ skip_if_py313plus_on_windows = unittest.skipIf(
      "Not supported on Python 3.13+ on Windows"
  )
 
-skip_if_py314= unittest.skipIf(
-     utils.PYVERSION == (3, 14), "Test unstable on 3.14"
- )
+skip_unless_py314_or_later = unittest.skipUnless(
+    utils.PYVERSION >= (3, 14),
+    "needs Python 3.14+"
+)
 
 skip_if_linux_aarch64 = unittest.skipIf(
     sys.platform.startswith('linux') and platform.machine() == 'aarch64',
@@ -180,11 +181,41 @@ def expected_failure_py314(fn):
         return fn
 
 
+def expected_failure_py315(fn):
+    if utils.PYVERSION == (3, 15):
+        return unittest.expectedFailure(fn)
+    else:
+        return fn
+
+
 def expected_failure_np2(fn):
     if numpy_support.numpy_version == (2, 0):
         return unittest.expectedFailure(fn)
     else:
         return fn
+
+
+def available_memory_bytes():
+    """
+    Best-effort lookup of currently available system memory, in bytes.
+    Returns None if it can't be determined (psutil not installed, and not
+    running on Linux where /proc/meminfo can be read directly).
+    """
+    try:
+        import psutil
+        return psutil.virtual_memory().available
+    except ImportError:
+        pass
+    if sys.platform.startswith("linux"):
+        try:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        return int(line.split()[1]) * 1024
+        except OSError:
+            pass
+    return None
+
 
 _msg = "SciPy needed for test"
 skip_unless_scipy = unittest.skipIf(scipy is None, _msg)

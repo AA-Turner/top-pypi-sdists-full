@@ -39,6 +39,8 @@ __all__ = (
     "DeviceCgroupPermissionType",
     "EFSAuthorizationConfigIAMType",
     "EFSTransitEncryptionType",
+    "EksAccessEntryDesiredStateType",
+    "EksAccessEntryStatusType",
     "FirelensConfigurationTypeType",
     "JQStateType",
     "JQStatusType",
@@ -106,6 +108,8 @@ DescribeServiceEnvironmentsPaginatorName = Literal["describe_service_environment
 DeviceCgroupPermissionType = Literal["MKNOD", "READ", "WRITE"]
 EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
+EksAccessEntryDesiredStateType = Literal["DISABLED", "ENABLED", "INHERIT_FROM_CLUSTER"]
+EksAccessEntryStatusType = Literal["ACTIVE", "INACTIVE"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
@@ -229,6 +233,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -303,6 +308,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -426,6 +432,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

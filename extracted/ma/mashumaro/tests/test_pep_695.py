@@ -16,6 +16,8 @@ from tests.entities_pep_695 import (
     GenericPassthroughSerializable,
 )
 
+type ScalarAlias = int
+
 
 def test_type_alias_type_with_dataclass_dict_mixin():
     type MyDate = date
@@ -39,6 +41,24 @@ def test_type_alias_type_with_codecs():
     assert encoder.encode(obj) == "2024-04-15"
 
 
+def test_type_alias_type_with_union_value_packer():
+    @dataclass
+    class MyClass(DataClassDictMixin):
+        x: ScalarAlias | list[int]
+
+    assert MyClass(1).to_dict() == {"x": 1}
+    assert MyClass([1, 2]).to_dict() == {"x": [1, 2]}
+
+
+def test_type_alias_type_with_union_value_unpacker():
+    @dataclass
+    class MyClass(DataClassDictMixin):
+        x: ScalarAlias | list[int]
+
+    assert MyClass.from_dict({"x": 1}) == MyClass(1)
+    assert MyClass.from_dict({"x": [1, 2]}) == MyClass([1, 2])
+
+
 @pytest.mark.parametrize("deferred_ann", [False, True])
 def test_pep695_generic_serialization_strategy(deferred_ann):
     if deferred_ann:
@@ -53,7 +73,7 @@ def test_pep695_generic_serialization_strategy(deferred_ann):
         )
 
     obj = DataClassWithPEP695SerializationStrategy(
-        set([Leaf(v=1), Leaf(v=2), Leaf(v=3), Leaf(v=4), Leaf(v=5)])
+        {Leaf(v=1), Leaf(v=2), Leaf(v=3), Leaf(v=4), Leaf(v=5)}
     )
     assert obj.to_dict() == {
         "x": [{"v": 1}, {"v": 2}, {"v": 3}, {"v": 4}, {"v": 5}]

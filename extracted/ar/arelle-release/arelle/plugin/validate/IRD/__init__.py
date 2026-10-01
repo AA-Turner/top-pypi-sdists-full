@@ -18,8 +18,12 @@ from arelle.Version import authorLabel, copyrightLabel
 from .ValidationPluginExtension import ValidationPluginExtension
 from .rules import (
     nvad_accounting_period,
+    nvad_currency,
+    nvad_expense_deductions,
+    nvad_expense_misc,
     nvad_form_type,
     nvad_identifiers,
+    nvad_income_paired,
     nvad_structural,
 )
 
@@ -33,8 +37,12 @@ validationPlugin = ValidationPluginExtension(
     validationTypes=[DISCLOSURE_SYSTEM_VALIDATION_TYPE],
     validationRuleModules=[
         nvad_accounting_period,
+        nvad_currency,
+        nvad_expense_deductions,
+        nvad_expense_misc,
         nvad_form_type,
         nvad_identifiers,
+        nvad_income_paired,
         nvad_structural,
     ],
 )

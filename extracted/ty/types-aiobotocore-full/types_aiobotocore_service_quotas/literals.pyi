@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_service_quotas.literals import AppliedLevelEnumType
+    from types_aiobotocore_service_quotas.literals import AdjustableAtLevelEnumType
 
-    data: AppliedLevelEnumType = "ACCOUNT"
+    data: AdjustableAtLevelEnumType = "ACCOUNT"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AdjustableAtLevelEnumType",
     "AppliedLevelEnumType",
     "ErrorCodeType",
     "ListAWSDefaultServiceQuotasPaginatorName",
@@ -46,6 +47,7 @@ __all__ = (
     "ServiceQuotasServiceName",
 )
 
+AdjustableAtLevelEnumType = Literal["ACCOUNT", "ALL", "PER_RESOURCE"]
 AppliedLevelEnumType = Literal["ACCOUNT", "ALL", "RESOURCE"]
 ErrorCodeType = Literal[
     "DEPENDENCY_ACCESS_DENIED_ERROR",
@@ -157,6 +159,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -231,6 +234,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -259,6 +263,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -353,6 +358,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

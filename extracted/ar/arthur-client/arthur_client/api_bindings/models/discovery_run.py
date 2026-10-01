@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_v
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.discovery_denied_scope import DiscoveryDeniedScope
+from arthur_client.api_bindings.models.discovery_device_coverage import DiscoveryDeviceCoverage
 from arthur_client.api_bindings.models.discovery_run_status import DiscoveryRunStatus
 from typing import Optional, Set
 from typing_extensions import Self
@@ -34,11 +35,12 @@ class DiscoveryRun(BaseModel):
     status: DiscoveryRunStatus
     started_at: datetime
     finished_at: datetime
-    records_published: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
-    batches_published: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
-    error_count: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
+    records_published: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
+    batches_published: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
+    error_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
     error_code: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Defined safe error code, not raw exception text. See Discovery Run API documentation.")
     denied_scopes: Optional[Annotated[List[DiscoveryDeniedScope], Field(max_length=1000)]] = None
+    device_coverage: Optional[DiscoveryDeviceCoverage] = Field(default=None, description="Set by sources that read managed devices (MDMs); null for query-language sources.")
     id: StrictStr
     job_id: StrictStr
     job_run_id: StrictStr
@@ -52,7 +54,7 @@ class DiscoveryRun(BaseModel):
     vendor: Optional[StrictStr]
     lookback_hours: Optional[StrictInt]
     received_at: datetime
-    __properties: ClassVar[List[str]] = ["schema_version", "status", "started_at", "finished_at", "records_published", "batches_published", "error_count", "error_code", "denied_scopes", "id", "job_id", "job_run_id", "organization_id", "workspace_id", "engine_id", "scan_id", "discovery_source_config_id", "discovery_source_config_name", "discovery_source_id", "vendor", "lookback_hours", "received_at"]
+    __properties: ClassVar[List[str]] = ["schema_version", "status", "started_at", "finished_at", "records_published", "batches_published", "error_count", "error_code", "denied_scopes", "device_coverage", "id", "job_id", "job_run_id", "organization_id", "workspace_id", "engine_id", "scan_id", "discovery_source_config_id", "discovery_source_config_name", "discovery_source_id", "vendor", "lookback_hours", "received_at"]
 
     @field_validator('schema_version')
     def schema_version_validate_enum(cls, value):
@@ -120,6 +122,9 @@ class DiscoveryRun(BaseModel):
                 if _item_denied_scopes:
                     _items.append(_item_denied_scopes.to_dict())
             _dict['denied_scopes'] = _items
+        # override the default output from pydantic by calling `to_dict()` of device_coverage
+        if self.device_coverage:
+            _dict['device_coverage'] = self.device_coverage.to_dict()
         # set to None if error_code (nullable) is None
         # and model_fields_set contains the field
         if self.error_code is None and "error_code" in self.model_fields_set:
@@ -176,6 +181,7 @@ class DiscoveryRun(BaseModel):
             "error_count": obj.get("error_count") if obj.get("error_count") is not None else 0,
             "error_code": obj.get("error_code"),
             "denied_scopes": [DiscoveryDeniedScope.from_dict(_item) for _item in obj["denied_scopes"]] if obj.get("denied_scopes") is not None else None,
+            "device_coverage": DiscoveryDeviceCoverage.from_dict(obj["device_coverage"]) if obj.get("device_coverage") is not None else None,
             "id": obj.get("id"),
             "job_id": obj.get("job_id"),
             "job_run_id": obj.get("job_run_id"),

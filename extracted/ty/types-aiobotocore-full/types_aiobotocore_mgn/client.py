@@ -499,7 +499,8 @@ class MgnClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeReplicationConfigurationTemplatesRequestTypeDef]
     ) -> DescribeReplicationConfigurationTemplatesResponseTypeDef:
         """
-        Lists all ReplicationConfigurationTemplates, filtered by Source Server IDs.
+        Lists all ReplicationConfigurationTemplates, filtered by replication
+        configuration template IDs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/describe_replication_configuration_templates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#describe_replication_configuration_templates)
@@ -1200,7 +1201,7 @@ class MgnClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateReplicationConfigurationTemplateRequestTypeDef]
     ) -> ReplicationConfigurationTemplateResponseTypeDef:
         """
-        Updates multiple ReplicationConfigurationTemplates by ID.
+        Updates a ReplicationConfigurationTemplate by ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_replication_configuration_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#update_replication_configuration_template)

@@ -14,12 +14,37 @@ from unittest.mock import MagicMock, patch
 import attr
 import dataclasses_json
 import pytest
+import requests
 from pydantic import BaseModel
 
 import langsmith.utils as ls_utils
 from langsmith import Client, traceable
 from langsmith._internal import _agent_addressing
 from langsmith.run_helpers import get_current_run_tree, tracing_context
+
+
+@pytest.mark.parametrize("status_code", [400, 429, 500])
+def test_raise_for_status_with_text_preserves_response(status_code: int) -> None:
+    response = requests.Response()
+    response.status_code = status_code
+    response.url = "https://api.smith.langchain.com/settings"
+    response.headers["Retry-After"] = "7"
+    response._content = b'{"detail": "request failed"}'
+    response.request = requests.Request("GET", response.url).prepare()
+
+    with pytest.raises(requests.HTTPError) as original:
+        response.raise_for_status()
+    with pytest.raises(requests.HTTPError) as raised:
+        ls_utils.raise_for_status_with_text(response)
+
+    error = raised.value
+    assert error.response is response
+    assert error.response.status_code == status_code
+    assert error.response.headers["Retry-After"] == "7"
+    assert error.request is response.request
+    assert error.args == (str(original.value), response.text)
+    assert isinstance(error.__cause__, requests.HTTPError)
+    assert error.__cause__.response is response
 
 
 class LangSmithProjectNameTest(unittest.TestCase):
@@ -91,45 +116,6 @@ class LangSmithProjectNameTest(unittest.TestCase):
                         else ls_utils.get_tracer_project(case.return_default_value)
                     )
                     self.assertEqual(project, case.expected_project_name)
-
-
-@pytest.mark.parametrize(
-    ("getter_name", "suffix"),
-    [
-        ("get_tracer_agent_environment", "AGENT_ENVIRONMENT"),
-        ("get_tracer_agent_id", "AGENT_ID"),
-    ],
-)
-@pytest.mark.parametrize(
-    ("namespaces", "expected"),
-    [
-        ({}, None),
-        ({"LANGSMITH": "from-langsmith"}, "from-langsmith"),
-        # The agent variables are LANGSMITH_-only: the legacy LANGCHAIN_
-        # namespace is not taking new members, so that spelling is not read.
-        ({"LANGCHAIN": "from-langchain"}, None),
-        (
-            {"LANGSMITH": "from-langsmith", "LANGCHAIN": "from-langchain"},
-            "from-langsmith",
-        ),
-        # Blank is treated as unset, same as every other LangSmith env var.
-        ({"LANGSMITH": ""}, None),
-        ({"LANGSMITH": "", "LANGCHAIN": "from-langchain"}, None),
-    ],
-)
-def test_get_tracer_agent_env_vars(
-    getter_name: str,
-    suffix: str,
-    namespaces: dict,
-    expected: Optional[str],
-) -> None:
-    """`LANGSMITH_AGENT_ENVIRONMENT` / `LANGSMITH_AGENT_ID` resolution."""
-    getter = getattr(ls_utils, getter_name)
-    envvars = {f"{ns}_{suffix}": value for ns, value in namespaces.items()}
-    ls_utils.get_env_var.cache_clear()
-    getter.cache_clear()
-    with patch.dict("os.environ", envvars, clear=True):
-        assert getter() == expected
 
 
 def test_tracing_enabled():
@@ -704,8 +690,6 @@ def test_an_empty_project_variable_falls_back_to_default(
     for fn in (
         ls_utils.get_env_var,
         ls_utils.get_tracer_project,
-        ls_utils.get_tracer_agent_id,
-        ls_utils.get_tracer_agent_environment,
     ):
         fn.cache_clear()
 

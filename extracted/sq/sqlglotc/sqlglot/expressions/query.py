@@ -804,6 +804,19 @@ class Lateral(Expression, UDTF):
         "ordinality": False,
     }
 
+    @property
+    def selects(self) -> list[Expr]:
+        from sqlglot.expressions.array import Unnest
+
+        columns = super().selects
+
+        # UNNEST ... WITH ORDINALITY stores the ordinality column's name in Unnest.offset
+        offset = self.this.args.get("offset") if isinstance(self.this, Unnest) else None
+        if isinstance(offset, Identifier):
+            columns = columns + [offset]
+
+        return columns
+
 
 class TableFromRows(Expression, UDTF):
     arg_types = {

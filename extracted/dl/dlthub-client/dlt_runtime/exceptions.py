@@ -2,7 +2,7 @@
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 # Other libraries
 import httpx
@@ -10,32 +10,20 @@ from dlt._workspace.exceptions import WorkspaceException
 from dlt.common.exceptions import DltException
 
 # Current package
-from dlthub_sdk._gen.api.errors import UnexpectedStatus as ApiUnexpectedStatus
-from dlthub_sdk._gen.api.types import Response as ApiResponse
-from dlthub_sdk._gen.auth.errors import UnexpectedStatus as AuthUnexpectedStatus
-from dlthub_sdk._gen.auth.types import Response as AuthResponse
-from dlthub_sdk._gen.dataplane_api.errors import (
-    UnexpectedStatus as DataplaneApiUnexpectedStatus,
+from dlthub_sdk.errors import (
+    ConnectionFailed as SdkConnectionFailed,
+    DataplaneTokenRejected as SdkDataplaneTokenRejected,
+    DlthubError,
+    NotAuthenticated as SdkNotAuthenticated,
+    NotAuthorized as SdkNotAuthorized,
+    TransportTimeout as SdkTransportTimeout,
+    WaitTimeout as SdkWaitTimeout,
 )
-from dlthub_sdk._gen.dataplane_api.types import Response as DataplaneApiResponse
-from dlthub_sdk._gen.logs.errors import UnexpectedStatus as LogUnexpectedStatus
-from dlthub_sdk._gen.logs.types import Response as LogResponse
 
 if TYPE_CHECKING:
     # Avoid runtime import cycle: runtime.py imports from this module.
     # Current package
     from dlt_runtime.typing import WorkspaceInfo
-
-
-UnexpectedStatus = Union[
-    ApiUnexpectedStatus,
-    AuthUnexpectedStatus,
-    LogUnexpectedStatus,
-    DataplaneApiUnexpectedStatus,
-]
-Response = Union[
-    ApiResponse[Any], AuthResponse[Any], LogResponse[Any], DataplaneApiResponse[Any]
-]
 
 
 class RuntimeClientException(DltException):
@@ -112,19 +100,44 @@ class AmbiguousWorkspaceName(ValueError, RuntimeClientException):
 
 @contextmanager
 def handle_client_exceptions(message: Optional[str] = None) -> Iterator[None]:
-    """Translate HTTP/network errors from generated clients to typed exceptions."""
+    """Translate HTTP/network errors, from the SDK or a generated client, to typed ones."""
     message = message or "Error calling the dltHub API"
     try:
         yield
-    except (
-        ApiUnexpectedStatus,
-        AuthUnexpectedStatus,
-        LogUnexpectedStatus,
-        DataplaneApiUnexpectedStatus,
-    ) as e:
-        # Generated clients use raise_on_unexpected_status=True, so undocumented
-        # statuses bubble up as UnexpectedStatus and we convert here.
-        raise exception_from_response(message, e) from e
+    except RuntimeClientException:
+        # Already ours, already classified. The catch-all below would flatten it
+        # into a RuntimeError and lose the type callers recover on.
+        raise
+    except SdkDataplaneTokenRejected as e:
+        # The caller's credential obtained this token, so neither a new login nor
+        # a new API key would help; must precede the NotAuthenticated arm.
+        raise RuntimeClientException(
+            f"{message}. The data plane rejected the access token issued for "
+            f"this workspace: {e}"
+        ) from e
+    except SdkNotAuthenticated as e:
+        # Must precede the DlthubError arm: commands.py:execute() routes this one
+        # to device-flow recovery, and the generic arm would hide it. An API key
+        # has no login to recover with, so it takes the other type.
+        if _api_key_configured():
+            raise ApiKeyInvalid(str(e)) from e
+        raise RuntimeNotAuthenticated(f"{message}. {e}") from e
+    except SdkNotAuthorized as e:
+        raise RuntimeOperationNotAuthorized(f"{message}. {e}") from e
+    except SdkTransportTimeout as e:
+        raise TimeoutError(
+            f"{message}. The request timed out. "
+            "Please check your connection and try again."
+        ) from e
+    except SdkWaitTimeout as e:
+        # Not a transport failure: the platform is still working on it.
+        raise TimeoutError(f"{message}. {e}") from e
+    except SdkConnectionFailed as e:
+        raise ConnectionError(f"{message}. Underlying error: {e}") from e
+    except DlthubError as e:
+        # Every remaining SDK failure is already classified and carries the
+        # platform's code and field reasons in its str().
+        raise RuntimeClientException(f"{message}. {e}") from e
     except httpx.TimeoutException as e:
         raise TimeoutError(
             f"{message}. The request timed out. "
@@ -146,56 +159,13 @@ def handle_client_exceptions(message: Optional[str] = None) -> Iterator[None]:
         raise RuntimeError(f"{message}. Underlying error: {e}") from e
 
 
-def _field_errors(body: Any) -> str:
-    """Indented lines for the server's per-field reasons, empty when it reported none.
+def _api_key_configured() -> bool:
+    """Whether this invocation authenticates with an API key rather than a JWT."""
+    # Late import: runtime.py imports this module.
+    # Other libraries
+    from dlt._workspace._workspace_context import active  # noqa: PLC0415
 
-    A validation failure names only the request in `detail`; `extra` holds the reason.
-    """
-    extra = body.get("extra") if isinstance(body, dict) else None
-    if isinstance(extra, dict):
-        extra = [extra]
-    if not isinstance(extra, list):
-        return ""
-
-    lines: list[str] = []
-    for item in extra:
-        if isinstance(item, str):
-            lines.append(item)
-            continue
-        if not isinstance(item, dict):
-            continue
-        reason = item.get("message") or item.get("detail")
-        if not reason:
-            continue
-        key = item.get("key")
-        lines.append(f"{key}: {reason}" if key else str(reason))
-    return "".join(f"\n  {line}" for line in lines)
-
-
-def exception_from_response(
-    message: str, response: Union[Response, UnexpectedStatus]
-) -> BaseException:
-    """Build a typed exception from an API response or UnexpectedStatus."""
-    status = response.status_code
-    body: Any = None
     try:
-        body = json.loads(response.content.decode("utf-8"))
-        details = body["detail"]
+        return bool(active().runtime_config.api_key)
     except Exception:
-        details = response.content.decode("utf-8")
-    fields = _field_errors(body)
-
-    # 401 gets a dedicated type so commands.py:execute() can route it to
-    # the Phase 1 device-flow recovery (issue #645).
-    if status == 401:
-        return RuntimeNotAuthenticated(f"{message}. {details} (HTTP {status}){fields}")
-    if status < 500:
-        # Upper-case the first character only. `.capitalize()` would lower-case the
-        # rest, which flattens a multi-sentence detail. `details` may be None.
-        detail_text = f"{details[:1].upper()}{details[1:]}" if details else details
-        return RuntimeClientException(
-            f"{message}. {detail_text} (HTTP {status}){fields}"
-        )
-    return RuntimeClientException(
-        f"{message}. Server error: {details} (HTTP {status}){fields}"
-    )
+        return False

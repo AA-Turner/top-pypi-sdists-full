@@ -88,7 +88,7 @@ class ConnectContactLensClient(AioBaseClient):
         self, **kwargs: Unpack[ListRealtimeContactAnalysisSegmentsRequestTypeDef]
     ) -> ListRealtimeContactAnalysisSegmentsResponseTypeDef:
         """
-        Provides a list of analysis segments for a real-time analysis session.
+        Provides a list of analysis segments for a real-time analysis session for voice.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect-contact-lens/client/list_realtime_contact_analysis_segments.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect_contact_lens/client/#list_realtime_contact_analysis_segments)

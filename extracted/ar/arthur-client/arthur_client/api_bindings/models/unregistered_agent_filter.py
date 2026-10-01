@@ -17,8 +17,10 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.evidence_level import EvidenceLevel
 from arthur_client.api_bindings.models.source_class import SourceClass
 from typing import Optional, Set
 from typing_extensions import Self
@@ -38,7 +40,12 @@ class UnregisteredAgentFilter(BaseModel):
     source_ids: Optional[List[StrictStr]] = None
     external_ids: Optional[List[StrictStr]] = None
     source_classes: Optional[List[SourceClass]] = None
-    __properties: ClassVar[List[str]] = ["name_filter", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "external_ids", "source_classes"]
+    evidence_levels: Optional[List[EvidenceLevel]] = None
+    first_seen_after: Optional[datetime] = None
+    first_seen_before: Optional[datetime] = None
+    created_after: Optional[datetime] = None
+    created_before: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["name_filter", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "external_ids", "source_classes", "evidence_levels", "first_seen_after", "first_seen_before", "created_after", "created_before"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -134,6 +141,31 @@ class UnregisteredAgentFilter(BaseModel):
         if self.source_classes is None and "source_classes" in self.model_fields_set:
             _dict['source_classes'] = None
 
+        # set to None if evidence_levels (nullable) is None
+        # and model_fields_set contains the field
+        if self.evidence_levels is None and "evidence_levels" in self.model_fields_set:
+            _dict['evidence_levels'] = None
+
+        # set to None if first_seen_after (nullable) is None
+        # and model_fields_set contains the field
+        if self.first_seen_after is None and "first_seen_after" in self.model_fields_set:
+            _dict['first_seen_after'] = None
+
+        # set to None if first_seen_before (nullable) is None
+        # and model_fields_set contains the field
+        if self.first_seen_before is None and "first_seen_before" in self.model_fields_set:
+            _dict['first_seen_before'] = None
+
+        # set to None if created_after (nullable) is None
+        # and model_fields_set contains the field
+        if self.created_after is None and "created_after" in self.model_fields_set:
+            _dict['created_after'] = None
+
+        # set to None if created_before (nullable) is None
+        # and model_fields_set contains the field
+        if self.created_before is None and "created_before" in self.model_fields_set:
+            _dict['created_before'] = None
+
         return _dict
 
     @classmethod
@@ -156,7 +188,12 @@ class UnregisteredAgentFilter(BaseModel):
             "show_muted": obj.get("show_muted"),
             "source_ids": obj.get("source_ids"),
             "external_ids": obj.get("external_ids"),
-            "source_classes": obj.get("source_classes")
+            "source_classes": obj.get("source_classes"),
+            "evidence_levels": obj.get("evidence_levels"),
+            "first_seen_after": obj.get("first_seen_after"),
+            "first_seen_before": obj.get("first_seen_before"),
+            "created_after": obj.get("created_after"),
+            "created_before": obj.get("created_before")
         })
         return _obj
 

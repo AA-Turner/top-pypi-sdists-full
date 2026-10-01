@@ -32,13 +32,17 @@ use std::collections::BTreeMap;
 mod api_autonav;
 mod autoapi;
 mod blog;
+mod llmstxt;
 mod rss;
+mod social;
 mod tags;
 
 pub use api_autonav::{ApiAutonavConfig, ApiAutonavPlugin};
 pub use autoapi::AutoApiPlugin;
 pub use blog::{BlogPlugin, BlogPluginConfig, CategorySort, ExcerptPolicy};
+pub use llmstxt::{LlmstxtPlugin, LlmstxtPluginConfig};
 pub use rss::{RssDateConfig, RssPlugin, RssPluginConfig};
+pub use social::{SocialPlugin, SocialPluginConfig, SocialPluginInstance};
 pub use tags::{
     python_bool, python_float, python_scalar, TagsListingConfig, TagsPlugin,
     TagsPluginConfig,
@@ -76,6 +80,8 @@ pub struct Plugins {
     pub search: SearchPlugin,
     /// Material meta plugin.
     pub meta: MetaPlugin,
+    /// File exclusion plugin.
+    pub exclude: ExcludePlugin,
     /// Redirects plugin.
     pub redirects: RedirectsPlugin,
     /// Minify plugin.
@@ -86,6 +92,10 @@ pub struct Plugins {
     pub blogs: BlogPlugin,
     /// RSS feed plugin instances.
     pub rss: RssPlugin,
+    /// Material social plugin instances.
+    pub social: SocialPlugin,
+    /// LLM text output plugin.
+    pub llmstxt: LlmstxtPlugin,
     /// Literate navigation plugin.
     pub literate_nav: LiterateNavPlugin,
     /// Awesome navigation plugin.
@@ -228,6 +238,28 @@ pub struct MetaPluginConfig {
     pub enabled: bool,
     /// Name of metadata files inside the documentation tree.
     pub meta_file: String,
+}
+
+// ----------------------------------------------------------------------------
+
+/// File exclusion plugin.
+#[derive(Clone, Debug, Hash, FromPyObject, Serialize)]
+#[pyo3(from_item_all)]
+pub struct ExcludePlugin {
+    /// Plugin configuration.
+    pub config: ExcludePluginConfig,
+}
+
+/// File exclusion plugin configuration.
+#[derive(Clone, Debug, Hash, FromPyObject, Serialize)]
+#[pyo3(from_item_all)]
+pub struct ExcludePluginConfig {
+    /// Whether file exclusion is enabled.
+    pub enabled: bool,
+    /// Glob patterns matched against source paths.
+    pub glob: Vec<String>,
+    /// Python regular expressions matched at the start of source paths.
+    pub regex: Vec<String>,
 }
 
 // ----------------------------------------------------------------------------

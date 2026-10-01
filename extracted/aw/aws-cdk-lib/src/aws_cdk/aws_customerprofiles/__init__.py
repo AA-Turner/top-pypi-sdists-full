@@ -9288,6 +9288,511 @@ class CfnRecommenderProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_customerprofiles_6d5083f6.IRecommenderSchemaRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRecommenderSchema(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderSchema",
+):
+    '''A recommender schema defining the set of data columns available for training recommenders and filters under an Amazon Connect Customer Profiles domain.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html
+    :cloudformationResource: AWS::CustomerProfiles::RecommenderSchema
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_customerprofiles as customerprofiles
+        
+        cfn_recommender_schema = customerprofiles.CfnRecommenderSchema(self, "MyCfnRecommenderSchema",
+            domain_name="domainName",
+            fields={
+                "fields_key": [customerprofiles.CfnRecommenderSchema.RecommenderSchemaFieldProperty(
+                    target_field_name="targetFieldName",
+        
+                    # the properties below are optional
+                    content_type="contentType",
+                    feature_type="featureType"
+                )]
+            },
+            recommender_schema_name="recommenderSchemaName",
+        
+            # the properties below are optional
+            tags=[customerprofiles.CfnRecommenderSchema.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecommenderSchema.RecommenderSchemaFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]]],
+        recommender_schema_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnRecommenderSchema.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CustomerProfiles::RecommenderSchema``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: 
+        :param fields: 
+        :param recommender_schema_name: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d433be3457ab016a92851bc8aa8e943fce96b91572326dbbf30ddec442a8f503)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecommenderSchemaProps(
+            domain_name=domain_name,
+            fields=fields,
+            recommender_schema_name=recommender_schema_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecommenderSchema")
+    @builtins.classmethod
+    def arn_for_recommender_schema(
+        cls,
+        resource: "_aws_customerprofiles_6d5083f6.IRecommenderSchemaRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6fd1f8270b0fa72077b45692b84cc0c9cc2397b9560d568c231b40c5b32b560f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecommenderSchema", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecommenderSchema")
+    @builtins.classmethod
+    def is_cfn_recommender_schema(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecommenderSchema.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3c0a3f44ff660b3574541d0b515e8b13fcb65a87647c57beaf1ec7f6a5324da)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecommenderSchema", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__906c47772ff66a89d0b78233e5d27410c9e723d0ce1d24cce19836b717e798f0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a88e8a40ca9532e1cf1f01e1920879af2285ad9f6651b03b061ce372499ebc52)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderSchemaRef")
+    def recommender_schema_ref(
+        self,
+    ) -> "_aws_customerprofiles_6d5083f6.RecommenderSchemaReference":
+        '''A reference to a RecommenderSchema resource.'''
+        return typing.cast("_aws_customerprofiles_6d5083f6.RecommenderSchemaReference", jsii.get(self, "recommenderSchemaRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8ed553ddb65e2ccbe576c6c2cc56ff47c8b10f86cdb381260b17ab766d6cbc24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fields")
+    def fields(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommenderSchema.RecommenderSchemaFieldProperty"]]]]]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommenderSchema.RecommenderSchemaFieldProperty"]]]]], jsii.get(self, "fields"))
+
+    @fields.setter
+    def fields(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommenderSchema.RecommenderSchemaFieldProperty"]]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d81297cc44e809963d83a3946cea31f2e000b2a041aaa4b2aa2cec24a6e56c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderSchemaName")
+    def recommender_schema_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "recommenderSchemaName"))
+
+    @recommender_schema_name.setter
+    def recommender_schema_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65d51904cdd04e44ac6393a54bf48d72c8b3b15f1ce7d2cb82a4f111c59f19c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderSchemaName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnRecommenderSchema.TagsItemsProperty"]]:
+        return typing.cast(typing.Optional[typing.List["CfnRecommenderSchema.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnRecommenderSchema.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__360581963a612b8d9e54af404a4fec0a6f17c2d2d2dd43ddce027627870e81d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderSchema.RecommenderSchemaFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_field_name": "targetFieldName",
+            "content_type": "contentType",
+            "feature_type": "featureType",
+        },
+    )
+    class RecommenderSchemaFieldProperty:
+        def __init__(
+            self,
+            *,
+            target_field_name: builtins.str,
+            content_type: typing.Optional[builtins.str] = None,
+            feature_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param target_field_name: 
+            :param content_type: 
+            :param feature_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-recommenderschemafield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                recommender_schema_field_property = customerprofiles.CfnRecommenderSchema.RecommenderSchemaFieldProperty(
+                    target_field_name="targetFieldName",
+                
+                    # the properties below are optional
+                    content_type="contentType",
+                    feature_type="featureType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ab4ea5af2557f5d2f458d9f0199df0cae0ca9dd5db7082fcfbf842e3adab7920)
+                check_type(argname="argument target_field_name", value=target_field_name, expected_type=type_hints["target_field_name"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument feature_type", value=feature_type, expected_type=type_hints["feature_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_field_name": target_field_name,
+            }
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if feature_type is not None:
+                self._values["feature_type"] = feature_type
+
+        @builtins.property
+        def target_field_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-recommenderschemafield.html#cfn-customerprofiles-recommenderschema-recommenderschemafield-targetfieldname
+            '''
+            result = self._values.get("target_field_name")
+            assert result is not None, "Required property 'target_field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-recommenderschemafield.html#cfn-customerprofiles-recommenderschema-recommenderschemafield-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def feature_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-recommenderschemafield.html#cfn-customerprofiles-recommenderschema-recommenderschemafield-featuretype
+            '''
+            result = self._values.get("feature_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecommenderSchemaFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderSchema.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                tags_items_property = customerprofiles.CfnRecommenderSchema.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__63e02b4bd32e065cf27937fcccf98a89e99b9c18b47f9ed9c2dd086a1b110bb4)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-tagsitems.html#cfn-customerprofiles-recommenderschema-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderschema-tagsitems.html#cfn-customerprofiles-recommenderschema-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderSchemaProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "fields": "fields",
+        "recommender_schema_name": "recommenderSchemaName",
+        "tags": "tags",
+    },
+)
+class CfnRecommenderSchemaProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRecommenderSchema.RecommenderSchemaFieldProperty", typing.Dict[builtins.str, typing.Any]]]]]]],
+        recommender_schema_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnRecommenderSchema.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecommenderSchema``.
+
+        :param domain_name: 
+        :param fields: 
+        :param recommender_schema_name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_recommender_schema_props = customerprofiles.CfnRecommenderSchemaProps(
+                domain_name="domainName",
+                fields={
+                    "fields_key": [customerprofiles.CfnRecommenderSchema.RecommenderSchemaFieldProperty(
+                        target_field_name="targetFieldName",
+            
+                        # the properties below are optional
+                        content_type="contentType",
+                        feature_type="featureType"
+                    )]
+                },
+                recommender_schema_name="recommenderSchemaName",
+            
+                # the properties below are optional
+                tags=[customerprofiles.CfnRecommenderSchema.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48c1c1bd9c34d24b547f5c4c061b4314bcd4a6aa83e000f0f89b1f5f96a9c35c)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+            check_type(argname="argument recommender_schema_name", value=recommender_schema_name, expected_type=type_hints["recommender_schema_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "fields": fields,
+            "recommender_schema_name": recommender_schema_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html#cfn-customerprofiles-recommenderschema-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fields(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommenderSchema.RecommenderSchemaFieldProperty"]]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html#cfn-customerprofiles-recommenderschema-fields
+        '''
+        result = self._values.get("fields")
+        assert result is not None, "Required property 'fields' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRecommenderSchema.RecommenderSchemaFieldProperty"]]]]], result)
+
+    @builtins.property
+    def recommender_schema_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html#cfn-customerprofiles-recommenderschema-recommenderschemaname
+        '''
+        result = self._values.get("recommender_schema_name")
+        assert result is not None, "Required property 'recommender_schema_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnRecommenderSchema.TagsItemsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderschema.html#cfn-customerprofiles-recommenderschema-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnRecommenderSchema.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecommenderSchemaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_customerprofiles_6d5083f6.ISegmentDefinitionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSegmentDefinition(
     _aws_cdk_0cae9daa.CfnResource,
@@ -12682,6 +13187,8 @@ __all__ = [
     "CfnObjectTypeProps",
     "CfnRecommender",
     "CfnRecommenderProps",
+    "CfnRecommenderSchema",
+    "CfnRecommenderSchemaProps",
     "CfnSegmentDefinition",
     "CfnSegmentDefinitionProps",
 ]
@@ -13927,6 +14434,93 @@ def _typecheckingstub__09783e2f6ea109d641a038df999faa4e1e44f405b0a868211b8104a52
     description: typing.Optional[builtins.str] = None,
     recommender_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d433be3457ab016a92851bc8aa8e943fce96b91572326dbbf30ddec442a8f503(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    fields: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommenderSchema.RecommenderSchemaFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]]],
+    recommender_schema_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnRecommenderSchema.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fd1f8270b0fa72077b45692b84cc0c9cc2397b9560d568c231b40c5b32b560f(
+    resource: _aws_customerprofiles_6d5083f6.IRecommenderSchemaRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3c0a3f44ff660b3574541d0b515e8b13fcb65a87647c57beaf1ec7f6a5324da(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__906c47772ff66a89d0b78233e5d27410c9e723d0ce1d24cce19836b717e798f0(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a88e8a40ca9532e1cf1f01e1920879af2285ad9f6651b03b061ce372499ebc52(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ed553ddb65e2ccbe576c6c2cc56ff47c8b10f86cdb381260b17ab766d6cbc24(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d81297cc44e809963d83a3946cea31f2e000b2a041aaa4b2aa2cec24a6e56c2(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRecommenderSchema.RecommenderSchemaFieldProperty]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65d51904cdd04e44ac6393a54bf48d72c8b3b15f1ce7d2cb82a4f111c59f19c2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__360581963a612b8d9e54af404a4fec0a6f17c2d2d2dd43ddce027627870e81d5(
+    value: typing.Optional[typing.List[CfnRecommenderSchema.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab4ea5af2557f5d2f458d9f0199df0cae0ca9dd5db7082fcfbf842e3adab7920(
+    *,
+    target_field_name: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
+    feature_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63e02b4bd32e065cf27937fcccf98a89e99b9c18b47f9ed9c2dd086a1b110bb4(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48c1c1bd9c34d24b547f5c4c061b4314bcd4a6aa83e000f0f89b1f5f96a9c35c(
+    *,
+    domain_name: builtins.str,
+    fields: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommenderSchema.RecommenderSchemaFieldProperty, typing.Dict[builtins.str, typing.Any]]]]]]],
+    recommender_schema_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnRecommenderSchema.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

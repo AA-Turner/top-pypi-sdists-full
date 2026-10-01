@@ -254,7 +254,8 @@ class Organizations(Collection[M]):
         yet.
 
         Args:
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:

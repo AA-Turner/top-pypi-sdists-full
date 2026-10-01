@@ -504,6 +504,17 @@ class EncryptionConfigurationDetailsTypeDef(TypedDict):
     EncryptionStatusReason: NotRequired[str]
 
 
+RegionMetadataTypeDef = TypedDict(
+    "RegionMetadataTypeDef",
+    {
+        "RegionName": NotRequired[str],
+        "Status": NotRequired[RegionStatusType],
+        "AddedDate": NotRequired[datetime],
+        "IsPrimaryRegion": NotRequired[bool],
+    },
+)
+
+
 class DescribePermissionSetProvisioningStatusRequestTypeDef(TypedDict):
     InstanceArn: str
     ProvisionPermissionSetRequestId: str
@@ -578,17 +589,6 @@ class GetInlinePolicyForPermissionSetRequestTypeDef(TypedDict):
 class GetPermissionsBoundaryForPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
-
-
-RegionMetadataTypeDef = TypedDict(
-    "RegionMetadataTypeDef",
-    {
-        "RegionName": NotRequired[str],
-        "Status": NotRequired[RegionStatusType],
-        "AddedDate": NotRequired[datetime],
-        "IsPrimaryRegion": NotRequired[bool],
-    },
-)
 
 
 class OperationStatusFilterTypeDef(TypedDict):
@@ -1040,14 +1040,36 @@ class DescribePermissionSetResponseTypeDef(TypedDict):
 class DescribeInstanceResponseTypeDef(TypedDict):
     InstanceArn: str
     IdentityStoreId: str
+    IdentityStoreArn: str
     OwnerAccountId: str
     Name: str
     CreatedDate: datetime
     Status: InstanceStatusType
     StatusReason: str
+    PrimaryRegion: str
+    Regions: list[RegionMetadataTypeDef]
     EncryptionConfigurationDetails: EncryptionConfigurationDetailsTypeDef
     PermissionSetsEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InstanceMetadataTypeDef(TypedDict):
+    InstanceArn: NotRequired[str]
+    IdentityStoreId: NotRequired[str]
+    IdentityStoreArn: NotRequired[str]
+    OwnerAccountId: NotRequired[str]
+    Name: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
+    Status: NotRequired[InstanceStatusType]
+    StatusReason: NotRequired[str]
+    PrimaryRegion: NotRequired[str]
+    Regions: NotRequired[list[RegionMetadataTypeDef]]
+
+
+class ListRegionsResponseTypeDef(TypedDict):
+    Regions: list[RegionMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class DescribePermissionSetProvisioningStatusResponseTypeDef(TypedDict):
@@ -1065,24 +1087,6 @@ class UpdateInstanceRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     PermissionSetsEnabled: NotRequired[bool]
-
-
-class InstanceMetadataTypeDef(TypedDict):
-    InstanceArn: NotRequired[str]
-    IdentityStoreId: NotRequired[str]
-    OwnerAccountId: NotRequired[str]
-    Name: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    Status: NotRequired[InstanceStatusType]
-    StatusReason: NotRequired[str]
-    PrimaryRegion: NotRequired[str]
-    Regions: NotRequired[list[RegionMetadataTypeDef]]
-
-
-class ListRegionsResponseTypeDef(TypedDict):
-    Regions: list[RegionMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 
 class ListAccountAssignmentCreationStatusRequestTypeDef(TypedDict):

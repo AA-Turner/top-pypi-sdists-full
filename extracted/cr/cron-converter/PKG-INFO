@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cron-converter
-Version: 2.0.1
+Version: 2.0.2
 Summary: Cron string parser and scheduler for Python
 Author-email: Andrea Salvatori <16443598+Sonic0@users.noreply.github.com>
 License: MIT

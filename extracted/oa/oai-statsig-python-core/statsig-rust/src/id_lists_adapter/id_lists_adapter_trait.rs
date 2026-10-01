@@ -67,6 +67,14 @@ pub trait IdListsUpdateListener: Send + Sync {
     fn get_current_id_list_metadata(&self) -> HashMap<String, IdListMetadata>;
 
     fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>);
+
+    fn did_receive_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        _propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) {
+        self.did_receive_id_list_updates(updates);
+    }
 }
 
 impl fmt::Debug for dyn IdListsAdapter {

@@ -746,6 +746,53 @@ typing.cast(typing.Any, IRecommenderRef).__jsii_proxy_class__ = lambda : _IRecom
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderSchemaRef"
+)
+class IRecommenderSchemaRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecommenderSchema.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderSchemaRef")
+    def recommender_schema_ref(self) -> "RecommenderSchemaReference":
+        '''(experimental) A reference to a RecommenderSchema resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecommenderSchemaRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecommenderSchema.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderSchemaRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderSchemaRef")
+    def recommender_schema_ref(self) -> "RecommenderSchemaReference":
+        '''(experimental) A reference to a RecommenderSchema resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecommenderSchemaReference", jsii.get(self, "recommenderSchemaRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecommenderSchemaRef).__jsii_proxy_class__ = lambda : _IRecommenderSchemaRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.ISegmentDefinitionRef"
 )
 class ISegmentDefinitionRef(
@@ -999,6 +1046,55 @@ class RecommenderReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.RecommenderSchemaReference",
+    jsii_struct_bases=[],
+    name_mapping={"recommender_schema_arn": "recommenderSchemaArn"},
+)
+class RecommenderSchemaReference:
+    def __init__(self, *, recommender_schema_arn: builtins.str) -> None:
+        '''A reference to a RecommenderSchema resource.
+
+        :param recommender_schema_arn: The Arn of the RecommenderSchema resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_customerprofiles as interfaces_customerprofiles
+            
+            recommender_schema_reference = interfaces_customerprofiles.RecommenderSchemaReference(
+                recommender_schema_arn="recommenderSchemaArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ca3aa567d7b7dee2509b918c3cd81af9429f9545048e1ee853d4268eaa47c631)
+            check_type(argname="argument recommender_schema_arn", value=recommender_schema_arn, expected_type=type_hints["recommender_schema_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recommender_schema_arn": recommender_schema_arn,
+        }
+
+    @builtins.property
+    def recommender_schema_arn(self) -> builtins.str:
+        '''The Arn of the RecommenderSchema resource.'''
+        result = self._values.get("recommender_schema_arn")
+        assert result is not None, "Required property 'recommender_schema_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecommenderSchemaReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.SegmentDefinitionReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1093,10 +1189,12 @@ __all__ = [
     "IIntegrationRef",
     "IObjectTypeRef",
     "IRecommenderRef",
+    "IRecommenderSchemaRef",
     "ISegmentDefinitionRef",
     "IntegrationReference",
     "ObjectTypeReference",
     "RecommenderReference",
+    "RecommenderSchemaReference",
     "SegmentDefinitionReference",
 ]
 
@@ -1167,6 +1265,13 @@ def _typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ca3aa567d7b7dee2509b918c3cd81af9429f9545048e1ee853d4268eaa47c631(
+    *,
+    recommender_schema_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d8f457d6(
     *,
     domain_name: builtins.str,
@@ -1176,5 +1281,5 @@ def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d
     """Type checking stubs"""
     pass
 
-for cls in [ICalculatedAttributeDefinitionRef, IDomainObjectTypeRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, ISegmentDefinitionRef]:
+for cls in [ICalculatedAttributeDefinitionRef, IDomainObjectTypeRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, IRecommenderSchemaRef, ISegmentDefinitionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

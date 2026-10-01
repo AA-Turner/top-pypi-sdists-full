@@ -21,17 +21,13 @@
 # -----------------------------------------------------------------------------
 
 from array import array
-from typing import Callable, Sequence, Union
-
-try:
-    from typing import Protocol
-except ImportError:
-    from typing_extensions import Protocol  # type: ignore
+from collections.abc import Sequence
+from typing import Callable, Protocol, Union
 
 __all__ = ("Buffer",)
 
 
-Buffer = Union[str, bytes, bytearray, memoryview, array]
+Buffer = Union[str, bytes, bytearray, memoryview, "array[int]"]
 """Type alias for objects supported by the CRC functions as inputs."""
 
 

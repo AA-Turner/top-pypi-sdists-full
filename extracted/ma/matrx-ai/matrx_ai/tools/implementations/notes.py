@@ -22,6 +22,7 @@ from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resou
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import NoteArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.organization_hold import carried_organization_id, organization_required_result
 from matrx_ai.tools.person_session import acts_as_the_person
 from matrx_ai.tools.surface_write import attach_surface_write
 
@@ -159,10 +160,18 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             started_at=started_at, completed_at=time.time(),
             tool_name="note_create", call_id=ctx.call_id,
         )
+    # workbench.notes.organization_id is NOT NULL: the note is born in the organization
+    # the conversation CARRIES — never looked up, never defaulted; none means a hold.
+    organization_id = carried_organization_id(ctx)
+    if not organization_id:
+        return organization_required_result(
+            what="create a note", tool_name="note_create", ctx=ctx, started_at=started_at
+        )
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
         result = await notes_manager_instance.create_note(
             user_id=ctx.user_id,
+            organization_id=organization_id,
             label=label,
             content=content,
             folder_name=args.get("folder_name", ""),

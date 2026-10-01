@@ -90,13 +90,25 @@ class ApiCacheReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appsync.ApiKeyReference",
     jsii_struct_bases=[],
-    name_mapping={"api_key_arn": "apiKeyArn"},
+    name_mapping={
+        "api_id": "apiId",
+        "api_key_arn": "apiKeyArn",
+        "api_key_id": "apiKeyId",
+    },
 )
 class ApiKeyReference:
-    def __init__(self, *, api_key_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        api_id: builtins.str,
+        api_key_arn: builtins.str,
+        api_key_id: builtins.str,
+    ) -> None:
         '''A reference to a ApiKey resource.
 
-        :param api_key_arn: The Arn of the ApiKey resource.
+        :param api_id: The ApiId of the ApiKey resource.
+        :param api_key_arn: The ARN of the ApiKey resource.
+        :param api_key_id: The ApiKeyId of the ApiKey resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -107,21 +119,41 @@ class ApiKeyReference:
             from aws_cdk.interfaces import aws_appsync as interfaces_appsync
             
             api_key_reference = interfaces_appsync.ApiKeyReference(
-                api_key_arn="apiKeyArn"
+                api_id="apiId",
+                api_key_arn="apiKeyArn",
+                api_key_id="apiKeyId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c89c61b6d09e514f3580cb56bddf0fff5b1a35bd5f8b47cb4d6faa952954159c)
+            check_type(argname="argument api_id", value=api_id, expected_type=type_hints["api_id"])
             check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
+            check_type(argname="argument api_key_id", value=api_key_id, expected_type=type_hints["api_key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_id": api_id,
             "api_key_arn": api_key_arn,
+            "api_key_id": api_key_id,
         }
 
     @builtins.property
+    def api_id(self) -> builtins.str:
+        '''The ApiId of the ApiKey resource.'''
+        result = self._values.get("api_id")
+        assert result is not None, "Required property 'api_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
     def api_key_arn(self) -> builtins.str:
-        '''The Arn of the ApiKey resource.'''
+        '''The ARN of the ApiKey resource.'''
         result = self._values.get("api_key_arn")
         assert result is not None, "Required property 'api_key_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_key_id(self) -> builtins.str:
+        '''The ApiKeyId of the ApiKey resource.'''
+        result = self._values.get("api_key_id")
+        assert result is not None, "Required property 'api_key_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1322,7 +1354,9 @@ def _typecheckingstub__02d2fc7495b4465ad3e37604f75a0bdb55af526cf724ce569c848502d
 
 def _typecheckingstub__c89c61b6d09e514f3580cb56bddf0fff5b1a35bd5f8b47cb4d6faa952954159c(
     *,
+    api_id: builtins.str,
     api_key_arn: builtins.str,
+    api_key_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

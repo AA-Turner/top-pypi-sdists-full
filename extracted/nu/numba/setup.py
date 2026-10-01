@@ -20,12 +20,26 @@ except ImportError:
 
 
 min_python_version = "3.10"
-max_python_version = "3.15"  # exclusive
+max_python_version = "3.16"  # exclusive
 min_numpy_build_version = "2.0.0rc1"
 min_numpy_run_version = "1.22"
 max_numpy_run_version = "2.6"
-min_llvmlite_version = "0.49.0dev0"
-max_llvmlite_version = "0.50"
+min_llvmlite_version = "0.50.0dev0"
+max_llvmlite_version = "0.51"
+
+
+def _detect_lapack_ilp64():
+    """
+    Decide, at build time, whether to use ILP64 BLAS/LAPACK ABI.
+
+    Set NUMBA_LAPACK_ILP64 environment variable to 1 to enable ILP64, see
+    "Build time environment variables" section of the install docs for
+    details.
+    """
+    return os.environ.get("NUMBA_LAPACK_ILP64") == "1"
+
+
+lapack_build_ilp64 = _detect_lapack_ilp64()
 
 if sys.platform.startswith('linux'):
     # Patch for #2555 to make wheels without libpython
@@ -129,6 +143,16 @@ def is_building():
     return any(bc in sys.argv[1:] for bc in build_commands)
 
 
+def _get_cpp_std_args():
+    """Return extra_compile_args for the C++ standard used by extensions."""
+    if sys.platform.startswith('win') and 'MSC' in sys.version:
+        # MSVC ignores -std=c++11. 3.15 needs /std:c++20.
+        if sys.version_info[:2] >= (3, 15):
+            return ['/std:c++20']
+        return []
+    return ['-std=c++11']
+
+
 def get_ext_modules():
     """
     Return a list of Extension instances for the setup() call.
@@ -141,12 +165,14 @@ def get_ext_modules():
     if sys.platform != 'win32':
         np_compile_args['libraries'] = ['m',]
 
+    cpp_std_args = _get_cpp_std_args()
+
     ext_devicearray = Extension(name='numba._devicearray',
                                 sources=['numba/_devicearray.cpp'],
                                 depends=['numba/_pymodule.h',
                                          'numba/_devicearray.h'],
                                 include_dirs=['numba'],
-                                extra_compile_args=['-std=c++11'],
+                                extra_compile_args=list(cpp_std_args),
                                 )
 
     ext_dynfunc = Extension(name='numba._dynfunc',
@@ -165,7 +191,7 @@ def get_ext_modules():
                                depends=["numba/_pymodule.h",
                                         "numba/_typeof.h",
                                         "numba/_hashtable.h"],
-                               extra_compile_args=['-std=c++11'],
+                               extra_compile_args=list(cpp_std_args),
                                **np_compile_args)
 
     ext_helperlib = Extension(name="numba._helperlib",
@@ -175,6 +201,10 @@ def get_ext_modules():
                                        "numba/cext/listobject.c",
                                        "numba/cext/setobject.c",
                                        ],
+                              define_macros=[
+                                  ("NUMBA_LAPACK_BUILD_ILP64",
+                                   int(lapack_build_ilp64)),
+                              ],
                               # numba/_random.c needs pthreads
                               extra_link_args=install_name_tool_fixer +
                               extra_link_args,
@@ -190,7 +220,7 @@ def get_ext_modules():
                              sources=["numba/core/typeconv/typeconv.cpp",
                                       "numba/core/typeconv/_typeconv.cpp"],
                              depends=["numba/_pymodule.h"],
-                             extra_compile_args=['-std=c++11'],
+                             extra_compile_args=list(cpp_std_args),
                              )
 
     ext_np_ufunc = Extension(name="numba.np.ufunc._internal",
@@ -242,7 +272,7 @@ def get_ext_modules():
     have_openmp = True
     if sys.platform.startswith('win'):
         if 'MSC' in sys.version:
-            cpp11flags = []
+            cpp11flags = list(cpp_std_args)
             ompcompileflags = ['-openmp']
             omplinkflags = []
         else:
@@ -405,6 +435,7 @@ metadata = dict(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Software Development :: Compilers",
     ],
     package_data={

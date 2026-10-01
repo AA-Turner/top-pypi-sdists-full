@@ -77,6 +77,7 @@ __all__ = (
     "EFSTransitEncryptionType",
     "EnvironmentFileTypeType",
     "ExecuteCommandLoggingType",
+    "ExpressCpuArchitectureType",
     "ExpressGatewayServiceIncludeType",
     "ExpressGatewayServiceScalingMetricType",
     "ExpressGatewayServiceStatusCodeType",
@@ -129,6 +130,7 @@ __all__ = (
     "ServiceDeploymentStatusType",
     "ServiceFieldType",
     "ServiceName",
+    "ServiceRevisionCleanupType",
     "ServicesInactiveWaiterName",
     "ServicesStableWaiterName",
     "SettingNameType",
@@ -259,6 +261,7 @@ EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
 EnvironmentFileTypeType = Literal["s3"]
 ExecuteCommandLoggingType = Literal["DEFAULT", "NONE", "OVERRIDE"]
+ExpressCpuArchitectureType = Literal["ARM64", "X86_64"]
 ExpressGatewayServiceIncludeType = Literal["TAGS"]
 ExpressGatewayServiceScalingMetricType = Literal[
     "AVERAGE_CPU", "AVERAGE_MEMORY", "REQUEST_COUNT_PER_TARGET"
@@ -347,6 +350,7 @@ ServiceDeploymentStatusType = Literal[
     "SUCCESSFUL",
 ]
 ServiceFieldType = Literal["TAGS"]
+ServiceRevisionCleanupType = Literal["BLOCKING", "DEFERRED"]
 ServicesInactiveWaiterName = Literal["services_inactive"]
 ServicesStableWaiterName = Literal["services_stable"]
 SettingNameType = Literal[
@@ -486,6 +490,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -560,6 +565,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -588,6 +594,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -682,6 +689,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -80,7 +80,7 @@ ATTEMPTED_OUTCOMES = frozenset({"captured", "redirected", "failed"})
 # Only a site-WIDE crawl is a meaningful diff baseline. A `page_fetch`,
 # `bootstrap`, `analysis`, or `*_sync` session touches one page or none, so
 # picking one as "the previous run" would report the entire site as removed.
-# Mirrors `service._EXCLUSIVE_CRAWL_MODES`.
+# Mirrors the `site_crawl` lane of `persistence.START_LANE_BY_MODE`.
 DIFFABLE_CRAWL_MODES = frozenset({"full", "list"})
 
 # Per-session ceiling on fetched URLs pulled into a diff. Above it the diff

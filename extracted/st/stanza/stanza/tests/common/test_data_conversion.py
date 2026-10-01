@@ -3,13 +3,14 @@ Basic tests of the data conversion
 """
 
 import io
+import json
 import pytest
 import tempfile
 from zipfile import ZipFile
 
 import stanza
 from stanza.utils.conll import CoNLL
-from stanza.models.common.doc import Document
+from stanza.models.common.doc import Document, Word, ID, TEXT
 from stanza.tests import *
 
 pytestmark = pytest.mark.pipeline
@@ -422,6 +423,186 @@ def test_empty_deps_at_end_conversion():
     """
     check_empty_deps_conversion(ESTONIAN_EMPTY_END_DEPS, 5)
 
+EMPTY_AT_ZERO = """
+# text = likes cats
+0.1	likes	like	VERB	_	_	_	_	0:root	_
+1	likes	like	VERB	_	_	0	root	_	_
+2	cats	cat	NOUN	_	_	1	obj	_	_
+""".strip()
+
+# an empty node numbered 1.2 and a multi word token spanning 1-2 produce the
+# same id in the dict, so the only thing separating them is where they sit
+EMPTY_COLLIDES_WITH_MWT = """
+# text = He likes
+1	He	he	PRON	_	_	2	nsubj	_	_
+1.2	likes	like	VERB	_	_	_	_	0:root	_
+2	likes	like	VERB	_	_	0	root	_	_
+""".strip()
+
+MWT_1_2 = """
+# text = du chien
+1-2	du	_	_	_	_	_	_	_	_
+1	de	de	ADP	_	_	3	case	_	_
+2	le	le	DET	_	_	3	det	_	_
+3	chien	chien	NOUN	_	_	0	root	_	_
+""".strip()
+
+@pytest.mark.parametrize("input_str", [ESTONIAN_EMPTY_DEPS, ESTONIAN_EMPTY_END_DEPS,
+                                       EMPTY_AT_ZERO, EMPTY_COLLIDES_WITH_MWT, MWT_1_2],
+                         ids=["estonian", "estonian_at_end", "empty_at_zero",
+                              "empty_collides_with_mwt", "mwt_only"])
+def test_empty_words_survive_rebuild(input_str):
+    """
+    Empty words must survive a rebuild from the dicts to_dict() writes
+
+    to_dict() writes an empty word inline in the token list, and its id is a
+    2-tuple, the same shape a multi word token range has.  What separates them
+    is position: a range comes before the words it spans, an empty word comes
+    after the word it hangs off, and no range can start at 0
+    """
+    doc = CoNLL.conll2doc(input_str=input_str, ignore_gapping=False)
+    original = doc.sentences[0]
+
+    rebuilt = Document(doc.to_dict(), doc.text)
+    sentence = rebuilt.sentences[0]
+
+    assert len(sentence.tokens) == len(original.tokens)
+    assert len(sentence.words) == len(original.words)
+    assert len(sentence.empty_words) == len(original.empty_words)
+    assert [w.id for w in sentence.empty_words] == [w.id for w in original.empty_words]
+
+    lines = [x for x in "{:C}".format(rebuilt).split("\n") if not x.startswith("#")]
+    assert lines == [x for x in input_str.split("\n") if not x.startswith("#")]
+
+@pytest.mark.parametrize("input_str", [ESTONIAN_EMPTY_DEPS, EMPTY_AT_ZERO,
+                                       EMPTY_COLLIDES_WITH_MWT, MWT_1_2],
+                         ids=["estonian", "empty_at_zero",
+                              "empty_collides_with_mwt", "mwt_only"])
+def test_empty_words_survive_serialization(input_str):
+    """
+    The same must hold through to_serialized() and back
+    """
+    doc = CoNLL.conll2doc(input_str=input_str, ignore_gapping=False)
+    original = doc.sentences[0]
+
+    rebuilt = Document.from_serialized(doc.to_serialized())
+    sentence = rebuilt.sentences[0]
+
+    assert len(sentence.tokens) == len(original.tokens)
+    assert len(sentence.empty_words) == len(original.empty_words)
+
+    lines = [x for x in "{:C}".format(rebuilt).split("\n") if not x.startswith("#")]
+    assert lines == [x for x in input_str.split("\n") if not x.startswith("#")]
+
+@pytest.mark.parametrize("bad_id", [1, [1, 2]])
+def test_explicit_empty_words_with_unnormalized_ids(bad_id):
+    """
+    An explicitly supplied empty word keeps working when its id is not a tuple
+
+    _process_tokens normalizes the ids it finds inline in the token list, and
+    an explicit empty_words entry is not normalized, so the two lists can hold
+    different id types when both are in play
+    """
+    doc = CoNLL.conll2doc(input_str=EMPTY_COLLIDES_WITH_MWT, ignore_gapping=False)
+    sentences = doc.to_dict()
+    explicit = [[{ID: bad_id, TEXT: "zzz"}]]
+
+    rebuilt = Document(sentences, doc.text, empty_sentences=explicit)
+
+    assert len(rebuilt.sentences[0].empty_words) == 2
+    if isinstance(bad_id, list):
+        # a list id renders the way it did before, as the literal text in the
+        # ID column.  what must not happen is the merge raising on the sort
+        assert "{:C}".format(rebuilt)
+
+# the UD format section on empty nodes gives 7 7.1 8-9 8 9 as valid, and an
+# empty node may also sit between two words of one multiword token
+EMPTY_BEFORE_MWT = """
+# text = g a b
+7	g	g	NOUN	_	_	0	root	_	_
+7.1	zz	zz	VERB	_	_	_	_	0:root	_
+8-9	ab	_	_	_	_	_	_	_	_
+8	a	a	ADP	_	_	7	case	_	_
+9	b	b	DET	_	_	7	det	_	_
+""".strip()
+
+EMPTY_INSIDE_MWT = """
+# text = g a b
+7	g	g	NOUN	_	_	0	root	_	_
+8-9	ab	_	_	_	_	_	_	_	_
+8	a	a	ADP	_	_	7	case	_	_
+8.1	zz	zz	VERB	_	_	_	_	0:root	_
+9	b	b	DET	_	_	7	det	_	_
+""".strip()
+
+EMPTY_AT_ZERO_BEFORE_MWT = """
+# text = du chien
+0.1	zz	zz	VERB	_	_	_	_	0:root	_
+1-2	du	_	_	_	_	_	_	_	_
+1	de	de	ADP	_	_	3	case	_	_
+2	le	le	DET	_	_	3	det	_	_
+3	chien	chien	NOUN	_	_	0	root	_	_
+""".strip()
+
+@pytest.mark.parametrize("input_str", [EMPTY_BEFORE_MWT, EMPTY_INSIDE_MWT,
+                                       EMPTY_AT_ZERO_BEFORE_MWT],
+                         ids=["before_mwt", "inside_mwt", "at_zero_before_mwt"])
+def test_empty_words_keep_their_place_around_mwt(input_str):
+    """
+    An empty word keeps its position relative to a multiword token
+
+    An empty word hangs off the word with the matching index, and that word
+    can be inside a range, so 8-9 8 8.1 9 has to come back in that order
+    rather than with the empty word pushed past the end of the range
+    """
+    doc = CoNLL.conll2doc(input_str=input_str, ignore_gapping=False)
+    expected = [x for x in input_str.split("\n") if not x.startswith("#")]
+
+    assert [x for x in "{:C}".format(doc).split("\n") if not x.startswith("#")] == expected
+
+    for rebuilt in (Document(doc.to_dict(), doc.text),
+                    Document.from_serialized(doc.to_serialized())):
+        lines = [x for x in "{:C}".format(rebuilt).split("\n") if not x.startswith("#")]
+        assert lines == expected
+        assert len(rebuilt.sentences[0].empty_words) == 1
+
+EMPTY_ON_LAST_WORD_OF_MWT = """
+# text = g a b
+7	g	g	NOUN	_	_	0	root	_	_
+8-9	ab	_	_	_	_	_	_	_	_
+8	a	a	ADP	_	_	7	case	_	_
+9	b	b	DET	_	_	7	det	_	_
+9.1	zz	zz	VERB	_	_	_	_	0:root	_
+""".strip()
+
+def test_empty_word_after_a_range_stays_after_it():
+    """
+    An empty word on the last word of a range still follows the whole range
+    """
+    doc = CoNLL.conll2doc(input_str=EMPTY_ON_LAST_WORD_OF_MWT, ignore_gapping=False)
+    expected = [x for x in EMPTY_ON_LAST_WORD_OF_MWT.split("\n") if not x.startswith("#")]
+
+    rebuilt = Document(doc.to_dict(), doc.text)
+
+    assert [x for x in "{:C}".format(rebuilt).split("\n") if not x.startswith("#")] == expected
+
+def test_empty_words_out_of_order_are_placed_by_index():
+    """
+    empty_words is not required to be sorted
+
+    coref_processor appends its zero anaphora nodes cluster by cluster rather
+    than in word order, so the ordering cannot assume the list is sorted
+    """
+    doc = CoNLL.conll2doc(input_str=ESTONIAN_EMPTY_DEPS, ignore_gapping=False)
+    sentence = doc.sentences[0]
+    extra = Word(sentence, {ID: (2, 1), TEXT: "zz"})
+    sentence.empty_words = sentence.empty_words + [extra]
+
+    ids = [x.split("\t")[0] for x in "{:C}".format(doc).split("\n") if not x.startswith("#")]
+
+    assert ids.index("2.1") < ids.index("3")
+    assert ids.index("5.1") > ids.index("5")
+
 def check_empty_deps_conversion(input_str, expected_words):
     doc = CoNLL.conll2doc(input_str=input_str, ignore_gapping=False)
     assert len(doc.sentences) == 1
@@ -636,3 +817,56 @@ def test_coref_chains_misc_key():
     # NER and coref must remain distinct keys when both are present
     misc = dict_to_conll_text({ID: (1,), TEXT: "Joe", NER: "S-PERSON", COREF_CHAINS: [attachment]}).split("\t")[-1]
     assert misc == "ner=S-PERSON|coref_chains=unit-repr-id3"
+
+# "du" is the contraction of "de" and "le", so it is a multi word token
+FRENCH_MWT = """
+# text = On parle du chien
+# sent_id = 0
+1	On	on	PRON	_	_	2	nsubj	_	_
+2	parle	parler	VERB	_	_	0	root	_	_
+3-4	du	_	_	_	_	_	_	_	_
+3	de	de	ADP	_	_	5	case	_	_
+4	le	le	DET	_	_	5	det	_	_
+5	chien	chien	NOUN	_	_	2	obl	_	_
+""".strip()
+
+def test_serialized_mwt_id():
+    """
+    A multi word token id must survive to_serialized() and back
+
+    to_dict() writes the id of the "du" token as the tuple (3, 4), and json
+    has no tuple type, so it is read back as a list unless it is converted.
+    A list id is written to the ID column as "[3, 4]" instead of "3-4"
+    """
+    doc = CoNLL.conll2doc(input_str=FRENCH_MWT)
+    doc = Document.from_serialized(doc.to_serialized())
+    assert "{:C}".format(doc) == FRENCH_MWT
+
+    token = doc.sentences[0].tokens[2]
+    assert isinstance(token.id, tuple)
+    assert token.id == (3, 4)
+
+def test_list_mwt_id():
+    """
+    A Document built from dicts whose ids are lists must behave the same
+
+    json.loads of a to_dict() payload gives lists rather than tuples, so a
+    Document can be handed list ids without going through from_serialized
+    """
+    from stanza.models.common.doc import ID
+
+    doc = CoNLL.conll2doc(input_str=FRENCH_MWT)
+    as_lists = json.loads(json.dumps(doc.to_dict()))
+    assert as_lists[0][2][ID] == [3, 4]
+
+    rebuilt = Document(as_lists, doc.text)
+
+    # the comments are not part of this construction path, so compare the
+    # token lines rather than the whole document
+    conll = "{:C}".format(rebuilt)
+    assert "3-4\tdu" in conll
+    assert "[3, 4]" not in conll
+
+    token = rebuilt.sentences[0].tokens[2]
+    assert isinstance(token.id, tuple)
+    assert token.id == (3, 4)

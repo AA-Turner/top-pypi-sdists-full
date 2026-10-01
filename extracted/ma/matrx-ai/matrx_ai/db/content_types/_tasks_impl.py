@@ -311,25 +311,24 @@ class TasksManager(TasksBase):
                 "error": str(e),
             }
 
-    async def list_tasks_for_user(self, user_id: str, organization_id: str) -> dict[str, Any]:
+    async def list_tasks_for_user(
+        self, user_id: str, organization_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Return a compact list of the live (not soft-deleted) tasks a person
-        created in one organization — id, title, status, priority, project_id.
+        created — id, title, status, priority, project_id — across ALL their
+        organizations.
 
-        ``organization_id`` is the organization the request CARRIES — required:
-        an absent organization is refused, never "every organization".
+        ``organization_id`` is an explicit optional filter (None = every
+        organization); the selected organization never narrows a list
+        (access-belongs-to-the-person, 2026-09-25).
         """
-        if not organization_id:
-            return {
-                "success": False,
-                "operation": "list_tasks_for_user",
-                "error": "organization_id is required to list tasks.",
-            }
         filters: dict[str, Any] = {
             "created_by": user_id,
-            "organization_id": organization_id,
             "deleted_at__isnull": True,
         }
+        if organization_id:
+            filters["organization_id"] = organization_id
         try:
             tasks = await self._get_items(order_by="-created_at", **filters)
             summary = [
@@ -347,7 +346,7 @@ class TasksManager(TasksBase):
             return {
                 "success": True,
                 "user_id": user_id,
-                "organization_id": organization_id,
+                "organization_id": organization_id or None,
                 "tasks": summary,
             }
         except Exception as e:

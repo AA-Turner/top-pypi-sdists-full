@@ -13,6 +13,7 @@ from .environment import LabricEnvironment
 
 if typing.TYPE_CHECKING:
     from .agent.client import AgentClient, AsyncAgentClient
+    from .data.client import AsyncDataClient, DataClient
     from .files.client import AsyncFilesClient, FilesClient
     from .images.client import AsyncImagesClient, ImagesClient
     from .jobs.client import AsyncJobsClient, JobsClient
@@ -114,6 +115,7 @@ class BaseLabric:
         self._jobs: typing.Optional[JobsClient] = None
         self._tools: typing.Optional[ToolsClient] = None
         self._images: typing.Optional[ImagesClient] = None
+        self._data: typing.Optional[DataClient] = None
         self._notifications: typing.Optional[NotificationsClient] = None
         self._models: typing.Optional[ModelsClient] = None
 
@@ -156,6 +158,14 @@ class BaseLabric:
 
             self._images = ImagesClient(client_wrapper=self._client_wrapper)
         return self._images
+
+    @property
+    def data(self):
+        if self._data is None:
+            from .data.client import DataClient  # noqa: E402
+
+            self._data = DataClient(client_wrapper=self._client_wrapper)
+        return self._data
 
     @property
     def notifications(self):
@@ -288,6 +298,7 @@ class AsyncBaseLabric:
         self._jobs: typing.Optional[AsyncJobsClient] = None
         self._tools: typing.Optional[AsyncToolsClient] = None
         self._images: typing.Optional[AsyncImagesClient] = None
+        self._data: typing.Optional[AsyncDataClient] = None
         self._notifications: typing.Optional[AsyncNotificationsClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
 
@@ -330,6 +341,14 @@ class AsyncBaseLabric:
 
             self._images = AsyncImagesClient(client_wrapper=self._client_wrapper)
         return self._images
+
+    @property
+    def data(self):
+        if self._data is None:
+            from .data.client import AsyncDataClient  # noqa: E402
+
+            self._data = AsyncDataClient(client_wrapper=self._client_wrapper)
+        return self._data
 
     @property
     def notifications(self):

@@ -112,6 +112,7 @@ ResourceTypeType = Literal[
     "AWS::BedrockAgentCore::CodeInterpreter",
     "AWS::BedrockAgentCore::Gateway",
     "AWS::BedrockAgentCore::Memory",
+    "AWS::BedrockAgentCore::PaymentManager",
     "AWS::BedrockAgentCore::Runtime",
     "AWS::BedrockAgentCore::WorkloadIdentity",
     "AWS::CloudFront::Distribution",

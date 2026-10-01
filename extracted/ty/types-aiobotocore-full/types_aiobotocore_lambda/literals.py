@@ -29,6 +29,7 @@ __all__ = (
     "CapacityProviderScalingModeType",
     "CapacityProviderStateType",
     "CodeSigningPolicyType",
+    "DirectS3ReadType",
     "EndPointTypeType",
     "EventSourceMappingMetricType",
     "EventSourceMappingSystemLogLevelType",
@@ -105,6 +106,7 @@ CapacityProviderPredefinedMetricTypeType = Literal["LambdaCapacityProviderAverag
 CapacityProviderScalingModeType = Literal["Auto", "Manual"]
 CapacityProviderStateType = Literal["Active", "Deleting", "Failed", "Pending"]
 CodeSigningPolicyType = Literal["Enforce", "Warn"]
+DirectS3ReadType = Literal["AUTO", "DISABLED", "ENABLED"]
 EndPointTypeType = Literal["KAFKA_BOOTSTRAP_SERVERS"]
 EventSourceMappingMetricType = Literal["ErrorCount", "EventCount", "KafkaMetrics"]
 EventSourceMappingSystemLogLevelType = Literal["DEBUG", "INFO", "WARN"]
@@ -426,6 +428,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -500,6 +503,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -528,6 +532,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -622,6 +627,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

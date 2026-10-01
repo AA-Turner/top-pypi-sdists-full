@@ -17,22 +17,16 @@ import json
 import os
 import sys
 
+from airbyte_ops_mcp.internal_team_roster import parse_roster_artifact
 from airbyte_ops_mcp.slack_posting import SlackPostResult, send_hitl_notification
 
 
 def _load_roster(roster_file: str) -> list[dict[str, str | int | None]]:
-    """Load the roster JSON file.
-
-    Handles both the raw list format and the `{"members": [...]}` wrapper.
-    """
+    """Load and validate a fresh roster JSON file."""
     with open(roster_file) as f:
         data = json.load(f)
 
-    if isinstance(data, dict) and "members" in data:
-        return data["members"]
-    if isinstance(data, list):
-        return data
-    return []
+    return parse_roster_artifact(data)
 
 
 def _write_github_outputs(result: SlackPostResult) -> None:

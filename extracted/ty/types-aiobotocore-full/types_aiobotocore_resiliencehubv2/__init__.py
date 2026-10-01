@@ -18,6 +18,7 @@ Usage::
         ListFailureModeFindingsPaginator,
         ListInputSourcesPaginator,
         ListPoliciesPaginator,
+        ListPolicyEventsPaginator,
         ListReportsPaginator,
         ListResolvedTestRunTargetResourcesPaginator,
         ListResourcesPaginator,
@@ -27,7 +28,9 @@ Usage::
         ListServicesPaginator,
         ListSystemEventsPaginator,
         ListSystemsPaginator,
+        ListTestRunDependenciesPaginator,
         ListTestRunEventsPaginator,
+        ListTestRunSourceEventsPaginator,
         ListTestRunSourcesPaginator,
         ListTestRunsPaginator,
         ListTestSourcesPaginator,
@@ -56,6 +59,7 @@ Usage::
     list_failure_mode_findings_paginator: ListFailureModeFindingsPaginator = client.get_paginator("list_failure_mode_findings")
     list_input_sources_paginator: ListInputSourcesPaginator = client.get_paginator("list_input_sources")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+    list_policy_events_paginator: ListPolicyEventsPaginator = client.get_paginator("list_policy_events")
     list_reports_paginator: ListReportsPaginator = client.get_paginator("list_reports")
     list_resolved_test_run_target_resources_paginator: ListResolvedTestRunTargetResourcesPaginator = client.get_paginator("list_resolved_test_run_target_resources")
     list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
@@ -65,7 +69,9 @@ Usage::
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     list_system_events_paginator: ListSystemEventsPaginator = client.get_paginator("list_system_events")
     list_systems_paginator: ListSystemsPaginator = client.get_paginator("list_systems")
+    list_test_run_dependencies_paginator: ListTestRunDependenciesPaginator = client.get_paginator("list_test_run_dependencies")
     list_test_run_events_paginator: ListTestRunEventsPaginator = client.get_paginator("list_test_run_events")
+    list_test_run_source_events_paginator: ListTestRunSourceEventsPaginator = client.get_paginator("list_test_run_source_events")
     list_test_run_sources_paginator: ListTestRunSourcesPaginator = client.get_paginator("list_test_run_sources")
     list_test_runs_paginator: ListTestRunsPaginator = client.get_paginator("list_test_runs")
     list_test_sources_paginator: ListTestSourcesPaginator = client.get_paginator("list_test_sources")
@@ -82,6 +88,7 @@ from .paginator import (
     ListFailureModeFindingsPaginator,
     ListInputSourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyEventsPaginator,
     ListReportsPaginator,
     ListResolvedTestRunTargetResourcesPaginator,
     ListResourcesPaginator,
@@ -91,7 +98,9 @@ from .paginator import (
     ListServiceTopologyEdgesPaginator,
     ListSystemEventsPaginator,
     ListSystemsPaginator,
+    ListTestRunDependenciesPaginator,
     ListTestRunEventsPaginator,
+    ListTestRunSourceEventsPaginator,
     ListTestRunSourcesPaginator,
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
@@ -117,6 +126,7 @@ __all__ = (
     "ListFailureModeFindingsPaginator",
     "ListInputSourcesPaginator",
     "ListPoliciesPaginator",
+    "ListPolicyEventsPaginator",
     "ListReportsPaginator",
     "ListResolvedTestRunTargetResourcesPaginator",
     "ListResourcesPaginator",
@@ -126,7 +136,9 @@ __all__ = (
     "ListServicesPaginator",
     "ListSystemEventsPaginator",
     "ListSystemsPaginator",
+    "ListTestRunDependenciesPaginator",
     "ListTestRunEventsPaginator",
+    "ListTestRunSourceEventsPaginator",
     "ListTestRunSourcesPaginator",
     "ListTestRunsPaginator",
     "ListTestSourcesPaginator",

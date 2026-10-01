@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_marketplace_discovery.type_defs import AmazonMachineImageOperatingSystemTypeDef
+    from types_aiobotocore_marketplace_discovery.type_defs import AmazonMachineImageEbsVolumeTypeDef
 
-    data: AmazonMachineImageOperatingSystemTypeDef = ...
+    data: AmazonMachineImageEbsVolumeTypeDef = ...
     ```
 """
 
@@ -34,6 +34,7 @@ from .literals import (
     RateCardConstraintTypeType,
     ResourceContentTypeType,
     ResourceTypeType,
+    SaasQuickLaunchStatusType,
     SearchFacetTypeType,
     SearchFilterTypeType,
     SearchListingsSortByType,
@@ -49,9 +50,11 @@ else:
 
 
 __all__ = (
+    "AmazonMachineImageEbsVolumeTypeDef",
     "AmazonMachineImageFulfillmentOptionTypeDef",
     "AmazonMachineImageOperatingSystemTypeDef",
     "AmazonMachineImageRecommendationTypeDef",
+    "AmazonMachineImageSecurityGroupTypeDef",
     "ApiFulfillmentOptionTypeDef",
     "AwsSupportedServiceTypeDef",
     "ByolPricingTermTypeDef",
@@ -69,6 +72,7 @@ __all__ = (
     "Ec2ImageBuilderComponentFulfillmentOptionTypeDef",
     "EksAddOnFulfillmentOptionTypeDef",
     "EksAddOnOperatingSystemTypeDef",
+    "FixedPercentageTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
     "FulfillmentOptionSummaryTypeDef",
@@ -106,7 +110,11 @@ __all__ = (
     "OfferSetInformationTypeDef",
     "OfferTermTypeDef",
     "PaginatorConfigTypeDef",
+    "PaymentScheduleEntryTypeDef",
+    "PaymentScheduleTermTemplateTypeDef",
     "PaymentScheduleTermTypeDef",
+    "PercentageRangeTypeDef",
+    "PriceIncreaseTypeDef",
     "PricingModelTypeDef",
     "PricingUnitTypeDef",
     "ProductInformationTypeDef",
@@ -142,6 +150,7 @@ __all__ = (
     "SellerEngagementTypeDef",
     "SellerInformationTypeDef",
     "SupportTermTypeDef",
+    "TermTemplateTypeDef",
     "UsageBasedPricingTermTypeDef",
     "UsageBasedRateCardItemTypeDef",
     "UseCaseEntryTypeDef",
@@ -151,14 +160,22 @@ __all__ = (
 )
 
 
+class AmazonMachineImageEbsVolumeTypeDef(TypedDict):
+    volumeTypes: list[str]
+    iops: NotRequired[int]
+
+
 class AmazonMachineImageOperatingSystemTypeDef(TypedDict):
     operatingSystemFamilyName: str
     operatingSystemName: str
     operatingSystemVersion: NotRequired[str]
 
 
-class AmazonMachineImageRecommendationTypeDef(TypedDict):
-    instanceType: str
+class AmazonMachineImageSecurityGroupTypeDef(TypedDict):
+    protocol: str
+    fromPort: int
+    toPort: int
+    cidrIpAddresses: list[str]
 
 
 class AwsSupportedServiceTypeDef(TypedDict):
@@ -189,6 +206,9 @@ class CloudFormationFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionVersion: NotRequired[str]
     releaseNotes: NotRequired[str]
     usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    shortDescription: NotRequired[str]
+    longDescription: NotRequired[str]
 
 
 class ConstraintsTypeDef(TypedDict):
@@ -238,6 +258,10 @@ class EksAddOnOperatingSystemTypeDef(TypedDict):
     operatingSystemName: str
 
 
+class FixedPercentageTypeDef(TypedDict):
+    percentageValue: str
+
+
 class FulfillmentOptionSummaryTypeDef(TypedDict):
     fulfillmentOptionType: FulfillmentOptionTypeType
     displayName: str
@@ -253,12 +277,16 @@ class SaasFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionId: str
     fulfillmentOptionType: FulfillmentOptionTypeType
     fulfillmentOptionDisplayName: str
+    quickLaunch: SaasQuickLaunchStatusType
     fulfillmentUrl: NotRequired[str]
     usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    launchUrl: NotRequired[str]
 
 
 class GetListingInputTypeDef(TypedDict):
     listingId: str
+    locale: NotRequired[str]
 
 
 class ListingBadgeTypeDef(TypedDict):
@@ -304,6 +332,7 @@ class SellerInformationTypeDef(TypedDict):
 
 class GetOfferInputTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
 
 
 class PurchaseOptionBadgeTypeDef(TypedDict):
@@ -313,6 +342,7 @@ class PurchaseOptionBadgeTypeDef(TypedDict):
 
 class GetOfferSetInputTypeDef(TypedDict):
     offerSetId: str
+    locale: NotRequired[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -323,12 +353,14 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class GetOfferTermsInputTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
 
 class GetProductInputTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
 
 
 class HelmOperatingSystemTypeDef(TypedDict):
@@ -338,6 +370,7 @@ class HelmOperatingSystemTypeDef(TypedDict):
 
 class ListFulfillmentOptionsInputTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -372,13 +405,6 @@ RecurringPaymentTermTypeDef = TypedDict(
         "price": str,
     },
 )
-RenewalTermTypeDef = TypedDict(
-    "RenewalTermTypeDef",
-    {
-        "id": str,
-        "type": TermTypeType,
-    },
-)
 SupportTermTypeDef = TypedDict(
     "SupportTermTypeDef",
     {
@@ -408,9 +434,21 @@ VariablePaymentTermTypeDef = TypedDict(
 )
 
 
+class PaymentScheduleEntryTypeDef(TypedDict):
+    chargeDateOffset: str
+    chargePercentage: str
+    dayOfMonth: NotRequired[int]
+
+
 class ScheduleItemTypeDef(TypedDict):
     chargeDate: datetime
     chargeAmount: str
+
+
+class PercentageRangeTypeDef(TypedDict):
+    minimumValue: str
+    maximumValue: str
+    defaultValue: str
 
 
 class PromotionalEmbeddedImageTypeDef(TypedDict):
@@ -457,16 +495,9 @@ class UseCaseTypeDef(TypedDict):
     value: str
 
 
-class AmazonMachineImageFulfillmentOptionTypeDef(TypedDict):
-    fulfillmentOptionId: str
-    fulfillmentOptionName: str
-    fulfillmentOptionType: FulfillmentOptionTypeType
-    fulfillmentOptionDisplayName: str
-    operatingSystems: list[AmazonMachineImageOperatingSystemTypeDef]
-    fulfillmentOptionVersion: NotRequired[str]
-    recommendation: NotRequired[AmazonMachineImageRecommendationTypeDef]
-    releaseNotes: NotRequired[str]
-    usageInstructions: NotRequired[str]
+class AmazonMachineImageRecommendationTypeDef(TypedDict):
+    instanceType: str
+    securityGroups: NotRequired[list[AmazonMachineImageSecurityGroupTypeDef]]
 
 
 class ApiFulfillmentOptionTypeDef(TypedDict):
@@ -567,11 +598,13 @@ class ProductInformationTypeDef(TypedDict):
 
 class GetOfferTermsInputPaginateTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListFulfillmentOptionsInputPaginateTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -588,11 +621,13 @@ class HelmFulfillmentOptionTypeDef(TypedDict):
 
 
 class ListPurchaseOptionsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     filters: NotRequired[Sequence[PurchaseOptionFilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListPurchaseOptionsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     filters: NotRequired[Sequence[PurchaseOptionFilterTypeDef]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -605,6 +640,10 @@ class SearchFacetsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class PaymentScheduleTermTemplateTypeDef(TypedDict):
+    schedule: list[PaymentScheduleEntryTypeDef]
+
+
 PaymentScheduleTermTypeDef = TypedDict(
     "PaymentScheduleTermTypeDef",
     {
@@ -614,6 +653,11 @@ PaymentScheduleTermTypeDef = TypedDict(
         "schedule": list[ScheduleItemTypeDef],
     },
 )
+
+
+class PriceIncreaseTypeDef(TypedDict):
+    fixedPercentage: NotRequired[FixedPercentageTypeDef]
+    percentageRange: NotRequired[PercentageRangeTypeDef]
 
 
 class PromotionalMediaTypeDef(TypedDict):
@@ -643,9 +687,12 @@ class SageMakerModelFulfillmentOptionTypeDef(TypedDict):
     releaseNotes: NotRequired[str]
     usageInstructions: NotRequired[str]
     recommendation: NotRequired[SageMakerModelRecommendationTypeDef]
+    supportedContentTypes: NotRequired[list[str]]
+    supportedResponseMimeTypes: NotRequired[list[str]]
 
 
 class SearchFacetsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     facetTypes: NotRequired[Sequence[SearchFacetTypeType]]
@@ -653,6 +700,7 @@ class SearchFacetsInputPaginateTypeDef(TypedDict):
 
 
 class SearchFacetsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     facetTypes: NotRequired[Sequence[SearchFacetTypeType]]
@@ -660,6 +708,7 @@ class SearchFacetsInputTypeDef(TypedDict):
 
 
 class SearchListingsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     sortBy: NotRequired[SearchListingsSortByType]
@@ -668,6 +717,7 @@ class SearchListingsInputPaginateTypeDef(TypedDict):
 
 
 class SearchListingsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     maxResults: NotRequired[int]
@@ -678,6 +728,24 @@ class SearchListingsInputTypeDef(TypedDict):
 
 class UseCaseEntryTypeDef(TypedDict):
     useCase: UseCaseTypeDef
+
+
+class AmazonMachineImageFulfillmentOptionTypeDef(TypedDict):
+    fulfillmentOptionId: str
+    fulfillmentOptionName: str
+    fulfillmentOptionType: FulfillmentOptionTypeType
+    fulfillmentOptionDisplayName: str
+    operatingSystems: list[AmazonMachineImageOperatingSystemTypeDef]
+    architecture: str
+    fulfillmentOptionVersion: NotRequired[str]
+    recommendation: NotRequired[AmazonMachineImageRecommendationTypeDef]
+    releaseNotes: NotRequired[str]
+    usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    accessUrlTemplate: NotRequired[str]
+    amiAlias: NotRequired[str]
+    ebsVolume: NotRequired[AmazonMachineImageEbsVolumeTypeDef]
+    shortDescription: NotRequired[str]
 
 
 FixedUpfrontPricingTermTypeDef = TypedDict(
@@ -737,7 +805,12 @@ class PurchaseOptionAssociatedEntityTypeDef(TypedDict):
     offerSet: NotRequired[OfferSetInformationTypeDef]
 
 
+class TermTemplateTypeDef(TypedDict):
+    paymentScheduleTermTemplate: NotRequired[PaymentScheduleTermTemplateTypeDef]
+
+
 class GetProductOutputTypeDef(TypedDict):
+    locale: str
     productId: str
     catalog: str
     productName: str
@@ -752,6 +825,7 @@ class GetProductOutputTypeDef(TypedDict):
     promotionalMedia: list[PromotionalMediaTypeDef]
     resources: list[ResourceTypeDef]
     sellerEngagements: list[SellerEngagementTypeDef]
+    listingId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -793,6 +867,7 @@ UsageBasedPricingTermTypeDef = TypedDict(
 
 
 class GetListingOutputTypeDef(TypedDict):
+    locale: str
     associatedEntities: list[ListingAssociatedEntityTypeDef]
     badges: list[ListingBadgeTypeDef]
     catalog: str
@@ -833,6 +908,7 @@ class ListingSummaryTypeDef(TypedDict):
 
 
 class GetOfferOutputTypeDef(TypedDict):
+    locale: str
     offerId: str
     catalog: str
     offerName: str
@@ -848,6 +924,7 @@ class GetOfferOutputTypeDef(TypedDict):
 
 
 class GetOfferSetOutputTypeDef(TypedDict):
+    locale: str
     offerSetId: str
     catalog: str
     offerSetName: str
@@ -872,8 +949,36 @@ class PurchaseOptionSummaryTypeDef(TypedDict):
     badges: NotRequired[list[PurchaseOptionBadgeTypeDef]]
 
 
+RenewalTermTypeDef = TypedDict(
+    "RenewalTermTypeDef",
+    {
+        "id": str,
+        "type": TermTypeType,
+        "maxRenewals": NotRequired[int],
+        "lockoutPeriod": NotRequired[str],
+        "adjustmentDeadline": NotRequired[str],
+        "priceIncrease": NotRequired[PriceIncreaseTypeDef],
+        "termTemplates": NotRequired[list[TermTemplateTypeDef]],
+    },
+)
+
+
 class ListFulfillmentOptionsOutputTypeDef(TypedDict):
+    locale: str
     fulfillmentOptions: list[FulfillmentOptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class SearchListingsOutputTypeDef(TypedDict):
+    totalResults: int
+    listingSummaries: list[ListingSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListPurchaseOptionsOutputTypeDef(TypedDict):
+    purchaseOptions: list[PurchaseOptionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -894,20 +999,8 @@ class OfferTermTypeDef(TypedDict):
     netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
 
 
-class SearchListingsOutputTypeDef(TypedDict):
-    totalResults: int
-    listingSummaries: list[ListingSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListPurchaseOptionsOutputTypeDef(TypedDict):
-    purchaseOptions: list[PurchaseOptionSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 class GetOfferTermsOutputTypeDef(TypedDict):
+    locale: str
     offerTerms: list[OfferTermTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

@@ -11,6 +11,7 @@ use search::safe_search_arguments;
 pub mod generic;
 
 pub use generic::evaluate_pre_tool_envelope;
+pub use generic::evaluate_pre_tool_envelope_with_context;
 pub use generic::evaluate_pre_tool_envelope_with_extensions;
 
 fn executable_basename(executable: &str) -> &str {
@@ -71,6 +72,8 @@ pub(super) fn sensitive_command(value: &str) -> bool {
         "~/.pypirc",
         "/.netrc",
         "~/.netrc",
+        ".authrc",
+        ".envrc",
         "/.env",
         "~/.env",
         "id_rsa",

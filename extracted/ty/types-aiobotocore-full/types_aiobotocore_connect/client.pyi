@@ -50,6 +50,7 @@ from .paginator import (
     ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
     ListEntitySecurityProfilesPaginator,
+    ListEvaluationFormAIVersionsPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListExtractionDefinitionsPaginator,
@@ -75,6 +76,7 @@ from .paginator import (
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
+    ListSecurityProfileAIAgentsPaginator,
     ListSecurityProfileApplicationsPaginator,
     ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
@@ -389,6 +391,8 @@ from .type_defs import (
     GetContactAttributesResponseTypeDef,
     GetContactMetricsRequestTypeDef,
     GetContactMetricsResponseTypeDef,
+    GetCrossRegionRoutingRequestTypeDef,
+    GetCrossRegionRoutingResponseTypeDef,
     GetCurrentMetricDataRequestTypeDef,
     GetCurrentMetricDataResponseTypeDef,
     GetCurrentUserDataRequestTypeDef,
@@ -460,6 +464,8 @@ from .type_defs import (
     ListDefaultVocabulariesResponseTypeDef,
     ListEntitySecurityProfilesRequestTypeDef,
     ListEntitySecurityProfilesResponseTypeDef,
+    ListEvaluationFormAIVersionsRequestTypeDef,
+    ListEvaluationFormAIVersionsResponseTypeDef,
     ListEvaluationFormsRequestTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
@@ -516,6 +522,8 @@ from .type_defs import (
     ListRulesResponseTypeDef,
     ListSecurityKeysRequestTypeDef,
     ListSecurityKeysResponseTypeDef,
+    ListSecurityProfileAIAgentsRequestTypeDef,
+    ListSecurityProfileAIAgentsResponseTypeDef,
     ListSecurityProfileApplicationsRequestTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
     ListSecurityProfileFlowModulesRequestTypeDef,
@@ -689,6 +697,7 @@ from .type_defs import (
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
     UpdateContactTaskTemplateRequestTypeDef,
+    UpdateCrossRegionRoutingRequestTypeDef,
     UpdateDataTableAttributeRequestTypeDef,
     UpdateDataTableAttributeResponseTypeDef,
     UpdateDataTableMetadataRequestTypeDef,
@@ -2591,6 +2600,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_contact_metrics)
         """
 
+    async def get_cross_region_routing(
+        self, **kwargs: Unpack[GetCrossRegionRoutingRequestTypeDef]
+    ) -> GetCrossRegionRoutingResponseTypeDef:
+        """
+        Retrieves the current cross-region routing configuration for an Amazon Connect
+        Global Resiliency instance enabled for global routing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_cross_region_routing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_cross_region_routing)
+        """
+
     async def get_current_metric_data(
         self, **kwargs: Unpack[GetCurrentMetricDataRequestTypeDef]
     ) -> GetCurrentMetricDataResponseTypeDef:
@@ -2966,6 +2986,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_entity_security_profiles)
         """
 
+    async def list_evaluation_form_ai_versions(
+        self, **kwargs: Unpack[ListEvaluationFormAIVersionsRequestTypeDef]
+    ) -> ListEvaluationFormAIVersionsResponseTypeDef:
+        """
+        Lists the available AI versions for evaluation forms in the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_evaluation_form_ai_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_evaluation_form_ai_versions)
+        """
+
     async def list_evaluation_form_versions(
         self, **kwargs: Unpack[ListEvaluationFormVersionsRequestTypeDef]
     ) -> ListEvaluationFormVersionsResponseTypeDef:
@@ -3255,6 +3286,16 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_keys.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_keys)
+        """
+
+    async def list_security_profile_ai_agents(
+        self, **kwargs: Unpack[ListSecurityProfileAIAgentsRequestTypeDef]
+    ) -> ListSecurityProfileAIAgentsResponseTypeDef:
+        """
+        Returns a list of the allowed AI agents in a specific security profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_ai_agents.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_profile_ai_agents)
         """
 
     async def list_security_profile_applications(
@@ -4319,6 +4360,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_task_template)
         """
 
+    async def update_cross_region_routing(
+        self, **kwargs: Unpack[UpdateCrossRegionRoutingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the cross-region routing configuration for an Amazon Connect Global
+        Resiliency instance enabled for global routing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_cross_region_routing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_cross_region_routing)
+        """
+
     async def update_data_table_attribute(
         self, **kwargs: Unpack[UpdateDataTableAttributeRequestTypeDef]
     ) -> UpdateDataTableAttributeResponseTypeDef:
@@ -5091,6 +5143,17 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_evaluation_form_ai_versions"]
+    ) -> ListEvaluationFormAIVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluation_form_versions"]
     ) -> ListEvaluationFormVersionsPaginator:
         """
@@ -5357,6 +5420,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_security_keys"]
     ) -> ListSecurityKeysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_profile_ai_agents"]
+    ) -> ListSecurityProfileAIAgentsPaginator:
         """
         Create a paginator for an operation.
 

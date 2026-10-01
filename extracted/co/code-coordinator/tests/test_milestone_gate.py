@@ -571,6 +571,12 @@ def test_gate_tick_work_state_serializes_oracle_loop_milestones(
     _stub_github_two_ready(monkeypatch)
     dispatched: list = []
     _stub_dispatch(monkeypatch, dispatched)
+    # #2785: oracle_loop is resolved from `probe_milestone`'s live Gate-A
+    # probe now, not bare `has_driver` — `probe_milestone` always re-checks
+    # Gate A regardless of `record.gate` (see its own docstring), so give it
+    # a contract to confirm this milestone genuinely is past Gate A, matching
+    # `cleared=(mg.GATE_A,)` below.
+    monkeypatch.setattr("coord.github_ops.get_repo_file", lambda *a, **kw: "# Contract\n")
 
     state.save_milestone_gate(
         mg.GateRecord(
@@ -588,6 +594,49 @@ def test_gate_tick_work_state_serializes_oracle_loop_milestones(
     assert [r["issue_number"] for r in state.load_dispatched()] == [
         results[0].dispatched[0].issue_number
     ]
+
+
+def test_gate_tick_work_state_dispatch_cap_survives_a_transient_gate_a_read(
+    tmp_path: Path, rw_db, monkeypatch
+) -> None:
+    """#2785 review (blocking finding): `probe_milestone` re-probes Gate A
+    live on EVERY tick regardless of the milestone's current gate — so a
+    transient GitHub read failure during a `work`-state tick must NOT
+    un-cap the one-entry-per-tick oracle-loop dispatch limit, even though
+    the live `probes.gate_a_blocked` for this tick reports an inconclusive
+    (not "confirmed absent") result. `oracle_loop` here is resolved from
+    the DURABLE `record.cleared` (GATE_A already stamped cleared by an
+    earlier tick), which cannot flap independently of that live probe."""
+    from coord import state
+    from coord.github_ops import GhRateLimitError
+    from coord.serve_app import _milestone_gate_tick
+
+    _stub_github_two_ready(monkeypatch)
+    dispatched: list = []
+    _stub_dispatch(monkeypatch, dispatched)
+    # This tick's live Gate-A read fails transiently — must not be read as
+    # "no contract" (which would wrongly resolve oracle_loop=False and let
+    # both #762 and #763 dispatch in this one tick).
+    monkeypatch.setattr(
+        "coord.github_ops.get_repo_file",
+        lambda *a, **kw: (_ for _ in ()).throw(
+            GhRateLimitError("API rate limit exceeded", secondary=True)
+        ),
+    )
+
+    state.save_milestone_gate(
+        mg.GateRecord(
+            repo_name="api", tracking_issue=100, gate=mg.WORK, cleared=(mg.GATE_A,)
+        ).to_dict()
+    )
+
+    results = _milestone_gate_tick(load_config(_make_config_oracle_loop(tmp_path)), now=200.0)
+
+    assert results[0].action == mg.DISPATCH
+    assert len(results[0].dispatched) == 1, (
+        "a transient Gate-A read this tick must not un-cap the "
+        "one-entry-per-tick oracle-loop dispatch limit"
+    )
 
 
 def test_gate_tick_resumes_mid_gate_after_a_restart(
@@ -792,6 +841,53 @@ def test_drive_dry_run_dispatches_nothing_and_writes_no_record(
     assert dispatched == []
     assert state.load_dispatched() == []
     assert state.list_milestone_gates() == []
+
+
+def test_drive_dry_run_preview_dispatch_cap_survives_a_transient_gate_a_read(
+    tmp_path: Path, rw_db, monkeypatch
+) -> None:
+    """#2785 review (non-blocking finding): `milestone_drive_cmd`'s dry-run
+    preview computes the same `work`-gate frontier the actual gate tick
+    would dispatch (see the `#2542` comment above its `plan_dispatch` call),
+    so it must resolve `oracle_loop` the same durable-record way
+    `_milestone_gate_tick` does — not from `probes.gate_a_blocked`, a fresh
+    live Gate-A re-probe computed by `probe_milestone` on every invocation.
+    A milestone already resumed past Gate A (`cleared=(mg.GATE_A,)`) whose
+    THIS-invocation Gate-A read happens to fail transiently must still show
+    the one-entry-per-tick oracle-loop cap in the preview, not silently
+    widen it to both ready entries."""
+    from click.testing import CliRunner
+
+    from coord import state
+    from coord.commands.milestone import milestone_drive_cmd
+    from coord.github_ops import GhRateLimitError
+
+    _stub_github_two_ready(monkeypatch)
+    _stub_dispatch(monkeypatch, [])
+    monkeypatch.setattr(
+        "coord.github_ops.get_repo_file",
+        lambda *a, **kw: (_ for _ in ()).throw(
+            GhRateLimitError("API rate limit exceeded", secondary=True)
+        ),
+    )
+
+    state.save_milestone_gate(
+        mg.GateRecord(
+            repo_name="api", tracking_issue=100, gate=mg.WORK, cleared=(mg.GATE_A,)
+        ).to_dict()
+    )
+
+    result = CliRunner().invoke(
+        milestone_drive_cmd,
+        ["api", "100", "--dry-run", "--config", str(_make_config_oracle_loop(tmp_path))],
+    )
+
+    assert result.exit_code == 0, result.output
+    dispatch_count = result.output.count("would dispatch #")
+    assert dispatch_count == 1, (
+        f"expected exactly one capped preview entry, got {dispatch_count} in:\n"
+        f"{result.output}"
+    )
 
 
 def test_drive_registers_and_is_resumable(tmp_path: Path, rw_db, monkeypatch) -> None:

@@ -501,10 +501,10 @@ class RawAssetsClient:
             ID of the asset to duplicate
 
         parent_folder_id : typing.Optional[str]
-            Optional destination folder for the duplicated asset
+            Optional destination folder for the duplicated asset. The copy is created inside the folder and inherits its sharing. The caller needs edit access to the folder, which must be in the destination workspace.
 
         workspace_id : typing.Optional[str]
-            Workspace to create the duplicate in. If omitted, the source asset's workspace is used.
+            Workspace to create the duplicate in. If omitted, the parent folder's workspace is used when parent_folder_id is provided; otherwise the source asset's workspace is used. The caller must be a member of the destination workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2081,10 +2081,10 @@ class AsyncRawAssetsClient:
             ID of the asset to duplicate
 
         parent_folder_id : typing.Optional[str]
-            Optional destination folder for the duplicated asset
+            Optional destination folder for the duplicated asset. The copy is created inside the folder and inherits its sharing. The caller needs edit access to the folder, which must be in the destination workspace.
 
         workspace_id : typing.Optional[str]
-            Workspace to create the duplicate in. If omitted, the source asset's workspace is used.
+            Workspace to create the duplicate in. If omitted, the parent folder's workspace is used when parent_folder_id is provided; otherwise the source asset's workspace is used. The caller must be a member of the destination workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

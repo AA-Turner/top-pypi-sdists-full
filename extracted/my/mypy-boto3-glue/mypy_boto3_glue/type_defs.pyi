@@ -2669,6 +2669,7 @@ class DeleteColumnStatisticsForTableRequestTypeDef(TypedDict):
 class DeleteColumnStatisticsTaskSettingsRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 class DeleteConnectionRequestTypeDef(TypedDict):
     ConnectionName: str
@@ -3019,10 +3020,12 @@ class GetColumnStatisticsTaskRunsRequestTypeDef(TypedDict):
     TableName: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    CatalogID: NotRequired[str]
 
 class GetColumnStatisticsTaskSettingsRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 class GetConnectionRequestTypeDef(TypedDict):
     Name: str
@@ -3920,6 +3923,7 @@ class StartColumnStatisticsTaskRunRequestTypeDef(TypedDict):
 class StartColumnStatisticsTaskRunScheduleRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 class StartCrawlerRequestTypeDef(TypedDict):
     Name: str
@@ -3970,10 +3974,12 @@ class TimestampedInclusionAnnotationTypeDef(TypedDict):
 class StopColumnStatisticsTaskRunRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 class StopColumnStatisticsTaskRunScheduleRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 class StopCrawlerRequestTypeDef(TypedDict):
     Name: str
@@ -6892,6 +6898,7 @@ class CrawlerTypeDef(TypedDict):
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
     LakeFormationConfiguration: NotRequired[LakeFormationConfigurationTypeDef]
+    CatalogId: NotRequired[str]
 
 CrawlerTargetsUnionTypeDef = Union[CrawlerTargetsTypeDef, CrawlerTargetsOutputTypeDef]
 
@@ -8186,6 +8193,7 @@ class CreateCrawlerRequestTypeDef(TypedDict):
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    CatalogId: NotRequired[str]
 
 class UpdateCrawlerRequestTypeDef(TypedDict):
     Name: str
@@ -8202,6 +8210,7 @@ class UpdateCrawlerRequestTypeDef(TypedDict):
     LakeFormationConfiguration: NotRequired[LakeFormationConfigurationTypeDef]
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
+    CatalogId: NotRequired[str]
 
 class GetCatalogResponseTypeDef(TypedDict):
     Catalog: CatalogTypeDef

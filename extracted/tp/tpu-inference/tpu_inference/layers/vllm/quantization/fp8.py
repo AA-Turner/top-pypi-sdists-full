@@ -55,8 +55,9 @@ from tpu_inference.layers.vllm.quantization.base import VllmQuantizationMethod
 from tpu_inference.layers.vllm.quantization.configs import (
     VllmQuantConfig, VllmQuantLinearConfig)
 from tpu_inference.layers.vllm.quantization.unquantized import (
-    VllmUnquantizedFusedMoEMethod, VllmUnquantizedLinearMethod,
-    _load_weight_for_layer)
+    VllmQuantizedBf16LinearMethod, VllmUnquantizedFusedMoEMethod,
+    VllmUnquantizedLinearMethod, _load_weight_for_layer,
+    should_quantize_bf16_linear)
 from tpu_inference.logger import init_logger
 
 P = PartitionSpec
@@ -114,6 +115,9 @@ class VllmFp8Config(vllm_fp8.Fp8Config, VllmQuantConfig):
                         ignored_layers=self.ignored_layers,
                         fused_mapping=self.packed_modules_mapping,
                 ):
+                    if should_quantize_bf16_linear(
+                            prefix, self.packed_modules_mapping):
+                        return VllmQuantizedBf16LinearMethod(linear_config)
                     return VllmUnquantizedLinearMethod(linear_config)
                 return VllmFp8LinearMethod(self, linear_config)
             case RoutedExperts():
@@ -374,15 +378,14 @@ class VllmFp8MoEMethod(vllm_fp8.Fp8MoEMethod, VllmQuantizationMethod):
         self.moe_block_shape = self.weight_block_size
         if self.block_quant:
             assert self.weight_block_size is not None
-            refined_shape = vllm_fp8.refine_fp8_moe_block_shape(
-                self.moe, self.weight_block_size)
-            if refined_shape is not None:
-                block_n, block_k = self.weight_block_size
-                self.weight_scale_refine = (
-                    block_n // refined_shape[0],
-                    block_k // refined_shape[1],
-                )
-                self.moe_block_shape = refined_shape
+            # activation_key is only consulted for non-"auto" (CUDA) moe_backend.
+            self.moe_block_shape, self.weight_scale_refine = (
+                vllm_fp8.resolve_fp8_moe_weight_block_shape(
+                    self.moe,
+                    self.weight_block_size,
+                    vllm_fp8.kFp8Dynamic128Sym,
+                    self.quant_config.is_checkpoint_fp8_serialized,
+                ))
 
         self.fp8_backend = None
 

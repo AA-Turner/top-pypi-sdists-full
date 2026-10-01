@@ -1,6 +1,6 @@
 [project]
 name = "labric"
-version = "0.13.8"
+version = "0.14.0"
 description = "The official Python library for the Labric API"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,7 +16,7 @@ dependencies = [
 Homepage = "https://labric.co"
 Platform = "https://platform.labric.co"
 Documentation = "https://docs.labric.co"
-Repository = "https://github.com/Labric-Platforms/py-sdk"
+Repository = "https://github.com/labric/py-sdk"
 
 [dependency-groups]
 dev = ["pytest>=7.4.0"]

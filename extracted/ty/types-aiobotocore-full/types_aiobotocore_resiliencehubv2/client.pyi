@@ -36,6 +36,7 @@ from .paginator import (
     ListFailureModeFindingsPaginator,
     ListInputSourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyEventsPaginator,
     ListReportsPaginator,
     ListResolvedTestRunTargetResourcesPaginator,
     ListResourcesPaginator,
@@ -45,7 +46,9 @@ from .paginator import (
     ListServiceTopologyEdgesPaginator,
     ListSystemEventsPaginator,
     ListSystemsPaginator,
+    ListTestRunDependenciesPaginator,
     ListTestRunEventsPaginator,
+    ListTestRunSourceEventsPaginator,
     ListTestRunSourcesPaginator,
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
@@ -92,6 +95,8 @@ from .type_defs import (
     DeleteTestSourcesRequestTypeDef,
     DeleteUserJourneyRequestTypeDef,
     DeleteUserJourneyResponseTypeDef,
+    GetDependencyInsightsRequestTypeDef,
+    GetDependencyInsightsResponseTypeDef,
     GetFailureModeFindingRequestTypeDef,
     GetFailureModeFindingResponseTypeDef,
     GetPolicyRequestTypeDef,
@@ -124,6 +129,8 @@ from .type_defs import (
     ListInputSourcesResponseTypeDef,
     ListPoliciesRequestTypeDef,
     ListPoliciesResponseTypeDef,
+    ListPolicyEventsRequestTypeDef,
+    ListPolicyEventsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
     ListResolvedTestRunTargetResourcesRequestTypeDef,
@@ -144,8 +151,12 @@ from .type_defs import (
     ListSystemsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTestRunDependenciesRequestTypeDef,
+    ListTestRunDependenciesResponseTypeDef,
     ListTestRunEventsRequestTypeDef,
     ListTestRunEventsResponseTypeDef,
+    ListTestRunSourceEventsRequestTypeDef,
+    ListTestRunSourceEventsResponseTypeDef,
     ListTestRunSourcesRequestTypeDef,
     ListTestRunSourcesResponseTypeDef,
     ListTestRunsRequestTypeDef,
@@ -158,6 +169,8 @@ from .type_defs import (
     ListUserJourneysRequestTypeDef,
     ListUserJourneysResponseTypeDef,
     PutTestSourcesRequestTypeDef,
+    StartDependencyInsightsRequestTypeDef,
+    StartDependencyInsightsResponseTypeDef,
     StartFailureModeAssessmentRequestTypeDef,
     StartFailureModeAssessmentResponseTypeDef,
     StartTestRunRequestTypeDef,
@@ -445,6 +458,16 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#delete_user_journey)
         """
 
+    async def get_dependency_insights(
+        self, **kwargs: Unpack[GetDependencyInsightsRequestTypeDef]
+    ) -> GetDependencyInsightsResponseTypeDef:
+        """
+        Retrieves the dependency insights generated for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_dependency_insights.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_dependency_insights)
+        """
+
     async def get_failure_mode_finding(
         self, **kwargs: Unpack[GetFailureModeFindingRequestTypeDef]
     ) -> GetFailureModeFindingResponseTypeDef:
@@ -606,6 +629,17 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_policies)
         """
 
+    async def list_policy_events(
+        self, **kwargs: Unpack[ListPolicyEventsRequestTypeDef]
+    ) -> ListPolicyEventsResponseTypeDef:
+        """
+        Lists events for a resilience policy, including services that started or
+        stopped using it, changes to cross-account sharing, and deletion of the policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_policy_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_policy_events)
+        """
+
     async def list_reports(
         self, **kwargs: Unpack[ListReportsRequestTypeDef]
     ) -> ListReportsResponseTypeDef:
@@ -708,6 +742,16 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_tags_for_resource)
         """
 
+    async def list_test_run_dependencies(
+        self, **kwargs: Unpack[ListTestRunDependenciesRequestTypeDef]
+    ) -> ListTestRunDependenciesResponseTypeDef:
+        """
+        Lists the dependencies that a test run blocked.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_dependencies.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_run_dependencies)
+        """
+
     async def list_test_run_events(
         self, **kwargs: Unpack[ListTestRunEventsRequestTypeDef]
     ) -> ListTestRunEventsResponseTypeDef:
@@ -716,6 +760,16 @@ class ResilienceHubV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_events.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_run_events)
+        """
+
+    async def list_test_run_source_events(
+        self, **kwargs: Unpack[ListTestRunSourceEventsRequestTypeDef]
+    ) -> ListTestRunSourceEventsResponseTypeDef:
+        """
+        Lists the state-change events observed for a test run monitoring source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_source_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_run_source_events)
         """
 
     async def list_test_run_sources(
@@ -785,6 +839,16 @@ class ResilienceHubV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/put_test_sources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#put_test_sources)
+        """
+
+    async def start_dependency_insights(
+        self, **kwargs: Unpack[StartDependencyInsightsRequestTypeDef]
+    ) -> StartDependencyInsightsResponseTypeDef:
+        """
+        Starts generating dependency insights for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/start_dependency_insights.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#start_dependency_insights)
         """
 
     async def start_failure_mode_assessment(
@@ -991,6 +1055,17 @@ class ResilienceHubV2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_events"]
+    ) -> ListPolicyEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_reports"]
     ) -> ListReportsPaginator:
         """
@@ -1090,8 +1165,30 @@ class ResilienceHubV2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_dependencies"]
+    ) -> ListTestRunDependenciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_test_run_events"]
     ) -> ListTestRunEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_source_events"]
+    ) -> ListTestRunSourceEventsPaginator:
         """
         Create a paginator for an operation.
 

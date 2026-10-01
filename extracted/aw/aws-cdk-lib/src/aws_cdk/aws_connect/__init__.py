@@ -5110,6 +5110,10 @@ class CfnEvaluationForm(
                                 default_action="defaultAction"
                             ),
                             instructions="instructions",
+                            metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                                metric_name="metricName",
+                                metric_type="metricType"
+                            ),
                             not_applicable_enabled=False,
                             question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                                 multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -5254,6 +5258,7 @@ class CfnEvaluationForm(
             title="title",
         
             # the properties below are optional
+            ai_version="aiVersion",
             auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
                 enabled=False
             ),
@@ -5304,6 +5309,7 @@ class CfnEvaluationForm(
         items: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormBaseItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         status: builtins.str,
         title: builtins.str,
+        ai_version: typing.Optional[builtins.str] = None,
         auto_evaluation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.AutoEvaluationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         language_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormLanguageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5320,6 +5326,7 @@ class CfnEvaluationForm(
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
+        :param ai_version: 
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
@@ -5337,6 +5344,7 @@ class CfnEvaluationForm(
             items=items,
             status=status,
             title=title,
+            ai_version=ai_version,
             auto_evaluation_configuration=auto_evaluation_configuration,
             description=description,
             language_configuration=language_configuration,
@@ -5491,6 +5499,18 @@ class CfnEvaluationForm(
             type_hints = cached_type_hints(_typecheckingstub__5fe499614d5f5501fca8c029af605f671cdbfd45404bbcf2cb1dca048ab19e45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="aiVersion")
+    def ai_version(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "aiVersion"))
+
+    @ai_version.setter
+    def ai_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__403319753fde9c27651dc739cc5a9d1e9292306ff22d9efd33a9f5e40c6aba9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aiVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="autoEvaluationConfiguration")
@@ -5792,6 +5812,10 @@ class CfnEvaluationForm(
                                     default_action="defaultAction"
                                 ),
                                 instructions="instructions",
+                                metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                                    metric_name="metricName",
+                                    metric_type="metricType"
+                                ),
                                 not_applicable_enabled=False,
                                 question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                                     multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -6543,6 +6567,10 @@ class CfnEvaluationForm(
                             default_action="defaultAction"
                         ),
                         instructions="instructions",
+                        metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                            metric_name="metricName",
+                            metric_type="metricType"
+                        ),
                         not_applicable_enabled=False,
                         question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                             multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -6785,6 +6813,76 @@ class CfnEvaluationForm(
 
         def __repr__(self) -> str:
             return "EvaluationFormLanguageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metric_name": "metricName", "metric_type": "metricType"},
+    )
+    class EvaluationFormMetricConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            metric_name: builtins.str,
+            metric_type: builtins.str,
+        ) -> None:
+            '''
+            :param metric_name: The name of the metric.
+            :param metric_type: The type of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                evaluation_form_metric_configuration_property = connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                    metric_name="metricName",
+                    metric_type="metricType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__78fb6789c4c23fb0a21ecb4aafe9befd77e7c4c589cd16dc7f2286eb6bfa4239)
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument metric_type", value=metric_type, expected_type=type_hints["metric_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_name": metric_name,
+                "metric_type": metric_type,
+            }
+
+        @builtins.property
+        def metric_name(self) -> builtins.str:
+            '''The name of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html#cfn-connect-evaluationform-evaluationformmetricconfiguration-metricname
+            '''
+            result = self._values.get("metric_name")
+            assert result is not None, "Required property 'metric_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_type(self) -> builtins.str:
+            '''The type of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html#cfn-connect-evaluationform-evaluationformmetricconfiguration-metrictype
+            '''
+            result = self._values.get("metric_type")
+            assert result is not None, "Required property 'metric_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluationFormMetricConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7666,6 +7764,7 @@ class CfnEvaluationForm(
             "title": "title",
             "enablement": "enablement",
             "instructions": "instructions",
+            "metric_configuration": "metricConfiguration",
             "not_applicable_enabled": "notApplicableEnabled",
             "question_type_properties": "questionTypeProperties",
             "scoring_configuration": "scoringConfiguration",
@@ -7681,6 +7780,7 @@ class CfnEvaluationForm(
             title: builtins.str,
             enablement: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormItemEnablementConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instructions: typing.Optional[builtins.str] = None,
+            metric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormMetricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             not_applicable_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             question_type_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormQuestionScoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7693,6 +7793,7 @@ class CfnEvaluationForm(
             :param title: The title of the question. *Length Constraints* : Minimum length of 1. Maximum length of 350.
             :param enablement: A question conditional enablement.
             :param instructions: The instructions of the section. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
+            :param metric_configuration: 
             :param not_applicable_enabled: The flag to enable not applicable answers to the question.
             :param question_type_properties: The properties of the type of question. Text questions do not have to define question type properties.
             :param scoring_configuration: Scoring configuration for a question in an evaluation form.
@@ -7740,6 +7841,10 @@ class CfnEvaluationForm(
                         default_action="defaultAction"
                     ),
                     instructions="instructions",
+                    metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                        metric_name="metricName",
+                        metric_type="metricType"
+                    ),
                     not_applicable_enabled=False,
                     question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                         multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -7876,6 +7981,7 @@ class CfnEvaluationForm(
                 check_type(argname="argument title", value=title, expected_type=type_hints["title"])
                 check_type(argname="argument enablement", value=enablement, expected_type=type_hints["enablement"])
                 check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
+                check_type(argname="argument metric_configuration", value=metric_configuration, expected_type=type_hints["metric_configuration"])
                 check_type(argname="argument not_applicable_enabled", value=not_applicable_enabled, expected_type=type_hints["not_applicable_enabled"])
                 check_type(argname="argument question_type_properties", value=question_type_properties, expected_type=type_hints["question_type_properties"])
                 check_type(argname="argument scoring_configuration", value=scoring_configuration, expected_type=type_hints["scoring_configuration"])
@@ -7889,6 +7995,8 @@ class CfnEvaluationForm(
                 self._values["enablement"] = enablement
             if instructions is not None:
                 self._values["instructions"] = instructions
+            if metric_configuration is not None:
+                self._values["metric_configuration"] = metric_configuration
             if not_applicable_enabled is not None:
                 self._values["not_applicable_enabled"] = not_applicable_enabled
             if question_type_properties is not None:
@@ -7955,6 +8063,16 @@ class CfnEvaluationForm(
             '''
             result = self._values.get("instructions")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormMetricConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestion.html#cfn-connect-evaluationform-evaluationformquestion-metricconfiguration
+            '''
+            result = self._values.get("metric_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormMetricConfigurationProperty"]], result)
 
         @builtins.property
         def not_applicable_enabled(
@@ -8520,6 +8638,10 @@ class CfnEvaluationForm(
                                 default_action="defaultAction"
                             ),
                             instructions="instructions",
+                            metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                                metric_name="metricName",
+                                metric_type="metricType"
+                            ),
                             not_applicable_enabled=False,
                             question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                                 multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -10145,6 +10267,7 @@ class CfnEvaluationForm(
         "items": "items",
         "status": "status",
         "title": "title",
+        "ai_version": "aiVersion",
         "auto_evaluation_configuration": "autoEvaluationConfiguration",
         "description": "description",
         "language_configuration": "languageConfiguration",
@@ -10162,6 +10285,7 @@ class CfnEvaluationFormProps:
         items: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormBaseItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         status: builtins.str,
         title: builtins.str,
+        ai_version: typing.Optional[builtins.str] = None,
         auto_evaluation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.AutoEvaluationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         language_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormLanguageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10176,6 +10300,7 @@ class CfnEvaluationFormProps:
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
+        :param ai_version: 
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
@@ -10240,6 +10365,10 @@ class CfnEvaluationFormProps:
                                     default_action="defaultAction"
                                 ),
                                 instructions="instructions",
+                                metric_configuration=connect.CfnEvaluationForm.EvaluationFormMetricConfigurationProperty(
+                                    metric_name="metricName",
+                                    metric_type="metricType"
+                                ),
                                 not_applicable_enabled=False,
                                 question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
                                     multi_select=connect.CfnEvaluationForm.EvaluationFormMultiSelectQuestionPropertiesProperty(
@@ -10384,6 +10513,7 @@ class CfnEvaluationFormProps:
                 title="title",
             
                 # the properties below are optional
+                ai_version="aiVersion",
                 auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
                     enabled=False
                 ),
@@ -10430,6 +10560,7 @@ class CfnEvaluationFormProps:
             check_type(argname="argument items", value=items, expected_type=type_hints["items"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument ai_version", value=ai_version, expected_type=type_hints["ai_version"])
             check_type(argname="argument auto_evaluation_configuration", value=auto_evaluation_configuration, expected_type=type_hints["auto_evaluation_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument language_configuration", value=language_configuration, expected_type=type_hints["language_configuration"])
@@ -10443,6 +10574,8 @@ class CfnEvaluationFormProps:
             "status": status,
             "title": title,
         }
+        if ai_version is not None:
+            self._values["ai_version"] = ai_version
         if auto_evaluation_configuration is not None:
             self._values["auto_evaluation_configuration"] = auto_evaluation_configuration
         if description is not None:
@@ -10511,6 +10644,14 @@ class CfnEvaluationFormProps:
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ai_version(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-aiversion
+        '''
+        result = self._values.get("ai_version")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auto_evaluation_configuration(
@@ -13894,9 +14035,6 @@ class CfnMetric(
         
         cfn_metric = connect.CfnMetric(self, "MyCfnMetric",
             instance_arn="instanceArn",
-        
-            # the properties below are optional
-            description="description",
             metric_calculation=connect.CfnMetric.MetricCalculationProperty(
                 calculation="calculation",
                 calculation_components=[connect.CfnMetric.CalculationComponentProperty(
@@ -13925,13 +14063,16 @@ class CfnMetric(
                 )]
             ),
             name="name",
-            positive_trend_indicator="positiveTrendIndicator",
             status="status",
+            unit="unit",
+        
+            # the properties below are optional
+            description="description",
+            positive_trend_indicator="positiveTrendIndicator",
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )],
-            unit="unit"
+            )]
         )
     '''
 
@@ -13941,26 +14082,26 @@ class CfnMetric(
         id: builtins.str,
         *,
         instance_arn: builtins.str,
+        metric_calculation: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        status: builtins.str,
+        unit: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        metric_calculation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
         positive_trend_indicator: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::Metric``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_arn: The identifier of the Amazon Connect instance.
-        :param description: The description of the custom metric.
         :param metric_calculation: The calculation configuration for the metric.
         :param name: The name of the custom metric.
-        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
         :param status: The status of the custom metric.
-        :param tags: One or more tags.
         :param unit: Display unit for the metric data.
+        :param description: The description of the custom metric.
+        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
+        :param tags: One or more tags.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8adf65a3d67ca4d8710b9df1abeacfb835303e70cec07aaec38a04b78891c735)
@@ -13968,13 +14109,13 @@ class CfnMetric(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMetricProps(
             instance_arn=instance_arn,
-            description=description,
             metric_calculation=metric_calculation,
             name=name,
-            positive_trend_indicator=positive_trend_indicator,
             status=status,
-            tags=tags,
             unit=unit,
+            description=description,
+            positive_trend_indicator=positive_trend_indicator,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -14235,6 +14376,63 @@ class CfnMetric(
         jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="metricCalculation")
+    def metric_calculation(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]:
+        '''The calculation configuration for the metric.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"], jsii.get(self, "metricCalculation"))
+
+    @metric_calculation.setter
+    def metric_calculation(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e45172628fc5231c49f67784d0bfa0bc338f6295f4045e46087e66363979ab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricCalculation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the custom metric.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23c556e569bbf473ba838dbc58b516bb53185361c8468acae90cbb3d03e80e6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        '''The status of the custom metric.'''
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="unit")
+    def unit(self) -> builtins.str:
+        '''Display unit for the metric data.'''
+        return typing.cast(builtins.str, jsii.get(self, "unit"))
+
+    @unit.setter
+    def unit(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the custom metric.'''
@@ -14248,37 +14446,6 @@ class CfnMetric(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="metricCalculation")
-    def metric_calculation(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]]:
-        '''The calculation configuration for the metric.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]], jsii.get(self, "metricCalculation"))
-
-    @metric_calculation.setter
-    def metric_calculation(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3e45172628fc5231c49f67784d0bfa0bc338f6295f4045e46087e66363979ab0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricCalculation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the custom metric.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__23c556e569bbf473ba838dbc58b516bb53185361c8468acae90cbb3d03e80e6a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="positiveTrendIndicator")
     def positive_trend_indicator(self) -> typing.Optional[builtins.str]:
         '''Indicates how to classify a positive trend in metric data on the UI.'''
@@ -14290,19 +14457,6 @@ class CfnMetric(
             type_hints = cached_type_hints(_typecheckingstub__76e76b25ef3b04aa975823af067d618255377b8c1b40a3f7b027a699fae2d92b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "positiveTrendIndicator", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the custom metric.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -14319,19 +14473,6 @@ class CfnMetric(
             type_hints = cached_type_hints(_typecheckingstub__1d9797912da0e5d355023e2e3d416eddb59e94603667a88c45c126c55c75a100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="unit")
-    def unit(self) -> typing.Optional[builtins.str]:
-        '''Display unit for the metric data.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "unit"))
-
-    @unit.setter
-    def unit(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnMetric.AvailableFilterProperty",
@@ -15019,13 +15160,13 @@ class CfnMetric(
     jsii_struct_bases=[],
     name_mapping={
         "instance_arn": "instanceArn",
-        "description": "description",
         "metric_calculation": "metricCalculation",
         "name": "name",
-        "positive_trend_indicator": "positiveTrendIndicator",
         "status": "status",
-        "tags": "tags",
         "unit": "unit",
+        "description": "description",
+        "positive_trend_indicator": "positiveTrendIndicator",
+        "tags": "tags",
     },
 )
 class CfnMetricProps:
@@ -15033,24 +15174,24 @@ class CfnMetricProps:
         self,
         *,
         instance_arn: builtins.str,
+        metric_calculation: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        status: builtins.str,
+        unit: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        metric_calculation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetric.MetricCalculationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
         positive_trend_indicator: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMetric``.
 
         :param instance_arn: The identifier of the Amazon Connect instance.
-        :param description: The description of the custom metric.
         :param metric_calculation: The calculation configuration for the metric.
         :param name: The name of the custom metric.
-        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
         :param status: The status of the custom metric.
-        :param tags: One or more tags.
         :param unit: Display unit for the metric data.
+        :param description: The description of the custom metric.
+        :param positive_trend_indicator: Indicates how to classify a positive trend in metric data on the UI.
+        :param tags: One or more tags.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html
         :exampleMetadata: fixture=_generated
@@ -15064,9 +15205,6 @@ class CfnMetricProps:
             
             cfn_metric_props = connect.CfnMetricProps(
                 instance_arn="instanceArn",
-            
-                # the properties below are optional
-                description="description",
                 metric_calculation=connect.CfnMetric.MetricCalculationProperty(
                     calculation="calculation",
                     calculation_components=[connect.CfnMetric.CalculationComponentProperty(
@@ -15095,42 +15233,41 @@ class CfnMetricProps:
                     )]
                 ),
                 name="name",
-                positive_trend_indicator="positiveTrendIndicator",
                 status="status",
+                unit="unit",
+            
+                # the properties below are optional
+                description="description",
+                positive_trend_indicator="positiveTrendIndicator",
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )],
-                unit="unit"
+                )]
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23e8ace52e47b83d918f6644427b9c8e23df4e90359fd2fb2f5e2483a23e4c0f)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument metric_calculation", value=metric_calculation, expected_type=type_hints["metric_calculation"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument positive_trend_indicator", value=positive_trend_indicator, expected_type=type_hints["positive_trend_indicator"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument positive_trend_indicator", value=positive_trend_indicator, expected_type=type_hints["positive_trend_indicator"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
+            "metric_calculation": metric_calculation,
+            "name": name,
+            "status": status,
+            "unit": unit,
         }
         if description is not None:
             self._values["description"] = description
-        if metric_calculation is not None:
-            self._values["metric_calculation"] = metric_calculation
-        if name is not None:
-            self._values["name"] = name
         if positive_trend_indicator is not None:
             self._values["positive_trend_indicator"] = positive_trend_indicator
-        if status is not None:
-            self._values["status"] = status
         if tags is not None:
             self._values["tags"] = tags
-        if unit is not None:
-            self._values["unit"] = unit
 
     @builtins.property
     def instance_arn(self) -> builtins.str:
@@ -15143,32 +15280,54 @@ class CfnMetricProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def metric_calculation(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]:
+        '''The calculation configuration for the metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-metriccalculation
+        '''
+        result = self._values.get("metric_calculation")
+        assert result is not None, "Required property 'metric_calculation' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''The status of the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def unit(self) -> builtins.str:
+        '''Display unit for the metric data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-unit
+        '''
+        result = self._values.get("unit")
+        assert result is not None, "Required property 'unit' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the custom metric.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-description
         '''
         result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def metric_calculation(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]]:
-        '''The calculation configuration for the metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-metriccalculation
-        '''
-        result = self._values.get("metric_calculation")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetric.MetricCalculationProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the custom metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-name
-        '''
-        result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -15181,15 +15340,6 @@ class CfnMetricProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the custom metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''One or more tags.
 
@@ -15197,15 +15347,6 @@ class CfnMetricProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
-
-    @builtins.property
-    def unit(self) -> typing.Optional[builtins.str]:
-        '''Display unit for the metric data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-metric.html#cfn-connect-metric-unit
-        '''
-        result = self._values.get("unit")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -29108,6 +29249,386 @@ class CfnViewVersionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IVocabularyRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnVocabulary(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnVocabulary",
+):
+    '''Resource type definition for AWS::Connect::Vocabulary.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html
+    :cloudformationResource: AWS::Connect::Vocabulary
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_vocabulary = connect.CfnVocabulary(self, "MyCfnVocabulary",
+            content="content",
+            instance_id="instanceId",
+            language_code="languageCode",
+            vocabulary_name="vocabularyName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        content: builtins.str,
+        instance_id: builtins.str,
+        language_code: builtins.str,
+        vocabulary_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::Vocabulary``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content: The content of the custom vocabulary in plain-text format with a table of values.
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param language_code: The language code of the vocabulary entries.
+        :param vocabulary_name: A unique name of the custom vocabulary.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7cd5942fd778c4930b51b18fb6a766439297e6db602a8415a3b3a15b5ba88088)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnVocabularyProps(
+            content=content,
+            instance_id=instance_id,
+            language_code=language_code,
+            vocabulary_name=vocabulary_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForVocabulary")
+    @builtins.classmethod
+    def arn_for_vocabulary(
+        cls,
+        resource: "_aws_connect_b79b68b2.IVocabularyRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__319b16b3085cda266744267249c9cf33b06ae056020068ed8182554d7463f7b1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVocabulary", [resource]))
+
+    @jsii.member(jsii_name="isCfnVocabulary")
+    @builtins.classmethod
+    def is_cfn_vocabulary(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVocabulary.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c4207b38de588d4d077388b2790580f11a7322379e14c2bc91c657d35bdeaa8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVocabulary", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__95b862bd1ec285bebc35d9b7aeb469d14b2ea9caa96a862a02dafb28c4c46a26)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8529f46838685a299ece4e0b743a05f5df2fd368a118b847392ca896f2b3d8d3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the custom vocabulary.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The timestamp when the custom vocabulary was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the custom vocabulary.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVocabularyId")
+    def attr_vocabulary_id(self) -> builtins.str:
+        '''The identifier of the custom vocabulary.
+
+        :cloudformationAttribute: VocabularyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVocabularyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vocabularyRef")
+    def vocabulary_ref(self) -> "_aws_connect_b79b68b2.VocabularyReference":
+        '''A reference to a Vocabulary resource.'''
+        return typing.cast("_aws_connect_b79b68b2.VocabularyReference", jsii.get(self, "vocabularyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(self) -> builtins.str:
+        '''The content of the custom vocabulary in plain-text format with a table of values.'''
+        return typing.cast(builtins.str, jsii.get(self, "content"))
+
+    @content.setter
+    def content(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d14a3a2c339a9d8b65f8902b35cb2101f24e684cf5fe579982d90bba5ceb98e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceId")
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceId"))
+
+    @instance_id.setter
+    def instance_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__537622a86f2d4e1fce163237ee1a92b471e80fafe612735aaf6f1c4fca032698)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="languageCode")
+    def language_code(self) -> builtins.str:
+        '''The language code of the vocabulary entries.'''
+        return typing.cast(builtins.str, jsii.get(self, "languageCode"))
+
+    @language_code.setter
+    def language_code(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c796376538ceb5f6a3808d5b6289e7db471ea7818531ea37e981df0dbe66e372)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "languageCode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vocabularyName")
+    def vocabulary_name(self) -> builtins.str:
+        '''A unique name of the custom vocabulary.'''
+        return typing.cast(builtins.str, jsii.get(self, "vocabularyName"))
+
+    @vocabulary_name.setter
+    def vocabulary_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a2204277aef1e5d81aed342f50c2e74a16c8f363bc276f12840c58c4220264e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vocabularyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__285cc07e536aa7e97ee2e90a2f2009e541f18648fffe8ce07495675da19e1a1a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnVocabularyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "instance_id": "instanceId",
+        "language_code": "languageCode",
+        "vocabulary_name": "vocabularyName",
+        "tags": "tags",
+    },
+)
+class CfnVocabularyProps:
+    def __init__(
+        self,
+        *,
+        content: builtins.str,
+        instance_id: builtins.str,
+        language_code: builtins.str,
+        vocabulary_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVocabulary``.
+
+        :param content: The content of the custom vocabulary in plain-text format with a table of values.
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param language_code: The language code of the vocabulary entries.
+        :param vocabulary_name: A unique name of the custom vocabulary.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_vocabulary_props = connect.CfnVocabularyProps(
+                content="content",
+                instance_id="instanceId",
+                language_code="languageCode",
+                vocabulary_name="vocabularyName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9d6cd3af5031049b1729c424841dba2e218e0bf03294b0fad53c567acfd1406)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument vocabulary_name", value=vocabulary_name, expected_type=type_hints["vocabulary_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "instance_id": instance_id,
+            "language_code": language_code,
+            "vocabulary_name": vocabulary_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content(self) -> builtins.str:
+        '''The content of the custom vocabulary in plain-text format with a table of values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html#cfn-connect-vocabulary-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html#cfn-connect-vocabulary-instanceid
+        '''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def language_code(self) -> builtins.str:
+        '''The language code of the vocabulary entries.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html#cfn-connect-vocabulary-languagecode
+        '''
+        result = self._values.get("language_code")
+        assert result is not None, "Required property 'language_code' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vocabulary_name(self) -> builtins.str:
+        '''A unique name of the custom vocabulary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html#cfn-connect-vocabulary-vocabularyname
+        '''
+        result = self._values.get("vocabulary_name")
+        assert result is not None, "Required property 'vocabulary_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html#cfn-connect-vocabulary-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVocabularyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IWorkspaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkspace(
     _aws_cdk_0cae9daa.CfnResource,
@@ -31006,6 +31527,8 @@ __all__ = [
     "CfnViewProps",
     "CfnViewVersion",
     "CfnViewVersionProps",
+    "CfnVocabulary",
+    "CfnVocabularyProps",
     "CfnWorkspace",
     "CfnWorkspaceProps",
 ]
@@ -31993,6 +32516,7 @@ def _typecheckingstub__67672e07b9b284918b4f61d0c04df64749fd2f5f1f5a07e093b1e338f
     items: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     status: builtins.str,
     title: builtins.str,
+    ai_version: typing.Optional[builtins.str] = None,
     auto_evaluation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     language_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormLanguageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -32048,6 +32572,12 @@ def _typecheckingstub__989b0b560f041388bf986f0dcb8487074564673bc25c4ffe3be8bbfd6
 
 def _typecheckingstub__5fe499614d5f5501fca8c029af605f671cdbfd45404bbcf2cb1dca048ab19e45(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__403319753fde9c27651dc739cc5a9d1e9292306ff22d9efd33a9f5e40c6aba9e(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32179,6 +32709,14 @@ def _typecheckingstub__dac948724142aed3865fceed86ff96b08e0d4c05069ba899323a887a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__78fb6789c4c23fb0a21ecb4aafe9befd77e7c4c589cd16dc7f2286eb6bfa4239(
+    *,
+    metric_name: builtins.str,
+    metric_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__518dbaa317199e863790cbfe686adc7f0551b2069e11b9e6bb1e59f0a8b8ea50(
     *,
     rule_category: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.MultiSelectQuestionRuleCategoryAutomationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -32260,6 +32798,7 @@ def _typecheckingstub__76f87135992dba43e2709251a961f9661f40617cabeb04621ceba33e2
     title: builtins.str,
     enablement: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormItemEnablementConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instructions: typing.Optional[builtins.str] = None,
+    metric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormMetricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     not_applicable_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     question_type_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormQuestionScoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -32447,6 +32986,7 @@ def _typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8a
     items: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     status: builtins.str,
     title: builtins.str,
+    ai_version: typing.Optional[builtins.str] = None,
     auto_evaluation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     language_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEvaluationForm.EvaluationFormLanguageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -32936,13 +33476,13 @@ def _typecheckingstub__8adf65a3d67ca4d8710b9df1abeacfb835303e70cec07aaec38a04b78
     id: builtins.str,
     *,
     instance_arn: builtins.str,
+    metric_calculation: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    status: builtins.str,
+    unit: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    metric_calculation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
     positive_trend_indicator: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unit: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32977,19 +33517,31 @@ def _typecheckingstub__193f2325d7d60ddd902aa70ab085d95028079e4b4f60beff6fa8f0b5c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__240535a1eb51af4a98e7fd6caa4f9be5c0adc6ff617126789cfb0d0ee16aa63f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3e45172628fc5231c49f67784d0bfa0bc338f6295f4045e46087e66363979ab0(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetric.MetricCalculationProperty]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetric.MetricCalculationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__23c556e569bbf473ba838dbc58b516bb53185361c8468acae90cbb3d03e80e6a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__240535a1eb51af4a98e7fd6caa4f9be5c0adc6ff617126789cfb0d0ee16aa63f(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -33001,20 +33553,8 @@ def _typecheckingstub__76e76b25ef3b04aa975823af067d618255377b8c1b40a3f7b027a699f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__16d748f05bc65ce2c64b7a50b62da86ff60e619ac463e35073e1a905ba82cc1c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1d9797912da0e5d355023e2e3d416eddb59e94603667a88c45c126c55c75a100(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__71c2f3fa3c28fac24a124598bd9e944bb3a2d6ea6c334d13a6ecc7123ec45fee(
-    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -33090,13 +33630,13 @@ def _typecheckingstub__0821e24eb6d93144022ca1f02baab27bbaf27ecbb82c1d44072a5ee4a
 def _typecheckingstub__23e8ace52e47b83d918f6644427b9c8e23df4e90359fd2fb2f5e2483a23e4c0f(
     *,
     instance_arn: builtins.str,
+    metric_calculation: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    status: builtins.str,
+    unit: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    metric_calculation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetric.MetricCalculationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
     positive_trend_indicator: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unit: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35288,6 +35828,84 @@ def _typecheckingstub__625c576cd29cfea7eb8a7d7197edcd80462fd0eac7870bac9066ac9fe
     view_arn: typing.Union[builtins.str, _aws_connect_b79b68b2.IViewRef],
     version_description: typing.Optional[builtins.str] = None,
     view_content_sha256: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cd5942fd778c4930b51b18fb6a766439297e6db602a8415a3b3a15b5ba88088(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    content: builtins.str,
+    instance_id: builtins.str,
+    language_code: builtins.str,
+    vocabulary_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__319b16b3085cda266744267249c9cf33b06ae056020068ed8182554d7463f7b1(
+    resource: _aws_connect_b79b68b2.IVocabularyRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c4207b38de588d4d077388b2790580f11a7322379e14c2bc91c657d35bdeaa8(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95b862bd1ec285bebc35d9b7aeb469d14b2ea9caa96a862a02dafb28c4c46a26(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8529f46838685a299ece4e0b743a05f5df2fd368a118b847392ca896f2b3d8d3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d14a3a2c339a9d8b65f8902b35cb2101f24e684cf5fe579982d90bba5ceb98e4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__537622a86f2d4e1fce163237ee1a92b471e80fafe612735aaf6f1c4fca032698(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c796376538ceb5f6a3808d5b6289e7db471ea7818531ea37e981df0dbe66e372(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a2204277aef1e5d81aed342f50c2e74a16c8f363bc276f12840c58c4220264e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__285cc07e536aa7e97ee2e90a2f2009e541f18648fffe8ce07495675da19e1a1a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9d6cd3af5031049b1729c424841dba2e218e0bf03294b0fad53c567acfd1406(
+    *,
+    content: builtins.str,
+    instance_id: builtins.str,
+    language_code: builtins.str,
+    vocabulary_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

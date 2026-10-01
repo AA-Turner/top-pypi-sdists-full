@@ -1,4 +1,4 @@
-import warnings
+from collections.abc import Iterator
 from collections.abc import Mapping
 from inspect import isclass
 from types import MappingProxyType
@@ -44,7 +44,6 @@ from scim2_models.utils import _to_camel
 
 if TYPE_CHECKING:
     from scim2_models.messages.response_parameters import ResponseParameters
-    from scim2_models.path import Path
     from scim2_models.provider import ScimProvider
     from scim2_models.resources.service_provider_config import ServiceProviderConfig
 
@@ -263,6 +262,7 @@ class BaseModel(PydanticBaseModel):
         validate_by_alias=True,
         use_attribute_docstrings=True,
         extra="forbid",
+        hide_input_in_errors=True,
     )
 
     __scim_info__: ClassVar[_SCIMClassInfo] = _SCIMClassInfo()
@@ -280,6 +280,21 @@ class BaseModel(PydanticBaseModel):
         the complex attribute that carries it, not on the resource above.
         """
         return self._unknown_attributes
+
+    def __repr_args__(self) -> Iterator[tuple[str | None, Any]]:
+        """Leave out the write-only and never-returned attributes, such as a password."""
+        cls = type(self)
+        for name, value in super().__repr_args__():
+            if name in cls.model_fields and cls._is_hidden(name):
+                continue
+            yield name, value
+
+    @classmethod
+    def _is_hidden(cls, field_name: str) -> bool:
+        """Whether a field is write-only or never returned, such as a password."""
+        mutability: Mutability = cls.get_field_annotation(field_name, Mutability)
+        returned: Returned = cls.get_field_annotation(field_name, Returned)
+        return mutability == Mutability.write_only or returned == Returned.never
 
     @classmethod
     def get_field_annotation(cls, field_name: str, annotation_type: type) -> Any:
@@ -942,7 +957,9 @@ class BaseModel(PydanticBaseModel):
 
         :param scim_ctx: The SCIM :class:`~scim2_models.Context` in which the validation happens.
         :param scim_policy: The :class:`~scim2_models.ScimPolicy` the validation
-            runs under. Defaults to the strict reading of the specification.
+            runs under. Defaults to the policy of *scim_provider*, then to the
+            policy of the innermost open block, then to the strict reading of
+            the specification.
         :param scim_provider: The :class:`~scim2_models.ScimProvider` describing
             the service the payload belongs to. Defaults to the provider of the
             innermost open block, if any.
@@ -976,7 +993,9 @@ class BaseModel(PydanticBaseModel):
 
         :param scim_ctx: The SCIM :class:`~scim2_models.Context` in which the validation happens.
         :param scim_policy: The :class:`~scim2_models.ScimPolicy` the validation
-            runs under. Defaults to the strict reading of the specification.
+            runs under. Defaults to the policy of *scim_provider*, then to the
+            policy of the innermost open block, then to the strict reading of
+            the specification.
         :param scim_provider: The :class:`~scim2_models.ScimProvider` describing
             the service the payload belongs to. Defaults to the provider of the
             innermost open block, if any.
@@ -996,8 +1015,7 @@ class BaseModel(PydanticBaseModel):
     def _prepare_model_dump(
         self,
         scim_ctx: Context | None = Context.DEFAULT,
-        attributes: list["str | Path[Any]"] | None = None,
-        excluded_attributes: list["str | Path[Any]"] | None = None,
+        response_parameters: "ResponseParameters[Any] | None" = None,
         scim_policy: ScimPolicy | None = None,
         scim_provider: "ScimProvider | None" = None,
         scim_spc: "ServiceProviderConfig | None" = None,
@@ -1013,58 +1031,25 @@ class BaseModel(PydanticBaseModel):
             kwargs.setdefault("exclude_none", True)
             kwargs.setdefault("by_alias", True)
 
-        if attributes:
-            kwargs["context"]["scim_attributes"] = [str(a) for a in attributes]
-        if excluded_attributes:
-            kwargs["context"]["scim_excluded_attributes"] = [
-                str(a) for a in excluded_attributes
+        if response_parameters is None:
+            return kwargs
+
+        if response_parameters.attributes:
+            context["scim_attributes"] = [
+                str(a) for a in response_parameters.attributes
+            ]
+        if response_parameters.excluded_attributes:
+            context["scim_excluded_attributes"] = [
+                str(a) for a in response_parameters.excluded_attributes
             ]
 
         return kwargs
-
-    @staticmethod
-    def _attribute_selection(
-        response_parameters: "ResponseParameters[Any] | None",
-        attributes: list["str | Path[Any]"] | None,
-        excluded_attributes: list["str | Path[Any]"] | None,
-    ) -> tuple[list["str | Path[Any]"] | None, list["str | Path[Any]"] | None]:
-        """Read the attribute selection of a dump, from either spelling."""
-        if response_parameters is None:
-            if attributes is not None or excluded_attributes is not None:
-                warnings.warn(
-                    "The 'attributes' and 'excluded_attributes' parameters are "
-                    "deprecated, pass a ResponseParameters as 'response_parameters' "
-                    "instead. Will be removed in 0.9.0.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
-            return attributes, excluded_attributes
-
-        if attributes is not None or excluded_attributes is not None:
-            raise TypeError(
-                "Cannot pass both 'response_parameters' and "
-                "'attributes' or 'excluded_attributes'"
-            )
-        # les listes de ResponseParameters sont invariantes, on les recopie élargies
-        selected: list[str | Path[Any]] | None = (
-            list(response_parameters.attributes)
-            if response_parameters.attributes is not None
-            else None
-        )
-        excluded: list[str | Path[Any]] | None = (
-            list(response_parameters.excluded_attributes)
-            if response_parameters.excluded_attributes is not None
-            else None
-        )
-        return selected, excluded
 
     def model_dump(
         self,
         *args: Any,
         scim_ctx: Context | None = Context.DEFAULT,
         response_parameters: "ResponseParameters[Any] | None" = None,
-        attributes: list["str | Path[Any]"] | None = None,
-        excluded_attributes: list["str | Path[Any]"] | None = None,
         scim_policy: ScimPolicy | None = None,
         scim_provider: "ScimProvider | None" = None,
         scim_spc: "ServiceProviderConfig | None" = None,
@@ -1080,22 +1065,10 @@ class BaseModel(PydanticBaseModel):
             ``attributes`` and ``excludedAttributes`` select what the dump
             carries. A :class:`~scim2_models.SearchRequest` is one, so a server
             may pass the request it received.
-        :param attributes: A multi-valued list of strings indicating the names of resource
-            attributes to return in the response, overriding the set of attributes that
-            would be returned by default. Invalid values are ignored.
-
-            .. deprecated:: 0.8.0
-                Pass a :class:`~scim2_models.ResponseParameters` as
-                *response_parameters* instead. Will be removed in 0.9.0.
-        :param excluded_attributes: A multi-valued list of strings indicating the names of resource
-            attributes to be removed from the default set of attributes to return. Invalid values are ignored.
-
-            .. deprecated:: 0.8.0
-                Pass a :class:`~scim2_models.ResponseParameters` as
-                *response_parameters* instead. Will be removed in 0.9.0.
         :param scim_policy: The :class:`~scim2_models.ScimPolicy` the
-            serialization runs under. Defaults to the strict reading of the
-            specification.
+            serialization runs under. Defaults to the policy of *scim_provider*,
+            then to the policy of the innermost open block, then to the strict
+            reading of the specification.
         :param scim_provider: The :class:`~scim2_models.ScimProvider` describing
             the service the payload belongs to. Defaults to the provider of the
             innermost open block, if any.
@@ -1103,13 +1076,9 @@ class BaseModel(PydanticBaseModel):
             :class:`~scim2_models.ServiceProviderConfig` the peer publishes,
             which overrides the one *scim_provider* carries.
         """
-        attributes, excluded_attributes = self._attribute_selection(
-            response_parameters, attributes, excluded_attributes
-        )
         dump_kwargs = self._prepare_model_dump(
             scim_ctx,
-            attributes=attributes,
-            excluded_attributes=excluded_attributes,
+            response_parameters=response_parameters,
             scim_policy=scim_policy,
             scim_provider=scim_provider,
             scim_spc=scim_spc,
@@ -1124,8 +1093,6 @@ class BaseModel(PydanticBaseModel):
         *args: Any,
         scim_ctx: Context | None = Context.DEFAULT,
         response_parameters: "ResponseParameters[Any] | None" = None,
-        attributes: list["str | Path[Any]"] | None = None,
-        excluded_attributes: list["str | Path[Any]"] | None = None,
         scim_policy: ScimPolicy | None = None,
         scim_provider: "ScimProvider | None" = None,
         scim_spc: "ServiceProviderConfig | None" = None,
@@ -1141,22 +1108,10 @@ class BaseModel(PydanticBaseModel):
             ``attributes`` and ``excludedAttributes`` select what the dump
             carries. A :class:`~scim2_models.SearchRequest` is one, so a server
             may pass the request it received.
-        :param attributes: A multi-valued list of strings indicating the names of resource
-            attributes to return in the response, overriding the set of attributes that
-            would be returned by default. Invalid values are ignored.
-
-            .. deprecated:: 0.8.0
-                Pass a :class:`~scim2_models.ResponseParameters` as
-                *response_parameters* instead. Will be removed in 0.9.0.
-        :param excluded_attributes: A multi-valued list of strings indicating the names of resource
-            attributes to be removed from the default set of attributes to return. Invalid values are ignored.
-
-            .. deprecated:: 0.8.0
-                Pass a :class:`~scim2_models.ResponseParameters` as
-                *response_parameters* instead. Will be removed in 0.9.0.
         :param scim_policy: The :class:`~scim2_models.ScimPolicy` the
-            serialization runs under. Defaults to the strict reading of the
-            specification.
+            serialization runs under. Defaults to the policy of *scim_provider*,
+            then to the policy of the innermost open block, then to the strict
+            reading of the specification.
         :param scim_provider: The :class:`~scim2_models.ScimProvider` describing
             the service the payload belongs to. Defaults to the provider of the
             innermost open block, if any.
@@ -1164,13 +1119,9 @@ class BaseModel(PydanticBaseModel):
             :class:`~scim2_models.ServiceProviderConfig` the peer publishes,
             which overrides the one *scim_provider* carries.
         """
-        attributes, excluded_attributes = self._attribute_selection(
-            response_parameters, attributes, excluded_attributes
-        )
         dump_kwargs = self._prepare_model_dump(
             scim_ctx,
-            attributes=attributes,
-            excluded_attributes=excluded_attributes,
+            response_parameters=response_parameters,
             scim_policy=scim_policy,
             scim_provider=scim_provider,
             scim_spc=scim_spc,

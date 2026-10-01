@@ -82,7 +82,7 @@ class SaltVersionsInfo(type):
     PHOSPHORUS    = SaltVersion("Phosphorus"   , info=3005,       released=True)
     SULFUR        = SaltVersion("Sulfur"       , info=3006,       released=True)
     CHLORINE      = SaltVersion("Chlorine"     , info=3007,       released=True)
-    ARGON         = SaltVersion("Argon"        , info=3008)
+    ARGON         = SaltVersion("Argon"        , info=3008,       released=True)
     POTASSIUM     = SaltVersion("Potassium"    , info=3009)
     CALCIUM       = SaltVersion("Calcium"      , info=3010)
     SCANDIUM      = SaltVersion("Scandium"     , info=3011)
@@ -252,6 +252,7 @@ class SaltStackVersion:
         "minor",
         "bugfix",
         "mbugfix",
+        "patch",
         "pre_type",
         "pre_num",
         "noc",
@@ -265,6 +266,7 @@ class SaltStackVersion:
         r"(?:\.(?P<minor>[\d]{1,2}))?"
         r"(?:\.(?P<bugfix>[\d]{0,2}))?"
         r"(?:\.(?P<mbugfix>[\d]{0,2}))?"
+        r"(?:-(?P<patch>[\d]{1,2})\b(?!-g?[a-f0-9]))?"
         r"(?:(?P<pre_type>rc|a|b|alpha|beta|nb)(?P<pre_num>[\d]+))?"
         r"(?:(?:.*)(?:\+|-)(?P<noc>(?:0na|[\d]+|n/a))(?:-|\.)" + git_sha_regex + r")?"
     )
@@ -287,6 +289,8 @@ class SaltStackVersion:
         pre_num=None,
         noc=0,
         sha=None,
+        *,
+        patch=None,
     ):
         if isinstance(major, str):
             major = int(major)
@@ -313,6 +317,11 @@ class SaltStackVersion:
         elif isinstance(mbugfix, str):
             mbugfix = int(mbugfix)
 
+        if patch is None:
+            patch = 0
+        elif isinstance(patch, str):
+            patch = int(patch) if patch else 0
+
         if pre_type is None:
             pre_type = ""
         if pre_num is None:
@@ -331,6 +340,7 @@ class SaltStackVersion:
         self.minor = minor
         self.bugfix = bugfix
         self.mbugfix = mbugfix
+        self.patch = patch
         self.pre_type = pre_type
         self.pre_num = pre_num
         if self.new_version(major):
@@ -365,7 +375,18 @@ class SaltStackVersion:
         match = cls.git_describe_regex.match(vstr)
         if not match:
             raise ValueError(f"Unable to parse version string: '{version_string}'")
-        return cls(*match.groups())
+        g = match.groupdict()
+        return cls(
+            g["major"],
+            g["minor"],
+            g["bugfix"],
+            g["mbugfix"],
+            g["pre_type"],
+            g["pre_num"],
+            g["noc"],
+            g["sha"],
+            patch=g["patch"],
+        )
 
     @classmethod
     def from_name(cls, name):
@@ -462,6 +483,8 @@ class SaltStackVersion:
             version_string = f"{self.major}.{self.minor}.{self.bugfix}"
         if self.mbugfix:
             version_string += f".{self.mbugfix}"
+        if self.patch:
+            version_string += f"-{self.patch}"
         if self.pre_type:
             version_string += f"{self.pre_type}{self.pre_num}"
         if self.noc is not None and self.sha:
@@ -537,6 +560,8 @@ class SaltStackVersion:
             # The other side has pre-release information, we don't
             noc_info[pre_type] = "zzzzz"
 
+        if tuple(noc_info) == tuple(other_noc_info):
+            return method(self.patch or 0, other.patch or 0)
         return method(tuple(noc_info), tuple(other_noc_info))
 
     def __lt__(self, other):
@@ -620,8 +645,28 @@ def __discover_version(saltstack_version):
                 "describe",
                 "--tags",
                 "--long",
+                # Constrain to the branch's own major (3008.x) so tags
+                # from other majors reachable in the git graph do not hijack
+                # the detected version. Merged forward from 3007.x's
+                # v3007.* constraint (see git log for f3ffc8f9c9ea) and
+                # rebased to this branch's major.
                 "--match",
-                "v[0-9]*",
+                "v3008.*",
+                # Exclude computed / nightly-shaped tags (anything with `+`
+                # in the tag name, e.g. v3008.2+588.g02ea048903). These are
+                # emitted by the nightly publish workflow on salt-nightlies
+                # to give each nightly build a content-addressed release
+                # tag. If describe is allowed to match them, subsequent
+                # builds at the same or a later commit resolve their
+                # "nearest tag" to a nightly tag rather than the real
+                # release tag (v3008.2), and version derivation collapses
+                # to `<base>+<small-distance>.g<sha>` measured from the
+                # poison tag instead of from v3008.2. Concrete instance:
+                # nightly on master @ 2e5d1f521e produced "3008.2+0.g..."
+                # because a prior nightly publish had tagged that commit
+                # `v3008.2+699.g2e5d1f521e`.
+                "--exclude",
+                "*+*",
                 "--always",
                 "--candidates=150",
             ],
@@ -663,8 +708,8 @@ def __discover_version(saltstack_version):
                 saltstack_version.minor,
                 saltstack_version.bugfix,
                 saltstack_version.mbugfix,
-                saltstack_version.pre_type,
-                saltstack_version.pre_num,
+                pre_type=saltstack_version.pre_type,
+                pre_num=saltstack_version.pre_num,
                 noc=parsed.noc,
                 sha=parsed.sha,
             )

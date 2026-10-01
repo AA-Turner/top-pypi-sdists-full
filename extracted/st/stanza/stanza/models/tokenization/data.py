@@ -74,13 +74,21 @@ augment_final_punct  (augment_final_punct_prob)
 augment_mid_sent_punct  (augment_mid_punct_prob)
     Replaces a mid-sentence punctuation character (currently comma) with a
     typographic alternative (en dash U+2013 or em dash U+2014).  Intended for
-    languages whose training data contains no dashes, so that the model learns
-    to tokenize them correctly without retraining from scratch.  Unlike
+    languages whose training data contains no dashes, or contains them only
+    as standalone tokens, so that the model learns to tokenize them correctly
+    in all spacing conventions.  For example, several Spanish treebanks have
+    many "a – b" but never "a–b", so without this augmentation the tokenizer
+    never learns to split the latter.  Unlike
     augment_final_punct, the substitution also randomly varies the surrounding
     whitespace, producing all four spacing styles (spaced both sides, attached
     left, attached right, attached both sides) with equal probability, since
     dashes appear in real text with all of these conventions.  Eligible pairs
-    are checked via augment_vocab(..., final=False).
+    are checked via augment_vocab(..., final=False, allow_standalone=True):
+    the replacement is allowed if every existing occurrence of it in the
+    training data is a complete token by itself, as determined by the gold
+    labels (see is_standalone_token).  Whitespace alone is not a reliable
+    signal, since a standalone dash can be glued to neighboring punctuation,
+    as in the open-ended date range "(1947 –)".
 
 comma_typo  (comma_typo_prob)
     Simulates a common typing mistake by moving a space from after a
@@ -122,6 +130,26 @@ comma_glue  (comma_glue_prob)
     This exact example was later fixed in UD 2.8, but it should still
     potentially be useful for compensating for typos.
 
+drop_initial_punct  (drop_initial_punct_prob)
+    Removes a leading inverted question or exclamation mark (¿/¡) from the
+    start of a sentence, together with the space after it if one is
+    present (the common case is no space -- "¿Cómo" -- since these marks
+    normally have no space after them in the raw text). Teaches the
+    tokenizer to correctly handle Spanish/Catalan-style questions and
+    exclamations even when a user's input is missing the opening mark,
+    which the model would otherwise never see, since every sentence in
+    the training data legitimately has it.  Mirrors augment_initial_punct
+    in prepare_tokenizer_treebank.py (currently ¿ only there), applied
+    dynamically here instead of by duplicating sentences at dataset-
+    preparation time, and extended to ¡ as well.  Only applies when ¿ or ¡
+    is the sentence's first character, is its own token (not glued to
+    anything), and no mark from the set (¿ or ¡, of either kind, not just
+    the leading one) appears anywhere else in the sentence -- the same
+    restriction the dataset-prep version uses for ¿, to avoid ambiguity
+    with nested or quoted questions/exclamations.
+    Eligibility (whether ¿ or ¡ is used in this dataset) is checked the
+    same way as comma_typo/comma_glue.
+
 drop_last_char  (last_char_drop_prob)
     Drops the final character of a training window with some probability,
     relabelling the new final character as a sentence end.  Teaches the model
@@ -142,6 +170,7 @@ import re
 import torch
 from torch.utils.data import Dataset
 
+from stanza.models.common.data import INITIAL_INVERTED_PUNCT_MARKS
 from stanza.models.common.utils import sort_with_indices, unsort
 from stanza.models.tokenization.vocab import Vocab
 
@@ -418,13 +447,34 @@ def build_known_mwt(data, mwt_expansions):
             known_mwts.add(mwt)
     return known_mwts
 
+def is_standalone_token(chunk, idx):
+    """
+    Returns True if the unit at chunk[idx] is a complete token by itself
+
+    The unit must end a token (non-zero label), and the token must
+    also start at this unit: either idx is the start of the chunk,
+    or the previous unit is whitespace or itself ends a token.
+
+    This uses the labels rather than the surrounding whitespace, as a
+    standalone token can be attached to neighboring tokens.  For
+    example, in "(1947 –)" the dash is its own token even though it
+    is immediately followed by ")"
+    """
+    if chunk[idx][1] == 0:
+        return False
+    if idx == 0:
+        return True
+    prev_unit, prev_label = chunk[idx-1]
+    return prev_unit.isspace() or prev_label != 0
+
 
 # Pairs of (existing, replacement) for mid-sentence punctuation augmentation.
-# The existing character must appear in the training data and the replacement
-# must not, otherwise the pair is skipped (checked in augment_vocab).
+# The existing character must appear in the training data, and the replacement
+# must either be absent or only appear as a standalone token, otherwise the
+# pair is skipped (checked in augment_vocab).
 MID_SENT_AUGMENT_PAIRS = [
-    (",", "\u2013"),   # comma -> en dash
-    (",", "\u2014"),   # comma -> em dash
+    (",", "\u2013"),   # comma -> en dash: –
+    (",", "\u2014"),   # comma -> em dash: —
 ]
 
 # --------------------------------------------------------------------------
@@ -600,6 +650,14 @@ class DataLoader(TokenizationDataset):
             else:
                 logger.debug('Based on the training data, no comma found, so comma glues will not be augmented')
 
+        drop_initial_punct_prob = 0.0 if evaluation else args.get('drop_initial_punct_prob', 0.0)
+        if drop_initial_punct_prob > 0.0:
+            self.drop_initial_punct_eligible = any(mark in self.vocab for mark in INITIAL_INVERTED_PUNCT_MARKS)
+            if self.drop_initial_punct_eligible:
+                logger.debug('Based on the training data, will augment "¿/¡..." -> "..." leading punct drops')
+            else:
+                logger.debug('Based on the training data, no ¿ or ¡ found, so leading punct will not be dropped')
+
     def __len__(self):
         return len(self.sentence_ids)
 
@@ -608,42 +666,64 @@ class DataLoader(TokenizationDataset):
         return vocab
 
     @staticmethod
-    def augment_vocab(vocab, data, existing_unit, new_unit, final=True):
+    def augment_vocab(vocab, data, existing_unit, new_unit, final=True, allow_standalone=False):
+        """
+        Check whether existing_unit can be augmented to new_unit in this dataset
+
+        existing_unit must occur in the data.  new_unit must not occur,
+        unless allow_standalone is set, in which case occurrences of
+        new_unit which are a complete token by themselves are acceptable.
+        Any occurrence of new_unit as part of a larger token, such as
+        "1947–1950" labeled as a single token, still blocks the
+        augmentation, since it means the dataset's convention is to
+        not split new_unit off from its neighbors.
+
+        final=True only looks at the last unit of each chunk.
+
+        If the augmentation is acceptable, new_unit is added to the vocab
+        if needed, and True is returned.
+        """
         if existing_unit not in vocab:
             return False
         new_unit_count = 0
+        standalone_count = 0
         existing_unit_count = 0
         for sentence in data:
             if final:
-                units = [sentence[-1][0]]
+                indices = [len(sentence) - 1]
             else:
-                units = [x[0] for x in sentence]
-            for unit in units:
+                indices = range(len(sentence))
+            for idx in indices:
+                unit = sentence[idx][0]
                 if unit == new_unit:
-                    new_unit_count += 1
+                    if allow_standalone and is_standalone_token(sentence, idx):
+                        standalone_count += 1
+                    else:
+                        new_unit_count += 1
                 elif unit == existing_unit:
                     existing_unit_count += 1
         if existing_unit_count == 0:
             return False
         if new_unit_count > 0:
+            logger.debug("Found %d |%s| which are not standalone tokens, so will not augment |%s| to |%s|", new_unit_count, new_unit, existing_unit, new_unit)
             return False
         if new_unit not in vocab:
             vocab.append(new_unit)
-        logger.debug("Found %d |%s| and %d |%s|", new_unit_count, new_unit, existing_unit_count, existing_unit)
+        logger.debug("Found %d |%s| (all standalone tokens) and %d |%s|", standalone_count, new_unit, existing_unit_count, existing_unit)
         return True
 
     @staticmethod
     def build_mid_sent_augmentations(vocab, data, pairs):
         """
         For each (existing, replacement) pair, check whether the substitution
-        is appropriate for this dataset (existing present, replacement absent)
-        using the same augment_vocab logic as augment_final_punct.  Returns a
-        dict mapping each source character to a list of valid replacement
-        characters.
+        is appropriate for this dataset using augment_vocab: existing must be
+        present, and replacement must be absent or only occur as standalone
+        tokens.  Returns a dict mapping each source character to a list of
+        valid replacement characters.
         """
         augmentations = defaultdict(list)
         for orig, target in pairs:
-            if DataLoader.augment_vocab(vocab, data, orig, target, final=False):
+            if DataLoader.augment_vocab(vocab, data, orig, target, final=False, allow_standalone=True):
                 logger.debug('Mid-sentence augmentation: will substitute |%s| with |%s|', orig, target)
                 augmentations[orig].append(target)
         return augmentations
@@ -947,6 +1027,66 @@ class DataLoader(TokenizationDataset):
             return None
         return encoded
 
+    def drop_initial_punct(self, sentence):
+        """
+        Removes a leading inverted question or exclamation mark (¿/¡),
+        and the following space if any, from the start of a sentence.
+
+        Eligible sentences are those where:
+          - the sentence has more than one character and fits under max_seqlen
+          - the sentence's first character is ¿ or ¡
+          - that mark is its own token (a non-zero label), not glued to
+            anything else -- true by construction whenever it is the
+            sentence's first character and carries a word-end label
+          - no mark from the set (of any kind, not just the leading one)
+            appears anywhere else in the sentence, mirroring the
+            restriction augment_initial_punct uses in
+            prepare_tokenizer_treebank.py, to avoid ambiguity with nested
+            or quoted questions/exclamations -- e.g. '¿Dijo "¡hola!"?'
+            has two candidate marks (one ¿ and one ¡) and isn't a case
+            this augmentation should touch, even though neither mark is
+            individually repeated
+
+        The transformation is a pure deletion: drop the mark character,
+        and also drop the following space if one is present (the common
+        case in real text is no space after it, e.g. "¿Cómo", so most of
+        the time only the mark itself is removed). Whatever character
+        becomes the new first character keeps its own original label
+        unchanged.
+        """
+        if not getattr(self, 'drop_initial_punct_eligible', False):
+            return None
+        if len(sentence[3]) <= 1 or len(sentence[3]) >= self.args['max_seqlen']:
+            return None
+        first_idx = 0
+        while sentence[3][first_idx] == ' ' and first_idx + 1 < len(sentence[3]):
+            first_idx += 1
+        first_char = sentence[3][first_idx]
+        if first_char not in INITIAL_INVERTED_PUNCT_MARKS:
+            return None
+        if sentence[1][first_idx] == 0:
+            # the mark should always be its own token when it's the first
+            # character, but guard defensively against a malformed label
+            return None
+        total_marks = sum(1 for c in sentence[3] if c in INITIAL_INVERTED_PUNCT_MARKS)
+        if total_marks != 1:
+            return None
+
+        all_units = [(x, int(y)) for x, y in zip(sentence[3], sentence[1])]
+        if len(sentence[3]) > first_idx + 1 and sentence[3][first_idx+1] == ' ':
+            new_units = all_units[first_idx+2:]
+        else:
+            new_units = all_units[first_idx+1:]
+        if not new_units:
+            return None
+        if first_idx > 0:
+            new_units = all_units[:first_idx] + new_units
+
+        encoded = self.para_to_sentences(new_units)
+        if not encoded:
+            return None
+        return encoded
+
     def next(self, eval_offsets=None, unit_dropout=0.0, feat_unit_dropout=0.0):
         ''' Get a batch of converted and padded PyTorch data from preprocessed raw text for training/prediction. '''
         feat_size = len(self.sentences[0][0][2][0])
@@ -966,6 +1106,7 @@ class DataLoader(TokenizationDataset):
             augment_final_punct_prob = 0.0 if self.eval else self.args.get('augment_final_punct_prob', 0.0)
             comma_typo_prob = 0.0 if self.eval else self.args.get('comma_typo_prob', 0.0)
             comma_glue_prob = 0.0 if self.eval else self.args.get('comma_glue_prob', 0.0)
+            drop_initial_punct_prob = 0.0 if self.eval else self.args.get('drop_initial_punct_prob', 0.0)
 
             pid, sid = id_pair if self.eval else random.choice(self.sentence_ids)
             sentences = [copy([x[offset:] for x in self.sentences[pid][sid]])]
@@ -1045,6 +1186,17 @@ class DataLoader(TokenizationDataset):
                         # comma_glue deletes a character (the space), so
                         # total_len must be adjusted, same as move_punct_back
                         new_sentence = self.comma_glue(sentence)
+                        if new_sentence is not None:
+                            total_len = total_len + len(new_sentence[0][3]) - len(sentences[sentence_idx][3])
+                            sentences[sentence_idx] = new_sentence[0]
+
+            if drop_initial_punct_prob > 0.0:
+                for sentence_idx, sentence in enumerate(sentences):
+                    if random.random() < drop_initial_punct_prob:
+                        # drop_initial_punct deletes 1-2 characters (¿ and
+                        # possibly the following space), so total_len must
+                        # be adjusted, same as comma_glue
+                        new_sentence = self.drop_initial_punct(sentence)
                         if new_sentence is not None:
                             total_len = total_len + len(new_sentence[0][3]) - len(sentences[sentence_idx][3])
                             sentences[sentence_idx] = new_sentence[0]

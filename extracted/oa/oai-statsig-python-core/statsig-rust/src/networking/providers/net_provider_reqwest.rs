@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::io::{BufReader, Seek, SeekFrom, Write};
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -22,6 +23,54 @@ const TAG: &str = "NetworkProviderReqwest";
 const LOG_EVENT_REUSE_PATH: &[&str] = &["v1", "log_event"];
 const SDK_EXCEPTION_REUSE_PATH: &[&str] = &["v1", "sdk_exception"];
 const MAX_RESPONSE_LIMIT_CLIENTS: usize = 16;
+const MAX_HTTP2_ORIGINS: usize = 64;
+const HTTP2_CAPABILITY_TTL: Duration = Duration::from_secs(300);
+const HTTP2_PROBE_BUDGET: Duration = Duration::from_millis(250);
+
+fn direct_probe_allowed() -> bool {
+    // Windows may discover a system proxy outside the process environment.
+    // Conservatively keep the existing transport when direct routing is uncertain.
+    !cfg!(windows)
+        && !["HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"]
+            .iter()
+            .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()))
+}
+
+async fn probe_plaintext_http2(host: &str, port: u16) -> bool {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let Ok(mut socket) = tokio::net::TcpStream::connect((host, port)).await else {
+        return false;
+    };
+    // Connection-level discovery only: no URL, headers, SDK key or body is sent.
+    if socket
+        .write_all(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\0\0\0\x04\0\0\0\0\0")
+        .await
+        .is_err()
+    {
+        return false;
+    }
+    let mut header = [0; 9];
+    if socket.read_exact(&mut header).await.is_err() {
+        return false;
+    }
+    let length = ((header[0] as usize) << 16) | ((header[1] as usize) << 8) | header[2] as usize;
+    if header[3] != 4
+        || header[4] & 1 != 0
+        || header[5..9] != [0; 4]
+        || length > 16_384
+        || length % 6 != 0
+    {
+        return false;
+    }
+    let mut payload = vec![0; length];
+    socket.read_exact(&mut payload).await.is_ok()
+}
+
+fn plaintext_probe_host(url: &url::Url) -> Option<&str> {
+    // URL authorities bracket IPv6 literals; socket address resolution must not.
+    url.host_str()
+        .map(|host| host.trim_start_matches('[').trim_end_matches(']'))
+}
 
 #[derive(Debug)]
 enum ResponseDataReadError {
@@ -63,6 +112,7 @@ struct ResponseLimitClientKey {
     proxy_auth: Option<String>,
     proxy_protocol: Option<String>,
     ca_cert_pem: Option<Vec<u8>>,
+    disable_redirects: bool,
 }
 
 impl ResponseLimitClientKey {
@@ -88,6 +138,7 @@ impl ResponseLimitClientKey {
             proxy_auth,
             proxy_protocol,
             ca_cert_pem: request_args.ca_cert_pem.clone(),
+            disable_redirects: true,
         }
     }
 }
@@ -130,6 +181,8 @@ impl ResponseLimitClientCache {
 pub struct NetworkProviderReqwest {
     has_file_write_access: bool,
     shared_client: reqwest::Client,
+    http2_clients: Mutex<ResponseLimitClientCache>,
+    http2_origins: Mutex<HashMap<String, (Instant, Arc<tokio::sync::OnceCell<bool>>)>>,
     response_limit_clients: Mutex<ResponseLimitClientCache>,
 }
 
@@ -138,6 +191,8 @@ impl NetworkProviderReqwest {
         Self {
             has_file_write_access: tempfile::tempfile().is_ok(),
             shared_client: reqwest::Client::new(),
+            http2_clients: Mutex::new(ResponseLimitClientCache::default()),
+            http2_origins: Mutex::new(HashMap::new()),
             response_limit_clients: Mutex::new(ResponseLimitClientCache::default()),
         }
     }
@@ -159,6 +214,80 @@ impl NetworkProvider for NetworkProviderReqwest {
         self.send_impl(method, args, true).await
     }
 
+    async fn send_http2_preferred(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        max_response_bytes: Option<u64>,
+        disable_redirects: bool,
+    ) -> ResponseLimitOutcome {
+        if args
+            .is_shutdown
+            .as_ref()
+            .is_some_and(|shutdown| shutdown.load(std::sync::atomic::Ordering::SeqCst))
+        {
+            return ResponseLimitOutcome::Response(request_configuration_error(
+                "Request was shutdown",
+            ));
+        }
+        let budget = Duration::from_millis(if args.timeout_ms == 0 {
+            10_000
+        } else {
+            args.timeout_ms
+        });
+        let mut received_status = None;
+        tokio::time::timeout(budget, async {
+            let use_http2 = self.plaintext_http2_available(args, budget).await;
+            if args
+                .is_shutdown
+                .as_ref()
+                .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::SeqCst))
+            {
+                return ResponseLimitOutcome::Response(request_configuration_error(
+                    "Request was shutdown",
+                ));
+            }
+            let client = if use_http2 {
+                match self.get_http2_client(args, true) {
+                    Ok(client) => client,
+                    Err(error) => {
+                        return ResponseLimitOutcome::Unsupported(request_configuration_error(
+                            error,
+                        ));
+                    }
+                }
+            } else {
+                // HTTPS already negotiates h2/http1.1 with ALPN. Unknown or proxied
+                // cleartext receivers use the existing transport before any payload is sent.
+                self.get_client(args, max_response_bytes.is_some() || disable_redirects)
+            };
+            let request = Self::build_request_with_client(&client, method, args);
+            let response = if use_http2 && max_response_bytes.is_none() {
+                self.send_http2_with_redirects(args, request, disable_redirects)
+                    .await
+            } else {
+                request.send().await
+            };
+            // Keep the final status if the total attempt budget expires while reading
+            // the body, so a terminal response cannot become a retryable timeout.
+            received_status = response.as_ref().ok().map(|value| value.status().as_u16());
+            match max_response_bytes {
+                Some(limit) => self.read_limited_response(args, response, limit).await,
+                None => ResponseLimitOutcome::Response(
+                    self.read_unlimited_response(args, response).await,
+                ),
+            }
+        })
+        .await
+        .unwrap_or_else(|_| {
+            ResponseLimitOutcome::Response(Response {
+                status_code: received_status,
+                data: None,
+                error: Some("HTTP request timed out".to_string()),
+            })
+        })
+    }
+
     async fn send_with_response_limit(
         &self,
         method: &HttpMethod,
@@ -171,6 +300,138 @@ impl NetworkProvider for NetworkProviderReqwest {
 }
 
 impl NetworkProviderReqwest {
+    async fn plaintext_http2_available(
+        &self,
+        args: &RequestArgs,
+        request_budget: Duration,
+    ) -> bool {
+        let Ok(url) = url::Url::parse(&args.url) else {
+            return false;
+        };
+        if url.scheme() != "http" || args.proxy_config.is_some() || !direct_probe_allowed() {
+            return false;
+        }
+        let Some(host) = plaintext_probe_host(&url) else {
+            return false;
+        };
+        let Some(port) = url.port_or_known_default() else {
+            return false;
+        };
+        let origin = url.origin().ascii_serialization();
+        // Coalesce discovery per origin without holding a cache lock during I/O.
+        let capability = {
+            let mut origins = self.http2_origins.lock();
+            origins.retain(|_, (checked, _)| checked.elapsed() < HTTP2_CAPABILITY_TTL);
+            if let Some((_, capability)) = origins.get(&origin) {
+                capability.clone()
+            } else {
+                if origins.len() >= MAX_HTTP2_ORIGINS {
+                    if let Some(oldest) = origins
+                        .iter()
+                        .min_by_key(|(_, (at, _))| *at)
+                        .map(|(origin, _)| origin.clone())
+                    {
+                        origins.remove(&oldest);
+                    }
+                }
+                let capability = Arc::new(tokio::sync::OnceCell::new());
+                origins.insert(origin, (Instant::now(), capability.clone()));
+                capability
+            }
+        };
+        let budget = HTTP2_PROBE_BUDGET.min(request_budget / 4);
+        tokio::time::timeout(
+            budget,
+            capability.get_or_init(|| async {
+                tokio::time::timeout(
+                    budget.saturating_sub(Duration::from_millis(1)),
+                    probe_plaintext_http2(host, port),
+                )
+                .await
+                .unwrap_or(false)
+            }),
+        )
+        .await
+        .copied()
+        .unwrap_or(false)
+    }
+
+    async fn send_http2_with_redirects(
+        &self,
+        args: &RequestArgs,
+        builder: reqwest::RequestBuilder,
+        disable_redirects: bool,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let (client, request) = builder.build_split();
+        let request = request?;
+        let Some(mut redirected) = request.try_clone() else {
+            return client.execute(request).await;
+        };
+        let response = client.execute(request).await?;
+        if disable_redirects || !matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) {
+            return Ok(response);
+        }
+        let next = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| response.url().join(value).ok());
+        let Some(next) = next else {
+            return Ok(response);
+        };
+        // A real redirect response authorizes following Location; transport failures
+        // never reach this branch. Leave later redirects to reqwest's normal policy.
+        if response.status().as_u16() == 303
+            || (matches!(response.status().as_u16(), 301 | 302)
+                && redirected.method() == Method::POST)
+        {
+            *redirected.method_mut() = Method::GET;
+            *redirected.body_mut() = None;
+            for header in [
+                "content-type",
+                "content-length",
+                "content-encoding",
+                "transfer-encoding",
+            ] {
+                redirected.headers_mut().remove(header);
+            }
+        }
+        if next.host_str() != response.url().host_str()
+            || next.port_or_known_default() != response.url().port_or_known_default()
+        {
+            for header in [
+                "authorization",
+                "cookie",
+                "cookie2",
+                "proxy-authorization",
+                "www-authenticate",
+            ] {
+                redirected.headers_mut().remove(header);
+            }
+        }
+        let mut referer = response.url().clone();
+        let _ = referer.set_username("");
+        let _ = referer.set_password(None);
+        referer.set_fragment(None);
+        if let Ok(value) = reqwest::header::HeaderValue::from_str(referer.as_str()) {
+            redirected
+                .headers_mut()
+                .insert(reqwest::header::REFERER, value);
+        }
+        *redirected.url_mut() = next;
+        drop(response);
+        // One redirect has already been followed. Plaintext targets may use H1;
+        // HTTPS targets negotiate normally. No application request is replayed.
+        let mut builder = reqwest::Client::builder().redirect(Policy::limited(9));
+        if let Some(pem) = &args.ca_cert_pem {
+            for cert in reqwest::Certificate::from_pem_bundle(pem)? {
+                builder = builder.add_root_certificate(cert);
+            }
+        }
+        let client = builder.build()?;
+        client.execute(redirected).await
+    }
+
     async fn send_impl(
         &self,
         method: &HttpMethod,
@@ -188,12 +449,24 @@ impl NetworkProviderReqwest {
         }
 
         let request = self.build_request(method, args, disable_redirects);
+        self.send_request(args, request).await
+    }
 
+    async fn send_request(&self, args: &RequestArgs, request: reqwest::RequestBuilder) -> Response {
+        self.read_unlimited_response(args, request.send().await)
+            .await
+    }
+
+    async fn read_unlimited_response(
+        &self,
+        args: &RequestArgs,
+        result: Result<reqwest::Response, reqwest::Error>,
+    ) -> Response {
         let mut error = None;
         let mut status_code = None;
         let mut data = None;
 
-        match request.send().await {
+        match result {
             Ok(response) => {
                 status_code = Some(response.status().as_u16());
 
@@ -240,13 +513,32 @@ impl NetworkProviderReqwest {
         }
 
         let request = self.build_request(method, args, true);
+        self.send_limited_request(args, request, max_response_bytes)
+            .await
+    }
 
+    async fn send_limited_request(
+        &self,
+        args: &RequestArgs,
+        request: reqwest::RequestBuilder,
+        max_response_bytes: u64,
+    ) -> ResponseLimitOutcome {
+        self.read_limited_response(args, request.send().await, max_response_bytes)
+            .await
+    }
+
+    async fn read_limited_response(
+        &self,
+        args: &RequestArgs,
+        result: Result<reqwest::Response, reqwest::Error>,
+        max_response_bytes: u64,
+    ) -> ResponseLimitOutcome {
         let mut error = None;
         let mut status_code = None;
         let mut data = None;
         let mut response_size_limit_exceeded = false;
 
-        match request.send().await {
+        match result {
             Ok(response) => {
                 status_code = Some(response.status().as_u16());
 
@@ -290,13 +582,20 @@ impl NetworkProviderReqwest {
         request_args: &RequestArgs,
         disable_redirects: bool,
     ) -> reqwest::RequestBuilder {
+        let client = self.get_client(request_args, disable_redirects);
+        Self::build_request_with_client(&client, method, request_args)
+    }
+
+    fn build_request_with_client(
+        client: &reqwest::Client,
+        method: &HttpMethod,
+        request_args: &RequestArgs,
+    ) -> reqwest::RequestBuilder {
         let method_actual = match method {
             HttpMethod::GET => Method::GET,
             HttpMethod::POST => Method::POST,
         };
         let is_post = method_actual == Method::POST;
-
-        let client = self.get_client(request_args, disable_redirects);
 
         let mut request = client.request(method_actual, &request_args.url);
 
@@ -353,6 +652,46 @@ impl NetworkProviderReqwest {
         let client = Self::build_client(request_args, true);
         clients.insert(key, client.clone());
         client
+    }
+
+    fn get_http2_client(
+        &self,
+        args: &RequestArgs,
+        disable_redirects: bool,
+    ) -> Result<reqwest::Client, String> {
+        let mut key = ResponseLimitClientKey::from_request_args(args);
+        key.disable_redirects = disable_redirects;
+        let mut clients = self.http2_clients.lock();
+        if args.log_event_connection_reuse {
+            if let Some(client) = clients.get(&key) {
+                return Ok(client);
+            }
+        }
+
+        let mut builder = reqwest::Client::builder().http2_prior_knowledge();
+        if disable_redirects {
+            builder = builder.redirect(Policy::none());
+        }
+        if let Some(proxy) = &args.proxy_config {
+            builder = Self::configure_proxy(builder, proxy);
+        }
+        if let Some(pem) = &args.ca_cert_pem {
+            let certs = reqwest::Certificate::from_pem_bundle(pem)
+                .map_err(|error| format!("Failed to parse HTTP/2 CA certificate: {error}"))?;
+            if certs.is_empty() {
+                return Err("HTTP/2 CA configuration contains no certificates".to_string());
+            }
+            for cert in certs {
+                builder = builder.add_root_certificate(cert);
+            }
+        }
+        let client = builder
+            .build()
+            .map_err(|error| format!("Failed to build HTTP/2 client: {error}"))?;
+        if args.log_event_connection_reuse {
+            clients.insert(key, client.clone());
+        }
+        Ok(client)
     }
 
     fn should_use_shared_client(&self, request_args: &RequestArgs) -> bool {
@@ -546,6 +885,14 @@ impl NetworkProviderReqwest {
     }
 }
 
+fn request_configuration_error(error: impl Into<String>) -> Response {
+    Response {
+        status_code: None,
+        data: None,
+        error: Some(error.into()),
+    }
+}
+
 fn validate_response_content_length(
     response: &reqwest::Response,
     max_response_bytes: Option<u64>,
@@ -628,6 +975,10 @@ fn get_response_headers(response: &reqwest::Response) -> Option<HashMap<String, 
 
     Some(headers_map)
 }
+
+#[cfg(test)]
+#[path = "../__tests__/net_provider_reqwest_http2_tests.rs"]
+mod http2_tests;
 
 #[cfg(test)]
 mod tests {

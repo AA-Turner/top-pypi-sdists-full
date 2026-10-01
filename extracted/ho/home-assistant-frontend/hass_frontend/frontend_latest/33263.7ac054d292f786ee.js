@@ -1,0 +1,2 @@
+export const __rspack_esm_id=33263;export const __rspack_esm_ids=[33263];export const __webpack_modules__={26194(s,e,t){t(97700);const o="home-assistant.io",_=`https://www.${o}`,c=(s,e)=>`https://${s.includes("b")?"rc":s.includes("dev")?"next":"www"}.${o}${e}`;t.d(e,{},{RD:_,je:c,ou:({config:s},e)=>c(s.version,e)})}};
+//# sourceMappingURL=33263.7ac054d292f786ee.js.map

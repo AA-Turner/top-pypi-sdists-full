@@ -203,7 +203,8 @@ class AgentRegistryControlClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        List the tags on a resource.
+        Lists the tags associated with the specified Amazon Web Services Agent Registry
+        resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_agent_registry_control/client/#list_tags_for_resource)
@@ -222,7 +223,8 @@ class AgentRegistryControlClient(AioBaseClient):
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Tag a resource with key-value pairs.
+        Adds or overwrites one or more tags for the specified Amazon Web Services Agent
+        Registry resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_agent_registry_control/client/#tag_resource)
@@ -230,7 +232,8 @@ class AgentRegistryControlClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Remove tags from a resource by key.
+        Removes one or more tags from the specified Amazon Web Services Agent Registry
+        resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_agent_registry_control/client/#untag_resource)

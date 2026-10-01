@@ -441,8 +441,11 @@ def run_model_evaluation(model, tokenizer, autoround, folders, formats, args):
         eval_folder = folders[-1] if folders else None
     else:
         eval_folder = folders
+
     # set model_type for ModelFreeCompressor.
-    model_type = detect_model_type(eval_folder)
+    # Fake format now always saves, so eval_folder is the canonical probe.
+    type_probe = eval_folder
+    model_type = detect_model_type(type_probe)
     if hasattr(autoround, "model_context") and model_type in ("mllm", "diffusion"):
         setattr(autoround.model_context, f"is_{model_type}", True)
     else:
@@ -496,8 +499,12 @@ def run_model_evaluation(model, tokenizer, autoround, folders, formats, args):
         logger.warning("set add_bos_token=True for llama model.")
         args.add_bos_token = True
 
-    # Check if GGUF model
-    eval_gguf_model = any(file.endswith("gguf") for file in os.listdir(eval_folder))
+    # Check if GGUF model in exported eval folder.
+    eval_gguf_model = (
+        eval_folder is not None
+        and os.path.isdir(eval_folder)
+        and any(file.endswith("gguf") for file in os.listdir(eval_folder))
+    )
 
     # Determine if model instance evaluation is needed
     need_model_instance = formats[-1] == "fake" or eval_gguf_model
@@ -509,8 +516,39 @@ def run_model_evaluation(model, tokenizer, autoround, folders, formats, args):
             if model is None:
                 return
         else:
+            # Evaluate the exported artifact for both regular and model-free flows.
+            # The in-memory regular model still contains quantization wrappers,
+            # while fake-format loading materializes FakeActQuantLinear modules.
+            if model is not None:
+                model_context = getattr(autoround, "model_context", None)
+                if model_context is not None and getattr(model_context, "model", None) is model:
+                    model_context.model = None
+                model = None
+                from auto_round.utils import clear_memory
+
+                clear_memory()
+
             eval_model_dtype = get_model_dtype(args.eval_model_dtype, "auto")
-            model = prepare_model_for_eval(model, args.device_map, eval_model_dtype)
+            if getattr(autoround, "mllm", False):
+                from auto_round.utils.model import mllm_load_model
+
+                model, _, loaded_tokenizer, _ = mllm_load_model(
+                    eval_folder,
+                    device=device_str,
+                    torch_dtype=eval_model_dtype,
+                    trust_remote_code=not args.disable_trust_remote_code,
+                )
+                if tokenizer is None:
+                    tokenizer = loaded_tokenizer
+            else:
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+
+                model = AutoModelForCausalLM.from_pretrained(
+                    eval_folder, device_map=device_str, torch_dtype=eval_model_dtype
+                )
+                model.eval()
+                if tokenizer is None:
+                    tokenizer = AutoTokenizer.from_pretrained(eval_folder)
 
         # Evaluate with model instance
         evaluate_with_model_instance(model, tokenizer, device_str, args)

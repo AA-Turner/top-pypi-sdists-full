@@ -45,6 +45,8 @@ __all__ = (
     "DescribeGroupMembershipResponseTypeDef",
     "DescribeGroupRequestTypeDef",
     "DescribeGroupResponseTypeDef",
+    "DescribeIdentityStoreRequestTypeDef",
+    "DescribeIdentityStoreResponseTypeDef",
     "DescribeUserRequestTypeDef",
     "DescribeUserResponseTypeDef",
     "EmailTypeDef",
@@ -59,6 +61,7 @@ __all__ = (
     "GroupMembershipExistenceResultTypeDef",
     "GroupMembershipTypeDef",
     "GroupTypeDef",
+    "IdentityStoreTypeDef",
     "IsMemberInGroupsRequestTypeDef",
     "IsMemberInGroupsResponseTypeDef",
     "ListGroupMembershipsForMemberRequestPaginateTypeDef",
@@ -70,11 +73,16 @@ __all__ = (
     "ListGroupsRequestPaginateTypeDef",
     "ListGroupsRequestTypeDef",
     "ListGroupsResponseTypeDef",
+    "ListIdentityStoresRequestPaginateTypeDef",
+    "ListIdentityStoresRequestTypeDef",
+    "ListIdentityStoresResponseTypeDef",
     "ListUsersRequestPaginateTypeDef",
     "ListUsersRequestTypeDef",
     "ListUsersResponseTypeDef",
     "MemberIdTypeDef",
     "NameTypeDef",
+    "NetworkConfigurationDetailsTypeDef",
+    "NetworkConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "PhoneNumberTypeDef",
     "PhotoTypeDef",
@@ -82,7 +90,11 @@ __all__ = (
     "RoleTypeDef",
     "UniqueAttributeTypeDef",
     "UpdateGroupRequestTypeDef",
+    "UpdateGroupResponseTypeDef",
+    "UpdateIdentityStoreRequestTypeDef",
+    "UpdateIdentityStoreResponseTypeDef",
     "UpdateUserRequestTypeDef",
+    "UpdateUserResponseTypeDef",
     "UserTypeDef",
 )
 
@@ -177,10 +189,12 @@ class DeleteGroupMembershipRequestTypeDef(TypedDict):
 class DeleteGroupRequestTypeDef(TypedDict):
     IdentityStoreId: str
     GroupId: str
+    Revision: NotRequired[str]
 
 class DeleteUserRequestTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    Revision: NotRequired[str]
 
 class DescribeGroupMembershipRequestTypeDef(TypedDict):
     IdentityStoreId: str
@@ -190,6 +204,15 @@ class DescribeGroupRequestTypeDef(TypedDict):
     IdentityStoreId: str
     GroupId: str
 
+class DescribeIdentityStoreRequestTypeDef(TypedDict):
+    IdentityStoreId: str
+
+class NetworkConfigurationDetailsTypeDef(TypedDict):
+    VpceAccessRequired: bool
+    ApiRestrictSourceVpcs: NotRequired[list[str]]
+    ApiAllowSourceIps: NotRequired[list[str]]
+    ScimAllowSourceIps: NotRequired[list[str]]
+
 class DescribeUserRequestTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
@@ -198,6 +221,10 @@ class DescribeUserRequestTypeDef(TypedDict):
 class FilterTypeDef(TypedDict):
     AttributePath: str
     AttributeValue: str
+
+class IdentityStoreTypeDef(TypedDict):
+    IdentityStoreId: str
+    IdentityStoreArn: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -210,9 +237,21 @@ class ListGroupMembershipsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListIdentityStoresRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class NetworkConfigurationTypeDef(TypedDict):
+    VpceAccessRequired: bool
+    ApiRestrictSourceVpcs: NotRequired[Sequence[str]]
+    ApiAllowSourceIps: NotRequired[Sequence[str]]
+    ScimAllowSourceIps: NotRequired[Sequence[str]]
+
 class GroupTypeDef(TypedDict):
-    GroupId: str
     IdentityStoreId: str
+    GroupId: str
+    GroupArn: str
+    Revision: str
     DisplayName: NotRequired[str]
     ExternalIds: NotRequired[list[ExternalIdTypeDef]]
     Description: NotRequired[str]
@@ -229,11 +268,13 @@ class UpdateGroupRequestTypeDef(TypedDict):
     IdentityStoreId: str
     GroupId: str
     Operations: Sequence[AttributeOperationTypeDef]
+    Revision: NotRequired[str]
 
 class UpdateUserRequestTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
     Operations: Sequence[AttributeOperationTypeDef]
+    Revision: NotRequired[str]
 
 class CreateGroupMembershipRequestTypeDef(TypedDict):
     IdentityStoreId: str
@@ -252,7 +293,8 @@ class GroupMembershipExistenceResultTypeDef(TypedDict):
 
 class GroupMembershipTypeDef(TypedDict):
     IdentityStoreId: str
-    MembershipId: NotRequired[str]
+    MembershipId: str
+    MembershipArn: str
     GroupId: NotRequired[str]
     MemberId: NotRequired[MemberIdTypeDef]
     CreatedAt: NotRequired[datetime]
@@ -272,23 +314,29 @@ class ListGroupMembershipsForMemberRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class CreateGroupMembershipResponseTypeDef(TypedDict):
-    MembershipId: str
     IdentityStoreId: str
+    MembershipId: str
+    MembershipArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateGroupResponseTypeDef(TypedDict):
-    GroupId: str
     IdentityStoreId: str
+    GroupId: str
+    GroupArn: str
+    Revision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateUserResponseTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    UserArn: str
+    Revision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGroupMembershipResponseTypeDef(TypedDict):
     IdentityStoreId: str
     MembershipId: str
+    MembershipArn: str
     GroupId: str
     MemberId: MemberIdTypeDef
     CreatedAt: datetime
@@ -298,7 +346,10 @@ class DescribeGroupMembershipResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGroupResponseTypeDef(TypedDict):
+    IdentityStoreId: str
     GroupId: str
+    GroupArn: str
+    Revision: str
     DisplayName: str
     ExternalIds: list[ExternalIdTypeDef]
     Description: str
@@ -306,22 +357,43 @@ class DescribeGroupResponseTypeDef(TypedDict):
     UpdatedAt: datetime
     CreatedBy: str
     UpdatedBy: str
-    IdentityStoreId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGroupIdResponseTypeDef(TypedDict):
-    GroupId: str
     IdentityStoreId: str
+    GroupId: str
+    GroupArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGroupMembershipIdResponseTypeDef(TypedDict):
-    MembershipId: str
     IdentityStoreId: str
+    MembershipId: str
+    MembershipArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetUserIdResponseTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    UserArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGroupResponseTypeDef(TypedDict):
+    IdentityStoreId: str
+    GroupId: str
+    GroupArn: str
+    Revision: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateIdentityStoreResponseTypeDef(TypedDict):
+    IdentityStoreId: str
+    IdentityStoreArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateUserResponseTypeDef(TypedDict):
+    IdentityStoreId: str
+    UserId: str
+    UserArn: str
+    Revision: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateUserRequestTypeDef(TypedDict):
@@ -348,6 +420,8 @@ class CreateUserRequestTypeDef(TypedDict):
 class DescribeUserResponseTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    UserArn: str
+    Revision: str
     UserName: str
     ExternalIds: list[ExternalIdTypeDef]
     Name: NameTypeDef
@@ -377,6 +451,8 @@ class DescribeUserResponseTypeDef(TypedDict):
 class UserTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    UserArn: str
+    Revision: str
     UserName: NotRequired[str]
     ExternalIds: NotRequired[list[ExternalIdTypeDef]]
     Name: NotRequired[NameTypeDef]
@@ -402,6 +478,12 @@ class UserTypeDef(TypedDict):
     UpdatedBy: NotRequired[str]
     Extensions: NotRequired[dict[str, dict[str, Any]]]
 
+class DescribeIdentityStoreResponseTypeDef(TypedDict):
+    IdentityStoreId: str
+    IdentityStoreArn: str
+    NetworkConfiguration: NetworkConfigurationDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListGroupsRequestTypeDef(TypedDict):
     IdentityStoreId: str
     MaxResults: NotRequired[int]
@@ -414,6 +496,11 @@ class ListUsersRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+
+class ListIdentityStoresResponseTypeDef(TypedDict):
+    IdentityStores: list[IdentityStoreTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ListGroupMembershipsForMemberRequestPaginateTypeDef(TypedDict):
     IdentityStoreId: str
@@ -430,11 +517,18 @@ class ListGroupsRequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListIdentityStoresRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListUsersRequestPaginateTypeDef(TypedDict):
     IdentityStoreId: str
     Extensions: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class UpdateIdentityStoreRequestTypeDef(TypedDict):
+    IdentityStoreId: str
+    NetworkConfiguration: NotRequired[NetworkConfigurationTypeDef]
 
 class ListGroupsResponseTypeDef(TypedDict):
     Groups: list[GroupTypeDef]

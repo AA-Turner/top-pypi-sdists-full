@@ -37,11 +37,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import click
 from pydantic import ValidationError
 
+from parrot.bots.database.toolkits.sql import _SQLGLOT_DIALECT_MAP
+
+if TYPE_CHECKING:
+    from parrot.knowledge.wiki.schema.service import SchemaPlaneService
 from parrot.knowledge.wiki.context import (
     DEFAULT_BUDGET_TOKENS,
     pack_results,
@@ -60,7 +64,14 @@ from parrot.knowledge.wiki.federation import (
     open_namespace_store,
     resolve_namespaces,
 )
-from parrot.knowledge.wiki.languages import all_scanners
+from parrot.knowledge.wiki.languages import all_scanners, astgrep
+from parrot.knowledge.wiki.languages.fingerprint import (
+    changed_languages,
+    current_fingerprint,
+    load_fingerprint,
+    save_fingerprint,
+)
+from parrot.knowledge.wiki.languages.render import structural_enabled
 from parrot.knowledge.wiki.project import (
     PARROT_DIR,
     WikiConfigError,
@@ -70,10 +81,12 @@ from parrot.knowledge.wiki.project import (
     config_path,
     derive_env_overlay,
     find_project_root,
+    find_shared_root,
     global_registry_path,
     load_effective_config,
     load_global_registry,
     load_project_config,
+    is_linked_worktree,
     merge_namespaces,
     parrot_home,
     resolve_entry_base,
@@ -95,6 +108,7 @@ from parrot.knowledge.wiki.symbols import SymbolKind, parse_sym_id
 from parrot.knowledge.wiki.ledger.service import LedgerService
 from parrot.knowledge.wiki.ledger.fix_planner import FixPlan, Lane, plan_fix_batch
 from parrot.knowledge.wiki.ledger.events import IssueKind, IssueSeverity
+from parrot.knowledge.wiki.schema.models import SchemaSourceConfig
 
 _cli_logger = logging.getLogger("wikitoolkit.cli")
 
@@ -389,6 +403,55 @@ def _resolve_project_effective(path: str | None) -> tuple[Path, WikiEffectiveCon
     except WikiConfigError as exc:
         raise click.ClickException(str(exc)) from exc
     return root, effective
+
+
+_NON_STRUCTURAL_SCANNERS = frozenset({"python", "luau"})
+_STRUCTURAL_INSTALL_HINT = "pip install 'ai-parrot[wiki-languages]'"
+
+
+def _structural_capable_languages() -> list[str]:
+    """Scanner names whose symbols come only from the ast-grep seam (FEAT-609)."""
+    return sorted(name for name in all_scanners() if name not in _NON_STRUCTURAL_SCANNERS)
+
+
+def _structural_gap_warning(scan: Any) -> str | None:
+    """One-line warning when structural-capable files were scanned without ast-grep.
+
+    Pure: no logging, no I/O. ``None`` when the kill switch is off, ast-grep is
+    available, or the scan holds no structural-capable file.
+    """
+    if not structural_enabled() or astgrep.is_available():
+        return None
+    capable = set(_structural_capable_languages())
+    counts: dict[str, int] = {}
+    for file_slice in scan.files:
+        if file_slice.language in capable:
+            counts[file_slice.language] = counts.get(file_slice.language, 0) + 1
+    if not counts:
+        return None
+    total = sum(counts.values())
+    names = ", ".join(sorted(counts))
+    return (
+        f"{total} {names} file(s) scanned without the structural tier: "
+        f"no sym: pages for them. Install 'ai-parrot[wiki-languages]'"
+    )
+
+
+def _symbols_status() -> dict[str, Any]:
+    """``status``'s view of the symbol plane: which languages lack their tier."""
+    if not structural_enabled():
+        return {"enabled": False, "disabled_for": _structural_capable_languages(), "reason": "config"}
+    missing = [name for name in _structural_capable_languages() if all_scanners()[name].mode != "ast-grep"]
+    return {"enabled": not missing, "disabled_for": missing, "reason": "missing-extra" if missing else None}
+
+
+def _format_symbols_status(info: dict[str, Any]) -> str:
+    """Render the ``Symbols`` status line."""
+    if info.get("enabled"):
+        return "enabled"
+    if info.get("reason") == "config":
+        return "disabled by configuration (structural tier switched off)"
+    return f"disabled for {', '.join(info.get('disabled_for') or [])} — {_STRUCTURAL_INSTALL_HINT}"
 
 
 def _require_built(root: Path, config: WikiProjectConfig) -> BaseWikiStore:
@@ -1526,6 +1589,11 @@ def build(
                 use_git=not no_git,
             )
 
+        gap_warning = _structural_gap_warning(scan)
+        if gap_warning:
+            # One channel only: the logger's stderr handler already prints it.
+            _cli_logger.warning(gap_warning)
+
         output_dir = config.storage_path(root)
 
         async def _pipeline() -> dict[str, Any]:
@@ -1541,6 +1609,14 @@ def build(
             enriched_scan, force_rel_paths, enrichment_by_path = await _apply_roblox_enrichment(
                 root, scan, output_dir, sources
             )
+            # FEAT-609 M2: re-ingest every file of a language whose extractor changed
+            # (ast-grep installed/removed, rule file edited) — per-file staleness cannot see it.
+            fp_now = current_fingerprint()
+            changed = changed_languages(await load_fingerprint(store), fp_now)
+            if changed:
+                force_rel_paths = set(force_rel_paths) | {
+                    f.rel_path for f in enriched_scan.files if f.language in changed
+                }
             counts = await _ingest_files(
                 store, sources, root, enriched_scan, force=force, force_rel_paths=force_rel_paths
             )
@@ -1552,6 +1628,7 @@ def build(
             # has succeeded — so a failure anywhere leaves the previous,
             # retryable fingerprint in place for the next run.
             _record_roblox_enrichment_success(output_dir, enrichment_by_path, counts["written_rel_paths"])
+            await save_fingerprint(store, fp_now)
 
             okf_report: dict[str, Any] | None = None
             if not no_export:
@@ -2120,6 +2197,7 @@ def status(path_: str | None, ns_opt: str | None, as_json: bool) -> None:
         # named for the structural symbol plane specifically — additive,
         # "languages" itself is unchanged for backward compatibility.
         "structural": {name: s.mode for name, s in all_scanners().items()},
+        "symbols": _symbols_status(),
     }
     if scoped_to is not None:
         name, handle_cfg, storage_dir = scoped_to
@@ -2171,6 +2249,7 @@ def status(path_: str | None, ns_opt: str | None, as_json: bool) -> None:
     click.echo(f"Categories: {stats.get('categories', {})}")
     click.echo(f"Languages : {payload['languages']}")
     click.echo(f"Structural: {payload['structural']}")
+    click.echo(f"Symbols   : {_format_symbols_status(payload['symbols'])}")
     if scoped_to is None:
         click.echo(f"Sources   : {len(entries)} tracked, {len(stale)} stale")
     if namespaces:
@@ -2227,7 +2306,7 @@ def status(path_: str | None, ns_opt: str | None, as_json: bool) -> None:
 # --------------------------------------------------------------------------
 
 
-def _structural_tool(name: str, path_: str | None) -> Any:
+def _structural_tool(name: str, path_: str | None, ns_opt: str | None = None) -> Any:
     """Open the named structural tool (``wiki_symbol_lookup``/etc.) for one call.
 
     Reuses :func:`create_structural_tools` so the CLI's human-readable
@@ -2242,7 +2321,7 @@ def _structural_tool(name: str, path_: str | None) -> Any:
     from parrot.knowledge.wiki.structural.tools import create_structural_tools
 
     root, config = _resolve_project(path_)
-    store = _require_built(root, config)
+    store = _federate(root, config, _require_built(root, config), ns_opt)
     tools = {tool.name: tool for tool in create_structural_tools(store, root, config)}
     return tools[name]
 
@@ -2280,6 +2359,7 @@ def symbols() -> None:
 
 @symbols.command("lookup")
 @path_option
+@ns_option
 @click.argument("query")
 @click.option("--kind", default=None, help="Exact symbol kind filter (e.g. function, class).")
 @click.option("--language", default=None, help="Exact scanner-name filter (e.g. python).")
@@ -2288,6 +2368,7 @@ def symbols() -> None:
 @click.option("--json", "as_json", is_flag=True, help="Emit the raw Pydantic dict as JSON.")
 def symbols_lookup(
     path_: str | None,
+    ns_opt: str | None,
     query: str,
     kind: str | None,
     language: str | None,
@@ -2296,7 +2377,7 @@ def symbols_lookup(
     as_json: bool,
 ) -> None:
     """Find a symbol (function/class/method) by name or qualname."""
-    tool = _structural_tool("wiki_symbol_lookup", path_)
+    tool = _structural_tool("wiki_symbol_lookup", path_, ns_opt)
     kind_enum = SymbolKind(kind) if kind else None
     result = _run(tool._execute(query=query, kind=kind_enum, language=language, path_prefix=path_prefix, limit=limit))
     _echo_structural_result(result, as_json)
@@ -2304,31 +2385,34 @@ def symbols_lookup(
 
 @symbols.command("outline")
 @path_option
+@ns_option
 @click.argument("target")
 @click.option("--depth", default=2, type=int, help="Maximum symbol nesting depth.")
 @click.option("--source", "include_source", is_flag=True, help="Include a capped source excerpt (sym: targets only).")
 @click.option("--json", "as_json", is_flag=True, help="Emit the raw Pydantic dict as JSON.")
 def symbols_outline(
     path_: str | None,
+    ns_opt: str | None,
     target: str,
     depth: int,
     include_source: bool,
     as_json: bool,
 ) -> None:
     """Get the symbol outline of a file: file:<rel>, sym:<rel>#<q>, or a relative path."""
-    tool = _structural_tool("wiki_code_outline", path_)
+    tool = _structural_tool("wiki_code_outline", path_, ns_opt)
     result = _run(tool._execute(target=target, depth=depth, include_source=include_source))
     _echo_structural_result(result, as_json)
 
 
 @symbols.command("blast")
 @path_option
+@ns_option
 @click.argument("symbol")
 @click.option(
     "--rel",
     "relations",
     multiple=True,
-    help="Edge relation to follow (repeatable); default: calls, extends, implements.",
+    help="Edge relation to follow (repeatable); default: calls, extends, implements, uses.",
 )
 @click.option("--depth", default=2, type=int, help="Maximum BFS depth.")
 @click.option(
@@ -2346,6 +2430,7 @@ def symbols_outline(
 @click.option("--json", "as_json", is_flag=True, help="Emit the raw Pydantic dict as JSON.")
 def symbols_blast(
     path_: str | None,
+    ns_opt: str | None,
     symbol: str,
     relations: tuple[str, ...],
     depth: int,
@@ -2354,7 +2439,7 @@ def symbols_blast(
     as_json: bool,
 ) -> None:
     """Find every symbol that transitively depends on (calls/extends/implements) SYMBOL."""
-    tool = _structural_tool("wiki_blast_radius", path_)
+    tool = _structural_tool("wiki_blast_radius", path_, ns_opt)
     result = _run(
         tool._execute(
             symbol=symbol,
@@ -3074,6 +3159,206 @@ def ledger_audit() -> None:
     click.echo(f"Broken edges: {audit['broken_edges']}")
     if sqlite_info := audit.get("sqlite"):
         click.echo(f"SQLite: journal={sqlite_info['journal_mode']}, " f"timeout={sqlite_info['busy_timeout_ms']}ms")
+
+
+# --------------------------------------------------------------------------
+# SQL schema-plane commands (FEAT-600)
+# --------------------------------------------------------------------------
+
+
+def _refuse_in_linked_worktree(root: Path) -> None:
+    """Refuse schema-plane writes from a linked worktree."""
+    if is_linked_worktree(root / ".git"):
+        raise click.UsageError("wikitoolkit schema write verbs must run from the main checkout, not a linked worktree.")
+
+
+def _schema_service() -> "SchemaPlaneService":
+    """Create the schema-plane service only when a schema command needs it."""
+    from parrot.knowledge.wiki.schema.service import SchemaPlaneService
+
+    return SchemaPlaneService.from_root()
+
+
+def _changed_ddl_paths(root: Path, origin: str) -> list[Path]:
+    """Return configured DDL files touched by the merge leading to ``HEAD``."""
+    config = load_effective_config(root).config
+    source = config.schema_plane.sources.get(origin)
+    if source is None:
+        raise click.UsageError(f"Unknown schema source {origin!r}.")
+    if not source.ddl_paths:
+        return []
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "diff", "--name-only", "ORIG_HEAD", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise click.ClickException(f"Could not determine changed DDL files: {exc}") from exc
+    changed = proc.stdout.splitlines()
+    return [
+        root / path
+        for path in changed
+        if any(
+            PurePosixPath(path).match(pattern) or path.startswith(f"{pattern.rstrip('/')}/")
+            for pattern in source.ddl_paths
+        )
+        and (root / path).is_file()
+    ]
+
+
+@wiki.group(name="schema")
+def schema() -> None:
+    """Manage the SQL schema plane (sources, sync, DDL ingest, diff, lookup)."""
+
+
+@schema.command("sources")
+def schema_sources() -> None:
+    """List declared sources without exposing DSN values."""
+    for source in _run(_schema_service().sources()):
+        click.echo(f"{source.alias}\t{source.dialect}\t{','.join(source.allowed_schemas)}\t${source.dsn_env}")
+
+
+@schema.command("add-source")
+@click.argument("alias", required=False)
+@click.option("--dialect", required=True, type=click.Choice(sorted(_SQLGLOT_DIALECT_MAP)))
+@click.option("--dsn-env", required=True, help="Environment variable NAME holding the DSN (never the value).")
+@click.option("--schemas", default="public", help="Comma-separated allowed schemas.")
+@click.option("--tables", default=None, help="Comma-separated schema.table allowlist.")
+def schema_add_source(alias: str | None, dialect: str, dsn_env: str, schemas: str, tables: str | None) -> None:
+    """Declare a source in ``.parrot/wiki.json`` under ``schema.sources``."""
+    _refuse_in_linked_worktree(Path.cwd())
+    root = find_shared_root(Path.cwd()) or Path.cwd().resolve()
+    config = load_project_config(root)
+    alias = alias or dialect
+    if alias in config.schema_plane.sources:
+        raise click.ClickException(
+            f"Schema source alias {alias!r} already exists; existing aliases: {', '.join(config.schema_plane.sources)}"
+        )
+    config.schema_plane.sources[alias] = SchemaSourceConfig(
+        alias=alias,
+        dialect=dialect,
+        dsn_env=dsn_env,
+        allowed_schemas=[schema_name.strip() for schema_name in schemas.split(",") if schema_name.strip()],
+        tables=[table.strip() for table in tables.split(",") if table.strip()] if tables else None,
+    )
+    written = save_project_config(root, config)
+    click.echo(f"Added schema source {alias!r} to {written}")
+
+
+@schema.command("sync")
+@click.argument("origin")
+@click.option("--tables", default=None)
+@click.option("--changed", is_flag=True)
+@click.option("--json", "as_json", is_flag=True)
+def schema_sync(origin: str, tables: str | None, changed: bool, as_json: bool) -> None:
+    """Introspect ORIGIN and write its table pages."""
+    _refuse_in_linked_worktree(Path.cwd())
+    report = _run(_schema_service().sync(origin, tables=tables.split(",") if tables else None, changed_only=changed))
+    if as_json:
+        click.echo(report.model_dump_json())
+    else:
+        click.echo(
+            f"created {len(report.created)} updated {len(report.updated)} unchanged {len(report.unchanged)} "
+            f"removed {len(report.removed)} failed {len(report.failed)}"
+        )
+
+
+@schema.command("ingest-ddl")
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
+@click.option("--origin", default=None, help="Source alias; omit with --changed to scan every declared source.")
+@click.option(
+    "--dialect",
+    default=None,
+    type=click.Choice(sorted(_SQLGLOT_DIALECT_MAP)),
+    help="SQL dialect; defaults to the source's configured dialect.",
+)
+@click.option("--changed", is_flag=True)
+@click.option("--json", "as_json", is_flag=True)
+@click.option("--quiet", is_flag=True)
+def schema_ingest_ddl(
+    paths: tuple[Path, ...], origin: str | None, dialect: str | None, changed: bool, as_json: bool, quiet: bool
+) -> None:
+    """Fold SQL files into the schema plane without requiring a database.
+
+    With ``--changed`` and neither PATHS nor ``--origin`` (the post-merge
+    hook's invocation), every declared ``schema.sources`` entry is scanned
+    for DDL files touched by the merge, each ingested with its own dialect.
+    """
+    _refuse_in_linked_worktree(Path.cwd())
+    root = find_shared_root(Path.cwd()) or Path.cwd().resolve()
+    sources = load_effective_config(root).config.schema_plane.sources
+    if origin is None:
+        if paths or not changed:
+            raise click.UsageError("--origin is required unless --changed is given without PATHS.")
+        if dialect is not None:
+            raise click.UsageError("--dialect requires --origin.")
+        origins = list(sources)
+    else:
+        if origin not in sources and dialect is None:
+            raise click.UsageError(f"Unknown schema source {origin!r}; pass --dialect or declare it with add-source.")
+        origins = [origin]
+    files = [file for path in paths for file in (path.rglob("*.sql") if path.is_dir() else [path])]
+    for alias in origins:
+        alias_files = files
+        if not alias_files and changed:
+            alias_files = _changed_ddl_paths(root, alias)
+            if not alias_files:
+                continue
+        alias_dialect = dialect or sources[alias].dialect
+        report = _run(
+            _schema_service().ingest_ddl(
+                alias_files, origin=alias, dialect=alias_dialect, changed_only=changed, root=root
+            )
+        )
+        if quiet:
+            continue
+        if as_json:
+            click.echo(report.model_dump_json())
+        else:
+            prefix = f"{alias}: " if len(origins) > 1 else ""
+            click.echo(
+                f"{prefix}created {len(report.created)} updated {len(report.updated)} "
+                f"parse_errors {len(report.parse_errors)}"
+            )
+
+
+@schema.command("diff")
+@click.argument("origin")
+@click.option("--ledger", "to_ledger", is_flag=True, help="File each divergence as a tech_debt ledger issue.")
+def schema_diff(origin: str, to_ledger: bool) -> None:
+    """Report live-vs-DDL divergence for ORIGIN without resolving it."""
+    if to_ledger:
+        _refuse_in_linked_worktree(Path.cwd())
+    rows = _run(_schema_service().diff(origin))
+    for row in rows:
+        click.echo(f"{row['table_id']}\t{row['field']}\tlive={row['live']}\tddl={row['ddl']}")
+    if to_ledger and rows:
+        service = LedgerService.from_root()
+        for row in rows:
+            _run(
+                service.open_issue(
+                    title=f"Schema divergence: {row['table_id']} {row['field']}",
+                    body=f"Live value: {row['live']}\nDDL value: {row['ddl']}",
+                    kind="tech_debt",
+                    severity="minor",
+                    discovered_from=f"schema-diff:{origin}",
+                    about=[row["table_id"]],
+                )
+            )
+
+
+@schema.command("lookup")
+@click.argument("ref")
+@click.option("--json", "as_json", is_flag=True)
+def schema_lookup(ref: str, as_json: bool) -> None:
+    """Show a table page for REF."""
+    result = _run(_schema_service().lookup(ref))
+    if isinstance(result, list):
+        raise click.UsageError("ambiguous reference; candidates: " + ", ".join(result))
+    click.echo(result.model_dump_json(indent=2) if as_json else result.ddl)
 
 
 @wiki.command()

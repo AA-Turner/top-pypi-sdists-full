@@ -5070,6 +5070,7 @@ class CfnImageBuilder(
             )],
             appstream_agent_version="appstreamAgentVersion",
             description="description",
+            disable_imdsv1=False,
             display_name="displayName",
             domain_join_info=appstream.CfnImageBuilder.DomainJoinInfoProperty(
                 directory_name="directoryName",
@@ -5105,6 +5106,7 @@ class CfnImageBuilder(
         access_endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImageBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         appstream_agent_version: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         domain_join_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImageBuilder.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -5126,6 +5128,7 @@ class CfnImageBuilder(
         :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Administrators can connect to the image builder only through the specified endpoints.
         :param appstream_agent_version: The version of the WorkSpaces Applications agent to use for this image builder. To use the latest version of the WorkSpaces Applications agent, specify [LATEST].
         :param description: The description to display.
+        :param disable_imdsv1: 
         :param display_name: The image builder name to display.
         :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
         :param enable_default_internet_access: Enables or disables default internet access for the image builder.
@@ -5148,6 +5151,7 @@ class CfnImageBuilder(
             access_endpoints=access_endpoints,
             appstream_agent_version=appstream_agent_version,
             description=description,
+            disable_imdsv1=disable_imdsv1,
             display_name=display_name,
             domain_join_info=domain_join_info,
             enable_default_internet_access=enable_default_internet_access,
@@ -5343,6 +5347,23 @@ class CfnImageBuilder(
             type_hints = cached_type_hints(_typecheckingstub__a114f3ea3a654e9d4d760cdf7443cc73aa66b6e2b8f2c4d7d333accb36b9b88f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="disableImdsv1")
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "disableImdsv1"))
+
+    @disable_imdsv1.setter
+    def disable_imdsv1(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce5e707dea0c529bb546d57753c761076e1b368a530f2a33878fd2a0567ac1c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disableImdsv1", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -5799,6 +5820,7 @@ class CfnImageBuilder(
         "access_endpoints": "accessEndpoints",
         "appstream_agent_version": "appstreamAgentVersion",
         "description": "description",
+        "disable_imdsv1": "disableImdsv1",
         "display_name": "displayName",
         "domain_join_info": "domainJoinInfo",
         "enable_default_internet_access": "enableDefaultInternetAccess",
@@ -5821,6 +5843,7 @@ class CfnImageBuilderProps:
         access_endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImageBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         appstream_agent_version: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         domain_join_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnImageBuilder.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -5840,6 +5863,7 @@ class CfnImageBuilderProps:
         :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Administrators can connect to the image builder only through the specified endpoints.
         :param appstream_agent_version: The version of the WorkSpaces Applications agent to use for this image builder. To use the latest version of the WorkSpaces Applications agent, specify [LATEST].
         :param description: The description to display.
+        :param disable_imdsv1: 
         :param display_name: The image builder name to display.
         :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
         :param enable_default_internet_access: Enables or disables default internet access for the image builder.
@@ -5873,6 +5897,7 @@ class CfnImageBuilderProps:
                 )],
                 appstream_agent_version="appstreamAgentVersion",
                 description="description",
+                disable_imdsv1=False,
                 display_name="displayName",
                 domain_join_info=appstream.CfnImageBuilder.DomainJoinInfoProperty(
                     directory_name="directoryName",
@@ -5904,6 +5929,7 @@ class CfnImageBuilderProps:
             check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
             check_type(argname="argument appstream_agent_version", value=appstream_agent_version, expected_type=type_hints["appstream_agent_version"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_imdsv1", value=disable_imdsv1, expected_type=type_hints["disable_imdsv1"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
             check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
@@ -5925,6 +5951,8 @@ class CfnImageBuilderProps:
             self._values["appstream_agent_version"] = appstream_agent_version
         if description is not None:
             self._values["description"] = description
+        if disable_imdsv1 is not None:
+            self._values["disable_imdsv1"] = disable_imdsv1
         if display_name is not None:
             self._values["display_name"] = display_name
         if domain_join_info is not None:
@@ -6051,6 +6079,16 @@ class CfnImageBuilderProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-disableimdsv1
+        '''
+        result = self._values.get("disable_imdsv1")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
@@ -9682,6 +9720,7 @@ def _typecheckingstub__25dccb4354e677f39c5c97fd983d6a76f7631b1133ab64219d2975708
     access_endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImageBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     appstream_agent_version: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     domain_join_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImageBuilder.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -9755,6 +9794,12 @@ def _typecheckingstub__fbfe60f13227554e339b92afa2a96a3531634abbc6108618cf4745331
 
 def _typecheckingstub__a114f3ea3a654e9d4d760cdf7443cc73aa66b6e2b8f2c4d7d333accb36b9b88f(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce5e707dea0c529bb546d57753c761076e1b368a530f2a33878fd2a0567ac1c2(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9863,6 +9908,7 @@ def _typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f8
     access_endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImageBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     appstream_agent_version: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     domain_join_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnImageBuilder.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,

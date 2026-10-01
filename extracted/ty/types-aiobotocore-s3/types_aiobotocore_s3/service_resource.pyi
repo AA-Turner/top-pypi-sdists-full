@@ -56,6 +56,7 @@ from .literals import (
     ChecksumAlgorithmType,
     ChecksumTypeType,
     MFADeleteStatusType,
+    ObjectLockEventHoldType,
     ObjectLockLegalHoldStatusType,
     ObjectLockModeType,
     ObjectStorageClassType,
@@ -1668,6 +1669,9 @@ class Object(AIOBoto3ServiceResource):
     object_lock_mode: Awaitable[ObjectLockModeType]
     object_lock_retain_until_date: Awaitable[datetime]
     object_lock_legal_hold_status: Awaitable[ObjectLockLegalHoldStatusType]
+    object_lock_event_hold: Awaitable[ObjectLockEventHoldType]
+    object_lock_event_hold_duration_days: Awaitable[int]
+    object_lock_event_hold_duration_years: Awaitable[int]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

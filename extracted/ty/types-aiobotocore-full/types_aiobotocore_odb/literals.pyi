@@ -48,6 +48,7 @@ __all__ = (
     "EncryptionKeyProviderType",
     "ExternalIdTypeType",
     "GridImageTypeType",
+    "HardwareTypeType",
     "IamRoleStatusType",
     "IormLifecycleStateType",
     "LicenseModelType",
@@ -66,6 +67,7 @@ __all__ = (
     "ListDbSystemShapesPaginatorName",
     "ListExadbVmClustersPaginatorName",
     "ListExascaleDbStorageVaultsPaginatorName",
+    "ListFlexComponentsPaginatorName",
     "ListGiMinorVersionsPaginatorName",
     "ListGiVersionsPaginatorName",
     "ListOdbNetworksPaginatorName",
@@ -176,6 +178,7 @@ EncryptionKeyProviderInputType = Literal["AWS_KMS", "ORACLE_MANAGED"]
 EncryptionKeyProviderType = Literal["AWS_KMS", "OCI", "OKV", "ORACLE_MANAGED"]
 ExternalIdTypeType = Literal["compartment_ocid", "database_ocid", "tenant_ocid"]
 GridImageTypeType = Literal["CUSTOM_IMAGE", "RELEASE_UPDATE"]
+HardwareTypeType = Literal["CELL", "COMPUTE"]
 IamRoleStatusType = Literal[
     "ASSOCIATING",
     "CONNECTED",
@@ -204,6 +207,7 @@ ListDbServersPaginatorName = Literal["list_db_servers"]
 ListDbSystemShapesPaginatorName = Literal["list_db_system_shapes"]
 ListExadbVmClustersPaginatorName = Literal["list_exadb_vm_clusters"]
 ListExascaleDbStorageVaultsPaginatorName = Literal["list_exascale_db_storage_vaults"]
+ListFlexComponentsPaginatorName = Literal["list_flex_components"]
 ListGiMinorVersionsPaginatorName = Literal["list_gi_minor_versions"]
 ListGiVersionsPaginatorName = Literal["list_gi_versions"]
 ListOdbNetworksPaginatorName = Literal["list_odb_networks"]
@@ -361,6 +365,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -435,6 +440,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -463,6 +469,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -557,6 +564,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -731,6 +739,7 @@ PaginatorName = Literal[
     "list_db_system_shapes",
     "list_exadb_vm_clusters",
     "list_exascale_db_storage_vaults",
+    "list_flex_components",
     "list_gi_minor_versions",
     "list_gi_versions",
     "list_odb_networks",

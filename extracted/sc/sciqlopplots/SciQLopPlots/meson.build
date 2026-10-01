@@ -5,6 +5,10 @@ cpp_utils_dep = dependency('cpp_utils', fallback : ['cpp_utils', 'cpp_utils_dep'
 hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep'])
 fmt_dep = dependency('fmt', static:true)
 gl_dep = dependency('gl')
+# NeoQCP's draw/resample zones feed the SciQLopPlots tracer (and Tracy when enabled).
+meson.override_dependency('neoqcp-profiling-hook', declare_dependency(
+    include_directories: include_directories('../include'),
+    compile_args: ['-DNEOQCP_PROFILING_HOOK=<SciQLopPlots/Profiling.hpp>']))
 NeoQCP_dep = dependency('NeoQCP', default_options: ['tracy_enable=@0@'.format(get_option('tracy_enable')),
                                                     'unity=on',
                                                     'with_tests=false',
@@ -34,6 +38,20 @@ python3 = pymod.find_installation('python3', modules:[f'PySide@pyside_version@',
                                                       f'shiboken@pyside_version@_generator',
                                                       'numpy'])
 python3_dep = python3.dependency(embed:false)
+# One abi3 wheel per platform: the buffer protocol we read arrays with joined the
+# stable ABI in Python 3.11. Everything linked into the modules must agree on it.
+py_limited_api = '3.11'
+py_limited_api_args = ['-DPy_LIMITED_API=0x030B0000']
+# Shiboken's headers need two typedefs that CPython 3.11 keeps out of the limited
+# API: supply them when building with 3.11 (see the header).
+if python3.language_version().version_compare('<3.12')
+    limited_api_compat = meson.current_source_dir() / 'bindings' / 'limited_api_311_compat.h'
+    if meson.get_compiler('cpp').get_argument_syntax() == 'msvc'
+        py_limited_api_args += ['/FI' + limited_api_compat]
+    else
+        py_limited_api_args += ['-include', limited_api_compat]
+    endif
+endif
 
 qt_modules = ['QtCore','QtGui','QtWidgets']
 
@@ -183,6 +201,10 @@ bindings_lib = static_library('sciqlopplots_bindings_impl',
         sciqlopplots_bindings_src + shiboken_generator_out + ['../src/PythonInterface.cpp'],
         dependencies : [python3_dep, shiboken_dep, qtdeps, NeoQCP_dep, cpp_utils_dep, fmt_dep, magic_enum_dep],
         include_directories : includes,
+        cpp_args: py_limited_api_args,
+        # Only PyInit_ must be exported (PyMODINIT_FUNC marks it); abi3audit fails
+        # the wheel on shiboken's exported "Python*" converter functions.
+        gnu_symbol_visibility: 'inlineshidden',
         override_options: ['unity=off'],
 )
 
@@ -300,12 +322,13 @@ sciqlopplots_bindings = python3.extension_module('SciQLopPlotsBindings',
         dependencies : [ python3_dep, shiboken_dep, qtdeps, NeoQCP_dep, cpp_utils_dep, gl_dep, fmt_dep, magic_enum_dep, dsp_dep] + optional_deps,
         link_whole: [bindings_lib],
         cpp_args: cpp_args,
+        limited_api: py_limited_api,
         subdir : 'SciQLopPlots',
         install: true,
         include_directories : includes,
         extra_files: extra_files + sciqlopplots_python_sources +
                      sciqlopplots_bindings_headers + headers +
-                     ['bindings/snippets.cpp', 'bindings/helper_scripts/shiboken-gen.py']
+                     ['bindings/helper_scripts/shiboken-gen.py']
 )
 
 python3.install_sources(sciqlopplots_python_sources, pure: false, subdir: 'SciQLopPlots')
@@ -321,6 +344,7 @@ sciqlop_dsp_ext = python3.extension_module('_sciqlop_dsp',
     include_directories: [includes],
     cpp_args: ['-I' + numpy_inc],
     dependencies: [python3_dep, dsp_dep],
+    limited_api: py_limited_api,
     subdir: 'SciQLopPlots',
     install: true,
 )

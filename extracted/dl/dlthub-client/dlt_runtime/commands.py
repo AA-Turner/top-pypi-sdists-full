@@ -20,12 +20,13 @@ def _dispatch(action: Callable[[], Any]) -> None:
 
     # Current package
     from dlt_runtime.exceptions import RuntimeNotAuthenticated
+    from dlthub_sdk.errors import NotAuthenticated as SdkNotAuthenticated
 
     try:
         action()
-    except RuntimeNotAuthenticated as e:
-        # Mid-command 401: token wiped by httpx auth_flow → next invocation
-        # will re-trigger device flow via @requires_auth(auto_login=True).
+    except (RuntimeNotAuthenticated, SdkNotAuthenticated) as e:
+        # Mid-command 401: the credential already logged out → next invocation
+        # re-triggers the device flow via @requires_auth(auto_login=True).
         raise CliCommandInnerException(
             cmd="dlthub",
             msg=str(e) or "Authentication required. Run 'dlthub login'.",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-docs-theme
-Version: 2026.9
+Version: 2026.9.1
 Summary: The Sphinx theme for the CPython docs and related projects
 Project-URL: Issue tracker, https://github.com/python/python-docs-theme/issues
 Project-URL: Code, https://github.com/python/python-docs-theme
@@ -9,6 +9,7 @@ Project-URL: Homepage, https://github.com/python/python-docs-theme/
 Author: Python Docs Sphinx Theme maintainers
 License-Expression: PSF-2.0
 License-File: LICENSE
+License-File: python_docs_theme/static/fonts/OFL.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Sphinx :: Theme
 Classifier: Intended Audience :: Developers

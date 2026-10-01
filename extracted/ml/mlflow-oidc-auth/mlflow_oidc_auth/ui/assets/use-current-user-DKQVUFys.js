@@ -1,1 +1,0 @@
-import{t as e}from"./use-api-CKngEvVk.js";import{o as t}from"./user-service-CaFzuUXf.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{currentUser:n,isLoading:r,error:i,refresh:a}}export{n as t};

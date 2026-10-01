@@ -14,7 +14,10 @@ async fn raw_preload_keeps_ordinary_specs_and_sdk_hydrates_remote_config() {
     let sdk_key = "secret-remote-config-preload";
     let server = MockServer::start().await;
     let remote_value = br#"{"large":"hydrated after preload"}"#;
-    let sha = format!("{:x}", Sha256::digest(remote_value));
+    let sha = Sha256::digest(remote_value)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
     let blob_path = format!("/v1/dynamic_config_value/{sha}");
     let dcs = json!({
         "dynamic_configs": {

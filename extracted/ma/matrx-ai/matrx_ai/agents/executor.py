@@ -111,7 +111,9 @@ async def _settle_spine(
 # ---------------------------------------------------------------------------
 
 
-ErrorKind = Literal["execution", "parse", None]
+# "candidate_stopped": a mandate-candidate run ended at a contained call
+# (matrx_ai.tools.candidate_containment) — not a crash, and never a success.
+ErrorKind = Literal["execution", "parse", "candidate_stopped", None]
 
 
 class AgentRunResult(BaseModel, Generic[ParsedT]):
@@ -576,7 +578,16 @@ async def run_agent(
                 # still land. This is the fix for the 2026-07-07 event-loop
                 # starvation: ~40 concurrent internal derive calls each spun
                 # up the FULL user-chat persistence stack.
-                overrides["system_run"] = True
+                #
+                # A MANDATE CANDIDATE is the one exception to "throwaway": its
+                # transcript IS the evidence a person reads beside the live run
+                # (PLAN §2.7). Every other system_run behaviour below — muted
+                # stream, no client delegation, no citations — still applies, so
+                # what the model is offered and sees is exactly the live run's.
+                from matrx_graph.candidate import candidate_marker
+
+                if candidate_marker(child_metadata) is None:
+                    overrides["system_run"] = True
                 if not stream_system_run:
                     suppress_stream = True
                 # Ratified citations exclusion: a system_run is by definition a
@@ -700,12 +711,22 @@ async def run_agent(
         # from there so the model is always surfaced on the result.
         model_id = getattr(agent.config, "model", None)
 
+    from matrx_ai.tools.candidate_containment import CANDIDATE_STOPPED_STATUS
+
+    candidate_stopped = execute_result.metadata.get("status") == CANDIDATE_STOPPED_STATUS
     execution_failed = (
         execute_result.metadata.get("status") == "failed"
         or _contained_incomplete_reason is not None
+        or candidate_stopped
     )
     execution_error: str | None = None
-    if execution_failed:
+    if candidate_stopped:
+        stop = execute_result.metadata.get(CANDIDATE_STOPPED_STATUS) or {}
+        execution_error = (
+            f"candidate run stopped at step {stop.get('step')}: {stop.get('tool')} "
+            f"({stop.get('class')}) was not executed"
+        )
+    elif execution_failed:
         raw_error = execute_result.metadata.get("error")
         if isinstance(raw_error, dict):
             execution_error = str(
@@ -762,7 +783,11 @@ async def run_agent(
         model_id=model_id,
         metadata=dict(execute_result.metadata or {}),
         error=execution_error,
-        error_kind="execution" if execution_failed else None,
+        error_kind=(
+            "candidate_stopped"
+            if candidate_stopped
+            else ("execution" if execution_failed else None)
+        ),
         media=collect_media_refs(getattr(execute_result, "assistant_response", None)),
     )
     if _child_conversation_id:

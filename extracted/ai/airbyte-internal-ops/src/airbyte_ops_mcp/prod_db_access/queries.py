@@ -48,8 +48,10 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_DESTINATION_VERSION_ACTOR_HEALTH,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
     SELECT_NEW_CONNECTOR_RELEASES,
+    SELECT_ORG_ADMIN_CONTACTS,
     SELECT_ORG_CONNECTOR_PINS,
     SELECT_ORG_PIN_STATS,
+    SELECT_ORG_USER_LAST_CONNECTION_EVENT,
     SELECT_ORG_WORKSPACES,
     SELECT_ORGANIZATION_AGENTIC_FLAGS,
     SELECT_RAW_PINS_FOR_VERSION,
@@ -149,8 +151,10 @@ _RECORDED_PARAMETERS = frozenset(
         "release_candidate_version_ids",
         "rollout_id",
         "target_version_id",
+        "user_ids",
         "version_id",
         "workspace_id",
+        "workspace_ids",
         # Time windows.
         "cutoff_date",
         "end_at",
@@ -302,6 +306,44 @@ def query_organization_agentic_flags(
         SELECT_ORGANIZATION_AGENTIC_FLAGS,
         parameters={"organization_ids": organization_ids},
         query_name="SELECT_ORGANIZATION_AGENTIC_FLAGS",
+        gsm_client=gsm_client,
+    )
+
+
+def query_org_admin_contacts(
+    organization_id: str,
+    workspace_ids: list[str],
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Query direct organization and selected-workspace admin contacts."""
+    return _run_sql_query(
+        SELECT_ORG_ADMIN_CONTACTS,
+        parameters={
+            "organization_id": organization_id,
+            "workspace_ids": workspace_ids,
+        },
+        query_name="SELECT_ORG_ADMIN_CONTACTS",
+        gsm_client=gsm_client,
+    )
+
+
+def query_org_user_last_connection_events(
+    organization_id: str,
+    user_ids: list[str],
+    cutoff_date: datetime,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Query latest user-attributed connection timeline events in an organization."""
+    return _run_sql_query(
+        SELECT_ORG_USER_LAST_CONNECTION_EVENT,
+        parameters={
+            "organization_id": organization_id,
+            "user_ids": user_ids,
+            "cutoff_date": cutoff_date,
+        },
+        query_name="SELECT_ORG_USER_LAST_CONNECTION_EVENT",
         gsm_client=gsm_client,
     )
 

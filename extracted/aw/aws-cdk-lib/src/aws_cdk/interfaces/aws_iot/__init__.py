@@ -3089,13 +3089,14 @@ class ThingGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iot.ThingPrincipalAttachmentReference",
     jsii_struct_bases=[],
-    name_mapping={"thing_principal_attachment_id": "thingPrincipalAttachmentId"},
+    name_mapping={"principal": "principal", "thing_name": "thingName"},
 )
 class ThingPrincipalAttachmentReference:
-    def __init__(self, *, thing_principal_attachment_id: builtins.str) -> None:
+    def __init__(self, *, principal: builtins.str, thing_name: builtins.str) -> None:
         '''A reference to a ThingPrincipalAttachment resource.
 
-        :param thing_principal_attachment_id: The Id of the ThingPrincipalAttachment resource.
+        :param principal: The Principal of the ThingPrincipalAttachment resource.
+        :param thing_name: The ThingName of the ThingPrincipalAttachment resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -3106,21 +3107,31 @@ class ThingPrincipalAttachmentReference:
             from aws_cdk.interfaces import aws_iot as interfaces_iot
             
             thing_principal_attachment_reference = interfaces_iot.ThingPrincipalAttachmentReference(
-                thing_principal_attachment_id="thingPrincipalAttachmentId"
+                principal="principal",
+                thing_name="thingName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43efd3fd743ae12945fd439b22b4a32cf10787e7ffe3bb66b57eb430a483d631)
-            check_type(argname="argument thing_principal_attachment_id", value=thing_principal_attachment_id, expected_type=type_hints["thing_principal_attachment_id"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "thing_principal_attachment_id": thing_principal_attachment_id,
+            "principal": principal,
+            "thing_name": thing_name,
         }
 
     @builtins.property
-    def thing_principal_attachment_id(self) -> builtins.str:
-        '''The Id of the ThingPrincipalAttachment resource.'''
-        result = self._values.get("thing_principal_attachment_id")
-        assert result is not None, "Required property 'thing_principal_attachment_id' is missing"
+    def principal(self) -> builtins.str:
+        '''The Principal of the ThingPrincipalAttachment resource.'''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_name(self) -> builtins.str:
+        '''The ThingName of the ThingPrincipalAttachment resource.'''
+        result = self._values.get("thing_name")
+        assert result is not None, "Required property 'thing_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3653,7 +3664,8 @@ def _typecheckingstub__bf577bbf82c8129b7cff9884cac80e23395d69657fd40c3d65bef7915
 
 def _typecheckingstub__43efd3fd743ae12945fd439b22b4a32cf10787e7ffe3bb66b57eb430a483d631(
     *,
-    thing_principal_attachment_id: builtins.str,
+    principal: builtins.str,
+    thing_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

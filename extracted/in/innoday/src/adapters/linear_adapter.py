@@ -9,9 +9,14 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.adapters.base_adapter import BaseBoardAdapter, BoardAdapterError
+from src.adapters.base_adapter import (
+    BaseBoardAdapter,
+    BoardAdapterError,
+    BoardCapabilityError,
+    BoardRelease,
+)
 from src.adapters.board_assignee import BoardAssignee, attach_board_assignee
-from src.api.linear_api import LinearAPI, is_uuid
+from src.api.linear_api import LinearAPI, LinearAPIError, is_uuid
 from src.domain import BoardRegistration, Ticket, TicketStatus
 from src.utils.time_windows import parse_iso_naive
 
@@ -82,8 +87,10 @@ def _release_from_labels(labels: List[str]) -> Optional[str]:
     (see jira_adapter.py). We validate against blastoff's ``SemanticVersion``
     grammar rather than a bespoke regex so the accepted version format stays
     identical to the one the release engine and ``InnoDayVersionStore`` use.
-    The extracted string flows into ``Ticket.release``; downstream,
-    ``BoardSyncService._ensure_release_exists`` creates the PLANNED Release row.
+    The extracted string flows into ``Ticket.release`` and stops there -- sync
+    never creates a Release row from it. It is the fallback for a team with no
+    release pipeline; where there is one, membership in a Linear release
+    (``list_releases``) wins, see ``services/release_board_sync.py``.
     """
     # Imported lazily so the adapter has no hard import-time dependency on the
     # blastoff package (keeps board sync importable if blastoff is absent).
@@ -111,6 +118,8 @@ class LinearBoardAdapter(BaseBoardAdapter):
         self.workflow_states: Dict[str, str] = {}
         self.state_name_to_id: Dict[str, str] = {}
         self._initialized = False
+        self._pipeline: Optional[Dict[str, Any]] = None
+        self._issue_ids: Dict[str, str] = {}
         #: Why the last `validate_connection()` said no (mirrors JiraBoardAdapter).
         self.last_validation_error: Optional[str] = None
 
@@ -149,9 +158,34 @@ class LinearBoardAdapter(BaseBoardAdapter):
     ) -> List[Ticket]:
         try:
             issues = await self.api.get_team_issues(board_id, updated_after=since)
-            return [self._issue_to_ticket(issue) for issue in issues]
+            tickets = [self._issue_to_ticket(issue) for issue in issues]
         except Exception as e:
             raise BoardAdapterError(f"Failed to fetch Linear issues: {e}") from e
+        # A semver label is only the release for a team *without* a release
+        # pipeline. With one, membership in a Linear release is the answer
+        # (services/release_board_sync.py), and a stale label must not keep
+        # putting a ticket back into an old version on every sync.
+        if await self._has_release_line():
+            for ticket in tickets:
+                ticket.release = None
+        return tickets
+
+    async def _has_release_line(self) -> bool:
+        """True unless Linear says this team has no release line.
+
+        Only a definite "no pipeline" (`BoardCapabilityError`) brings the label
+        fallback back. Any other failure -- a rate limit, a timeout -- answers
+        True: re-applying stale labels on a bad afternoon would move tickets,
+        and this check must never fail the ticket sync around it.
+        """
+        try:
+            await self.resolve_release_pipeline()
+            return True
+        except BoardCapabilityError:
+            return False
+        except Exception as e:  # noqa: BLE001 -- see docstring
+            logger.warning("Linear release pipeline check failed: %s", e)
+            return True
 
     async def get_ticket(self, ticket_id: str) -> Optional[Ticket]:
         try:
@@ -364,6 +398,176 @@ class LinearBoardAdapter(BaseBoardAdapter):
             }
         except Exception as e:
             raise BoardAdapterError(f"Failed to get board metadata: {e}") from e
+
+    async def resolve_release_pipeline(self) -> Dict[str, Any]:
+        """The one Linear pipeline that stands for this project's release line.
+
+        InnoDay has one release line per project, so it pairs with exactly one
+        pipeline, chosen without a setting:
+
+        1. the pipelines linked to this board's team;
+        2. only *scheduled* ones -- a continuous pipeline records every deploy
+           as an already-completed release named after a commit, not a
+           planned version;
+        3. one left: use it; several: the one Linear marks production.
+
+        Raises:
+            BoardCapabilityError: no pipeline (including a plan without
+                Releases, where Linear refuses the query), or still ambiguous.
+                Either way releases stay managed in InnoDay only.
+        """
+        try:
+            pipelines = await self.api.get_team_release_pipelines(self.board_id)
+        except LinearAPIError as e:
+            # An HTTP error (auth, rate limit, outage, a query Linear rejects)
+            # is a real failure and must read as one -- reporting it as "no
+            # Releases feature" would hide it indefinitely. Only a request
+            # Linear accepted and then refused in GraphQL means the feature is
+            # not there for this workspace.
+            if e.http_status is not None:
+                raise BoardAdapterError(
+                    f"Failed to fetch Linear release pipelines: {e}"
+                ) from e
+            raise BoardCapabilityError(
+                f"Linear releases are not available for this team: {e}"
+            ) from e
+
+        scheduled = [p for p in pipelines if p.get("type") == "scheduled"]
+        # A pipeline linked to other teams too is shared by several projects,
+        # each of which would try to own its stages. Not ours alone: skip it.
+        scheduled = [p for p in scheduled if self._only_this_team(p)]
+        if len(scheduled) > 1:
+            scheduled = [p for p in scheduled if p.get("isProduction")] or scheduled
+        if not scheduled:
+            raise BoardCapabilityError(
+                "This Linear team has no scheduled release pipeline"
+            )
+        if len(scheduled) > 1:
+            names = ", ".join(sorted(p.get("name", "?") for p in scheduled))
+            raise BoardCapabilityError(
+                f"This Linear team has several scheduled release pipelines "
+                f"({names}); InnoDay cannot tell which is the project's"
+            )
+        self._pipeline = scheduled[0]
+        return scheduled[0]
+
+    def _only_this_team(self, pipeline: Dict[str, Any]) -> bool:
+        teams = (pipeline.get("teams") or {}).get("nodes")
+        if teams is None:
+            return True  # not asked for / not returned: nothing says shared
+        return {t.get("id") for t in teams} <= {self.board_id}
+
+    async def list_releases(self) -> List[BoardRelease]:
+        pipeline = await self.resolve_release_pipeline()
+        try:
+            releases = await self.api.get_pipeline_releases(pipeline["id"])
+        except LinearAPIError as e:
+            raise BoardAdapterError(f"Failed to fetch Linear releases: {e}") from e
+        result = []
+        for release in releases:
+            # `version` is optional on a Linear release; the name is what a
+            # person typed when they left it blank.
+            version = (release.get("version") or release.get("name") or "").strip()
+            if not version:
+                continue
+            issues = (release.get("issues") or {}).get("nodes") or []
+            result.append(
+                BoardRelease(
+                    external_id=release["id"],
+                    version=version,
+                    stage=(release.get("stage") or {}).get("type") or "",
+                    ticket_external_ids=[
+                        i["identifier"] for i in issues if i.get("identifier")
+                    ],
+                    archived=bool(release.get("archivedAt")),
+                )
+            )
+        return result
+
+    async def _stage_id(self, stage: str) -> Optional[str]:
+        """The paired pipeline's first stage of type `stage`, by position."""
+        pipeline = self._pipeline or await self.resolve_release_pipeline()
+        stages = [
+            st
+            for st in ((pipeline.get("stages") or {}).get("nodes") or [])
+            if st.get("type") == stage
+        ]
+        if not stages:
+            return None
+        return min(stages, key=lambda st: st.get("position") or 0)["id"]
+
+    async def _issue_id(self, identifier: str) -> str:
+        """Linear's issue UUID for a ticket key like ``PF-12``."""
+        if identifier not in self._issue_ids:
+            issue = await self.api.get_issue(identifier)
+            if not issue or not issue.get("id"):
+                raise BoardAdapterError(f"Linear has no issue {identifier}")
+            self._issue_ids[identifier] = issue["id"]
+        return self._issue_ids[identifier]
+
+    async def create_release(self, version: str, stage: str) -> BoardRelease:
+        pipeline = self._pipeline or await self.resolve_release_pipeline()
+        try:
+            created = await self.api.create_release(
+                pipeline["id"], version, await self._stage_id(stage)
+            )
+        except LinearAPIError as e:
+            raise BoardAdapterError(f"Failed to create Linear release: {e}") from e
+        return BoardRelease(
+            external_id=created["id"],
+            version=created.get("version") or version,
+            stage=(created.get("stage") or {}).get("type") or stage,
+        )
+
+    async def update_release(
+        self,
+        external_id: str,
+        *,
+        version: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> None:
+        changes: Dict[str, Any] = {}
+        if version is not None:
+            changes["version"] = version
+            changes["name"] = version
+        if stage is not None:
+            stage_id = await self._stage_id(stage)
+            if stage_id is None:
+                # The pipeline was set up without this stage; there is nothing
+                # to move it to, and failing would fail every sync forever.
+                logger.info("Linear pipeline has no %s stage; stage left", stage)
+            else:
+                changes["stageId"] = stage_id
+        if not changes:
+            return
+        try:
+            await self.api.update_release(external_id, changes)
+        except LinearAPIError as e:
+            raise BoardAdapterError(f"Failed to update Linear release: {e}") from e
+
+    async def add_ticket_to_release(
+        self, external_release_id: str, ticket_external_id: str
+    ) -> None:
+        try:
+            await self.api.add_issue_to_release(
+                await self._issue_id(ticket_external_id), external_release_id
+            )
+        except LinearAPIError as e:
+            raise BoardAdapterError(
+                f"Failed to attach {ticket_external_id} in Linear: {e}"
+            ) from e
+
+    async def remove_ticket_from_release(
+        self, external_release_id: str, ticket_external_id: str
+    ) -> None:
+        try:
+            await self.api.remove_issue_from_release(
+                await self._issue_id(ticket_external_id), external_release_id
+            )
+        except LinearAPIError as e:
+            raise BoardAdapterError(
+                f"Failed to detach {ticket_external_id} in Linear: {e}"
+            ) from e
 
     async def validate_connection(self) -> bool:
         """True if the team is reachable; the reason for False is kept on

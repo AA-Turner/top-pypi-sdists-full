@@ -288,6 +288,21 @@ def test_legacy_block_adapters_cover_all_known_vocabulary_gaps() -> None:
         assert required_key in adapt_block_data(block_type, value)
 
 
+def test_flashcards_adapter_keeps_the_sets_own_title() -> None:
+    """The placeholder is for a set with NO title — never over a real one.
+
+    Real case (conversation 10d796b4, 2026-09-30): every ``<flashcards>`` set
+    was titled "Flashcards" and saved as a deck of that name.
+    """
+    cards = [{"front": "Nitrate", "back": "NO3-"}]
+    titled = adapt_block_data("flashcards", {"cards": cards, "title": "Polyatomic Ions"})
+    assert titled["title"] == "Polyatomic Ions"
+    # No title, or an explicit null (a dump without exclude), still satisfies
+    # the kind's required ``title: string``.
+    assert adapt_block_data("flashcards", {"cards": cards})["title"] == "Flashcards"
+    assert adapt_block_data("flashcards", {"cards": cards, "title": None})["title"] == "Flashcards"
+
+
 def test_unregistered_kind_gets_no_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
     """Kind mapped but absent from content_ir.kind_definition -> never stamp."""
     _seed(monkeypatch, {"transcript": None})

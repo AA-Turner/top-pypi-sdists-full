@@ -67,11 +67,12 @@ Always use jCodemunch-MCP tools for code navigation. Never fall back to Read, Gr
 3. **One-call shortcut for a concrete task** — `assemble_task_context { "repo": "...", "task": "..." }` returns a single token-budgeted, source-attributed context capsule. It auto-classifies the task (explore / debug / refactor / extend / audit / review), auto-extracts anchor symbols, and runs the intent-appropriate sequence of the tools below end-to-end — so you get the whole context in one request instead of chaining the primitives by hand. Prefer it over a manual chain when the task is well-defined; fall back to step 1's routing when you need to decide *whether* the feature exists first.
 
 **Interpreting search results:**
-- If `search_symbols` returns `negative_evidence` with `verdict: "no_implementation_found"`:
+- `search_symbols` proves absence only when the scan is citable: `_meta.verdict.evidence_ref` holds an `absent:` token, or, where `_meta.verdict` is not shown, `_meta.absence_evidence.citable` is `true`. A `negative_evidence` of `no_implementation_found`, a `state` of `absent` or an empty result is not proof on its own. When absence is proven:
   - Do NOT re-search with different terms hoping to find it
   - Do NOT assume a related file (e.g. auth middleware) implements the missing feature (e.g. CSRF)
   - DO report: "No existing implementation found for X. This would need to be created."
   - DO check `related_existing` files — they show what's nearby, not what exists
+  - Anything short of citable proves nothing (`absence_citable: false`, `citable: false`, or neither field present). Read the note or `absence_blocked_by`; if it names the index, re-index, then search again.
 - If `verdict: "low_confidence_matches"`: examine the matches critically before assuming they implement the feature
 
 **After editing files:**
@@ -117,8 +118,7 @@ This server runs the **front door** surface: three tools reach every jCodeMunch 
 `menu` and `jcodemunch_guide` list every action this server can run, including ones absent from your tool list. That is expected: the front door is the way to call them.
 
 **Interpreting results:**
-- A `verdict` of `no_implementation_found` is evidence of absence. Report the gap; do not re-search with different wording.
-- A `verdict` of `degraded` means a channel was unavailable, so absence is NOT proven. Read the note before relying on the result.
+- A search proves absence only when the scan is citable: `_meta.verdict.evidence_ref` holds an `absent:` token, or, where `_meta.verdict` is not shown, `_meta.absence_evidence.citable` is `true`. Then report the gap; do not re-search with different wording. A `no_implementation_found` verdict, a `state` of `absent` or an empty result is not proof on its own: read the note or `absence_blocked_by`, re-index if it names the index, then search again.
 - `source: ""` alongside `source_status` means the body could not be read, not that the symbol is empty.
 
 **After editing files:**
@@ -226,6 +226,64 @@ def active_policy() -> str:
         return _CLAUDE_MD_POLICY_COUNTER
     return _filter_policy_for_tools(_CLAUDE_MD_POLICY, _get_active_tools())
 
+
+
+# THE marker: `cli.init` imports it, so "already present" and the drift check
+# find the same block (review of #871: there were two copies, matched two ways).
+POLICY_MARKER = "## Code Exploration Policy"
+
+
+def _policy_headings() -> set[str]:
+    """Every `## ` heading any policy variant contains: the block's own sections."""
+    heads: set[str] = set()
+    for text in (_CLAUDE_MD_POLICY, _CLAUDE_MD_POLICY_COUNTER):
+        heads |= {ln.strip() for ln in text.splitlines() if ln.startswith("## ")}
+    return heads
+
+
+def _normalise(lines) -> list[str]:
+    return [ln.rstrip() for ln in lines if ln.strip()]
+
+
+def installed_policy_drift(text: str) -> dict | None:
+    """Does the policy block in a CLAUDE.md match what this version installs? (#871)
+
+    ``None`` when the text holds no policy block (nothing to compare: the
+    one-line ``jcodemunch_guide`` form, or no install). Otherwise
+    ``{"state": "current"}`` or ``{"state": "differs", "lines_differing": n}``.
+
+    The block runs from the marker to the first ``## `` heading that is not one
+    of the policy's own sections, or to the end of the file, so a user's own
+    sections after it are never compared. Trailing whitespace and blank lines are
+    not a difference; indentation is. ⚠ "differs" cannot tell an outdated block from one its owner
+    edited on purpose; the caller must say so, and must never rewrite it
+    (the ``surface_offer`` rule: a message, never a migration).
+    """
+    lines = text.splitlines()
+    # Found the way `init` finds it: the first line CONTAINING the marker.
+    start = next((i for i, ln in enumerate(lines) if POLICY_MARKER in ln), None)
+    if start is None:
+        return None
+    own = _policy_headings()
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if lines[i].startswith("## ") and lines[i].strip() not in own:
+            end = i
+            break
+    installed = _normalise(lines[start:end])
+    current = _normalise(active_policy().splitlines())
+    if installed == current:
+        return {"state": "current"}
+    import difflib
+
+    # Lines, not diff operations: a substituted line is one line that differs
+    # (an ndiff count reports it twice, as a removal and an addition).
+    changed = sum(
+        max(i2 - i1, j2 - j1)
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(a=installed, b=current, autojunk=False).get_opcodes()
+        if tag != "equal"
+    )
+    return {"state": "differs", "lines_differing": changed}
 
 
 def _filter_policy_for_tools(policy: str, active_tools: set[str] | None) -> str:

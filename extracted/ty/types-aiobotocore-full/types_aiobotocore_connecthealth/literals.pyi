@@ -58,7 +58,7 @@ ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 ManagedNoteTemplateType = Literal[
     "BEHAVIORAL_SOAP", "BIRP", "DAP", "GIRPP", "HISTORY_AND_PHYSICAL", "PHYSICAL_SOAP", "SIRP"
 ]
-MedicalScribeLanguageCodeType = Literal["en-US"]
+MedicalScribeLanguageCodeType = Literal["en-US", "multi"]
 MedicalScribeMediaEncodingType = Literal["flac", "pcm"]
 MedicalScribeParticipantRoleType = Literal["CLINICIAN", "PATIENT"]
 MedicalScribeSessionControlEventTypeType = Literal["END_OF_SESSION"]
@@ -149,6 +149,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -223,6 +224,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -251,6 +253,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -345,6 +348,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyflakes
-Version: 4.0.0
+Version: 4.0.1
 Summary: passive checker of Python programs
 Home-page: https://github.com/PyCQA/pyflakes
 Author: A lot of people
@@ -19,6 +19,15 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 ========
 Pyflakes

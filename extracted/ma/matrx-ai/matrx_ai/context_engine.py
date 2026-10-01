@@ -646,8 +646,13 @@ async def build_agent_context(
     use_cache: bool = True,
     path: str = "chosen",
     system_names: SystemContextNames | None = None,
+    organization_id: str | None = None,
 ) -> AgentContext:
     """Resolve all context variables for ``user_id`` and return an AgentContext.
+
+    ``organization_id`` — the organization this RUN is admitted for (carried from the request,
+    never a default). Passed through to :func:`agent_context_from_resolved` so the scope names
+    it BEFORE the merge-field producer runs (see there).
 
     ``path`` — ``"chosen"`` (default) lets the host's path chooser answer from the record store
     when the turn's organization has chosen the new path; ``"old"`` always asks the current
@@ -776,7 +781,12 @@ async def build_agent_context(
         while len(_context_cache) > _CONTEXT_CACHE_MAX:
             _context_cache.popitem(last=False)
     return await agent_context_from_resolved(
-        user_id, resolved, entity_type=entity_type, entity_id=entity_id, system_names=names
+        user_id,
+        resolved,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        system_names=names,
+        organization_id=organization_id,
     )
 
 
@@ -787,8 +797,18 @@ async def agent_context_from_resolved(
     entity_type: str,
     entity_id: str,
     system_names: SystemContextNames | None = None,
+    organization_id: str | None = None,
 ) -> AgentContext:
     """Everything that happens to a resolver's answer after it comes back — ONE body.
+
+    ``organization_id`` — the organization the run is admitted for. A brand-new entity's row
+    is still queued when this runs, so the resolver's ``context`` map names NO organization on
+    turn one; the merge-field producer then refused every first turn ("scope names no
+    organization") and the turn fell back to the direct tier split — ~8 s and a
+    ``context_resolver_failed`` row per run (clone + live, 2026-09-30). The run's own
+    organization fills that gap here, before the producer reads the scope. It never replaces
+    an organization the resolver did name, and it is never a default: absent, nothing is
+    filled and the producer says why.
 
     ``system_names`` — which System items this turn may receive (:class:`SystemContextNames`).
     Not passed: the naming in force (:func:`naming_system_items`); none in force: the platform's
@@ -801,7 +821,10 @@ async def agent_context_from_resolved(
     answered. Mutates ``resolved`` in place; pass a copy when it must be kept.
     """
     variables: dict[str, Any] = resolved.get("variables", {})
-    context_scope: dict[str, Any] = resolved.get("context", {})
+    context_scope: dict[str, Any] = resolved.setdefault("context", {}) or {}
+    if organization_id and not context_scope.get("organization_id"):
+        context_scope["organization_id"] = str(organization_id)
+        resolved["context"] = context_scope
     scope_labels: dict[str, Any] = resolved.get("scope_labels", {})
     # Collision-proof cell map keyed by context_item_id (UUID) — the source for scope→agent
     # binding resolution, which must match by exact id, never by a key that can collide

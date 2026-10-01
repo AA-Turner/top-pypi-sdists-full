@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Sift
-Version: 6.0.0
+Version: 6.1.0
 Summary: Python bindings for Sift Science's API
 Author-email: Sift Science <support@siftscience.com>
 License: The MIT License
@@ -45,6 +45,8 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: requests<3.0.0
+Dynamic: license-file
 
 # Sift Python Bindings
 
@@ -101,6 +103,23 @@ properties = {
     },
     "$currency_code": "USD",
     "$amount": 15230000,
+    # Identity / KYC signals
+    "$kyc": {
+        "$names_match": True,
+        "$kyc_level": "$basic",   # "$basic" or "$full"
+        "$bin_nationality_match": True,
+        "$provider": "lexisnexis",
+    },
+    # Geo/compliance signals
+    "$geo": {
+        "$uuid": "gc-abc-123",
+        "$provider": "geocomply",
+    },
+    # Bot detection signals
+    "$bot_identification": {
+        "$result": "$human",        # "$bot", "$human", or "$suspected"
+        "$provider": "datadome",
+    },
 }
 
 try:

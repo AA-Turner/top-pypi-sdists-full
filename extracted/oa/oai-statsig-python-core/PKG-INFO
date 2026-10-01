@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.31.0
+Version: 0.32.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: requests
 Requires-Dist: typing-extensions
+Requires-Dist: protobuf>=6.33.6 ; extra == 'typed'
+Provides-Extra: typed
 Summary: Statsig Python bindings for the Statsig Core SDK.
 Home-Page: https://statsig.com/
 Author: Statsig, Daniel Loomb <daniel@statsig.com>
@@ -98,6 +100,9 @@ Delta responses continue to skip snapshot writes. Keep the role stable during an
 update. A failing Python capability check is treated as read-only.
 
 ## Packages
+
+Python protobuf-typed reads and explicit publication callbacks are described in
+[Python typed configs](docs/python-typed-configs.md).
 
 Bindings
 

@@ -40,6 +40,8 @@ __all__ = (
     "DeviceCgroupPermissionType",
     "EFSAuthorizationConfigIAMType",
     "EFSTransitEncryptionType",
+    "EksAccessEntryDesiredStateType",
+    "EksAccessEntryStatusType",
     "FirelensConfigurationTypeType",
     "JQStateType",
     "JQStatusType",
@@ -92,7 +94,7 @@ CRAllocationStrategyType = Literal[
     "SPOT_CAPACITY_OPTIMIZED_PRIORITIZED",
     "SPOT_PRICE_CAPACITY_OPTIMIZED",
 ]
-CRTypeType = Literal["EC2", "FARGATE", "FARGATE_SPOT", "SPOT"]
+CRTypeType = Literal["EC2", "ECS_MANAGED_INSTANCES", "FARGATE", "FARGATE_SPOT", "SPOT"]
 CRUpdateAllocationStrategyType = Literal[
     "BEST_FIT_PROGRESSIVE",
     "BEST_FIT_PROGRESSIVE_ORDERED",
@@ -108,11 +110,15 @@ DescribeServiceEnvironmentsPaginatorName = Literal["describe_service_environment
 DeviceCgroupPermissionType = Literal["MKNOD", "READ", "WRITE"]
 EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
+EksAccessEntryDesiredStateType = Literal["DISABLED", "ENABLED", "INHERIT_FROM_CLUSTER"]
+EksAccessEntryStatusType = Literal["ACTIVE", "INACTIVE"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
 JobDefinitionTypeType = Literal["container", "multinode"]
-JobQueueTypeType = Literal["ECS", "ECS_FARGATE", "EKS", "SAGEMAKER_TRAINING"]
+JobQueueTypeType = Literal[
+    "ECS", "ECS_FARGATE", "ECS_MANAGED_INSTANCES", "EKS", "SAGEMAKER_TRAINING"
+]
 JobStateTimeLimitActionsActionType = Literal["CANCEL", "TERMINATE"]
 JobStateTimeLimitActionsStateType = Literal["RUNNABLE"]
 JobStatusType = Literal[
@@ -128,7 +134,7 @@ LogDriverType = Literal[
     "awsfirelens", "awslogs", "fluentd", "gelf", "journald", "json-file", "splunk", "syslog"
 ]
 OrchestrationTypeType = Literal["ECS", "EKS"]
-PlatformCapabilityType = Literal["EC2", "FARGATE"]
+PlatformCapabilityType = Literal["EC2", "FARGATE", "MANAGED_INSTANCES"]
 QuotaShareIdleResourceAssignmentStrategyType = Literal["FIFO"]
 QuotaShareInSharePreemptionStateType = Literal["DISABLED", "ENABLED"]
 QuotaShareResourceSharingStrategyType = Literal["LEND", "LEND_AND_BORROW", "RESERVE"]
@@ -229,6 +235,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -303,6 +310,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -331,6 +339,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -425,6 +434,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

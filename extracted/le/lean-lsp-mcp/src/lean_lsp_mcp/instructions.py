@@ -18,11 +18,11 @@ INSTRUCTIONS = f"""## General Rules
 
 ## Key Tools
 - **lean_goal**: Proof state at position. Omit `column` for before/after. `status` field: 'goals', 'complete' (proof done here), or 'no_goal_at_position' (not inside a proof).
-- **lean_diagnostic_messages**: Compiler errors/warnings. "no goals to be solved" = remove tactics.
+- **lean_diagnostic_messages**: Compiler errors/warnings. "no goals to be solved" = remove tactics. Each item carries `category`: 'linter' is style noise (unused variables and the like) that does not block compilation, 'sorry' marks an unproved declaration (not noise), 'suggestion' holds a `Try this:` replacement. A `hint` field appears on recognised failure modes.
 - **lean_term_goal**: Expected type at a position.
 - **lean_hover_info**: Type signature + docs. Column at START of identifier.
 - **lean_completions**: IDE autocomplete on incomplete code.
-- **lean_local_search**: Fast local declaration search. Use BEFORE trying a lemma name.
+- **lean_local_search**: Fast local declaration search. Use BEFORE trying a lemma name. Only `index: consulted` makes an empty result proof of absence; `warming` means the symbol index is still loading, `unavailable` means no language server is running, `error` means the lookup failed.
 - **lean_file_outline**: Token-efficient file skeleton (slow-ish).
 - **lean_multi_attempt**: Test tactics without editing at a proof position. Use `column` for an exact source position; omit it for fast line-based attempts: `["simp", "ring", "omega"]`
 - **lean_code_actions**: Quick fixes and `TryThis` suggestions (simp?, exact?) with resolved edits.
@@ -38,7 +38,6 @@ INSTRUCTIONS = f"""## General Rules
 - **lean_leansearch** ({_limit("leansearch")}): Natural language -> mathlib
 - **lean_loogle** ({_limit("loogle")}): Type pattern -> mathlib
 - **lean_leanfinder** ({_limit("leanfinder")}): Semantic/conceptual search
-- **lean_state_search** ({_limit("lean_state_search")}): Goal -> closing lemmas
 - **lean_hammer_premise** ({_limit("hammer_premise")}): Goal -> premises for simp/aesop
 
 ## Search Decision Tree
@@ -46,8 +45,7 @@ INSTRUCTIONS = f"""## General Rules
 2. "I need a lemma that says X" -> lean_leansearch
 3. "Find lemma with type pattern" -> lean_loogle
 4. "What's the Lean name for concept X?" -> lean_leanfinder
-5. "What closes this goal?" -> lean_state_search
-6. "What to feed simp?" -> lean_hammer_premise
+5. "What closes this goal?" / "What to feed simp?" -> lean_hammer_premise
 
 After finding a name: lean_local_search to verify, lean_hover_info for signature.
 
@@ -61,5 +59,5 @@ response with `partial: true` + `still_elaborating_lines` (or goal `status:
 error or a dead server.
 
 ## Error Handling
-Check `isError` in responses: `true` means failure (timeout/LSP error/rate limit), while an empty `items` with `isError: false` means no results found.
+Check `isError` in responses: `true` means failure (timeout/LSP error/rate limit), while an empty `items` with `isError: false` means no results found -- except lean_local_search, where that only holds when its `index` field says `consulted`; otherwise the index was not consulted and the name may still exist.
 """

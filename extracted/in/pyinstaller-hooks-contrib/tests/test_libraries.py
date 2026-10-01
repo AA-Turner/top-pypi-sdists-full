@@ -1734,6 +1734,13 @@ def test_pylibmagic(pyi_builder):
     """)
 
 
+@importorskip('fastmcp')
+def test_fastmcp(pyi_builder):
+    pyi_builder.test_source("""
+        import fastmcp
+    """)
+
+
 @importorskip('fastparquet')
 def test_fastparquet(pyi_builder):
     pyi_builder.test_source("""
@@ -3197,6 +3204,36 @@ def test_duckdb(pyi_builder):
     """)
 
 
+@importorskip('duckdb')
+@importorskip('fsspec')
+def test_duckdb_read_json(pyi_builder):
+    pyi_builder.test_source("""
+        import io
+
+        import duckdb
+
+        json_data = '''
+            [
+              {
+                "id": 1,
+                "title": "Entry #1",
+              },
+              {
+                "id": 2,
+                "title": "Entry #2",
+              },
+              {
+                "id": 3,
+                "title": "Entry #3",
+              }
+            ]
+        '''
+
+        data = duckdb.read_json(io.StringIO(json_data))
+        print(f"Records: {data.fetchall()}")
+    """)
+
+
 @importorskip('dateparser')
 def test_dateparser(pyi_builder):
     pyi_builder.test_source("""
@@ -3486,4 +3523,22 @@ def test_procrastinate(pyi_builder):
 
         # sql/schema.sql is read on demand.
         assert 'CREATE TABLE' in SchemaManager.get_schema()
+""")
+
+
+@importorskip("py_ecc")
+def test_py_ecc(pyi_builder):
+    pyi_builder.test_source("""
+        from py_ecc.bls import G2ProofOfPossession as bls_pop
+
+        private_key = 5566
+        public_key = bls_pop.SkToPk(private_key)
+
+        message = b'Message to be signed'
+
+        # Signing
+        signature = bls_pop.Sign(private_key, message)
+
+        # Verifying
+        assert bls_pop.Verify(public_key, message, signature)
 """)

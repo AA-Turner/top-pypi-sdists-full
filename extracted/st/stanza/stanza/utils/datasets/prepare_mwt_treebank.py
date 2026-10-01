@@ -24,7 +24,7 @@ from stanza.utils.datasets.contract_mwt import contract_mwt
 # languages where the MWTs are always a composition of the words themselves
 KNOWN_COMPOSABLE_MWTS = {"en"}
 # ... but partut is not put together that way
-MWT_EXCEPTIONS = {"en_partut"}
+MWT_EXCEPTIONS = {"en_partut", "en_lines"}
 
 def copy_conllu(tokenizer_dir, mwt_dir, short_name, dataset, particle):
     input_conllu_tokenizer = f"{tokenizer_dir}/{short_name}.{dataset}.gold.conllu"
@@ -52,10 +52,15 @@ def process_treebank(treebank, model_type, paths, args):
         paths["TOKENIZE_DATA_DIR"] = tokenizer_dir
 
         # first we process the tokenization data
+        # TODO: this is dumb (with a b)
+        # should just copy the args and edit the two variables instead
         tokenizer_args = argparse.Namespace()
         tokenizer_args.augment = False
         tokenizer_args.prepare_labels = True
+        tokenizer_args.small_dataset_threshold = args.small_dataset_threshold
         tokenizer_args.use_spanish_future = args.use_spanish_future
+        tokenizer_args.split_ratio = args.split_ratio
+        tokenizer_args.additional_files = args.additional_files
         prepare_tokenizer_treebank.process_treebank(treebank, model_type, paths, tokenizer_args)
 
         copy_conllu(tokenizer_dir, mwt_dir, short_name, "train", "in")

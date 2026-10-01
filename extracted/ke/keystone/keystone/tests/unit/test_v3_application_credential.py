@@ -359,7 +359,8 @@ class ApplicationCredentialTestCase(test_v3.RestfulTestCase):
                 expected_status_code=http.client.FORBIDDEN,
             )
             c.delete(
-                f'/v3/users/{self.user_id}/application_credentials/{app_cred_id}',
+                f'/v3/users/{self.user_id}'
+                f'/application_credentials/{app_cred_id}',
                 headers={'X-Auth-Token': token},
             )
             c.delete(
@@ -978,8 +979,8 @@ class ApplicationCredentialTestCase(test_v3.RestfulTestCase):
     def test_show_access_rule_invalid_qs(self):
         with self.test_client() as c:
             token = self.get_scoped_token()
-            # Invoke GET access_rules/{id} with unsupported query parameters and
-            # trigger internal validation
+            # Invoke GET access_rules/{id} with unsupported query
+            # parameters and trigger internal validation
             c.get(
                 f"/v3/users/{self.user_id}/access_rules/{access_rule_id}"
                 "?foo=bar",
@@ -1037,6 +1038,15 @@ class AppCredEc2GuardTests(ApplicationCredentialTestCase):
                 'credential',
                 credential_fernet.MAX_ACTIVE_KEYS,
             )
+        )
+
+    def config_overrides(self):
+        super().config_overrides()
+        # Minting an EC2 token requires the ec2credential marker method to
+        # be enabled, on top of the base class's restricted methods list.
+        self.config_fixture.config(
+            group='auth',
+            methods='password,application_credential,ec2credential',
         )
 
     def _get_ec2_token_id(self):

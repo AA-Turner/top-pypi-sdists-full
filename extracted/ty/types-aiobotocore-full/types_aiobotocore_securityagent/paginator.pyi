@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_securityagent.client import SecurityAgentClient
     from types_aiobotocore_securityagent.paginator import (
+        ListActorMessagesPaginator,
         ListAgentSpacesPaginator,
         ListApplicationsPaginator,
         ListArtifactsPaginator,
@@ -40,6 +41,7 @@ Usage::
     with session.create_client("securityagent") as client:
         client: SecurityAgentClient
 
+        list_actor_messages_paginator: ListActorMessagesPaginator = client.get_paginator("list_actor_messages")
         list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
         list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
         list_artifacts_paginator: ListArtifactsPaginator = client.get_paginator("list_artifacts")
@@ -73,6 +75,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListActorMessagesInputPaginateTypeDef,
+    ListActorMessagesOutputTypeDef,
     ListAgentSpacesInputPaginateTypeDef,
     ListAgentSpacesOutputTypeDef,
     ListApplicationsRequestPaginateTypeDef,
@@ -125,6 +129,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListActorMessagesPaginator",
     "ListAgentSpacesPaginator",
     "ListApplicationsPaginator",
     "ListArtifactsPaginator",
@@ -148,6 +153,24 @@ __all__ = (
     "ListThreatModelsPaginator",
     "ListThreatsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListActorMessagesPaginatorBase = AioPaginator[ListActorMessagesOutputTypeDef]
+else:
+    _ListActorMessagesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListActorMessagesPaginator(_ListActorMessagesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListActorMessages.html#SecurityAgent.Paginator.ListActorMessages)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/paginators/#listactormessagespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListActorMessagesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListActorMessagesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListActorMessages.html#SecurityAgent.Paginator.ListActorMessages.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/paginators/#listactormessagespaginator)
+        """
 
 if TYPE_CHECKING:
     _ListAgentSpacesPaginatorBase = AioPaginator[ListAgentSpacesOutputTypeDef]

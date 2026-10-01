@@ -258,13 +258,13 @@ class ConfigurationAggregatorReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.ConfigurationRecorderReference",
     jsii_struct_bases=[],
-    name_mapping={"configuration_recorder_id": "configurationRecorderId"},
+    name_mapping={"configuration_recorder_name": "configurationRecorderName"},
 )
 class ConfigurationRecorderReference:
-    def __init__(self, *, configuration_recorder_id: builtins.str) -> None:
+    def __init__(self, *, configuration_recorder_name: builtins.str) -> None:
         '''A reference to a ConfigurationRecorder resource.
 
-        :param configuration_recorder_id: The Id of the ConfigurationRecorder resource.
+        :param configuration_recorder_name: The Name of the ConfigurationRecorder resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -275,21 +275,21 @@ class ConfigurationRecorderReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             configuration_recorder_reference = interfaces_config.ConfigurationRecorderReference(
-                configuration_recorder_id="configurationRecorderId"
+                configuration_recorder_name="configurationRecorderName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63416909aacc16f4b663be48b88e6851d224326d56dfd0b80c8619fd734ddf59)
-            check_type(argname="argument configuration_recorder_id", value=configuration_recorder_id, expected_type=type_hints["configuration_recorder_id"])
+            check_type(argname="argument configuration_recorder_name", value=configuration_recorder_name, expected_type=type_hints["configuration_recorder_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration_recorder_id": configuration_recorder_id,
+            "configuration_recorder_name": configuration_recorder_name,
         }
 
     @builtins.property
-    def configuration_recorder_id(self) -> builtins.str:
-        '''The Id of the ConfigurationRecorder resource.'''
-        result = self._values.get("configuration_recorder_id")
-        assert result is not None, "Required property 'configuration_recorder_id' is missing"
+    def configuration_recorder_name(self) -> builtins.str:
+        '''The Name of the ConfigurationRecorder resource.'''
+        result = self._values.get("configuration_recorder_name")
+        assert result is not None, "Required property 'configuration_recorder_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -424,13 +424,13 @@ class ConnectorReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.DeliveryChannelReference",
     jsii_struct_bases=[],
-    name_mapping={"delivery_channel_id": "deliveryChannelId"},
+    name_mapping={"delivery_channel_name": "deliveryChannelName"},
 )
 class DeliveryChannelReference:
-    def __init__(self, *, delivery_channel_id: builtins.str) -> None:
+    def __init__(self, *, delivery_channel_name: builtins.str) -> None:
         '''A reference to a DeliveryChannel resource.
 
-        :param delivery_channel_id: The Id of the DeliveryChannel resource.
+        :param delivery_channel_name: The Name of the DeliveryChannel resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -441,21 +441,21 @@ class DeliveryChannelReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             delivery_channel_reference = interfaces_config.DeliveryChannelReference(
-                delivery_channel_id="deliveryChannelId"
+                delivery_channel_name="deliveryChannelName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3b7dc081)
-            check_type(argname="argument delivery_channel_id", value=delivery_channel_id, expected_type=type_hints["delivery_channel_id"])
+            check_type(argname="argument delivery_channel_name", value=delivery_channel_name, expected_type=type_hints["delivery_channel_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "delivery_channel_id": delivery_channel_id,
+            "delivery_channel_name": delivery_channel_name,
         }
 
     @builtins.property
-    def delivery_channel_id(self) -> builtins.str:
-        '''The Id of the DeliveryChannel resource.'''
-        result = self._values.get("delivery_channel_id")
-        assert result is not None, "Required property 'delivery_channel_id' is missing"
+    def delivery_channel_name(self) -> builtins.str:
+        '''The Name of the DeliveryChannel resource.'''
+        result = self._values.get("delivery_channel_name")
+        assert result is not None, "Required property 'delivery_channel_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1250,7 +1250,7 @@ def _typecheckingstub__b4857da1b529671a1a7c545b945a1d22a77f03b0a279d1e47b82b9ac7
 
 def _typecheckingstub__63416909aacc16f4b663be48b88e6851d224326d56dfd0b80c8619fd734ddf59(
     *,
-    configuration_recorder_id: builtins.str,
+    configuration_recorder_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1272,7 +1272,7 @@ def _typecheckingstub__8783b174b3cfb1a3e14858e0d757bd09a04da610058c3f99a1113ffe6
 
 def _typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3b7dc081(
     *,
-    delivery_channel_id: builtins.str,
+    delivery_channel_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

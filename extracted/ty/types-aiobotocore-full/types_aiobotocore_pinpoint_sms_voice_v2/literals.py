@@ -61,6 +61,7 @@ __all__ = (
     "KeywordActionType",
     "KeywordFilterNameType",
     "LanguageCodeType",
+    "ListAvailablePhoneNumbersPaginatorName",
     "ListNotifyCountriesPaginatorName",
     "ListPoolOriginationIdentitiesPaginatorName",
     "ListProtectConfigurationRuleSetNumberOverridesPaginatorName",
@@ -86,6 +87,7 @@ __all__ = (
     "PoolFilterNameType",
     "PoolOriginationIdentitiesFilterNameType",
     "PoolStatusType",
+    "PreferenceTypeType",
     "ProtectConfigurationFilterNameType",
     "ProtectConfigurationRuleOverrideActionType",
     "ProtectConfigurationRuleSetNumberOverrideFilterNameType",
@@ -105,6 +107,7 @@ __all__ = (
     "RegistrationVersionStatusType",
     "RequestableNumberTypeType",
     "ResourceServiceName",
+    "SearchableNumberTypeType",
     "SenderIdFilterNameType",
     "ServiceName",
     "SpendLimitNameType",
@@ -247,6 +250,7 @@ LanguageCodeType = Literal[
     "ZH_CN",
     "ZH_TW",
 ]
+ListAvailablePhoneNumbersPaginatorName = Literal["list_available_phone_numbers"]
 ListNotifyCountriesPaginatorName = Literal["list_notify_countries"]
 ListPoolOriginationIdentitiesPaginatorName = Literal["list_pool_origination_identities"]
 ListProtectConfigurationRuleSetNumberOverridesPaginatorName = Literal[
@@ -309,6 +313,7 @@ PoolFilterNameType = Literal[
 ]
 PoolOriginationIdentitiesFilterNameType = Literal["iso-country-code", "number-capability"]
 PoolStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
+PreferenceTypeType = Literal["Contains", "EndsWith", "ExactMatch", "StartsWith"]
 ProtectConfigurationFilterNameType = Literal["account-default", "deletion-protection-enabled"]
 ProtectConfigurationRuleOverrideActionType = Literal["ALLOW", "BLOCK"]
 ProtectConfigurationRuleSetNumberOverrideFilterNameType = Literal[
@@ -372,6 +377,7 @@ RegistrationVersionStatusType = Literal[
     "SUBMITTED",
 ]
 RequestableNumberTypeType = Literal["LONG_CODE", "SIMULATOR", "TEN_DLC", "TOLL_FREE"]
+SearchableNumberTypeType = Literal["TEN_DLC"]
 SenderIdFilterNameType = Literal[
     "deletion-protection-enabled", "iso-country-code", "message-type", "registered", "sender-id"
 ]
@@ -532,6 +538,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -606,6 +613,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -634,6 +642,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -728,6 +737,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -910,6 +920,7 @@ PaginatorName = Literal[
     "describe_sender_ids",
     "describe_spend_limits",
     "describe_verified_destination_numbers",
+    "list_available_phone_numbers",
     "list_notify_countries",
     "list_pool_origination_identities",
     "list_protect_configuration_rule_set_number_overrides",

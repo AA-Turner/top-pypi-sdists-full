@@ -6,10 +6,12 @@ import asyncio
 import json
 import os
 import platform
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from lean_lsp_mcp import config
+from lean_lsp_mcp.outline_utils import _strip_line_comment
 
 if platform.system() != "Windows":
     import resource
@@ -282,6 +284,12 @@ class Repl:
                 body_lines = body.splitlines()
                 last_line = next((ln for ln in reversed(body_lines) if ln.strip()), "")
                 indent = last_line[: len(last_line) - len(last_line.lstrip())]
+                # A fresh `by` block has no preceding tactic to align with.
+                # Lean 4.34 requires its first tactic to be indented further
+                # than the line introducing the block. The comment goes first,
+                # so `simp -- closed by` does not read as opening one.
+                if re.search(r"\bby$", _strip_line_comment(last_line.rstrip())):
+                    indent += "  "
                 body_with_sorry = body.rstrip() + "\n" + indent + "sorry"
                 resp = await asyncio.wait_for(
                     self._send_cmd(body_with_sorry, env=header_env),

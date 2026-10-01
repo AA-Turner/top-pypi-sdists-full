@@ -28,7 +28,7 @@ import attr  # type: ignore
 import pycodestyle  # type: ignore
 from flake8.exceptions import PluginExecutionFailed
 
-__version__ = "26.9.9"
+__version__ = "26.9.30"
 
 LOG = logging.getLogger("flake8.bugbear")
 CONTEXTFUL_NODES = (
@@ -43,6 +43,7 @@ CONTEXTFUL_NODES = (
     ast.GeneratorExp,
 )
 FUNCTION_NODES = (ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda)
+EAGER_COMPREHENSION_NODES = (ast.ListComp, ast.SetComp, ast.DictComp)
 FUNCTIONS_WITHOUT_SIDE_EFFECTS = (
     "all",
     "any",
@@ -59,6 +60,21 @@ FUNCTIONS_WITHOUT_SIDE_EFFECTS = (
     "str",
     "tuple",
 )
+# Arithmetic operators whose result is all a statement like `a * b` produces.
+# Shifts, bitwise operators and `@` are left out: libraries overload them for
+# their side effects, such as Airflow's `task1 >> task2`.
+B018_ARITHMETIC_OPERATORS = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+)
+B018_RAISING_BLOCKS: tuple[type[ast.stmt], ...] = (ast.Try, ast.With, ast.AsyncWith)
+if sys.version_info >= (3, 11):
+    B018_RAISING_BLOCKS += (ast.TryStar,)
 B908_pytest_functions = {"raises", "warns"}
 B908_unittest_methods = {
     "assertRaises",
@@ -448,6 +464,10 @@ class BugBearVisitor(ast.NodeVisitor):
     _b023_seen: set[ast.Name] = attr.ib(factory=set, init=False)
     _b023_scopes: dict[int, tuple] = attr.ib(factory=dict, init=False)
     _b005_imports: set[str] = attr.ib(factory=set, init=False)
+    # None marks an imported name that has since been rebound at module scope.
+    _b008_imports: dict[str, str | None] = attr.ib(factory=dict, init=False)
+    _b008_class_imports: list[dict[str, str | None]] = attr.ib(factory=list, init=False)
+    _b008_class_globals: list[set[str]] = attr.ib(factory=list, init=False)
 
     # set to "*" when inside a try/except*, for correctly printing errors
     in_trystar: str = attr.ib(default="")
@@ -469,6 +489,99 @@ class BugBearVisitor(ast.NodeVisitor):
 
         context, stack = self.contexts[-1]
         return stack
+
+    def _b008_shadow_imports(
+        self,
+        names: Iterable[str],
+        imports: dict[str, str | None] | None = None,
+    ) -> None:
+        if imports is None:
+            imports = self._b008_imports
+        for name in names:
+            if imports.get(name) is not None:
+                imports[name] = None
+
+    def _b008_shadow_bindings(
+        self,
+        names: Iterable[str],
+        imports: dict[str, str | None] | None = None,
+    ) -> None:
+        names = tuple(names)
+        self._b008_shadow_imports(names, imports)
+        if (
+            imports is not None
+            and self._b008_class_imports
+            and imports is self._b008_class_imports[-1]
+            and self._b008_class_globals
+        ):
+            global_names = self._b008_class_globals[-1].intersection(names)
+            self._b008_shadow_imports(global_names)
+
+    def _b008_shadow_named_expr_targets(
+        self,
+        nodes: Iterable[ast.AST],
+        imports: dict[str, str | None] | None = None,
+    ) -> None:
+        finder = B008NamedExprFinder()
+        finder.visit(list(nodes))
+        self._b008_shadow_bindings(finder.names, imports)
+
+    def _b008_in_module_scope(self) -> bool:
+        return len(self.contexts) == 1 and isinstance(self.contexts[0].node, ast.Module)
+
+    def _b008_is_direct_module_statement(self) -> bool:
+        return self._b008_in_module_scope() and len(self.node_stack) == 2
+
+    def _b008_in_module_child(self) -> bool:
+        return len(self.contexts) == 2 and isinstance(self.contexts[0].node, ast.Module)
+
+    def _b008_in_direct_module_child(self) -> bool:
+        return self._b008_in_module_child() and len(self.contexts[0].stack) == 1
+
+    def _b008_in_direct_module_class_scope(self) -> bool:
+        return self._b008_in_direct_module_child() and isinstance(
+            self.contexts[-1].node, ast.ClassDef
+        )
+
+    def _b008_in_direct_module_class_child(self) -> bool:
+        return (
+            len(self.contexts) == 3
+            and isinstance(self.contexts[0].node, ast.Module)
+            and isinstance(self.contexts[1].node, ast.ClassDef)
+            and len(self.contexts[1].stack) == 1
+        )
+
+    def _b008_binding_imports(self) -> dict[str, str | None] | None:
+        if self._b008_in_module_scope():
+            return self._b008_imports
+        if self._b008_in_direct_module_class_scope() and self._b008_class_imports:
+            return self._b008_class_imports[-1]
+        return None
+
+    def _b008_function_imports(self) -> dict[str, str | None] | None:
+        if self._b008_in_direct_module_child():
+            return self._b008_imports
+        if self._b008_in_direct_module_class_child() and self._b008_class_imports:
+            return self._b008_class_imports[-1]
+        return None
+
+    @staticmethod
+    def _b008_function_annotations(
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> list[ast.expr]:
+        arguments = [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+        if node.args.vararg is not None:
+            arguments.append(node.args.vararg)
+        if node.args.kwarg is not None:
+            arguments.append(node.args.kwarg)
+        annotations = [argument.annotation for argument in arguments]
+        if node.returns is not None:
+            annotations.append(node.returns)
+        return [annotation for annotation in annotations if annotation is not None]
 
     def in_class_init(self) -> bool:
         return (
@@ -540,6 +653,9 @@ class BugBearVisitor(ast.NodeVisitor):
         ):
             self.add_error("B040", node)
         self.b040_caught_exception = old_b040_caught_exception
+        imports = self._b008_binding_imports()
+        if imports is not None and node.name is not None:
+            self._b008_shadow_bindings((node.name,), imports)
 
     def visit_UAdd(self, node: ast.UAdd) -> None:
         trailing_nodes = list(map(type, self.node_window[-4:]))
@@ -616,6 +732,22 @@ class BugBearVisitor(ast.NodeVisitor):
     def visit_Module(self, node: ast.Module) -> None:
         self.generic_visit(node)
 
+    def visit_Name(  # noqa: B906 # names don't contain other names
+        self, node: ast.Name
+    ) -> None:
+        imports = self._b008_binding_imports()
+        if (
+            imports is not None
+            and isinstance(node.ctx, (ast.Store, ast.Del))
+            and not (
+                isinstance(node.ctx, ast.Store)
+                and len(self.node_stack) >= 2
+                and isinstance(self.node_stack[-2], ast.AnnAssign)
+                and self.node_stack[-2].value is None
+            )
+        ):
+            self._b008_shadow_bindings((node.id,), imports)
+
     def visit_Assign(self, node: ast.Assign) -> None:
         self.check_for_b040_usage(node.value)
         if len(node.targets) == 1:
@@ -667,25 +799,63 @@ class BugBearVisitor(ast.NodeVisitor):
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self.check_for_b902(node)
+        imports = self._b008_function_imports()
+        if imports is not None:
+            self._b008_shadow_named_expr_targets(node.decorator_list, imports)
         self.check_for_b006_and_b008(node)
+        if imports is not None:
+            self._b008_shadow_named_expr_targets(
+                self._b008_function_annotations(node), imports
+            )
         self.check_for_b019(node)
         self.generic_visit(node)
+        if self._b008_in_module_child():
+            self._b008_shadow_imports((node.name,))
+        elif self._b008_in_direct_module_class_child() and imports is not None:
+            self._b008_shadow_bindings((node.name,), imports)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self.check_for_b901(node)
         self.check_for_b902(node)
+        imports = self._b008_function_imports()
+        if imports is not None:
+            self._b008_shadow_named_expr_targets(node.decorator_list, imports)
         self.check_for_b006_and_b008(node)
+        if imports is not None:
+            self._b008_shadow_named_expr_targets(
+                self._b008_function_annotations(node), imports
+            )
         self.check_for_b019(node)
         self.check_for_b021(node)
         self.check_for_b906(node)
         self.generic_visit(node)
+        if self._b008_in_module_child():
+            self._b008_shadow_imports((node.name,))
+        elif self._b008_in_direct_module_class_child() and imports is not None:
+            self._b008_shadow_bindings((node.name,), imports)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.check_for_b903(node)
+        is_module_class = self._b008_in_direct_module_child()
+        parent_class_imports = None
+        if self._b008_in_direct_module_class_child() and self._b008_class_imports:
+            parent_class_imports = self._b008_class_imports[-1]
+        if is_module_class:
+            definition_nodes = [*node.decorator_list, *node.bases, *node.keywords]
+            self._b008_shadow_named_expr_targets(definition_nodes)
+            self._b008_class_imports.append(self._b008_imports.copy())
+            self._b008_class_globals.append(set())
         self.check_for_b021(node)
         self.check_for_b024_and_b027(node)
         self.check_for_b042(node)
         self.generic_visit(node)
+        if is_module_class:
+            self._b008_class_imports.pop()
+            self._b008_class_globals.pop()
+        if self._b008_in_module_child():
+            self._b008_shadow_imports((node.name,))
+        elif parent_class_imports is not None:
+            self._b008_shadow_bindings((node.name,), parent_class_imports)
 
     def visit_Try(self, node: ast.Try | ast.TryStar) -> None:
         self.check_for_b012(node)
@@ -718,6 +888,28 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b908(node)
         self.generic_visit(node)
 
+    def visit_MatchAs(self, node: ast.MatchAs) -> None:
+        imports = self._b008_binding_imports()
+        if imports is not None and node.name is not None:
+            self._b008_shadow_bindings((node.name,), imports)
+        self.generic_visit(node)
+
+    def visit_MatchMapping(self, node: ast.MatchMapping) -> None:
+        imports = self._b008_binding_imports()
+        if imports is not None and node.rest is not None:
+            self._b008_shadow_bindings((node.rest,), imports)
+        self.generic_visit(node)
+
+    def visit_MatchStar(self, node: ast.MatchStar) -> None:
+        imports = self._b008_binding_imports()
+        if imports is not None and node.name is not None:
+            self._b008_shadow_bindings((node.name,), imports)
+        self.generic_visit(node)
+
+    def visit_Global(self, node: ast.Global) -> None:
+        if self._b008_in_direct_module_class_scope() and self._b008_class_globals:
+            self._b008_class_globals[-1].update(node.names)
+
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
         self.check_for_b907(node)
         self.generic_visit(node)
@@ -727,12 +919,61 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b040_usage(node.value)
         self.generic_visit(node)
 
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        if isinstance(node.target, ast.Name) and (
+            self._b008_in_module_scope()
+            or (
+                len(self.contexts) >= 2
+                and isinstance(self.contexts[0].node, ast.Module)
+                and all(
+                    isinstance(context.node, EAGER_COMPREHENSION_NODES)
+                    for context in self.contexts[1:]
+                )
+            )
+        ):
+            self._b008_shadow_imports((node.target.id,))
+        self.generic_visit(node)
+
     def visit_Import(self, node: ast.Import) -> None:
         self.check_for_b005(node)
+        if self.b008_b039_extend_immutable_calls and self._b008_in_module_scope():
+            for name in node.names:
+                bound_name = name.asname or name.name.partition(".")[0]
+                qualified_name = name.name if name.asname else bound_name
+                if self._b008_is_direct_module_statement():
+                    self._b008_imports[bound_name] = qualified_name
+                else:
+                    self._b008_shadow_imports((bound_name,))
+        elif (imports := self._b008_binding_imports()) is not None:
+            self._b008_shadow_bindings(
+                (name.asname or name.name.partition(".")[0] for name in node.names),
+                imports,
+            )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         self.check_for_b005(node)
+        if self.b008_b039_extend_immutable_calls and self._b008_in_module_scope():
+            for name in node.names:
+                if name.name == "*":
+                    self._b008_shadow_imports(self._b008_imports)
+                elif (
+                    self._b008_is_direct_module_statement()
+                    and node.level == 0
+                    and node.module is not None
+                ):
+                    self._b008_imports[name.asname or name.name] = (
+                        f"{node.module}.{name.name}"
+                    )
+                else:
+                    self._b008_shadow_imports((name.asname or name.name,))
+        elif (imports := self._b008_binding_imports()) is not None:
+            if any(name.name == "*" for name in node.names):
+                self._b008_shadow_bindings(imports, imports)
+            else:
+                self._b008_shadow_bindings(
+                    (name.asname or name.name for name in node.names), imports
+                )
         self.generic_visit(node)
 
     def visit_Set(self, node: ast.Set) -> None:
@@ -805,12 +1046,18 @@ class BugBearVisitor(ast.NodeVisitor):
     def check_for_b006_and_b008(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef
     ) -> None:
+        imported_names = self._b008_function_imports()
+        if not self.b008_b039_extend_immutable_calls:
+            imported_names = None
         visitor = FunctionDefDefaultsVisitor(
             error_codes["B006"],
             error_codes["B008"],
             self.b008_b039_extend_immutable_calls,
+            imported_names,
         )
-        visitor.visit(node.args.defaults + node.args.kw_defaults)
+        for default in node.args.defaults + node.args.kw_defaults:
+            if default is not None:
+                visitor.visit(default)
         self.errors.extend(visitor.errors)
 
     def check_for_b039(self, node: ast.Call) -> None:
@@ -917,8 +1164,18 @@ class BugBearVisitor(ast.NodeVisitor):
         return names
 
     def check_for_b015(self, node: ast.Compare) -> None:
-        if isinstance(self.node_stack[-2], ast.Expr):
-            self.add_error("B015", node)
+        if not isinstance(self.node_stack[-2], ast.Expr):
+            return
+        # An overloaded comparison can intentionally raise or warn in a test.
+        # node_stack is local to the current scope, so nested function bodies
+        # do not inherit an outer assertion context manager.
+        if any(
+            isinstance(ancestor, ast.With)
+            and any(self._is_assertRaises_like(item) for item in ancestor.items)
+            for ancestor in self.node_stack
+        ):
+            return
+        self.add_error("B015", node)
 
     def check_for_b016(self, node: ast.Raise) -> None:
         if isinstance(node.exc, ast.JoinedStr) or (
@@ -1008,12 +1265,23 @@ class BugBearVisitor(ast.NodeVisitor):
             iterset_names |= iterset.paths
 
         # a name that only ever appears in load context is the *base* of an
-        # attribute or subscript target, not something the loop rebinds
-        targets = NameFinder()
-        targets.visit(node.target)
-        for name, names in targets.names.items():
-            if any(isinstance(n.ctx, ast.Store) for n in names):
-                candidates[name] = names[0]
+        # attribute or subscript target, not something the loop rebinds.
+        # Only the top-level bindings of the target share a name with the
+        # pre-existing iterable; a name bound inside a nested destructuring
+        # pattern, like `series` in
+        # `for i, (ax, (series, name)) in enumerate(zip(axs, series))`,
+        # shadows a value the iterable expression already read and is not
+        # what the loop rebinds on each iteration.
+        top_level: list[ast.expr] = (
+            node.target.elts
+            if isinstance(node.target, (ast.Tuple, ast.List))
+            else [node.target]
+        )
+        for element in top_level:
+            if isinstance(element, ast.Starred):
+                element = element.value
+            if isinstance(element, ast.Name):
+                candidates.setdefault(element.id, element)
 
         for name in sorted(candidates):
             if name in iterset_names:
@@ -1526,6 +1794,10 @@ class BugBearVisitor(ast.NodeVisitor):
         Emit a warning if a likely unchanging key is used - either a constant,
         or a variable that isn't coming from the generator expression.
         """
+        # `{**d for d in ...}` has no key on Python 3.15+, only an unpacked
+        # expression, so there is no static key to report.
+        if node.value is None:
+            return
         if isinstance(node.key, ast.Constant):
             self.add_error("B035", node.key, node.key.value)
         elif isinstance(node.key, ast.Name):
@@ -1782,6 +2054,16 @@ class BugBearVisitor(ast.NodeVisitor):
                 isinstance(node.value, ast.Call)
                 and isinstance(node.value.func, ast.Name)
                 and node.value.func.id in FUNCTIONS_WITHOUT_SIDE_EFFECTS
+            )
+            or (
+                isinstance(node.value, (ast.UnaryOp, ast.BinOp))
+                and _is_useless_operation(node.value)
+                # directly in a `try` or `with` block, an operation is often run
+                # only to see it raise: `with pytest.raises(TypeError): "1" + 1`
+                and not (
+                    self.node_stack
+                    and isinstance(self.node_stack[-1], B018_RAISING_BLOCKS)
+                )
             )
         ):
             self.add_error("B018", node, node.value.__class__.__name__)
@@ -2159,8 +2441,13 @@ class BugBearVisitor(ast.NodeVisitor):
 
         # A class must inherit from a super class to be an exception, and we also
         # require the class name or any of the base names to look like an exception name.
-        if not (is_exception(node.name) and node.bases):
+        # A parameterized generic base such as `ContextManager[T]` does not count as
+        # that super class unless its own name looks like an exception name.
+        concrete_bases = [b for b in node.bases if not isinstance(b, ast.Subscript)]
+        if not (is_exception(node.name) and concrete_bases):
             for base in node.bases:
+                if isinstance(base, ast.Subscript):
+                    base = base.value
                 if isinstance(base, ast.Name) and is_exception(base.id):
                     break
             else:
@@ -2398,6 +2685,24 @@ class B909Checker(ast.NodeVisitor):
         return node
 
 
+def _is_useless_operation(node: ast.expr) -> bool:
+    """Whether a unary or arithmetic operation, used as a statement, does nothing.
+
+    Every binary operator in it has to be arithmetic, and no operand may call,
+    await, yield or assign: `f() + 1` still calls `f`.
+    """
+    for child in ast.walk(node):
+        if isinstance(child, ast.BinOp) and not isinstance(
+            child.op, B018_ARITHMETIC_OPERATORS
+        ):
+            return False
+        if isinstance(
+            child, (ast.Call, ast.Await, ast.Yield, ast.YieldFrom, ast.NamedExpr)
+        ):
+            return False
+    return True
+
+
 def _dotted_name(node: ast.AST) -> str | None:
     """Return `"self.a.b"` for an attribute chain rooted in a name, else None."""
     parts = []
@@ -2487,7 +2792,9 @@ class B913UsageFinder(NameFinder):
         self._visit_comprehension(node.generators, [node.elt])
 
     def visit_DictComp(self, node: ast.DictComp) -> None:
-        self._visit_comprehension(node.generators, [node.key, node.value])
+        # `node.value` is None for `{**d for d in ...}` on Python 3.15+.
+        values = [node.key] if node.value is None else [node.key, node.value]
+        self._visit_comprehension(node.generators, values)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self.visit(node.value)
@@ -2521,6 +2828,17 @@ class NamedExprFinder(ast.NodeVisitor):
         return node
 
 
+class B008NamedExprFinder(NamedExprFinder):
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self.visit(node.generators[0].iter)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: B906
+        self.visit(node.args.defaults)
+        self.visit(
+            [default for default in node.args.kw_defaults if default is not None]
+        )
+
+
 class FunctionDefDefaultsVisitor(ast.NodeVisitor):
     """Used by B006, B008, and B039. B039 is essentially B006+B008 but for ContextVar."""
 
@@ -2529,12 +2847,14 @@ class FunctionDefDefaultsVisitor(ast.NodeVisitor):
         error_code_calls: "Error",  # B006 or B039
         error_code_literals: "Error",  # B008 or B039
         b008_b039_extend_immutable_calls: set[str] | None = None,
+        imported_names: dict[str, str | None] | None = None,
     ) -> None:
         self.b008_b039_extend_immutable_calls = (
             b008_b039_extend_immutable_calls or set()
         )
         self.error_code_calls = error_code_calls
         self.error_code_literals = error_code_literals
+        self.imported_names = imported_names or {}
         for node in B006_MUTABLE_LITERALS + B006_MUTABLE_COMPREHENSIONS:
             setattr(self, f"visit_{node}", self.visit_mutable_literal_or_comprehension)
         self.errors: list[error] = []
@@ -2564,7 +2884,22 @@ class FunctionDefDefaultsVisitor(ast.NodeVisitor):
             self.generic_visit(node)
             return
 
-        if call_path in B008_IMMUTABLE_CALLS | self.b008_b039_extend_immutable_calls:
+        if call_path in B008_IMMUTABLE_CALLS:
+            self.generic_visit(node)
+            return
+
+        head, separator, tail = call_path.partition(".")
+        if head not in self.imported_names:
+            extended_call_paths = {call_path}
+        elif (qualified_name := self.imported_names[head]) is None:
+            extended_call_paths = set()
+        else:
+            resolved_call_path = qualified_name
+            if separator:
+                resolved_call_path = f"{resolved_call_path}.{tail}"
+            extended_call_paths = {call_path, resolved_call_path}
+
+        if extended_call_paths & self.b008_b039_extend_immutable_calls:
             self.generic_visit(node)
             return
 
@@ -2585,10 +2920,19 @@ class FunctionDefDefaultsVisitor(ast.NodeVisitor):
         # Check for nested functions.
         self.generic_visit(node)
 
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        if isinstance(node.target, ast.Name) and node.target.id in self.imported_names:
+            self.imported_names[node.target.id] = None
+        self.generic_visit(node)
+
     def visit_Lambda(self, node) -> None:  # noqa: B906
-        # Don't recurse into lambda expressions
-        # as they are evaluated at call time.
-        pass
+        self.visit(node.args.defaults)
+        self.visit(
+            [default for default in node.args.kw_defaults if default is not None]
+        )
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self.visit(node.generators[0].iter)
 
     def visit(self, node) -> None:
         """Like super-visit but supports iteration over lists."""

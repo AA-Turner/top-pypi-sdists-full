@@ -423,6 +423,55 @@ class CustomPermissionsReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.CustomizationReference",
+    jsii_struct_bases=[],
+    name_mapping={"customization_arn": "customizationArn"},
+)
+class CustomizationReference:
+    def __init__(self, *, customization_arn: builtins.str) -> None:
+        '''A reference to a Customization resource.
+
+        :param customization_arn: The Arn of the Customization resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            customization_reference = interfaces_quicksight.CustomizationReference(
+                customization_arn="customizationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c257248476b0173740cab6e66d5bbcf2c1ca87301d2164a8c23210eb9699e667)
+            check_type(argname="argument customization_arn", value=customization_arn, expected_type=type_hints["customization_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "customization_arn": customization_arn,
+        }
+
+    @builtins.property
+    def customization_arn(self) -> builtins.str:
+        '''The Arn of the Customization resource.'''
+        result = self._values.get("customization_arn")
+        assert result is not None, "Required property 'customization_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomizationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.DLPSettingReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1101,6 +1150,51 @@ class _ICustomPermissionsRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICustomPermissionsRef).__jsii_proxy_class__ = lambda : _ICustomPermissionsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ICustomizationRef")
+class ICustomizationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Customization.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="customizationRef")
+    def customization_ref(self) -> "CustomizationReference":
+        '''(experimental) A reference to a Customization resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICustomizationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Customization.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.ICustomizationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="customizationRef")
+    def customization_ref(self) -> "CustomizationReference":
+        '''(experimental) A reference to a Customization resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CustomizationReference", jsii.get(self, "customizationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICustomizationRef).__jsii_proxy_class__ = lambda : _ICustomizationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IDLPSettingRef")
@@ -2622,6 +2716,7 @@ __all__ = [
     "AnalysisReference",
     "ApprovalPolicyReference",
     "CustomPermissionsReference",
+    "CustomizationReference",
     "DLPSettingReference",
     "DashboardReference",
     "DataSetReference",
@@ -2633,6 +2728,7 @@ __all__ = [
     "IAnalysisRef",
     "IApprovalPolicyRef",
     "ICustomPermissionsRef",
+    "ICustomizationRef",
     "IDLPSettingRef",
     "IDashboardRef",
     "IDataSetRef",
@@ -2703,6 +2799,13 @@ def _typecheckingstub__bcbb01a6ae4003c466f2c9facde86b4a9228b2947e8db14b07e90c882
     aws_account_id: builtins.str,
     custom_permissions_arn: builtins.str,
     custom_permissions_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c257248476b0173740cab6e66d5bbcf2c1ca87301d2164a8c23210eb9699e667(
+    *,
+    customization_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2848,5 +2951,5 @@ def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64
     """Type checking stubs"""
     pass
 
-for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, IApprovalPolicyRef, ICustomPermissionsRef, IDLPSettingRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, ILimitsProfileRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, ITopicV2Ref, IVPCConnectionRef]:
+for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, IApprovalPolicyRef, ICustomPermissionsRef, ICustomizationRef, IDLPSettingRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, ILimitsProfileRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, ITopicV2Ref, IVPCConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -340,6 +340,7 @@ class Status(Enum):
     review_starting = "review_starting"
     reviewing = "reviewing"
     review_completed = "review_completed"
+    timeout = "timeout"
 
 
 class Mode(Enum):

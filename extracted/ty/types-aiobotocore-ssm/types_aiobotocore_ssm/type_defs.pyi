@@ -49,6 +49,7 @@ from .literals import (
     ComplianceStatusType,
     ComplianceUploadTypeType,
     ConnectionStatusType,
+    DeletionModeType,
     DescribeActivationsFilterKeysType,
     DocumentFilterKeyType,
     DocumentFormatType,
@@ -946,6 +947,7 @@ class DeleteResourcePolicyRequestTypeDef(TypedDict):
     ResourceArn: str
     PolicyId: str
     PolicyHash: str
+    DeletionMode: NotRequired[DeletionModeType]
 
 class DeregisterManagedInstanceRequestTypeDef(TypedDict):
     InstanceId: str

@@ -31,7 +31,10 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     GetCreditAllocationHistoryPaginator,
+    ListBillingViewSegmentsPaginator,
     ListBillingViewsPaginator,
+    ListBusinessSupportAccountChargesPaginator,
+    ListBusinessSupportSubscriptionHistoryPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
@@ -58,8 +61,14 @@ from .type_defs import (
     GetEnterpriseSupportContractDetailsResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    ListBillingViewSegmentsRequestTypeDef,
+    ListBillingViewSegmentsResponseTypeDef,
     ListBillingViewsRequestTypeDef,
     ListBillingViewsResponseTypeDef,
+    ListBusinessSupportAccountChargesRequestTypeDef,
+    ListBusinessSupportAccountChargesResponseTypeDef,
+    ListBusinessSupportSubscriptionHistoryRequestTypeDef,
+    ListBusinessSupportSubscriptionHistoryResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestTypeDef,
     ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestTypeDef,
@@ -245,6 +254,16 @@ class BillingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#get_resource_policy)
         """
 
+    async def list_billing_view_segments(
+        self, **kwargs: Unpack[ListBillingViewSegmentsRequestTypeDef]
+    ) -> ListBillingViewSegmentsResponseTypeDef:
+        """
+        Lists the segments of a billing view over a given time period.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_billing_view_segments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#list_billing_view_segments)
+        """
+
     async def list_billing_views(
         self, **kwargs: Unpack[ListBillingViewsRequestTypeDef]
     ) -> ListBillingViewsResponseTypeDef:
@@ -253,6 +272,27 @@ class BillingClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_billing_views.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#list_billing_views)
+        """
+
+    async def list_business_support_account_charges(
+        self, **kwargs: Unpack[ListBusinessSupportAccountChargesRequestTypeDef]
+    ) -> ListBusinessSupportAccountChargesResponseTypeDef:
+        """
+        Returns Business Support charges broken down at the linked account level for a
+        given billing month.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_business_support_account_charges.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#list_business_support_account_charges)
+        """
+
+    async def list_business_support_subscription_history(
+        self, **kwargs: Unpack[ListBusinessSupportSubscriptionHistoryRequestTypeDef]
+    ) -> ListBusinessSupportSubscriptionHistoryResponseTypeDef:
+        """
+        Returns the history of Business Support subscription contracts across accounts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_business_support_subscription_history.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#list_business_support_subscription_history)
         """
 
     async def list_enterprise_support_linked_account_charges(
@@ -344,8 +384,41 @@ class BillingClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_billing_view_segments"]
+    ) -> ListBillingViewSegmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_billing_views"]
     ) -> ListBillingViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_business_support_account_charges"]
+    ) -> ListBusinessSupportAccountChargesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_business_support_subscription_history"]
+    ) -> ListBusinessSupportSubscriptionHistoryPaginator:
         """
         Create a paginator for an operation.
 

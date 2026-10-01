@@ -18756,7 +18756,7 @@ class CfnThingPrincipalAttachment(
         :param id: Construct identifier for this resource (unique in its scope).
         :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
         :param thing_name: The name of the AWS IoT thing.
-        :param thing_principal_type: 
+        :param thing_principal_type: The type of the relation you want to specify when you attach a principal to a thing.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e0ce886b8c49b98afe43e3750b4827324240eaec344ca9ed6af433373fcce30)
@@ -18813,14 +18813,6 @@ class CfnThingPrincipalAttachment(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -18867,6 +18859,7 @@ class CfnThingPrincipalAttachment(
     @builtins.property
     @jsii.member(jsii_name="thingPrincipalType")
     def thing_principal_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the relation you want to specify when you attach a principal to a thing.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "thingPrincipalType"))
 
     @thing_principal_type.setter
@@ -18898,7 +18891,7 @@ class CfnThingPrincipalAttachmentProps:
 
         :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
         :param thing_name: The name of the AWS IoT thing.
-        :param thing_principal_type: 
+        :param thing_principal_type: The type of the relation you want to specify when you attach a principal to a thing.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html
         :exampleMetadata: fixture=_generated
@@ -18951,7 +18944,8 @@ class CfnThingPrincipalAttachmentProps:
 
     @builtins.property
     def thing_principal_type(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The type of the relation you want to specify when you attach a principal to a thing.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-thingprincipaltype
         '''
         result = self._values.get("thing_principal_type")

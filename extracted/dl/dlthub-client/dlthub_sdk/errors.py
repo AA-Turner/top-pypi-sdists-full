@@ -9,9 +9,17 @@ from __future__ import annotations
 
 # Python internals
 from dataclasses import dataclass
+from typing import Mapping
+
+# Other libraries
+from packaging.version import InvalidVersion, Version
 
 # Current package
 from dlthub_sdk._glue.enums import EntityKind
+from dlthub_sdk.version import PKG_NAME, __version__
+
+#: Response header carrying the lowest client version the platform supports.
+MIN_CLIENT_VERSION_HEADER = "x-dlthub-min-client-version"
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,51 @@ class FieldError:
     message: str
 
 
+@dataclass(frozen=True)
+class ClientUpdate:
+    """The platform requires a newer ``dlthub-client`` than the one installed.
+
+    Attributes:
+        installed: The version running here.
+        minimum: The lowest version the platform supports.
+    """
+
+    installed: str
+    minimum: str
+
+    @classmethod
+    def from_headers(cls, headers: Mapping[str, str]) -> ClientUpdate | None:
+        """Read the platform's minimum client version off one response.
+
+        Args:
+            headers: The response headers, looked up case-insensitively.
+
+        Returns:
+            The update, or ``None`` when the installed version is not below the
+            advertised minimum, or the response advertised none.
+        """
+        wanted = next(
+            (v for k, v in headers.items() if k.lower() == MIN_CLIENT_VERSION_HEADER),
+            None,
+        )
+        if wanted is None:
+            return None
+        try:
+            if Version(__version__) >= Version(wanted):
+                return None
+        except InvalidVersion:
+            return None
+        return cls(installed=__version__, minimum=wanted)
+
+    def __str__(self) -> str:
+        return (
+            f"Note: {PKG_NAME} {self.installed} is below the platform's supported "
+            f"minimum ({self.minimum}) and may be the cause of this error. Upgrade "
+            f"it (`uv sync --upgrade-package {PKG_NAME}` or `pip install --upgrade "
+            f"{PKG_NAME}`) and restart or redeploy to the dlthub platform."
+        )
+
+
 class DlthubError(Exception):
     """Base for every error raised by the SDK.
 
@@ -36,6 +89,9 @@ class DlthubError(Exception):
             on this; ``message`` is prose and may change between releases.
         status: HTTP status the platform returned, when known.
         fields: Per-field reasons, when the platform reported any.
+        client_update: Set when the failing response advertised a minimum
+            client version above the installed one, a likely cause of the
+            failure.
     """
 
     def __init__(
@@ -45,12 +101,14 @@ class DlthubError(Exception):
         code: str | None = None,
         status: int | None = None,
         fields: tuple[FieldError, ...] = (),
+        client_update: ClientUpdate | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
         self.status = status
         self.fields = fields
+        self.client_update = client_update
 
     def __str__(self) -> str:
         if self.code:
@@ -59,6 +117,8 @@ class DlthubError(Exception):
             head = f"{self.message} (HTTP {self.status})"
         else:
             head = self.message
+        if self.client_update:
+            head = f"{head} {self.client_update}"
         return head + "".join(
             f"\n  {f.key}: {f.message}" if f.key else f"\n  {f.message}"
             for f in self.fields
@@ -75,6 +135,15 @@ class NotAuthenticated(DlthubError):
     """The credential is missing, malformed, or rejected."""
 
 
+class DataplaneTokenRejected(NotAuthenticated):
+    """The data plane rejected a token the platform issued for it.
+
+    The caller's own credential was accepted, since it obtained that token, and
+    the SDK already re-minted it once. Renewing or replacing the credential will
+    not help.
+    """
+
+
 class NotAuthorized(DlthubError):
     """The caller is authenticated but lacks access to the resource."""
 
@@ -89,6 +158,7 @@ class NotFound(DlthubError):
         code: Stable platform error code, when the response carried one.
         status: HTTP status the platform returned, when known.
         fields: Per-field reasons, when the platform reported any.
+        client_update: As for :class:`DlthubError`.
     """
 
     def __init__(
@@ -99,12 +169,14 @@ class NotFound(DlthubError):
         code: str | None = None,
         status: int | None = None,
         fields: tuple[FieldError, ...] = (),
+        client_update: ClientUpdate | None = None,
     ) -> None:
         super().__init__(
             f"{kind} {ref!r} not found" if ref is not None else f"no {kind} found",
             code=code,
             status=status,
             fields=fields,
+            client_update=client_update,
         )
         self.kind = kind
         self.ref = ref

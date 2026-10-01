@@ -24,7 +24,6 @@ from transformers import AutoConfig, set_seed
 from auto_round.algorithms.quantization import BaseQuantizer, QuantizationConfig
 from auto_round.algorithms.transforms import (
     BaseRotationConfig,
-    apply_rotation,
 )
 from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
 from auto_round.compressors.config_resolution import (
@@ -60,18 +59,21 @@ from auto_round.utils import (
     SUPPORTED_LAYER_TYPES,
     TORCH_VERSION_AT_LEAST_2_6,
     VISION_MM_KEYS,
+    cast_model_dtype,
     compress_layer_names,
     convert_dtype_str2torch,
     extract_block_names_to_str,
     find_matching_blocks,
     get_block_names,
     get_reverse_checkpoint_conversion_mapping,
+    get_reverse_weight_transforms,
     is_debug_mode,
     is_hpex_available,
     is_quantized_input_module,
     memory_monitor,
     preserve_original_visual_block_name,
     revert_checkpoint_conversion_mapping,
+    revert_name_with_weight_transforms,
 )
 from auto_round.utils.device import (
     _force_trim_malloc,
@@ -166,6 +168,26 @@ def _make_compressor_scheme_property(name):
             self.__dict__[name] = value
 
     return property(getter, setter)
+
+
+def _formats_policy_string_of(formats) -> str:
+    """Comma-joined format names for policy checks (8-bit asym scoping).
+
+    Handles both the raw string form (before resolution) and the resolved
+    OutputFormat object list; backend names keep the composite spelling
+    (e.g. ``auto_round:llm_compressor``)."""
+    if formats is None:
+        return ""
+    if isinstance(formats, str):
+        return formats
+    items = formats if isinstance(formats, (list, tuple)) else [formats]
+    names = []
+    for fmt in items:
+        try:
+            names.append(fmt.get_backend_name())
+        except Exception:  # noqa: BLE001
+            names.append(str(getattr(fmt, "output_format", "")))
+    return ",".join(names)
 
 
 class BaseOrchestrator(object):
@@ -272,7 +294,9 @@ class BaseOrchestrator(object):
                     if "group_size" in kwargs:
                         block_size = kwargs["group_size"]
                     else:
-                        block_size = parse_scheme(scheme, {})[2]["group_size"]
+                        block_size = parse_scheme(
+                            scheme, {}, format=_formats_policy_string_of(getattr(self, "formats", None))
+                        )[2]["group_size"]
                     _cfg.block_size = block_size  # TODO not robust
                 self.rotation_configs.append(_cfg)
         assert self.quantize_config is not None, "QuantizationConfig is required for Compressor"
@@ -309,7 +333,6 @@ class BaseOrchestrator(object):
         kwargs.pop("vlm", None)
         amp = kwargs.pop("amp", True)
         nblocks = kwargs.pop("nblocks", 1)
-        disable_deterministic_algorithms = kwargs.pop("disable_deterministic_algorithms", True)
         enable_deterministic_algorithms = kwargs.pop("enable_deterministic_algorithms", False)
 
         self._offloader = OffloadManager(enabled=low_cpu_mem_usage, mode="offload", offload_dir_prefix="compressor")
@@ -344,17 +367,9 @@ class BaseOrchestrator(object):
             )
         if "CUBLAS_WORKSPACE_CONFIG" not in os.environ:
             os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-        # Deprecated, default not to use torch.use_deterministic_algorithms
-        if not disable_deterministic_algorithms or enable_deterministic_algorithms:
-            if not disable_deterministic_algorithms:
-                logger.warning(
-                    "default not use deterministic_algorithms. disable_deterministic_algorithms is deprecated,"
-                    " please use enable_deterministic_algorithms instead. "
-                )
-
+        if enable_deterministic_algorithms:
+            logger.info("Deterministic algorithms are enabled.")
             torch.use_deterministic_algorithms(True, warn_only=False)
-        else:
-            torch.use_deterministic_algorithms(True, warn_only=True)
 
         # XPU SDPA workaround: drop pure causal masks so FLASH backend is used,
         # and set torch.use_deterministic_algorithms(False)
@@ -539,10 +554,20 @@ class BaseOrchestrator(object):
         if isinstance(self.scheme, AutoScheme):
             return True
 
+        # Static KV-cache / attention quantization observes KV magnitudes
+        # during the calibration forwards, so it always needs data — even for
+        # weight-only schemes (e.g. NVFP4 with iters=0).
+        if self.static_kv_dtype is not None or self.static_attention_dtype is not None:
+            return True
+
         # Check if activation calibration is needed
         from auto_round.compressors.utils import check_need_act_calibration
 
-        _, _, final_attrs = parse_scheme(self.scheme, {})
+        _, _, final_attrs = parse_scheme(
+            self.scheme,
+            {},
+            format=_formats_policy_string_of(getattr(self, "formats", None)),
+        )
         act_bits = final_attrs["act_bits"]
         act_data_type = final_attrs["act_data_type"]
         act_dynamic = final_attrs["act_dynamic"]
@@ -556,7 +581,57 @@ class BaseOrchestrator(object):
         ):
             return True
 
+        # Layer-level scheme overrides can request static-activation paths
+        # (e.g., global MXFP8 + local NVFP4 experts). Those still need
+        # calibration data even when top-level scheme looks dynamic.
+        if self._layer_config_needs_calibration(check_need_act_calibration):
+            return True
+
         return False
+
+    def _layer_config_needs_calibration(self, check_need_act_calibration) -> bool:
+        """Return True if any raw layer_config entry implies activation calibration."""
+        layer_cfg = self.layer_config
+        if not isinstance(layer_cfg, dict) or not layer_cfg:
+            return False
+
+        def _entry_needs_calibration(entry) -> bool:
+            if entry is None:
+                return False
+
+            candidates = []
+            if isinstance(entry, (str, QuantizationScheme)):
+                candidates.append(entry)
+            elif isinstance(entry, dict):
+                if "scheme" in entry:
+                    candidates.append(entry.get("scheme"))
+                candidates.append(entry)
+            else:
+                return False
+
+            for candidate in candidates:
+                if candidate is None:
+                    continue
+                try:
+                    _, _, attrs = parse_scheme(candidate, {})
+                except Exception:  # noqa: BLE001
+                    continue
+
+                cand_act_bits = attrs.get("act_bits")
+                cand_act_data_type = attrs.get("act_data_type")
+                cand_act_dynamic = attrs.get("act_dynamic")
+                is_cand_act_quant = cand_act_bits is not None and cand_act_bits <= 8
+                if is_cand_act_quant and check_need_act_calibration(
+                    cand_act_dynamic,
+                    cand_act_data_type,
+                    cand_act_bits if cand_act_bits is not None else 16,
+                    static_kv_dtype=self.static_kv_dtype,
+                    static_attention_dtype=self.static_attention_dtype,
+                ):
+                    return True
+            return False
+
+        return any(_entry_needs_calibration(v) for v in layer_cfg.values())
 
     # ── Convenience properties ────────────────────────────────────────────────
 
@@ -680,7 +755,11 @@ class BaseOrchestrator(object):
             self.compress_context = compress_context
 
         user_scheme_overrides = collect_user_scheme_overrides(self._alg_configs)
-        default_scheme, self.is_auto_scheme, final_attrs = parse_scheme(self.scheme, user_scheme_overrides)
+        default_scheme, self.is_auto_scheme, final_attrs = parse_scheme(
+            self.scheme,
+            user_scheme_overrides,
+            format=_formats_policy_string_of(getattr(self, "formats", None)),
+        )
 
         self.scheme_context = QuantizationScheme.from_dict(final_attrs)
         for config in self._alg_configs:
@@ -791,6 +870,7 @@ class BaseOrchestrator(object):
             quant_lm_head=self.quant_lm_head,
             enable_gguf_official_mixed=False,
             is_mllm=self.model_context.is_mllm,
+            format=self._formats_policy_string(),
         )
         regex_config = extract_regex_config(
             model=self.model_context.model,
@@ -800,6 +880,7 @@ class BaseOrchestrator(object):
             supported_types=self.supported_types,
             inner_supported_types=self.inner_supported_types,
             ignore_layers=self.ignore_layers,
+            format=self._formats_policy_string(),
         )
         discovery_plan = resolve_quantization_config(
             (
@@ -884,6 +965,7 @@ class BaseOrchestrator(object):
             tokenizer=self.model_context.tokenizer,
             enable_torch_compile=self.compress_context.enable_torch_compile,
             processor=self.model_context.processor,
+            export_format=_formats_policy_string_of(self.formats),
         )
         layer_config = self.scheme_generator.get_layer_config()
         # Re-attach vision/audio-tower layers we peeled off earlier so the
@@ -901,6 +983,7 @@ class BaseOrchestrator(object):
 
     def configure_layer_config(self, enable_gguf_official_mixed: bool | None = True) -> None:
         """Build ``self.layer_config`` from the resolved scheme on the patched model."""
+        self.ignore_layers = self.ignore_layers or ""
         # External callers (e.g. llm-compressor's AutoRoundModifier) may invoke this
         # method directly without going through the normal post_init()/_scheme_post_init()
         # sequence. Make sure the scheme is resolved first so `self.scheme_context` (and
@@ -979,6 +1062,7 @@ class BaseOrchestrator(object):
             enable_gguf_official_mixed=enable_gguf_official_mixed,
             is_mllm=self.model_context.is_mllm,
             fill_default_value=fill_default_value,
+            format=self._formats_policy_string(),
         )
         regex_config = extract_regex_config(
             model=self.model_context.model,
@@ -989,6 +1073,7 @@ class BaseOrchestrator(object):
             inner_supported_types=INNER_SUPPORTED_LAYER_TYPES,
             ignore_layers=self.ignore_layers,
             fill_default_value=fill_default_value,
+            format=self._formats_policy_string(),
         )
         # ``resolved_layer_config`` already descends from (and fully subsumes)
         # ``format_resolution.layer_config_patch`` -- ``source_layer_config`` above was
@@ -1159,6 +1244,8 @@ class BaseOrchestrator(object):
         RTN and optimized RTN quantize each layer in a single pass, and very short
         SignRound runs (``iters < MIN_ITERS_FOR_TORCH_COMPILE``) finish before the
         compilation cost is amortized, so ``torch.compile`` only adds overhead there.
+        The short-iters rule is skipped for MoE models, whose many expert linears reuse
+        the same compiled quant function, amortizing compilation even at small iters.
 
         This only adjusts the *default*: when the user explicitly passed
         ``enable_torch_compile``, their choice is always honored.  Pass
@@ -1187,7 +1274,16 @@ class BaseOrchestrator(object):
 
         iters = getattr(quantize_config, "iters", None)
         if iters is not None and iters < MIN_ITERS_FOR_TORCH_COMPILE:
-            return f"`iters`={iters} is below {MIN_ITERS_FOR_TORCH_COMPILE}"
+            # MoE models reuse the same compiled quant function across a large number
+            # of expert linears, so the one-time compilation cost is amortized even for
+            # very short SignRound runs. Skip the low-iters block only for MoE.
+            model = getattr(getattr(self, "model_context", None), "model", None)
+            if model is None:
+                model = getattr(self, "model", None)
+            from auto_round.utils.model import is_moe_model
+
+            if model is None or not is_moe_model(model):
+                return f"`iters`={iters} is below {MIN_ITERS_FOR_TORCH_COMPILE}"
 
         return None
 
@@ -1311,12 +1407,11 @@ class BaseOrchestrator(object):
             logger.warning("force to use bf16 for quantization tuning when enabling activation quantization")
             self.model_context.amp_dtype = torch.bfloat16
             if self.model_context.model.dtype != torch.bfloat16:
-                self.model_context.model = self.model_context.model.to(torch.bfloat16)
+                self.model_context.model = cast_model_dtype(self.model_context.model, torch.bfloat16)
 
         self._resolve_formats()
         self._patch_model()
         self._build_layer_config()
-        self._apply_rotations()
 
         # Reclaim temporaries from Phases 1-4 (scheme resolution, format
         # parsing, model patching, layer-config walk) before Phase 5
@@ -1330,6 +1425,14 @@ class BaseOrchestrator(object):
         # BlockForwardRunner is now created inside AlgorithmComposer.__init__,
         # so _build_composer must run first.
         self._build_composer()
+
+        # Phase 4.5 – Model-level pre-quantisation transforms (rotation).
+        # Applies full-model rotation up-front (or prepares layer-wise rotation
+        # matrices). Runs here so every entry point — the full quantize() loop,
+        # the zero-shot loop, and the external single-block quantize_block() API —
+        # sees a consistently transformed model before any calibration data is
+        # collected. Rotation is now owned by the composer's rotation members.
+        self.model_context.model = self.alg_composer.apply_model_transforms(self.model_context.model)
 
         # Set block_forward torch compile for block forward
         # Final trim after all init phases.
@@ -1539,39 +1642,6 @@ class BaseOrchestrator(object):
             ShardWriter.reset()
             # Defer ShardWriter construction to _ensure_shard_writer() to avoid
             # heap fragmentation during post_init (parameter iteration).
-
-    def _apply_rotations(self) -> None:
-        """Phase 4.5 – Apply Hadamard / rotation transforms to the model.
-
-        Preconditions:
-          - Phase 3 complete: model topology is final (``apply_patches`` has
-            replaced / merged layers, e.g. MoE experts), so rotation operates
-            on the same modules that quantization will later see.
-          - Phase 4 complete: ``self.layer_config`` is built; rotation only
-            transforms weights and does not change layer names, so this
-            ordering matches the old arch where rotation ran after
-            ``configure_layer_config``.
-          - ``self.quantize_config.data_type`` is final (rotation backend
-            dispatch depends on it).
-
-        Work performed:
-          - Iterates ``self.rotation_configs`` and calls
-            :func:`~auto_round.algorithms.transforms.apply_rotation` on the
-            model for each config.
-
-        Postconditions:
-          - ``self.model_context.model`` carries the rotated weights and any
-            inserted online-Hadamard hooks.
-        """
-        if not self.rotation_configs:
-            return
-        logger.info("Applying Hadamard transform to the model.")
-        for rotation_cfg in self.rotation_configs:
-            self.model_context.model = apply_rotation(
-                self.model_context.model,
-                rotation_cfg,
-                data_type=self.quantize_config.data_type,
-            )
 
     def _patch_model(self) -> None:
         """Phase 3 – Model structure patching.
@@ -1826,7 +1896,7 @@ class BaseOrchestrator(object):
     def _ensure_shard_writer(self):
         """Lazily create ShardWriter if it hasn't been created yet."""
         if self.shard_writer is None and self.formats is not None:
-            self.shard_writer = ShardWriter(self.model, bits=8)
+            self.shard_writer = ShardWriter(self.model, bits=8, max_shard_size=getattr(self, "max_shard_size", None))
 
     def quantize(self) -> tuple[torch.nn.Module, dict[str, Any]]:
         """Quantize the model and return the quantized model along with layer configurations.The entry of AutoRound.
@@ -1841,6 +1911,7 @@ class BaseOrchestrator(object):
         format: Union[str, list[OutputFormat]] = None,
         inplace: bool = True,
         return_folders: bool = False,
+        max_shard_size: Union[int, str] = None,
         **kwargs,
     ) -> torch.nn.Module:
         """Save the quantized model to the specified output directory in the specified format.
@@ -1849,11 +1920,14 @@ class BaseOrchestrator(object):
             output_dir (str, optional): The directory to save the quantized model. Defaults to None.
             format (str, optional): The format in which to save the model. Defaults to "auto_round".
             inplace (bool, optional): Whether to modify the model in place. Defaults to True.
+            max_shard_size (int or str, optional): Maximum size of each safetensors shard. Defaults to 5GB.
             **kwargs: Additional keyword arguments specific to the export format.
 
         Returns:
             object: The compressed model object.
         """
+        if max_shard_size is not None:
+            self.max_shard_size = max_shard_size
         self.output_dir = output_dir
         if output_dir is not None:
             self.compress_context.output_dir = output_dir
@@ -1895,22 +1969,27 @@ class BaseOrchestrator(object):
             if isinstance(original_to_quant_block_names, list):
                 original_to_quant_block_names = original_to_quant_block_names[:]
 
-            # to match the original name
+            # to match the original name. Prefer transformers' scope-aware reverse
+            # transforms (they honour each transform's scope / anchors) so a text
+            # sub-model prefix rule cannot double ``language_model`` or nest the
+            # sibling vision tower; fall back to the flattened regex mapping.
+            reverse_weight_transforms = get_reverse_weight_transforms(self.model)
             reverse_checkpoint_conversion_mapping = get_reverse_checkpoint_conversion_mapping(self.model)
 
+            def _revert_block_name(block_name):
+                if reverse_weight_transforms is not None:
+                    return revert_name_with_weight_transforms(block_name, reverse_weight_transforms)
+                return revert_checkpoint_conversion_mapping(block_name, reverse_checkpoint_conversion_mapping)
+
             if isinstance(serialization_dict["to_quant_block_names"], str):
-                reverted_block_name = revert_checkpoint_conversion_mapping(
-                    serialization_dict["to_quant_block_names"], reverse_checkpoint_conversion_mapping
-                )
+                reverted_block_name = _revert_block_name(serialization_dict["to_quant_block_names"])
                 serialization_dict["to_quant_block_names"] = preserve_original_visual_block_name(
                     original_to_quant_block_names, reverted_block_name
                 )
 
             elif isinstance(serialization_dict["to_quant_block_names"], list):
                 for idx in range(len(serialization_dict["to_quant_block_names"])):
-                    reverted_block_name = revert_checkpoint_conversion_mapping(
-                        serialization_dict["to_quant_block_names"][idx], reverse_checkpoint_conversion_mapping
-                    )
+                    reverted_block_name = _revert_block_name(serialization_dict["to_quant_block_names"][idx])
                     original_block_name = None
                     if isinstance(original_to_quant_block_names, list) and idx < len(original_to_quant_block_names):
                         original_block_name = original_to_quant_block_names[idx]
@@ -1992,8 +2071,39 @@ class BaseOrchestrator(object):
             model_name.split("/")[-1] + (f"-{prefix}" if prefix else "") + f"-w{bits}{suffix}",
         )
 
+    def _formats_policy_string(self) -> str:
+        """Comma-joined format names for policy checks (8-bit asym scoping)."""
+        return _formats_policy_string_of(self.formats)
+
+    def _assert_w8_asym_exportable(self) -> None:
+        """Re-check the 8-bit asym policy once the export format is final.
+
+        Construction-time validation runs before ``quantize_and_save(format=...)``
+        may supply the format, so it is conservative (native semantics). Re-check
+        here with the actual format: llm_compressor exports keep W8 asym."""
+        from auto_round import envs
+        from auto_round.schemes import format_allows_w8_asym
+
+        if envs.AR_ALLOW_W8_ASYM or format_allows_w8_asym(self._formats_policy_string()):
+            return
+        if getattr(self, "data_type", None) == "int" and getattr(self, "bits", None) == 8:
+            if getattr(self, "sym", None) is False:
+                raise ValueError(
+                    "8-bit asymmetric weight quantization is not supported for format "
+                    f"'{self._formats_policy_string()}': vLLM serves W8 GPTQ-format weights "
+                    "symmetric-only and Marlin supports zero points at 4 bits only. Use a "
+                    "symmetric 8-bit scheme (drop --asym), an asymmetric width of 7 bits or "
+                    "fewer, format 'auto_round:llm_compressor' (compressed-tensors serves W8 "
+                    "asym), or set AR_ALLOW_W8_ASYM=1 to skip this check."
+                )
+
     def quantize_and_save(
-        self, output_dir: str = "tmp_autoround", format: str = None, inplace: bool = True, **kwargs
+        self,
+        output_dir: str = "tmp_autoround",
+        format: str = None,
+        inplace: bool = True,
+        max_shard_size: Union[int, str] = None,
+        **kwargs,
     ) -> tuple[torch.nn.Module, dict[str, Any]]:
         """Quantizes the model and saves it in the specified format(s).
 
@@ -2008,6 +2118,7 @@ class BaseOrchestrator(object):
                 by commas if multiple. Defaults to "auto_round".
             inplace (bool, optional): Whether to modify the model in place if only
                 one format is used. Defaults to True.
+            max_shard_size (int or str, optional): Maximum size of each safetensors shard. Defaults to 5GB.
             **kwargs: Additional arguments for the quantization and saving process.
 
         Returns:
@@ -2017,6 +2128,8 @@ class BaseOrchestrator(object):
         Raises:
             ValueError: If an unsupported format is specified.
         """
+        if max_shard_size is not None:
+            self.max_shard_size = max_shard_size
         # Validate and process the specified formats
         self.output_dir = output_dir
         self.compress_context.output_dir = output_dir
@@ -2048,6 +2161,7 @@ class BaseOrchestrator(object):
         if isinstance(self.formats, str):
             self.formats = self._resolve_format_string(self.formats)
             self.compress_context.formats = self.formats
+        self._assert_w8_asym_exportable()
         # Derive descriptive export dir after post_init so scheme-resolved attrs are available.
         _fmt_str = format or (self.formats if isinstance(self.formats, str) else "")
         output_dir = self._get_export_dir(output_dir, _fmt_str)

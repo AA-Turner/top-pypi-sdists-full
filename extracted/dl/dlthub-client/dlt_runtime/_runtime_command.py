@@ -1,14 +1,21 @@
 # Python internals
-import base64
-import hashlib
 import os
 import platform
-import secrets
 import sys
 import time
-from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import TYPE_CHECKING, Any, Callable, Optional, Set, Union, cast
+from itertools import chain
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+    cast,
+)
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
@@ -19,59 +26,6 @@ from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.exceptions import CliCommandInnerException
 from dlt._workspace.cli.utils import open_url, track_command as dlt_track_command
 from dlt._workspace.deployment import DEFAULT_DEPLOYMENT_MODULE
-from dlt._workspace.deployment._trigger_helpers import is_selector
-
-# Current package
-from dlt_runtime.exceptions import (
-    NoRunnableRun,
-    OrgRegionRequired,
-    RuntimeClientException,
-    RuntimeNotAuthenticated,
-    WorkspaceNotFound,
-    exception_from_response,
-    handle_client_exceptions,
-)
-from dlt_runtime.runtime import (
-    AuthenticationMethod,
-    AuthInfo,
-    RuntimeAuthService,
-    get_api_client,
-    get_auth_client,
-)
-from dlthub_sdk._gen.api.api.runs import bulk_cancel_runs, cancel_run, get_run
-from dlthub_sdk._gen.api.api.scripts import (
-    disable_public_url,
-    enable_public_url,
-    get_script,
-    pause_script,
-    resume_script,
-    trigger_jobs,
-)
-from dlthub_sdk._gen.api.client import Client as ApiClient
-from dlthub_sdk._gen.api.models import (
-    BulkCancelRequest,
-    PrincipalKind,
-    RunStatus,
-    TriggerJobsRequest,
-)
-from dlthub_sdk._gen.api.types import UNSET, Unset
-from dlthub_sdk._gen.auth.api.workos import (
-    workos_auth_code_exchange,
-    workos_auth_code_start,
-    workos_device_flow_complete,
-    workos_device_flow_start,
-)
-from dlthub_sdk._gen.auth.errors import UnexpectedStatus as AuthUnexpectedStatus
-from dlthub_sdk._gen.dataplane_api.models import (
-    PlainVariableUpsert,
-    SecretVariableUpsert,
-    VariableChangeResultStatus,
-)
-
-if TYPE_CHECKING:
-    from dlthub_sdk._gen.api.models import TriggeredJob
-
-# Other libraries
 from dlt._workspace.deployment._run_helpers import (
     promote_deployment_arg,
     resolve_selector,
@@ -79,17 +33,15 @@ from dlt._workspace.deployment._run_helpers import (
     warn_missing_profiles,
 )
 from dlt._workspace.deployment._run_views import pick_one_job
-from dlt._workspace.deployment._trigger_helpers import humanize_trigger
+from dlt._workspace.deployment._trigger_helpers import humanize_trigger, is_selector
 from dlt._workspace.deployment.exceptions import AmbiguousJobSelector
 from dlt._workspace.deployment.typing import TTrigger
 
 # Current package
-from dlt_runtime import urls
+from dlt_runtime import runtime as _runtime_module, urls
 from dlt_runtime._loopback_pages import _LOOPBACK_ERROR_HTML, _LOOPBACK_SUCCESS_HTML
 from dlt_runtime._runtime_command_helpers import (  # noqa: F401
-    _active_org_count,
     _change_workspace_variables,
-    _check_org_arg_matches_pin,
     _default_dashboard_manifest_bundle,
     _do_deploy_manifest,
     _do_sync_configuration,
@@ -102,47 +54,37 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _fetch_deployments,
     _fetch_job_info,
     _fetch_job_run_info,
-    _fetch_jobs,
     _fetch_run_detail,
     _fetch_runs,
     _fetch_runtime_info,
     _fetch_workspace_variables,
     _fetch_workspaces,
-    _flatten_owned,
     _generate_local_manifest,
     _get_latest_run,
     _get_workspace_name,
     _get_workspace_org_name,
     _group_workspaces_by_org,
     _is_recently_finished_terminal,
-    _iter_run_log_stream,
-    _job_is_paused,
-    _open_historical_run_logs,
     _org_id_to_persist,
     _org_label,
-    _preprocess_run_output,
     _raise_cross_org,
-    _resolve_dataplane_endpoint,
     _resolve_effective_org_id,
     _resolve_job_ref_from_server,
     _resolve_run_id_by_number,
     _resolve_selectors_to_scripts,
     _resolve_trigger_selectors,
     _resolve_workspace_id,
-    _resolve_workspace_name,
     _run_id_from_ref,
     _scope_caller_info_to_org,
+    _should_hide_log_line,
     _sole_active_org_id,
-    _tls_verify,
-    _to_uuid,
-    _validate_org_id,
     _validate_pinned_org_id,
     requires_auth,
     requires_workspace,
 )
 from dlt_runtime._runtime_command_views import (
-    FAILED_RUN_STATUSES,
     _confirm_variable_delete,
+    _format_log_line,
     _open_login_page,
     _print_bulk_cancel_result,
     _print_configuration_info,
@@ -180,6 +122,21 @@ from dlt_runtime._runtime_command_views import (
     format_job_selector,
     format_run_status,
 )
+from dlt_runtime.exceptions import (
+    NoRunnableRun,
+    OrgRegionRequired,
+    RuntimeClientException,
+    RuntimeNotAuthenticated,
+    WorkspaceNotFound,
+    handle_client_exceptions,
+)
+from dlt_runtime.runtime import (
+    AuthenticationMethod,
+    AuthInfo,
+    CliSession,
+    PrincipalKind,
+    get_auth_transport,
+)
 from dlt_runtime.strings import (
     JOB_NO_SELECTOR_MATCH,
     JOB_SCHEDULE_TOGGLE_FAILED,
@@ -210,35 +167,60 @@ from dlt_runtime.typing import (
     TriggerStatus,
     WorkspaceInfo,
 )
+from dlthub_sdk import (
+    JobRun,
+    JobRunStatus,
+    LogLine,
+    Sync,
+    TriggerResult,
+    VariableChangeStatus,
+    Workspace,
+)
+from dlthub_sdk._auth import Pending, generate_pkce
+from dlthub_sdk.errors import (
+    ApiError as SdkApiError,
+    NotFound as SdkNotFound,
+    TransportError as SdkTransportError,
+)
 
 
-def _stream_run_logs(
-    run_id: UUID,
-    *,
-    follow: bool = True,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> None:
+def _open_stored_run_logs(run: JobRun[Sync]) -> Optional[Iterator[LogLine]]:
+    """Start reading a finished run's persisted log, or None if there is none yet.
+
+    Pulls the first line so a caller can tell "not consolidated" from "empty"
+    before printing a header, without buffering the whole log.
+    """
+    lines = iter(run.logs())
+    try:
+        with handle_client_exceptions():
+            first = next(lines, None)
+    except RuntimeClientException as e:
+        if isinstance(e.__cause__, SdkNotFound):
+            return None
+        raise
+    return lines if first is None else chain([first], lines)
+
+
+def _stream_run_logs(run: JobRun[Sync], *, follow: bool = True) -> None:
     """Display streamed logs from the run stream endpoint using SSE."""
     try:
-        for level, message in _iter_run_log_stream(
-            run_id, follow=follow, auth_service=auth_service, api_client=api_client
-        ):
-            if level == "log":
-                fmt.echo(message)
-            elif level == "warning":
-                fmt.warning(message)
-            elif level == "error":
-                fmt.error(message)
+        with handle_client_exceptions():
+            try:
+                for line in run.stream_logs(follow=follow):
+                    if _should_hide_log_line(line):
+                        continue
+                    fmt.echo(_format_log_line(line))
+            except (SdkApiError, SdkTransportError) as e:
+                # Reported, not raised: the caller still prints the run's final status.
+                fmt.error(e.message)
     except KeyboardInterrupt:
         fmt.echo("\nLog streaming interrupted.")
 
 
 def _show_final_run_status(
-    run_id: UUID,
+    run: JobRun[Sync],
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     """Fetch + render the run's current status after the follow loop exits.
 
@@ -246,30 +228,45 @@ def _show_final_run_status(
     non-terminal statuses (after Ctrl+C / stream errors) are printed as-is and
     do not affect the exit code.
     """
-    run = _fetch_run_detail(run_id, auth_service=auth_service, api_client=api_client)
-    _print_run_final_status(run)
-    if run.status in FAILED_RUN_STATUSES:
+    fresh = _fetch_run_detail(UUID(run.id), workspace=workspace)
+    _print_run_final_status(fresh)
+    if fresh.failed:
         sys.exit(1)
 
 
-track_command = partial(dlt_track_command, "runtime", track_before=False)
+def track_command(**kwargs: Any) -> Callable[[Any], Any]:
+    """Telemetry decorator that keeps the command's own signature visible.
+
+    `with_telemetry` replaces it with `(*f_args, **f_kwargs)` and sets no
+    `__wrapped__`, which would hide what a command declares from
+    `@requires_workspace`, whose injection reads exactly that.
+
+    Args:
+        **kwargs: Forwarded to the dlt decorator.
+
+    Returns:
+        The decorator to apply.
+    """
+    decorate = dlt_track_command("runtime", track_before=False, **kwargs)
+
+    def apply(fn: Any) -> Any:
+        tracked = decorate(fn)
+        tracked.__wrapped__ = fn
+        return tracked
+
+    return apply
 
 
 def _start_device_flow() -> DeviceFlowStartResult:
     """Start the OAuth device flow without blocking. No browser, no polling."""
-    client = get_auth_client()
     with handle_client_exceptions("Login failed. Error calling the dltHub API"):
-        login_request = workos_device_flow_start.sync_detailed(client=client)
-    if not isinstance(
-        login_request.parsed, workos_device_flow_start.WorkosDeviceFlowStartResponse
-    ):
-        raise exception_from_response("Failed to start login", login_request)
+        started = get_auth_transport().device_flow_start()
     return DeviceFlowStartResult(
-        verification_uri=login_request.parsed.verification_uri,
-        verification_uri_complete=login_request.parsed.verification_uri_complete,
-        user_code=login_request.parsed.user_code,
-        device_code=login_request.parsed.device_code,
-        interval=login_request.parsed.interval,
+        verification_uri=started.verification_uri,
+        verification_uri_complete=started.verification_uri_complete,
+        user_code=started.user_code,
+        device_code=started.device_code,
+        interval=started.interval,
     )
 
 
@@ -279,51 +276,45 @@ def _cancel_login_with_resume_hint(device_code: str) -> None:
     sys.exit(130)
 
 
+# RFC 8628 §3.5: on `slow_down` the client adds 5 seconds to its polling interval.
+_SLOW_DOWN_STEP_SECONDS = 5
+
+
 def _poll_device_flow_loop(
     device_code: str,
     interval: int,
     *,
     tick: "Callable[[int], None] | None" = None,
+    poll_first: bool = False,
 ) -> tuple[str, str]:
     """Polling loop. `tick(seconds)` runs between requests (defaults to `time.sleep`)."""
-    client = get_auth_client(include_device_id=True)
+    transport = get_auth_transport(include_device_id=True)
     error_message = "Failed to complete authentication"
     tick = tick or time.sleep
+    wait = not poll_first
     while True:
-        tick(interval)
-        try:
-            token_response = workos_device_flow_complete.sync_detailed(
-                client=client,
-                body=workos_device_flow_complete.WorkosDeviceFlowLoginRequest(
-                    device_code=device_code,
-                ),
-            )
-        except AuthUnexpectedStatus as e:
-            if e.status_code == 403:
-                continue
-            raise exception_from_response(error_message, e) from e
-        except Exception as e:
-            error_message += f". Underlying error: {e}"
-            raise RuntimeError(error_message) from e
+        if wait:
+            tick(interval)
+        wait = True
+        with handle_client_exceptions(error_message):
+            outcome = transport.device_flow_complete(device_code=device_code)
 
-        if isinstance(token_response.parsed, workos_device_flow_complete.LoginResponse):
-            return (
-                token_response.parsed.jwt,
-                token_response.parsed.refresh_token,
-            )
-        elif isinstance(
-            token_response.parsed, workos_device_flow_complete.ErrorResponse400
-        ):
-            raise exception_from_response(error_message, token_response)
+        if isinstance(outcome, Pending):
+            if outcome.slow_down:
+                interval += _SLOW_DOWN_STEP_SECONDS
+            continue
+        return outcome.access_token, outcome.refresh_token
 
 
 def _poll_device_flow(
     device_code: str,
     interval: int,
+    *,
+    poll_first: bool = False,
 ) -> tuple[str, str]:
     """Main-thread poll: catches Ctrl+C and prints the `--resume` hint."""
     try:
-        return _poll_device_flow_loop(device_code, interval)
+        return _poll_device_flow_loop(device_code, interval, poll_first=poll_first)
     except KeyboardInterrupt:
         _cancel_login_with_resume_hint(device_code)
         raise  # Unreachable: _cancel_login_with_resume_hint calls sys.exit.
@@ -395,29 +386,16 @@ def _try_start_loopback_server() -> Optional[_LoopbackServer]:
 
 def _generate_pkce() -> tuple[str, str, str]:
     """Return (code_verifier, code_challenge, state) for a loopback PKCE login."""
-    code_verifier = secrets.token_urlsafe(64)
-    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-    code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-    return code_verifier, code_challenge, secrets.token_urlsafe(32)
+    pkce = generate_pkce()
+    return pkce.verifier, pkce.challenge, pkce.state
 
 
 def _start_auth_code_flow(redirect_uri: str, code_challenge: str, state: str) -> str:
     """Ask the auth service for the WorkOS authorization URL to open in the browser."""
-    client = get_auth_client()
     with handle_client_exceptions("Login failed. Error calling the dltHub API"):
-        response = workos_auth_code_start.sync_detailed(
-            client=client,
-            body=workos_auth_code_start.WorkosAuthCodeStartRequest(
-                redirect_uri=redirect_uri,
-                code_challenge=code_challenge,
-                state=state,
-            ),
+        return get_auth_transport().auth_code_start(
+            redirect_uri=redirect_uri, code_challenge=code_challenge, state=state
         )
-    if not isinstance(
-        response.parsed, workos_auth_code_start.WorkosAuthCodeStartResponse
-    ):
-        raise exception_from_response("Failed to start login", response)
-    return response.parsed.authorization_url
 
 
 def _await_loopback_callback(server: _LoopbackServer, expected_state: str) -> str:
@@ -456,27 +434,20 @@ def _await_loopback_callback(server: _LoopbackServer, expected_state: str) -> st
 
 def _exchange_auth_code(code: str, code_verifier: str) -> tuple[str, str]:
     """Exchange the authorization code (+ PKCE verifier) for a JWT and refresh token."""
-    client = get_auth_client(include_device_id=True)
-    error_message = "Failed to complete authentication"
-    with handle_client_exceptions(error_message):
-        response = workos_auth_code_exchange.sync_detailed(
-            client=client,
-            body=workos_auth_code_exchange.WorkosAuthCodeExchangeRequest(
-                code=code, code_verifier=code_verifier
-            ),
+    with handle_client_exceptions("Failed to complete authentication"):
+        tokens = get_auth_transport(include_device_id=True).auth_code_exchange(
+            code=code, code_verifier=code_verifier
         )
-    if isinstance(response.parsed, workos_auth_code_exchange.LoginResponse):
-        return response.parsed.jwt, response.parsed.refresh_token
-    raise exception_from_response(error_message, response)
+    return tokens.access_token, tokens.refresh_token
 
 
 def _perform_loopback_login(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     web_ui_url: str,
     server: _LoopbackServer,
     *,
     not_logged_in_hint: bool = False,
-) -> Optional[tuple[RuntimeAuthService, LoginResult]]:
+) -> Optional[tuple[CliSession, LoginResult]]:
     """Codeless browser login.
 
     Returns None only when the pre-browser start call fails, so the caller can fall back
@@ -501,10 +472,8 @@ def _perform_loopback_login(
         jwt_token, refresh_token = _exchange_auth_code(code, code_verifier)
     finally:
         server.server_close()
-    auth_info = auth_service.login(jwt_token, refresh_token=refresh_token)
-    return auth_service, _login_complete_result(
-        auth_info, web_ui_url, is_new_login=True
-    )
+    auth_info = session.login(jwt_token, refresh_token=refresh_token)
+    return session, _login_complete_result(auth_info, web_ui_url, is_new_login=True)
 
 
 def _login_complete_result(
@@ -525,12 +494,12 @@ def _perform_login(
     *,
     force_device: bool = False,
     not_logged_in_hint: bool = False,
-) -> Union[tuple[RuntimeAuthService, LoginResult], DeviceFlowStartResult]:
+) -> Union[tuple[CliSession, LoginResult], DeviceFlowStartResult]:
     """Authenticate via resume / existing token / loopback / device flow. Returns auth service + result."""
-    auth_service = RuntimeAuthService(run_context=active())
+    session = CliSession(run_context=active())
     web_ui_url = urls.web_ui_base()
 
-    if auth_service.authentication_method() is AuthenticationMethod.API_KEY:
+    if session.authentication_method() is AuthenticationMethod.API_KEY:
         raise CliCommandInnerException(
             cmd="dlthub",
             msg=(
@@ -541,9 +510,11 @@ def _perform_login(
 
     # Phase 2: resume an in-flight device flow.
     if resume is not None:
-        jwt_token, refresh_token = _poll_device_flow(resume, interval=5)
-        resumed_auth = auth_service.login(jwt_token, refresh_token=refresh_token)
-        return auth_service, _login_complete_result(
+        jwt_token, refresh_token = _poll_device_flow(
+            resume, interval=5, poll_first=True
+        )
+        resumed_auth = session.login(jwt_token, refresh_token=refresh_token)
+        return session, _login_complete_result(
             resumed_auth, web_ui_url, is_new_login=True
         )
 
@@ -551,12 +522,12 @@ def _perform_login(
     # ignored here - it will be handled in execute() catch all if re raised later
     auth_info: Optional[AuthInfo] = None
     try:
-        auth_info = auth_service.authenticate()
+        auth_info = session.authenticate()
     except RuntimeNotAuthenticated:
         pass
 
     if auth_info is not None:
-        return auth_service, _login_complete_result(
+        return session, _login_complete_result(
             auth_info, web_ui_url, is_new_login=False
         )
 
@@ -566,7 +537,7 @@ def _perform_login(
         server = _try_start_loopback_server()
         if server is not None:
             loopback_result = _perform_loopback_login(
-                auth_service,
+                session,
                 web_ui_url,
                 server,
                 not_logged_in_hint=not_logged_in_hint,
@@ -591,10 +562,8 @@ def _perform_login(
         flow["device_code"],
         flow["interval"],
     )
-    auth_info = auth_service.login(jwt_token, refresh_token=refresh_token)
-    return auth_service, _login_complete_result(
-        auth_info, web_ui_url, is_new_login=True
-    )
+    auth_info = session.login(jwt_token, refresh_token=refresh_token)
+    return session, _login_complete_result(auth_info, web_ui_url, is_new_login=True)
 
 
 @track_command(operation="login")
@@ -604,7 +573,7 @@ def login(
     *,
     force_device: bool = False,
     not_logged_in_hint: bool = False,
-) -> Optional[RuntimeAuthService]:
+) -> Optional[CliSession]:
     result = _perform_login(
         resume=resume,
         force_device=force_device,
@@ -621,26 +590,26 @@ def login(
         )
         return None
 
-    auth_service, login_result = result
+    session, login_result = result
     _print_login_result(login_result, minimal_logging)
-    return auth_service
+    return session
 
 
 @track_command(operation="logout")
 def logout() -> None:
-    auth_service = RuntimeAuthService(run_context=active())
-    auth_service.logout()
+    session = CliSession(run_context=active())
+    session.logout()
     fmt.echo("Logged out")
 
 
 @requires_auth
 @track_command(operation="workspace", suboperation="list")
-def workspace_list(*, auth_service: RuntimeAuthService) -> None:
+def workspace_list(*, session: CliSession) -> None:
     """List all workspaces the caller has access to.
 
     Requires auth but NOT a connected workspace, since the user may be picking one.
     """
-    workspaces, current_ws_id = _fetch_workspaces(auth_service)
+    workspaces, current_ws_id = _fetch_workspaces(session)
     _print_workspaces(workspaces, current_ws_id)
 
 
@@ -651,20 +620,20 @@ def workspace_connect(
     org_id: Optional[str] = None,
     create: bool = False,
     *,
-    auth_service: RuntimeAuthService,
+    session: CliSession,
 ) -> None:
     """Connect this project to a remote workspace by name/ID, or `--create` a new one"""
-    if auth_service.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
+    if session.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
         if create:
             raise CliCommandInnerException(
                 cmd="workspace", msg=WORKSPACE_API_KEY_CANNOT_CREATE
             )
-        _connect_bound_workspace(auth_service, workspace, org_id)
+        _connect_bound_workspace(session, workspace, org_id)
         return
     if (
         workspace is None
         and not create
-        and auth_service.authentication_method() is AuthenticationMethod.API_KEY
+        and session.authentication_method() is AuthenticationMethod.API_KEY
     ):
         raise CliCommandInnerException(
             cmd="workspace", msg=PERSONAL_API_KEY_CONNECT_REQUIRES_NAME
@@ -673,8 +642,8 @@ def workspace_connect(
     # [runtime], plus workspace name to [workspace.settings] in
     # .dlt/config.toml. Org precedence: pinned org in config > --org-id flag >
     # sole active org > none (multi-org picker / non-interactive error).
-    caller_info = auth_service.fetch_caller_info()
-    pinned_org_id = auth_service.organization_id
+    caller_info = session.fetch_caller_info()
+    pinned_org_id = session.organization_id
     effective_org_id = _resolve_effective_org_id(caller_info, pinned_org_id, org_id)
 
     # Scope visible workspaces to the effective org (for picker, name lookup,
@@ -710,7 +679,7 @@ def workspace_connect(
             workspace=workspace,
         )
         workspace_id = _create_workspace(
-            auth_service,
+            session,
             caller_info,
             workspace,
             create_org_id,
@@ -724,14 +693,14 @@ def workspace_connect(
         ]
         if not owned:
             workspace_id = _create_workspace_with_default_name(
-                auth_service,
+                session,
                 caller_info,
                 effective_org_id,
             )
             created = True
         else:
             workspace_id, created = _select_or_create_workspace(
-                auth_service, scoped_caller_info
+                session, scoped_caller_info
             )
     else:
         # connect to existing workspace
@@ -775,7 +744,7 @@ def workspace_connect(
                     msg=WORKSPACE_CONNECT_CREATE_DECLINED.format(name=workspace),
                 ) from e
             workspace_id = _create_workspace(
-                auth_service, caller_info, workspace, connect_create_org_id
+                session, caller_info, workspace, connect_create_org_id
             )
             created = True
 
@@ -791,14 +760,14 @@ def workspace_connect(
     ):
         _raise_cross_org(caller_info, resolved_ws, effective_org_id)
 
-    auth_service.write_connection(
+    session.write_connection(
         workspace_id,
         _org_id_to_persist(caller_info, resolved_ws, effective_org_id),
     )
 
     ws_name = _get_workspace_name(caller_info["workspaces"], workspace_id)
     if ws_name:
-        auth_service.write_workspace_name(ws_name)
+        session.write_workspace_name(ws_name)
 
     info: ConnectedWorkspaceInfo = {"workspace_id": workspace_id}
     if created:
@@ -812,10 +781,10 @@ def workspace_connect(
 
 
 def _connect_bound_workspace(
-    auth_service: RuntimeAuthService, workspace: Optional[str], org_id: Optional[str]
+    session: CliSession, workspace: Optional[str], org_id: Optional[str]
 ) -> None:
     """Pin the workspace the API key is bound to; an argument or existing pin may only confirm it."""
-    workspaces = auth_service.fetch_caller_info()["workspaces"]
+    workspaces = session.fetch_caller_info()["workspaces"]
     if not workspaces:
         raise CliCommandInnerException(cmd="workspace", msg=WORKSPACE_API_KEY_NO_ACCESS)
     bound = workspaces[0]
@@ -837,15 +806,15 @@ def _connect_bound_workspace(
                 org_id=org_id,
             ),
         )
-    if auth_service.has_workspace() and auth_service.workspace_id != bound["id"]:
+    if session.has_workspace() and session.workspace_id != bound["id"]:
         raise CliCommandInnerException(
             cmd="workspace",
             msg=WORKSPACE_API_KEY_PIN_MISMATCH.format(
-                workspace_id=auth_service.workspace_id,
+                workspace_id=session.workspace_id,
                 bound_workspace_id=bound["id"],
             ),
         )
-    pinned_org_id = auth_service.organization_id
+    pinned_org_id = session.organization_id
     if pinned_org_id is not None and pinned_org_id != bound["organization_id"]:
         raise CliCommandInnerException(
             cmd="workspace",
@@ -855,8 +824,8 @@ def _connect_bound_workspace(
                 key_org_id=bound["organization_id"],
             ),
         )
-    auth_service.write_connection(bound["id"], bound["organization_id"])
-    auth_service.write_workspace_name(bound["name"])
+    session.write_connection(bound["id"], bound["organization_id"])
+    session.write_workspace_name(bound["name"])
     info: ConnectedWorkspaceInfo = {
         "workspace_id": bound["id"],
         "workspace_name": bound["name"],
@@ -901,17 +870,18 @@ def _default_workspace_name() -> str:
 
 
 def _prompt_and_set_org_region(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     organization_id: str,
 ) -> None:
     """Recover from the region gate: prompt the owner to pick a region and set it."""
-    regions = _fetch_available_regions(api_client=get_api_client(auth_service))
+    # Module-attribute lookup keeps `patch.object(runtime, ...)` effective.
+    regions = _fetch_available_regions(runtime=_runtime_module.get_sdk_runtime(session))
     dataplane_id = _prompt_region_selection(regions)
-    auth_service.set_organization_region(organization_id, dataplane_id)
+    session.set_organization_region(organization_id, dataplane_id)
 
 
 def _create_workspace(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     caller_info: CallerInfo,
     name: str,
     organization_id: str,
@@ -925,14 +895,14 @@ def _create_workspace(
     the region, then the create is retried once.
     """
     try:
-        new_ws_id = auth_service.create_new_workspace(
+        new_ws_id = session.create_new_workspace(
             name,
             description,
             organization_id=organization_id,
         )
     except OrgRegionRequired:
-        _prompt_and_set_org_region(auth_service, organization_id)
-        new_ws_id = auth_service.create_new_workspace(
+        _prompt_and_set_org_region(session, organization_id)
+        new_ws_id = session.create_new_workspace(
             name,
             description,
             organization_id=organization_id,
@@ -962,7 +932,7 @@ def _create_workspace(
 
 
 def _create_workspace_with_default_name(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     caller_info: CallerInfo,
     effective_org_id: Optional[str],
 ) -> str:
@@ -976,17 +946,17 @@ def _create_workspace_with_default_name(
         workspace=ws_name,
     )
     return _create_workspace(
-        auth_service,
+        session,
         caller_info,
         ws_name,
         create_org_id,
     )
 
 
-def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
+def _connect_workspace_with_picker(session: CliSession) -> None:
     """Use picker to connect to remote workspace; auto-connect when there is no choice."""
-    caller_info = auth_service.fetch_caller_info()
-    pinned_org_id = auth_service.organization_id
+    caller_info = session.fetch_caller_info()
+    pinned_org_id = session.organization_id
     if pinned_org_id:
         # Stale pin → clear remediation message before scoping yields nothing.
         _validate_pinned_org_id(caller_info, pinned_org_id)
@@ -1000,11 +970,11 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
     if not owned:
         # Bootstrap path: auto-create with ctx.name + bind locally.
         new_ws_id = _create_workspace_with_default_name(
-            auth_service, caller_info, pinned_org_id
+            session, caller_info, pinned_org_id
         )
         selected = next(ws for ws in caller_info["workspaces"] if ws["id"] == new_ws_id)
-        auth_service.write_connection(new_ws_id, selected["organization_id"])
-        auth_service.write_workspace_name(selected["name"])
+        session.write_connection(new_ws_id, selected["organization_id"])
+        session.write_workspace_name(selected["name"])
         info: ConnectedWorkspaceInfo = {
             "workspace_id": new_ws_id,
             "auto": True,
@@ -1021,8 +991,8 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
         # Single owned workspace in scope — typically the auto-created
         # playground in a fresh org. Connect without prompting.
         single = owned[0]
-        auth_service.write_connection(single["id"], single["organization_id"])
-        auth_service.write_workspace_name(single["name"])
+        session.write_connection(single["id"], single["organization_id"])
+        session.write_workspace_name(single["name"])
         auto_info: ConnectedWorkspaceInfo = {
             "workspace_id": single["id"],
             "auto": True,
@@ -1035,7 +1005,7 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
         return
 
     # 1+ workspaces in scope: picker (interactive) or non-interactive error.
-    selected_id, created = _select_or_create_workspace(auth_service, scoped)
+    selected_id, created = _select_or_create_workspace(session, scoped)
     # The picker may have created a new workspace, which stamps it onto
     # `caller_info["workspaces"]` (not `scoped`). Look up there in the created
     # case so the new entry is visible.
@@ -1044,8 +1014,8 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
         for ws in (caller_info["workspaces"] if created else scoped["workspaces"])
         if ws["id"] == selected_id
     )
-    auth_service.write_connection(selected["id"], selected["organization_id"])
-    auth_service.write_workspace_name(selected["name"])
+    session.write_connection(selected["id"], selected["organization_id"])
+    session.write_workspace_name(selected["name"])
     picker_info: ConnectedWorkspaceInfo = {"workspace_id": selected["id"]}
     if created:
         picker_info["created"] = True
@@ -1057,7 +1027,7 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
 
 
 def _create_workspace_from_prompt(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     caller_info: CallerInfo,
     *,
     organization_id: str,
@@ -1067,7 +1037,7 @@ def _create_workspace_from_prompt(
     default_name = _default_workspace_name()
     name, description = _prompt_new_workspace(default_name=default_name)
     return _create_workspace(
-        auth_service,
+        session,
         caller_info,
         name,
         organization_id,
@@ -1077,7 +1047,7 @@ def _create_workspace_from_prompt(
 
 
 def _select_or_create_workspace(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
     org_scoped_caller_info: CallerInfo,
 ) -> tuple[str, bool]:
     """Pick or create an owned workspace interactively; returns (id, created)."""
@@ -1119,7 +1089,7 @@ def _select_or_create_workspace(
         return existing["id"], False
     create_choice: CreateInOrgChoice = selected
     new_ws_id = _create_workspace_from_prompt(
-        auth_service,
+        session,
         org_scoped_caller_info,
         organization_id=create_choice["organization_id"],
         organization_name=create_choice["organization_name"],
@@ -1135,8 +1105,7 @@ def deploy_manifest(
     dry_run: bool = False,
     show_manifest: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     for w in warn_missing_profiles():
         fmt.warning(w)
@@ -1152,14 +1121,12 @@ def deploy_manifest(
     _sync_deployment(
         level="minimal",
         dry_run=dry_run,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
     _sync_configuration(
         level="minimal",
         dry_run=dry_run,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
     manifest, manifest_hash, api_jobs, warnings = _generate_local_manifest(
@@ -1177,8 +1144,7 @@ def deploy_manifest(
         deployment_module=resolved_module,
         description=description,
         dry_run=dry_run,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
     _print_deploy_result(
@@ -1190,12 +1156,10 @@ def deploy_manifest(
     )
 
 
-def _deploy_default_dashboard(
-    *, auth_service: RuntimeAuthService, api_client: ApiClient
-) -> None:
+def _deploy_default_dashboard(*, workspace: Workspace[Sync]) -> None:
     """Deploy only the default workspace dashboard (ad-hoc, no __deployment__.py)."""
-    _sync_deployment(auth_service=auth_service, api_client=api_client)
-    _sync_configuration(auth_service=auth_service, api_client=api_client)
+    _sync_deployment(workspace=workspace)
+    _sync_configuration(workspace=workspace)
     manifest, manifest_hash, api_jobs, _ = _default_dashboard_manifest_bundle()
     _do_deploy_manifest(
         manifest_hash=manifest_hash,
@@ -1203,8 +1167,7 @@ def _deploy_default_dashboard(
         deployment_module=manifest["deployment_module"],
         description=manifest.get("description"),
         dry_run=False,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1216,15 +1179,13 @@ def sync_deployment(
     level: SyncLoggingLevel = "full",
     dry_run: bool = False,
     verbose: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     _sync_deployment(
         level=level,
         dry_run=dry_run,
         verbose=verbose,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1233,14 +1194,11 @@ def _sync_deployment(
     level: SyncLoggingLevel = "silent",
     dry_run: bool = False,
     verbose: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> SyncResult:
     result = _do_sync_deployment(
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
         dry_run=dry_run,
-        compute_diff=level != "silent",
     )
     if level != "silent":
         _print_sync_result("deployment", result, level=level, verbose=verbose)
@@ -1255,15 +1213,13 @@ def sync_configuration(
     level: SyncLoggingLevel = "full",
     dry_run: bool = False,
     verbose: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     _sync_configuration(
         level=level,
         dry_run=dry_run,
         verbose=verbose,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1272,14 +1228,11 @@ def _sync_configuration(
     level: SyncLoggingLevel = "silent",
     dry_run: bool = False,
     verbose: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> SyncResult:
     result = _do_sync_configuration(
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
         dry_run=dry_run,
-        compute_diff=level != "silent",
     )
     if level != "silent":
         _print_sync_result("configuration", result, level=level, verbose=verbose)
@@ -1293,18 +1246,16 @@ def get_job_run_info(
     script_path_or_job_name: Optional[str] = None,
     run_number: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     if script_path_or_job_name is None:
         raise ValueError("Script path, job name, or run id is required")
     if _run_id_from_ref(script_path_or_job_name, run_number) is None:
         script_path_or_job_name = _resolve_job_ref_from_server(
-            script_path_or_job_name, auth_service=auth_service, api_client=api_client
+            script_path_or_job_name, workspace=workspace
         )
     run = _fetch_job_run_info(
-        api_client,
-        auth_service,
+        workspace,
         script_path_or_job_name=script_path_or_job_name,
         run_number=run_number,
     )
@@ -1319,15 +1270,13 @@ def logs(
     run_number: Optional[int] = None,
     *,
     follow: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     _fetch_run_logs(
         script_path_or_job_name,
         run_number,
         follow=follow,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1339,15 +1288,13 @@ def job_run_logs(
     run_number: Optional[int] = None,
     *,
     follow: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     _fetch_run_logs(
         script_path_or_job_name,
         run_number,
         follow=follow,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1356,84 +1303,52 @@ def _fetch_run_logs(
     run_number: Optional[int] = None,
     *,
     follow: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     """Get logs for a run of job (latest if run number not provided)."""
     if script_path_or_job_name is None:
         raise ValueError("Script path, job name, or run id is required")
-    run_id = _run_id_from_ref(script_path_or_job_name, run_number)
-    if run_id is None:
+    if _run_id_from_ref(script_path_or_job_name, run_number) is None:
         script_path_or_job_name = _resolve_job_ref_from_server(
-            script_path_or_job_name, auth_service=auth_service, api_client=api_client
+            script_path_or_job_name, workspace=workspace
         )
-        if run_number is None:
-            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
-        else:
-            run_id = _resolve_run_id_by_number(
-                api_client=api_client,
-                auth_service=auth_service,
-                script_path_or_job_name=script_path_or_job_name,
-                run_number=run_number,
-            )
-            run = _fetch_run_detail(
-                run_id, auth_service=auth_service, api_client=api_client
-            )
-    else:
-        run = _fetch_run_detail(
-            run_id, auth_service=auth_service, api_client=api_client
-        )
+    run = _fetch_job_run_info(
+        workspace,
+        script_path_or_job_name=script_path_or_job_name,
+        run_number=run_number,
+    )
 
-    run_id = run.id
-    run_status = run.status
-
-    terminal_states = {
-        RunStatus.FAILED,
-        RunStatus.CANCELLED,
-        RunStatus.COMPLETED,
-        RunStatus.SKIPPED,
-    }
-    if run_status in terminal_states:
-        # A terminal run serves complete, persisted logs — read them in one request.
-        # 404 on a just-finished run means they aren't consolidated yet: fall through
-        # to streaming. Any other non-200 is a real error.
-        with _open_historical_run_logs(
-            run_id, auth_service=auth_service, api_client=api_client
-        ) as (status, events):
-            if status == 200:
-                run_info = f"Run # {run.number} of job {run.script.name}"
-                fmt.echo(f"========== Run logs for {run_info} ==========")
-                try:
-                    for level, message in events:
-                        if level == "log":
-                            fmt.echo(message)
-                        elif level == "warning":
-                            fmt.warning(message)
-                        elif level == "error":
-                            fmt.error(message)
-                except KeyboardInterrupt:
-                    fmt.echo("\nLog fetch interrupted.")
-                fmt.echo(f"========== End of run logs for {run_info} ==========")
-                return
-            if status != 404:
-                fmt.error(f"Failed to fetch run logs (HTTP {status}).")
-                return
-            if not _is_recently_finished_terminal(run.time_ended):
-                fmt.echo("No logs found for this run.")
-                return
+    if run.finished:
+        # A terminal run serves complete, persisted logs. NotFound on a
+        # just-finished run means they aren't consolidated yet: fall through to
+        # streaming, but only while the run is recent enough for that to be why.
+        stored = _open_stored_run_logs(run)
+        if stored is not None:
+            run_info = f"Run # {run.number} of job {run.job_ref}"
+            fmt.echo(f"========== Run logs for {run_info} ==========")
+            try:
+                # The read continues past the first line, so a failure part-way
+                # through a long log still has to reach the user as a CLI error.
+                with handle_client_exceptions():
+                    for line in stored:
+                        if _should_hide_log_line(line):
+                            continue
+                        fmt.echo(_format_log_line(line))
+            except KeyboardInterrupt:
+                fmt.echo("\nLog fetch interrupted.")
+            fmt.echo(f"========== End of run logs for {run_info} ==========")
+            return
+        if not _is_recently_finished_terminal(run.ended_at):
+            fmt.echo("No logs found for this run.")
+            return
 
     header = "Streaming logs" if follow else "Run logs"
-    fmt.echo(f"========== {header} for run (status: {run_status}) ==========")
-    _stream_run_logs(
-        run_id,
-        follow=follow,
-        auth_service=auth_service,
-        api_client=api_client,
-    )
+    fmt.echo(f"========== {header} for run (status: {run.status}) ==========")
+    _stream_run_logs(run, follow=follow)
     footer = "End of log stream" if follow else "End of run logs"
     fmt.echo(f"========== {footer} ==========")
     if follow:
-        _show_final_run_status(run_id, auth_service=auth_service, api_client=api_client)
+        _show_final_run_status(run, workspace=workspace)
 
 
 @requires_auth
@@ -1443,28 +1358,23 @@ def get_runs(
     script_path_or_job_name: Optional[str] = None,
     *,
     running: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     if script_path_or_job_name is not None and is_selector(script_path_or_job_name):
         matched = _resolve_selectors_to_scripts(
             [script_path_or_job_name],
-            api_client=api_client,
-            auth_service=auth_service,
+            workspace=workspace,
         )
         matched_refs = {sc.job_ref for sc in matched}
-        all_runs = _fetch_runs(api_client, auth_service, running_only=running)
-        runs = [r for r in all_runs if r.script.job_ref in matched_refs]
+        all_runs = _fetch_runs(workspace, running_only=running)
+        runs = [r for r in all_runs if r.job_ref in matched_refs]
     else:
         if script_path_or_job_name is not None:
             script_path_or_job_name = _resolve_job_ref_from_server(
-                script_path_or_job_name,
-                auth_service=auth_service,
-                api_client=api_client,
+                script_path_or_job_name, workspace=workspace
             )
         runs = _fetch_runs(
-            api_client,
-            auth_service,
+            workspace,
             script_path_or_job_name,
             running_only=running,
         )
@@ -1474,8 +1384,8 @@ def get_runs(
 @requires_auth
 @requires_workspace
 @track_command(operation="workspace.deployment", suboperation="list")
-def get_deployments(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
-    deployments = _fetch_deployments(api_client, auth_service)
+def get_deployments(*, workspace: Workspace[Sync]) -> None:
+    deployments = _fetch_deployments(workspace)
     _print_deployments(deployments)
 
 
@@ -1485,10 +1395,9 @@ def get_deployments(*, auth_service: RuntimeAuthService, api_client: ApiClient) 
 def get_deployment_info(
     deployment_version_no: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    deployment = _fetch_deployment_info(api_client, auth_service, deployment_version_no)
+    deployment = _fetch_deployment_info(workspace, deployment_version_no)
     _print_deployment_info(deployment)
 
 
@@ -1499,26 +1408,16 @@ def cancel(
     selectors_or_refs: list[str],
     *,
     dry_run: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    matched = _resolve_selectors_to_scripts(
-        selectors_or_refs, api_client=api_client, auth_service=auth_service
-    )
+    matched = _resolve_selectors_to_scripts(selectors_or_refs, workspace=workspace)
     if not matched:
         raise LookupError(f"No jobs matched: {', '.join(selectors_or_refs)}")
     job_refs = [sc.job_ref for sc in matched]
 
-    with handle_client_exceptions():
-        result = bulk_cancel_runs.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            body=BulkCancelRequest(job_refs=job_refs, dry_run=dry_run),
-        )
-    if isinstance(result.parsed, bulk_cancel_runs.BulkCancelResponse):
-        _print_bulk_cancel_result(result.parsed, dry_run=dry_run)
-    else:
-        raise exception_from_response("Failed to cancel runs", result)
+    with handle_client_exceptions("Failed to cancel runs"):
+        report = workspace.job_runs.cancel_all(job_refs=job_refs, dry_run=dry_run)
+    _print_bulk_cancel_result(report, dry_run=dry_run)
 
 
 @requires_auth
@@ -1528,14 +1427,12 @@ def cancel_job_run(
     script_path_or_job_name: Optional[str] = None,
     run_number: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     _request_run_cancel(
         script_path_or_job_name,
         run_number,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
 
@@ -1543,70 +1440,43 @@ def _request_run_cancel(
     script_path_or_job_name: Optional[str] = None,
     run_number: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     """Request the cancellation of a run, for a script or workspace if script is not provided"""
     if script_path_or_job_name is None:
         raise ValueError("Script path, job name, or run id is required")
-    terminal_states = {
-        RunStatus.FAILED,
-        RunStatus.CANCELLED,
-        RunStatus.COMPLETED,
-        RunStatus.SKIPPED,
-    }
-    run_id: UUID
-    run_no: Optional[int] = run_number
     # Only the by-number path lacks the run itself, so the terminal-state guard
     # below covers a run addressed by id exactly as it covers the latest one.
-    run: Optional["get_run.DetailedRunResponse"] = None
     ref_run_id = _run_id_from_ref(script_path_or_job_name, run_number)
     if ref_run_id is not None:
-        run = _fetch_run_detail(
-            ref_run_id, auth_service=auth_service, api_client=api_client
-        )
+        run = _fetch_run_detail(ref_run_id, workspace=workspace)
     else:
         script_path_or_job_name = _resolve_job_ref_from_server(
-            script_path_or_job_name, auth_service=auth_service, api_client=api_client
+            script_path_or_job_name, workspace=workspace
         )
         if run_number is None:
-            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
+            run = _get_latest_run(workspace, script_path_or_job_name)
         else:
-            run_id = _resolve_run_id_by_number(
-                api_client=api_client,
-                auth_service=auth_service,
+            run = _fetch_job_run_info(
+                workspace,
                 script_path_or_job_name=script_path_or_job_name,
                 run_number=run_number,
             )
-    if run is not None:
-        if run.status in terminal_states:
-            raise NoRunnableRun(
-                f"Run # {run.number} is already in a terminal state: {run.status}"
-            )
-        run_id = run.id
-        run_no = run.number
+    if run.finished:
+        raise NoRunnableRun(
+            f"Run # {run.number} is already in a terminal state: {run.status}"
+        )
 
-    with handle_client_exceptions():
-        cancel_run_result = cancel_run.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            run_id=run_id,
-        )
-    if isinstance(cancel_run_result.parsed, cancel_run.DetailedRunResponse):
-        fmt.echo(f"Successfully requested cancellation of run # {run_no}")
-    else:
-        raise exception_from_response(
-            "Failed to request cancellation of run", cancel_run_result
-        )
+    with handle_client_exceptions("Failed to request cancellation of run"):
+        run.cancel()
+    fmt.echo(f"Successfully requested cancellation of run # {run.number}")
 
 
 @requires_auth
 @requires_workspace
 @track_command(operation="workspace.configuration", suboperation="list")
-def get_configurations(
-    *, auth_service: RuntimeAuthService, api_client: ApiClient
-) -> None:
-    configurations = _fetch_configurations(api_client, auth_service)
+def get_configurations(*, workspace: Workspace[Sync]) -> None:
+    configurations = _fetch_configurations(workspace)
     _print_configurations(configurations)
 
 
@@ -1616,12 +1486,9 @@ def get_configurations(
 def get_configuration_info(
     configuration_version_no: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    configuration = _fetch_configuration_info(
-        api_client, auth_service, configuration_version_no
-    )
+    configuration = _fetch_configuration_info(workspace, configuration_version_no)
     _print_configuration_info(configuration)
 
 
@@ -1631,67 +1498,58 @@ def get_configuration_info(
 def _deploy_and_trigger_job(
     job_ref: str,
     manifest_hash: str,
-    api_jobs: list[Any],
+    api_jobs: Sequence[Mapping[str, Any]],
     deployment_module: str | None,
     description: str | None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
     refresh: bool = False,
-) -> "TriggeredJob":
-    """Deploy manifest then trigger a single job by job_ref. Returns the TriggeredJob."""
+) -> TriggerResult:
+    """Deploy manifest then trigger a single job by job_ref."""
     _do_deploy_manifest(
         manifest_hash=manifest_hash,
         api_jobs=api_jobs,
         deployment_module=deployment_module,
         description=description,
         dry_run=False,
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
     )
 
-    with handle_client_exceptions():
-        result = trigger_jobs.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            body=TriggerJobsRequest(job_refs=[job_ref], refresh=refresh),
+    with handle_client_exceptions("Failed to trigger job"):
+        triggered = workspace.jobs.trigger(refs=[job_ref], refresh=refresh)
+    if not triggered:
+        raise RuntimeClientException(f"Job '{job_ref}' was not triggered.")
+    # Using job_refs guarantees server-side resolves to exactly one script.
+    if len(triggered) != 1:
+        refs = ", ".join(t.job_ref for t in triggered)
+        raise RuntimeClientException(
+            f"Server triggered {len(triggered)} jobs ({refs}) for job_ref"
+            f" '{job_ref}'. This indicates a server-side bug."
         )
-    if isinstance(result.parsed, trigger_jobs.TriggerJobsResponse):
-        triggered = result.parsed.triggered
-        if not triggered:
-            raise RuntimeClientException(f"Job '{job_ref}' was not triggered.")
-        # Using job_refs guarantees server-side resolves to exactly one script.
-        if len(triggered) != 1:
-            refs = ", ".join(t.job_ref for t in triggered)
-            raise RuntimeClientException(
-                f"Server triggered {len(triggered)} jobs ({refs}) for job_ref"
-                f" '{job_ref}'. This indicates a server-side bug."
-            )
-        return triggered[0]
-    raise exception_from_response("Failed to trigger job", result)
+    return triggered[0]
 
 
-def _swap_browser_url(url: str, auth_service: RuntimeAuthService) -> str:
+def _swap_browser_url(url: str, session: CliSession) -> str:
     """Web-app `url` with a single-use swap code appended for browser opening.
 
     Returns the plain URL if minting fails. Only use for the opened URL, never
     an echoed one — the code is single-use.
     """
-    code = auth_service.mint_swap_code()
+    code = session.mint_swap_code()
     return urls.with_swap_code(url, code) if code else url
 
 
-def _browser_url_for(url: str, auth_service: RuntimeAuthService) -> Optional[str]:
+def _browser_url_for(url: str, session: CliSession) -> Optional[str]:
     """Swap-coded browser URL, or None when non-interactive (avoids minting an unused code)."""
     if not fmt.is_interactive():
         return None
-    return _swap_browser_url(url, auth_service)
+    return _swap_browser_url(url, session)
 
 
-def _open_app_url(url: str, auth_service: RuntimeAuthService) -> None:
+def _open_app_url(url: str, session: CliSession) -> None:
     """Open a web-app URL in the browser, attaching a single-use swap code so
     the page lands logged-in."""
-    open_url(_swap_browser_url(url, auth_service))
+    open_url(_swap_browser_url(url, session))
 
 
 def _do_launch(
@@ -1705,8 +1563,8 @@ def _do_launch(
     follow: bool = True,
     refresh: bool = False,
     job_ref: Optional[str] = None,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     """Shared implementation for launch, serve, and run-pipeline.
 
@@ -1759,8 +1617,8 @@ def _do_launch(
         fmt.warning(w)
 
     # Sync, deploy, and trigger
-    _sync_deployment(auth_service=auth_service, api_client=api_client)
-    _sync_configuration(auth_service=auth_service, api_client=api_client)
+    _sync_deployment(workspace=workspace)
+    _sync_configuration(workspace=workspace)
 
     # The local select_single_job pick is the source of truth — send the
     # exact job_ref so the server resolves to the same single script (no
@@ -1771,8 +1629,7 @@ def _do_launch(
         api_jobs,
         deployment_module,
         manifest.get("description"),
-        auth_service=auth_service,
-        api_client=api_client,
+        workspace=workspace,
         refresh=refresh,
     )
 
@@ -1781,10 +1638,8 @@ def _do_launch(
     if not triggered.run_id:
         # Server matched the job but did not start a run — render a friendly
         # message and remediation hints
-        status_value = str(getattr(triggered, "status", "")) or "skipped"
-        reasons = getattr(triggered, "reasons", None)
-        if isinstance(reasons, Unset):
-            reasons = None
+        status_value = str(triggered.status or "skipped")
+        reasons = list(triggered.reasons) or None
         skip_info: TriggerSkipInfo = {
             "job_ref": triggered.job_ref,
             "status": cast(TriggerStatus, status_value),
@@ -1800,26 +1655,17 @@ def _do_launch(
         # second error on top of the skip message.
         if is_interactive and status_value == "skipped_concurrency_limit":
             try:
-                with handle_client_exceptions():
-                    res = get_script.sync_detailed(
-                        client=api_client,
-                        workspace_id=_to_uuid(auth_service.workspace_id),
-                        script_id_or_ref=triggered.job_ref,
-                    )
-                if isinstance(res.parsed, get_script.DetailedScriptResponse):
-                    url = res.parsed.script_url
-                    if url:
-                        skip_info["web_url"] = url
+                url = _fetch_job_info(workspace, triggered.job_ref).interactive_url
+                if url:
+                    skip_info["web_url"] = url
             except Exception:
                 pass
         _print_trigger_skip(skip_info)
         return
 
     # Profile comes from the run row the server just created
-    run = triggered.run if not isinstance(triggered.run, Unset) else None
-    run_profile: Optional[str] = None
-    if run is not None and not isinstance(run.profile, Unset):
-        run_profile = run.profile
+    run = _fetch_run_detail(UUID(triggered.run_id), workspace=workspace)
+    run_profile = run.profile
 
     manifest_refs = [j["job_ref"] for j in manifest.get("jobs", [])]
     banner: RuntimeRunBannerInfo = {
@@ -1830,49 +1676,39 @@ def _do_launch(
         "profile": run_profile or "unk",
         "location": "remote",
         "run_id": str(triggered.run_id),
-        "run_url": urls.job_run_url(auth_service.workspace_id, triggered.run_id),
+        "run_url": urls.job_run_url(workspace.id, triggered.run_id),
     }
-    if ws_name := _resolve_workspace_name(auth_service):
-        banner["workspace_name"] = ws_name
+    banner["workspace_name"] = workspace.name
     _print_run_banner(banner)
 
     if is_interactive:
         # Wait until RUNNING, then show URL
         _follow_run_status(
-            triggered.run_id, False, auth_service=auth_service, api_client=api_client
+            UUID(str(triggered.run_id)),
+            False,
+            workspace=workspace,
         )
         try:
-            with handle_client_exceptions():
-                res = get_script.sync_detailed(
-                    client=api_client,
-                    workspace_id=_to_uuid(auth_service.workspace_id),
-                    script_id_or_ref=triggered.job_ref,
-                )
-            if isinstance(res.parsed, get_script.DetailedScriptResponse):
-                url = res.parsed.script_url
-                if url:
-                    fmt.echo(f"Opening {url}")
-                    _open_app_url(url, auth_service)
+            url = _fetch_job_info(workspace, triggered.job_ref).interactive_url
+            if url:
+                fmt.echo(f"Opening {url}")
+                _open_app_url(url, session)
         except Exception:
-            # Raw job_ref — TriggeredJob lacks job_definition for format_job_selector.
+            # Raw job_ref — a trigger result lacks the definition format_job_selector wants.
             fmt.warning(f"Failed to open application URL for {triggered.job_ref}")
 
     if follow:
         if not is_interactive:
-            _follow_run_status(
-                triggered.run_id, True, auth_service=auth_service, api_client=api_client
-            )
+            _follow_run_status(UUID(str(triggered.run_id)), True, workspace=workspace)
         _follow_run_logs(
-            triggered.run_id,
-            auth_service=auth_service,
-            api_client=api_client,
+            UUID(str(triggered.run_id)),
+            workspace=workspace,
         )
     else:
-        if not isinstance(triggered.run, Unset) and triggered.run is not None:
-            fmt.echo(f"  Job:        {triggered.job_ref}")
-            fmt.echo(f"  Run #:      {triggered.run.number}")
-            fmt.echo(f"  Status:     {format_run_status(triggered.run.status)}")
-            fmt.echo("")
+        fmt.echo(f"  Job:        {triggered.job_ref}")
+        fmt.echo(f"  Run #:      {run.number}")
+        fmt.echo(f"  Status:     {format_run_status(run.status)}")
+        fmt.echo("")
         fmt.echo(f"To follow logs: dlthub job logs {triggered.job_ref} --follow")
 
 
@@ -1886,8 +1722,8 @@ def launch(
     refresh: bool = False,
     job_ref: Optional[str] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     selector_or_job_ref, deployment = promote_deployment_arg(
         selector_or_job_ref, deployment
@@ -1902,8 +1738,8 @@ def launch(
         follow=follow,
         refresh=refresh,
         job_ref=job_ref,
-        auth_service=auth_service,
-        api_client=api_client,
+        session=session,
+        workspace=workspace,
     )
 
 
@@ -1916,8 +1752,8 @@ def serve(
     follow: bool = False,
     job_ref: Optional[str] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     selector_or_job_ref, deployment = promote_deployment_arg(
         selector_or_job_ref, deployment
@@ -1931,8 +1767,8 @@ def serve(
         forbidden_job_type="batch",
         follow=follow,
         job_ref=job_ref,
-        auth_service=auth_service,
-        api_client=api_client,
+        session=session,
+        workspace=workspace,
     )
 
 
@@ -1945,80 +1781,59 @@ def trigger(
     profile: Optional[str] = None,
     refresh: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
-    selectors, job_refs = _resolve_trigger_selectors(
-        selectors, auth_service=auth_service, api_client=api_client
-    )
+    selectors, job_refs = _resolve_trigger_selectors(selectors, workspace=workspace)
 
-    with handle_client_exceptions():
-        result = trigger_jobs.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            body=TriggerJobsRequest(
-                selectors=selectors or UNSET,
-                job_refs=job_refs or UNSET,
-                dry_run=dry_run,
-                profile=profile,
-                refresh=refresh,
-            ),
+    with handle_client_exceptions("Failed to trigger jobs"):
+        results = workspace.jobs.trigger(
+            refs=job_refs or None,
+            selectors=selectors or None,
+            profile=profile,
+            refresh=refresh,
+            dry_run=dry_run,
         )
-    if isinstance(result.parsed, trigger_jobs.TriggerJobsResponse):
-        all_jobs = result.parsed.triggered or []
-        if not all_jobs:
-            fmt.echo("No jobs matched the selector(s)")
-            fmt.note(
-                "Remember to deploy your workspace if you added/modified job definitons."
-            )
-        else:
-            prefix = "[DRY RUN] " if dry_run else ""
-            runs = [
-                t for t in all_jobs if getattr(t, "status", "triggered") == "triggered"
-            ]
-            skipped = [
-                t for t in all_jobs if getattr(t, "status", "triggered") != "triggered"
-            ]
-            # Trigger summary lines use raw job_ref — TriggeredJob carries no
-            # job_definition, and these are copy-paste-runnable identifiers.
-            if runs:
-                fmt.echo(f"{prefix}Triggered ({len(runs)}):")
-                for t in runs:
-                    run_id = getattr(t, "run_id", None)
-                    # Prefer the human-friendly run number; fall back to the id
-                    # when the server didn't return a run object (e.g. dry-run).
-                    run = t.run if not isinstance(t.run, Unset) else None
-                    if run is not None and not isinstance(run.number, Unset):
-                        run_info = f" (run #{run.number})"
-                    elif run_id:
-                        run_info = f" (run #{run_id})"
-                    else:
-                        run_info = ""
-                    fmt.echo(f"  {fmt.bold(t.job_ref)}: {t.trigger}{run_info}")
-                    if run_id:
-                        fmt.echo(
-                            f"    - {urls.job_run_url(auth_service.workspace_id, run_id)}"
-                        )
-            if skipped:
-                fmt.echo(f"{prefix}Skipped ({len(skipped)}):")
-                for t in skipped:
-                    status_value = str(getattr(t, "status", "")) or "skipped"
-                    reasons = getattr(t, "reasons", None)
-                    if isinstance(reasons, Unset):
-                        reasons = None
-                    skip_info: TriggerSkipInfo = {
-                        "job_ref": t.job_ref,
-                        "status": cast(TriggerStatus, status_value),
-                        "trigger": str(t.trigger),
-                    }
-                    if reasons:
-                        skip_info["reasons"] = list(reasons)
-                    # `concurrency` intentionally omitted — the bulk path has
-                    # no manifest, so we can't tell concurrency==1 from >1.
-                    _print_trigger_skip(skip_info, terse=True)
-            fmt.echo(f"{prefix}{len(runs)} job(s) triggered, {len(skipped)} skipped")
-    else:
-        raise exception_from_response("Failed to trigger jobs", result)
+    if not results:
+        fmt.echo("No jobs matched the selector(s)")
+        fmt.note(
+            "Remember to deploy your workspace if you added/modified job definitons."
+        )
+        return
+
+    prefix = "[DRY RUN] " if dry_run else ""
+    runs = [t for t in results if t.started]
+    skipped = [t for t in results if not t.started]
+    # Trigger summary lines use raw job_ref — a trigger result carries no
+    # job_definition, and these are copy-paste-runnable identifiers.
+    if runs:
+        fmt.echo(f"{prefix}Triggered ({len(runs)}):")
+        for t in runs:
+            # Prefer the human-friendly run number; fall back to the id when the
+            # server didn't return a run object (e.g. dry-run).
+            if t.run_number is not None:
+                run_info = f" (run #{t.run_number})"
+            elif t.run_id:
+                run_info = f" (run #{t.run_id})"
+            else:
+                run_info = ""
+            fmt.echo(f"  {fmt.bold(t.job_ref)}: {t.trigger}{run_info}")
+            if t.run_id:
+                fmt.echo(f"    - {urls.job_run_url(workspace.id, t.run_id)}")
+    if skipped:
+        fmt.echo(f"{prefix}Skipped ({len(skipped)}):")
+        for t in skipped:
+            skip_info: TriggerSkipInfo = {
+                "job_ref": t.job_ref,
+                "status": cast(TriggerStatus, str(t.status)),
+                "trigger": t.trigger,
+            }
+            if t.reasons:
+                skip_info["reasons"] = list(t.reasons)
+            # `concurrency` intentionally omitted — the bulk path has
+            # no manifest, so we can't tell concurrency==1 from >1.
+            _print_trigger_skip(skip_info, terse=True)
+    fmt.echo(f"{prefix}{len(runs)} job(s) triggered, {len(skipped)} skipped")
 
 
 @requires_auth
@@ -2030,8 +1845,8 @@ def run_pipeline(
     follow: bool = False,
     refresh: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     _do_launch(
         [f"pipeline_name:{pipeline_name}"],
@@ -2040,8 +1855,8 @@ def run_pipeline(
         follow=follow,
         refresh=refresh,
         job_ref=job_ref,
-        auth_service=auth_service,
-        api_client=api_client,
+        session=session,
+        workspace=workspace,
     )
 
 
@@ -2052,177 +1867,86 @@ def publish(
     script_path: str,
     cancel: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     """Enable or disable a public link for an interactive script."""
     _ensure_profile_warning("access")
-    script_path = _resolve_job_ref_from_server(
-        script_path, auth_service=auth_service, api_client=api_client
-    )
-
-    with handle_client_exceptions():
-        script = get_script.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path,
-        )
-    if not isinstance(script.parsed, get_script.DetailedScriptResponse):
-        raise exception_from_response(
-            f"Failed to get script with name or id {script_path}", script
-        )
-
     if cancel:
-        # disabling public link
-        if not script.parsed.public_url:
-            fmt.echo(f"Public link for script {script_path} already disabled")
-            return
-        with handle_client_exceptions():
-            disable_public_url_result = disable_public_url.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                script_id_or_ref=script_path,
-            )
-        if isinstance(
-            disable_public_url_result.parsed, disable_public_url.ScriptResponse
-        ):
-            fmt.echo(f"Public link for script {script_path} disabled successfully")
-        else:
-            raise exception_from_response(
-                "Failed to disable public link", disable_public_url_result
-            )
+        _disable_public_link_impl(script_path, workspace=workspace)
         return
 
-    # enabling public link
-    if script.parsed.public_url:
+    script_path = _resolve_job_ref_from_server(script_path, workspace=workspace)
+    job = _fetch_job_info(workspace, script_path)
+    if job.public_url:
         fmt.echo(
-            f"Public link for script {script_path} already enabled: {script.parsed.public_url}"
+            f"Public link for script {script_path} already enabled: {job.public_url}"
         )
         return
-    with handle_client_exceptions():
-        enable_public_url_result = enable_public_url.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path,
-        )
-    if isinstance(enable_public_url_result.parsed, enable_public_url.ScriptResponse):
-        fmt.echo(
-            f"Public link for script {script_path} enabled successfully: {enable_public_url_result.parsed.public_url}"
-        )
-    else:
-        raise exception_from_response(
-            "Failed to enable public link", enable_public_url_result
-        )
-
-
-def _disable_public_link_impl(
-    script_path: str, *, auth_service: RuntimeAuthService, api_client: ApiClient
-) -> None:
-    _ensure_profile_warning("access")
-    script_path = _resolve_job_ref_from_server(
-        script_path, auth_service=auth_service, api_client=api_client
+    with handle_client_exceptions("Failed to enable public link"):
+        published = job.publish()
+    fmt.echo(
+        f"Public link for script {script_path} enabled successfully: "
+        f"{published.public_url}"
     )
 
-    with handle_client_exceptions():
-        script = get_script.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path,
-        )
-    if not isinstance(script.parsed, get_script.DetailedScriptResponse):
-        raise exception_from_response(
-            f"Failed to get script with name or id {script_path}", script
-        )
-    if not script.parsed.public_url:
+
+def _disable_public_link_impl(script_path: str, *, workspace: Workspace[Sync]) -> None:
+    _ensure_profile_warning("access")
+    script_path = _resolve_job_ref_from_server(script_path, workspace=workspace)
+    job = _fetch_job_info(workspace, script_path)
+    if not job.public_url:
         fmt.echo(f"Public link for script {script_path} already disabled")
         return
 
-    with handle_client_exceptions():
-        disable_public_url_result = disable_public_url.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path,
-        )
-    if isinstance(disable_public_url_result.parsed, disable_public_url.ScriptResponse):
-        fmt.echo(f"Public link for script {script_path} disabled successfully")
-    else:
-        raise exception_from_response(
-            "Failed to disable public link", disable_public_url_result
-        )
+    with handle_client_exceptions("Failed to disable public link"):
+        job.unpublish()
+    fmt.echo(f"Public link for script {script_path} disabled successfully")
 
 
 def _follow_run_status(
     run_id: UUID,
     is_batch: bool,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     # Batch accepts STARTING/RUNNING/COMPLETED so log streaming can take over;
     # fast providers (Modal cached image) can skip STARTING straight to
     # RUNNING/COMPLETED, which would otherwise spin the poll loop forever.
-    final_states = {RunStatus.FAILED, RunStatus.CANCELLED}
+    final_states = {JobRunStatus.FAILED, JobRunStatus.CANCELLED}
     if is_batch:
-        final_states |= {RunStatus.STARTING, RunStatus.RUNNING, RunStatus.COMPLETED}
+        final_states |= {
+            JobRunStatus.STARTING,
+            JobRunStatus.RUNNING,
+            JobRunStatus.COMPLETED,
+        }
     else:
-        final_states.add(RunStatus.RUNNING)
-    return _follow_job_run(
-        run_id, final_states, auth_service=auth_service, api_client=api_client
-    )
+        final_states.add(JobRunStatus.RUNNING)
+    return _follow_job_run(run_id, final_states, workspace=workspace)
 
 
 def _follow_run_logs(
     run_id: UUID,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    final_states = {RunStatus.FAILED, RunStatus.CANCELLED, RunStatus.COMPLETED}
-    return _follow_job_run(
-        run_id,
-        final_states,
-        RunStatus.STARTING,
-        True,
-        auth_service=auth_service,
-        api_client=api_client,
-    )
+    run = _fetch_run_detail(run_id, workspace=workspace)
+    fmt.echo("========== Run logs ==========")
+    _stream_run_logs(run, follow=True)
+    fmt.echo("========== End of run logs ==========")
+    _show_final_run_status(run, workspace=workspace)
 
 
 def _follow_job_run(
     run_id: UUID,
-    final_states: Set[RunStatus],
-    start_status: Optional[RunStatus] = None,
-    follow_logs: bool = False,
+    final_states: Set[JobRunStatus],
+    start_status: Optional[JobRunStatus] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    if follow_logs:
-        # Stream logs in real-time instead of polling
-        fmt.echo("========== Run logs ==========")
-        _stream_run_logs(
-            run_id,
-            follow=True,
-            auth_service=auth_service,
-            api_client=api_client,
-        )
-        fmt.echo("========== End of run logs ==========")
-        _show_final_run_status(run_id, auth_service=auth_service, api_client=api_client)
-        return
-
-    # Follow status changes without logs
     status = start_status
     try:
         while True:
-            with handle_client_exceptions():
-                get_run_result = get_run.sync_detailed(
-                    client=api_client,
-                    workspace_id=_to_uuid(auth_service.workspace_id),
-                    run_id=run_id,
-                )
-            if not isinstance(get_run_result.parsed, get_run.DetailedRunResponse):
-                raise exception_from_response("Failed to get run info", get_run_result)
-            new_status = get_run_result.parsed.status
+            new_status = _fetch_run_detail(run_id, workspace=workspace).status
             if new_status != status:
                 fmt.echo(f"Run status: {new_status}")
                 status = new_status
@@ -2237,66 +1961,49 @@ def _follow_job_run(
 @requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="unpublish")
-def unpublish(
-    script_path: str, *, auth_service: RuntimeAuthService, api_client: ApiClient
-) -> None:
-    _disable_public_link_impl(
-        script_path, auth_service=auth_service, api_client=api_client
-    )
+def unpublish(script_path: str, *, workspace: Workspace[Sync]) -> None:
+    _disable_public_link_impl(script_path, workspace=workspace)
 
 
 @requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="show")
-def open_workspace(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
+def open_workspace(*, session: CliSession) -> None:
     """Open the workspace overview in the web GUI."""
     _ensure_profile_warning("access")
-    url = urls.workspace_url(auth_service.workspace_id)
-    _print_show_url("Workspace", url, _browser_url_for(url, auth_service))
+    url = urls.workspace_url(session.workspace_id)
+    _print_show_url("Workspace", url, _browser_url_for(url, session))
 
 
 @requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="dashboard")
-def open_dashboard(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
+def open_dashboard(*, session: CliSession, workspace: Workspace[Sync]) -> None:
     _ensure_profile_warning("access")
-
-    # Try to find the dashboard job by job_ref
     dashboard_ref = "jobs.workspace.dashboard"
-    with handle_client_exceptions():
-        resp = get_script.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=dashboard_ref,
-        )
-
-    if isinstance(resp.parsed, get_script.ErrorResponse404):
-        # Dashboard not deployed yet. Try normal deploy first, falling back to
-        # an ad-hoc dashboard-only manifest when __deployment__.py is missing.
+    try:
+        job = _fetch_job_info(workspace, dashboard_ref)
+    except RuntimeClientException as e:
+        # Only "no such job" means it was never deployed; anything else (a 5xx,
+        # a rejected request) must not be answered by deploying the workspace.
+        if not isinstance(e.__cause__, SdkNotFound):
+            raise
+        # Try a normal deploy first, falling back to an ad-hoc dashboard-only
+        # manifest when __deployment__.py is missing.
         fmt.echo("Dashboard not deployed. Deploying workspace...")
         try:
-            deploy_manifest(auth_service=auth_service, api_client=api_client)
+            deploy_manifest(workspace=workspace)
         except FileNotFoundError:
             fmt.echo("No __deployment__.py found. Deploying default dashboard only...")
-            _deploy_default_dashboard(auth_service=auth_service, api_client=api_client)
-        # Re-fetch
-        with handle_client_exceptions():
-            resp = get_script.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                script_id_or_ref=dashboard_ref,
-            )
+            _deploy_default_dashboard(workspace=workspace)
+        job = _fetch_job_info(workspace, dashboard_ref)
 
-    if isinstance(resp.parsed, get_script.DetailedScriptResponse):
-        script_url = resp.parsed.script_url
-    else:
-        raise exception_from_response("Failed to get dashboard job", resp)
-
+    script_url = job.interactive_url
     if not script_url:
         fmt.error("Failed to get the URL for the dashboard")
         return
 
-    _print_show_url("Dashboard", script_url, _browser_url_for(script_url, auth_service))
+    _print_show_url("Dashboard", script_url, _browser_url_for(script_url, session))
 
 
 @requires_auth
@@ -2305,17 +2012,15 @@ def open_dashboard(*, auth_service: RuntimeAuthService, api_client: ApiClient) -
 def show_job(
     selector_or_job_name: Optional[str] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     """Show the URL of the job page in the web GUI."""
     if selector_or_job_name is None:
         raise ValueError("Job name, script path, or selector is required")
-    job_ref = _resolve_job_ref_from_server(
-        selector_or_job_name, auth_service=auth_service, api_client=api_client
-    )
-    url = urls.job_url(auth_service.workspace_id, job_ref)
-    _print_show_url("Job", url, _browser_url_for(url, auth_service))
+    job_ref = _resolve_job_ref_from_server(selector_or_job_name, workspace=workspace)
+    url = urls.job_url(workspace.id, job_ref)
+    _print_show_url("Job", url, _browser_url_for(url, session))
 
 
 @requires_auth
@@ -2325,8 +2030,8 @@ def show_job_run(
     selector_or_job_name: Optional[str] = None,
     run_number: Optional[int] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
+    workspace: Workspace[Sync],
 ) -> None:
     """Show the URL of the job run page in the web GUI."""
     if selector_or_job_name is None:
@@ -2334,19 +2039,18 @@ def show_job_run(
     run_id = _run_id_from_ref(selector_or_job_name, run_number)
     if run_id is None:
         job_ref = _resolve_job_ref_from_server(
-            selector_or_job_name, auth_service=auth_service, api_client=api_client
+            selector_or_job_name, workspace=workspace
         )
         if run_number is None:
-            run_id = _get_latest_run(api_client, auth_service, job_ref).id
+            run_id = UUID(_get_latest_run(workspace, job_ref).id)
         else:
             run_id = _resolve_run_id_by_number(
-                api_client=api_client,
-                auth_service=auth_service,
+                workspace=workspace,
                 script_path_or_job_name=job_ref,
                 run_number=run_number,
             )
-    url = urls.job_run_url(auth_service.workspace_id, run_id)
-    _print_show_url("Job run", url, _browser_url_for(url, auth_service))
+    url = urls.job_run_url(workspace.id, run_id)
+    _print_show_url("Job run", url, _browser_url_for(url, session))
 
 
 @requires_auth
@@ -2355,19 +2059,18 @@ def show_job_run(
 def show_pipeline(
     pipeline_name: str,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    session: CliSession,
 ) -> None:
     """Show the URL of the pipeline observability view in the web GUI."""
-    url = urls.pipeline_url(auth_service.workspace_id, pipeline_name)
-    _print_show_url("Pipeline", url, _browser_url_for(url, auth_service))
+    url = urls.pipeline_url(session.workspace_id, pipeline_name)
+    _print_show_url("Pipeline", url, _browser_url_for(url, session))
 
 
 @requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="info")
-def runtime_info(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
-    info = _fetch_runtime_info(auth_service=auth_service, api_client=api_client)
+def runtime_info(*, session: CliSession, workspace: Workspace[Sync]) -> None:
+    info = _fetch_runtime_info(session=session, workspace=workspace)
     _print_runtime_info(info)
 
     # Show the deploy reconciliation plan (same as `dlthub workspace deploy --dry-run`).
@@ -2396,8 +2099,7 @@ def runtime_info(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> 
             deployment_module=resolved_module,
             description=description,
             dry_run=True,
-            auth_service=auth_service,
-            api_client=api_client,
+            workspace=workspace,
         )
     except Exception as e:
         fmt.warning(f"Could not fetch deploy plan: {e}")
@@ -2423,13 +2125,11 @@ def jobs_list(
     selectors: list[str] | None = None,
     *,
     archived: bool = False,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     jobs = _resolve_selectors_to_scripts(
         selectors or [],
-        api_client=api_client,
-        auth_service=auth_service,
+        workspace=workspace,
         include_archived=archived,
     )
     _print_jobs(jobs)
@@ -2441,15 +2141,14 @@ def jobs_list(
 def job_info(
     script_path_or_job_name: Optional[str] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     if not script_path_or_job_name:
         raise ValueError("Script path or job name is required")
     script_path_or_job_name = _resolve_job_ref_from_server(
-        script_path_or_job_name, auth_service=auth_service, api_client=api_client
+        script_path_or_job_name, workspace=workspace
     )
-    job = _fetch_job_info(api_client, auth_service, script_path_or_job_name)
+    job = _fetch_job_info(workspace, script_path_or_job_name)
     _print_job_info(job)
 
 
@@ -2457,41 +2156,35 @@ def _toggle_schedule_pause(
     selectors: Optional[list[str]],
     *,
     pause: bool,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    scripts = _resolve_selectors_to_scripts(
-        selectors or [], api_client=api_client, auth_service=auth_service
-    )
+    scripts = _resolve_selectors_to_scripts(selectors or [], workspace=workspace)
     if not scripts:
         fmt.echo(JOB_NO_SELECTOR_MATCH)
         return
 
     action = "pause" if pause else "resume"
-    endpoint = pause_script if pause else resume_script
     # A per-job failure does not stop the rest, but does make the command exit non-zero.
     failed: list[str] = []
     for script in scripts:
-        job_ref = str(script.job_ref)
+        job_ref = script.job_ref
         # The endpoints are idempotent, so a no-op is reported rather than written again.
-        if _job_is_paused(script) is pause:
+        if script.paused is pause:
             if pause:
                 _print_job_paused(job_ref, already_paused=True)
             else:
                 _print_job_resumed(job_ref, was_paused=False)
             continue
 
-        with handle_client_exceptions():
-            result = endpoint.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                script_id_or_ref=job_ref,
-            )
-        if not isinstance(result.parsed, endpoint.ScriptResponse):
+        try:
+            with handle_client_exceptions():
+                if pause:
+                    script.pause()
+                else:
+                    script.resume()
+        except RuntimeClientException as exc:
             failed.append(job_ref)
-            fmt.error(
-                str(exception_from_response(f"Cannot {action} {job_ref}", result))
-            )
+            fmt.error(f"Cannot {action} {job_ref}: {exc}")
             continue
         if pause:
             _print_job_paused(job_ref)
@@ -2513,12 +2206,9 @@ def _toggle_schedule_pause(
 def pause_job(
     selectors: Optional[list[str]] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    _toggle_schedule_pause(
-        selectors, pause=True, auth_service=auth_service, api_client=api_client
-    )
+    _toggle_schedule_pause(selectors, pause=True, workspace=workspace)
 
 
 @requires_auth
@@ -2527,12 +2217,9 @@ def pause_job(
 def resume_job(
     selectors: Optional[list[str]] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
-    _toggle_schedule_pause(
-        selectors, pause=False, auth_service=auth_service, api_client=api_client
-    )
+    _toggle_schedule_pause(selectors, pause=False, workspace=workspace)
 
 
 def _variable_scope_label(profile: Optional[str]) -> str:
@@ -2546,12 +2233,10 @@ def variable_list(
     profile: Optional[str] = None,
     workspace_only: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     scopes = _fetch_workspace_variables(
-        api_client,
-        _to_uuid(auth_service.workspace_id),
+        workspace,
         profile=profile,
         workspace_only=workspace_only,
     )
@@ -2567,24 +2252,20 @@ def variable_set(
     value: Optional[str] = None,
     profile: Optional[str] = None,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     if value is None:
         value = _prompt_variable_value(name)
     if secret and not value:
         raise RuntimeClientException(VARIABLE_SECRET_NEEDS_VALUE)
-    response = _change_workspace_variables(
-        api_client,
-        _to_uuid(auth_service.workspace_id),
+    pair = {name: value}
+    changes = _change_workspace_variables(
+        workspace,
         profile=profile,
-        upserts=[
-            SecretVariableUpsert(name=name, value=value, type_="secret")
-            if secret
-            else PlainVariableUpsert(name=name, value=value, type_="plain")
-        ],
+        plain=None if secret else pair,
+        secrets=pair if secret else None,
     )
-    _print_variable_change(response.results, scope_label=_variable_scope_label(profile))
+    _print_variable_change(changes, scope_label=_variable_scope_label(profile))
 
 
 @requires_auth
@@ -2595,23 +2276,20 @@ def variable_delete(
     profile: Optional[str] = None,
     allow_missing: bool = False,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> None:
     scope_label = _variable_scope_label(profile)
     if not _confirm_variable_delete(name, scope_label=scope_label):
         fmt.echo(f"Left {fmt.bold(name)} in {scope_label}.")
         return
-    response = _change_workspace_variables(
-        api_client,
-        _to_uuid(auth_service.workspace_id),
+    changes = _change_workspace_variables(
+        workspace,
         profile=profile,
         deletes=[name],
     )
-    _print_variable_change(response.results, scope_label=scope_label)
+    _print_variable_change(changes, scope_label=scope_label)
     # The API is idempotent by design; erroring on a missing name is CLI policy.
     if not allow_missing and any(
-        result.status is VariableChangeResultStatus.NOT_FOUND
-        for result in response.results
+        change.status is VariableChangeStatus.NOT_FOUND for change in changes
     ):
         raise RuntimeClientException(f"Variable {name} does not exist in {scope_label}")

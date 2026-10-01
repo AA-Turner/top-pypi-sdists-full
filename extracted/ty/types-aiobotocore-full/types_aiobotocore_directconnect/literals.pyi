@@ -26,6 +26,7 @@ __all__ = (
     "AsPathTypeType",
     "BGPPeerStateType",
     "BGPStatusType",
+    "BillingModeType",
     "ConnectionStateType",
     "DescribeDirectConnectGatewayAssociationsPaginatorName",
     "DescribeDirectConnectGatewayAttachmentsPaginatorName",
@@ -44,6 +45,11 @@ __all__ = (
     "NniPartnerTypeType",
     "PaginatorName",
     "RegionName",
+    "RequestBillingModeType",
+    "ResiliencyGroupAssociationStateType",
+    "ResiliencyGroupStateType",
+    "ResiliencyGroupTypeType",
+    "ResiliencyModelType",
     "ResourceServiceName",
     "RouteDirectionType",
     "ServiceName",
@@ -54,6 +60,19 @@ AddressFamilyType = Literal["ipv4", "ipv6"]
 AsPathTypeType = Literal["seq", "set"]
 BGPPeerStateType = Literal["available", "deleted", "deleting", "pending", "verifying"]
 BGPStatusType = Literal["down", "unknown", "up"]
+BillingModeType = Literal[
+    "FlatRateTier1",
+    "FlatRateTier2",
+    "FlatRateTier3",
+    "FlatRateTier4",
+    "FlatRateTier5",
+    "PayAsYouGo",
+    "PortPairFlatRateTier1",
+    "PortPairFlatRateTier2",
+    "PortPairFlatRateTier3",
+    "PortPairFlatRateTier4",
+    "PortPairFlatRateTier5",
+]
 ConnectionStateType = Literal[
     "available",
     "deleted",
@@ -91,6 +110,20 @@ LagStateType = Literal[
 ]
 LoaContentTypeType = Literal["application/pdf"]
 NniPartnerTypeType = Literal["nonPartner", "v1", "v2"]
+RequestBillingModeType = Literal[
+    "FlatRateTier1",
+    "FlatRateTier2",
+    "FlatRateTier3",
+    "FlatRateTier4",
+    "FlatRateTier5",
+    "PayAsYouGo",
+]
+ResiliencyGroupAssociationStateType = Literal[
+    "associated", "associating", "disassociated", "disassociating"
+]
+ResiliencyGroupStateType = Literal["available", "deleted", "deleting", "pending"]
+ResiliencyGroupTypeType = Literal["Managed"]
+ResiliencyModelType = Literal["basic-resiliency", "high-resiliency", "maximum-resiliency"]
 RouteDirectionType = Literal["accepted", "advertised"]
 VirtualInterfaceStateType = Literal[
     "available",
@@ -185,6 +218,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -259,6 +293,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -287,6 +322,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -381,6 +417,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

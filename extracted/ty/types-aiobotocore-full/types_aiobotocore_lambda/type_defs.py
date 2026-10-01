@@ -30,6 +30,7 @@ from .literals import (
     CapacityProviderScalingModeType,
     CapacityProviderStateType,
     CodeSigningPolicyType,
+    DirectS3ReadType,
     EventSourceMappingMetricType,
     EventSourceMappingSystemLogLevelType,
     EventSourcePositionType,
@@ -152,6 +153,7 @@ __all__ = (
     "DeleteFunctionUrlConfigRequestTypeDef",
     "DeleteLayerVersionRequestTypeDef",
     "DeleteProvisionedConcurrencyConfigRequestTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DestinationConfigTypeDef",
     "DocumentDBEventSourceConfigTypeDef",
     "DurableConfigTypeDef",
@@ -240,6 +242,8 @@ __all__ = (
     "GetPolicyResponseTypeDef",
     "GetProvisionedConcurrencyConfigRequestTypeDef",
     "GetProvisionedConcurrencyConfigResponseTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResponseTypeDef",
     "GetRuntimeManagementConfigRequestTypeDef",
     "GetRuntimeManagementConfigResponseTypeDef",
     "ImageConfigErrorTypeDef",
@@ -338,6 +342,8 @@ __all__ = (
     "PutFunctionScalingConfigResponseTypeDef",
     "PutProvisionedConcurrencyConfigRequestTypeDef",
     "PutProvisionedConcurrencyConfigResponseTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
     "PutRuntimeManagementConfigRequestTypeDef",
     "PutRuntimeManagementConfigResponseTypeDef",
     "RemoveLayerVersionPermissionRequestTypeDef",
@@ -347,6 +353,7 @@ __all__ = (
     "RetryDetailsTypeDef",
     "RuntimeVersionConfigTypeDef",
     "RuntimeVersionErrorTypeDef",
+    "S3FilesConfigTypeDef",
     "ScalingConfigTypeDef",
     "SelfManagedEventSourceOutputTypeDef",
     "SelfManagedEventSourceTypeDef",
@@ -614,11 +621,6 @@ class EphemeralStorageTypeDef(TypedDict):
     Size: int
 
 
-class FileSystemConfigTypeDef(TypedDict):
-    Arn: str
-    LocalMountPath: str
-
-
 class LoggingConfigTypeDef(TypedDict):
     LogFormat: NotRequired[LogFormatType]
     ApplicationLogLevel: NotRequired[ApplicationLogLevelType]
@@ -694,6 +696,11 @@ class DeleteProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     Qualifier: str
 
 
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+    RevisionId: NotRequired[str]
+
+
 class OnFailureTypeDef(TypedDict):
     Destination: NotRequired[str]
 
@@ -752,6 +759,10 @@ class ExecutionTypeDef(TypedDict):
     StartTimestamp: datetime
     EndTimestamp: NotRequired[datetime]
     KMSKeyArn: NotRequired[str]
+
+
+class S3FilesConfigTypeDef(TypedDict):
+    DirectS3Read: NotRequired[DirectS3ReadType]
 
 
 class FilterTypeDef(TypedDict):
@@ -918,6 +929,10 @@ class GetPolicyRequestTypeDef(TypedDict):
 class GetProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     FunctionName: str
     Qualifier: str
+
+
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
 
 
 class GetRuntimeManagementConfigRequestTypeDef(TypedDict):
@@ -1124,6 +1139,12 @@ class PutProvisionedConcurrencyConfigRequestTypeDef(TypedDict):
     ProvisionedConcurrentExecutions: int
 
 
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Policy: str
+    RevisionId: NotRequired[str]
+
+
 class PutRuntimeManagementConfigRequestTypeDef(TypedDict):
     FunctionName: str
     UpdateRuntimeOn: UpdateRuntimeOnType
@@ -1242,6 +1263,12 @@ class GetProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    Policy: str
+    RevisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetRuntimeManagementConfigResponseTypeDef(TypedDict):
     UpdateRuntimeOn: UpdateRuntimeOnType
     FunctionArn: str
@@ -1298,6 +1325,12 @@ class PutProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
     Status: ProvisionedConcurrencyStatusEnumType
     StatusReason: str
     LastModified: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    Policy: str
+    RevisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1574,6 +1607,12 @@ class ListDurableExecutionsByFunctionResponseTypeDef(TypedDict):
     DurableExecutions: list[ExecutionTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class FileSystemConfigTypeDef(TypedDict):
+    Arn: str
+    LocalMountPath: str
+    S3FilesConfig: NotRequired[S3FilesConfigTypeDef]
 
 
 class FilterCriteriaOutputTypeDef(TypedDict):

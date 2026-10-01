@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.7.0"
+version = "1.8.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -101,6 +101,9 @@ include = [
   "tools/**/*.py",
   # First-party extensions ship real code; lint them like the rest.
   "extensions/**/*.py",
+  # The lift report builder and the eval tools.
+  "evals/report/**/*.py",
+  "evals/tools/**/*.py",
 ]
 exclude = [
     "src/google/agents/cli/scaffold/agents",

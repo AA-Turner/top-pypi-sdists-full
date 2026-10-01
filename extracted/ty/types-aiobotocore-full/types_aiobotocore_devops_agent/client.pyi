@@ -138,6 +138,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateAgentSpaceInputTypeDef,
     UpdateAgentSpaceOutputTypeDef,
+    UpdateApprovalActionRequestTypeDef,
+    UpdateApprovalActionResponseTypeDef,
     UpdateAssetFileRequestTypeDef,
     UpdateAssetFileResponseTypeDef,
     UpdateAssetRequestTypeDef,
@@ -720,6 +722,16 @@ class DevOpsAgentServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_agent_space.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_agent_space)
+        """
+
+    async def update_approval_action(
+        self, **kwargs: Unpack[UpdateApprovalActionRequestTypeDef]
+    ) -> UpdateApprovalActionResponseTypeDef:
+        """
+        Updates an approval request with the terminal decision (APPROVED or REJECTED).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_approval_action.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_agent/client/#update_approval_action)
         """
 
     async def update_asset(

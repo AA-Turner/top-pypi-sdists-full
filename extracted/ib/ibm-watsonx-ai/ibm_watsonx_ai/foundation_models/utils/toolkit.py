@@ -5,9 +5,11 @@
 import copy
 import json
 import warnings
-from typing import Any
+from typing import Any, cast
 
 from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models import Embeddings
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     MissingToolRequiredProperties,
@@ -70,7 +72,17 @@ class Tool(WMLResource):
         WMLResource.__init__(self, __name__, self._client)
 
         if self.input_schema is not None:
-            self._input_schema_required = self.input_schema.get("required")
+            self._input_schema_required: list | None = self.input_schema.get("required")
+
+    def _validate_tool_input(self, input: str | dict) -> None:
+        if self.input_schema is None:
+            Tool._validate_type(input, "input", str)
+        else:
+            Tool._validate_type(input, "input", dict)
+            if self._input_schema_required and any(
+                req not in input for req in self._input_schema_required
+            ):
+                raise MissingToolRequiredProperties(self._input_schema_required)
 
     def run(
         self,
@@ -108,14 +120,7 @@ class Tool(WMLResource):
             result = weather_tool.run(input=tool_input)
 
         """
-        if self.input_schema is None:
-            Tool._validate_type(input, "input", str)
-        else:
-            Tool._validate_type(input, "input", dict)
-            if self._input_schema_required and any(
-                req not in input for req in self._input_schema_required
-            ):
-                raise MissingToolRequiredProperties(self._input_schema_required)
+        self._validate_tool_input(input)
 
         payload = {
             "input": input,
@@ -160,6 +165,295 @@ class Tool(WMLResource):
         )
 
 
+class _RAGQuery(Tool):
+    """Instantiate the RAGQuery tool which is SDK's implementation as a replacement of the deprecated utility agent tool.
+
+    :param api_client: initialized APIClient object
+    :type api_client: APIClient
+    """
+
+    def __init__(
+        self,
+        api_client: APIClient,
+    ):
+        super().__init__(
+            api_client=api_client,
+            name="RAGQuery",
+            description="Search the documents in a vector index.",
+            agent_description="Search information in documents to provide context to a user query. Useful when asked to ground the answer in specific knowledge about {indexName}",
+            input_schema=None,
+            config_schema={
+                "title": "config schema for RAGQuery tool",
+                "type": "object",
+                "properties": {
+                    "vectorIndexId": {
+                        "title": "Vector index identifier",
+                        "type": "string",
+                    },
+                    "vectorIndexIds": {
+                        "title": "Vector index identifiers",
+                        "type": "array",
+                    },
+                    "projectId": {"title": "Project identifier", "type": "string"},
+                    "spaceId": {"title": "Space identifier", "type": "string"},
+                },
+                "allOf": [
+                    {
+                        "oneOf": [
+                            {"required": ["vectorIndexId"]},
+                            {"required": ["vectorIndexIds"]},
+                        ]
+                    },
+                    {"oneOf": [{"required": ["projectId"]}, {"required": ["spaceId"]}]},
+                ],
+            },
+            config=None,
+        )
+
+    def run(
+        self,
+        input: str | dict,
+        config: dict | None = None,
+    ) -> dict:
+        """Run the SDK's implementation of RAGQuery tool (does not delegate to the deprecated API endpoint) with given `input` and `config`.
+
+        :param input: input to be used when running tool
+        :type input: str
+
+        :param config: configuration options, must match the config schema for the tool
+        :type config: dict, optional
+
+        :return: the output from running the tool
+        :rtype: dict
+
+        """
+        self._validate_tool_input(input)
+        Tool._validate_type(config, "config", dict)
+
+        input = cast(str, input)
+        config = cast(dict[str, Any], config)
+
+        if "projectId" not in config and "spaceId" not in config:
+            raise MissingToolRequiredProperties(
+                'One of ["projectId", "spaceId"]', schema_type="config"
+            )
+
+        if vi_id := config.get("vectorIndexId"):
+            vector_index_ids = [vi_id]
+        elif vi_ids := config.get("vectorIndexIds"):
+            vector_index_ids = vi_ids
+        else:
+            raise MissingToolRequiredProperties(
+                'One of ["vectorIndexId", "vectorIndexIds"]', schema_type="config"
+            )
+
+        page_contents: list[str] = []
+        for vector_index_id in vector_index_ids:
+            docs = self._process_vector_index(
+                vector_index_id=vector_index_id,
+                query=input,
+                project_id=config.get("projectId"),
+                space_id=config.get("spaceId"),
+            )
+            page_contents.extend(docs)
+        result = "\n\n".join(page_contents)
+
+        return {"output": result}
+
+    def _query_vector_store(
+        self,
+        api_client: APIClient,
+        index_details: dict[str, Any],
+        query: str,
+        index_id: str,
+    ) -> list:
+        from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
+
+        store_type = index_details["store"].get("type")
+        embedding_model_id = index_details["settings"]["embedding_model_id"]
+
+        if distance_metric := index_details["settings"].get("distance_metric"):
+            distance_metric = distance_metric.lower()
+
+        match store_type:
+            case "memory":
+                import gzip
+
+                documents: list[dict] = []
+                for _, content in cast(
+                    list,
+                    api_client.data_assets.get_content(index_id, list_format=True),
+                ):
+                    decompressed_bytes = gzip.decompress(content)
+                    embedded_docs: list[dict] = json.loads(decompressed_bytes)
+                    documents.extend(embedded_docs)
+
+                if distance_metric == "l2":
+                    distance_metric = "euclidean"
+
+                vector_store = VectorStore(
+                    api_client=api_client,
+                    embeddings=self._prepare_embeddings(api_client, embedding_model_id),
+                    datasource_type="chroma",
+                    distance_metric=distance_metric,
+                )
+                vector_store.clear()  # to avoid duplicates when called several times since chroma is process-global
+                chroma_store = vector_store.get_client()
+                chroma_store.add_texts(
+                    texts=[doc["content"] for doc in documents],
+                )
+
+            case "elasticsearch":
+                schema_fields = index_details["settings"].get("schema_fields", {})
+                es_kwargs: dict[str, Any] = {}
+                if query_field := schema_fields.get("text"):
+                    es_kwargs["query_field"] = query_field
+                if vector_query_field := schema_fields.get("vector_query"):
+                    es_kwargs["vector_query_field"] = vector_query_field
+
+                if distance_metric == "l2":
+                    distance_metric = "euclidean"
+
+                vector_store = VectorStore(
+                    api_client=api_client,
+                    connection_id=index_details["store"].get("connection_id"),
+                    index_name=index_details["store"].get("index"),
+                    distance_metric=distance_metric,
+                    model_id=index_details["settings"]["embedding_model_id"],
+                    **es_kwargs,
+                )
+
+            case "watsonx.data":  # Milvus
+                schema_fields = index_details["settings"].get("schema_fields", {})
+                milvus_kwargs: dict[str, Any] = {}
+                if text_field := schema_fields.get("text"):
+                    milvus_kwargs["text_field"] = text_field
+
+                vector_store = VectorStore(
+                    api_client=api_client,
+                    connection_id=index_details["store"].get("connection_id"),
+                    embeddings=self._prepare_embeddings(api_client, embedding_model_id),
+                    index_name=index_details["store"].get("index"),
+                    distance_metric=distance_metric,
+                    **milvus_kwargs,
+                )
+            case _:
+                raise WMLClientError(
+                    f"Unknown vector store type ('{store_type}') for vector index id: {index_id}."
+                )
+
+        results = vector_store.search(query, index_details["settings"]["top_k"])
+
+        if store_type == "elasticsearch":
+            # reverse the order of results to maintain compatibility with the original tool
+            results.reverse()
+
+        return results
+
+    def _extract_docs_content(self, documents: list) -> list[str]:
+        if not documents:
+            return []
+        return [result.page_content for result in documents]
+
+    def _rerank_results(
+        self,
+        api_client: APIClient,
+        index_details: dict[str, Any],
+        query: str,
+        docs: list[str],
+    ) -> list[str]:
+        from ibm_watsonx_ai.foundation_models import Rerank
+
+        default_reranking_model_id = "intfloat/multilingual-e5-large"
+
+        reranking_model_id = index_details["settings"].get(
+            "reranking_model_id", default_reranking_model_id
+        )
+        reranking_model_spec = cast(
+            dict,
+            api_client.foundation_models.get_model_specs(
+                model_id=reranking_model_id, filters=None
+            ),
+        )
+        max_sequence_length = get_from_json(
+            reranking_model_spec, ["model_limits", "max_sequence_length"]
+        )
+
+        rerank_params: dict = {}
+        if max_sequence_length:
+            rerank_params["truncate_input_tokens"] = max_sequence_length
+        if top_n := index_details["settings"].get("top_n"):
+            rerank_params["return_options"] = {"top_n": top_n}
+
+        rerank = Rerank(
+            api_client=api_client,
+            model_id=reranking_model_id,
+            params=rerank_params,
+        )
+
+        scored_results = rerank.generate(
+            query=query,
+            inputs=docs,  # type: ignore[arg-type]
+        )["results"]
+
+        ranked_results = sorted(scored_results, key=lambda x: x["score"], reverse=True)
+        reranked_docs = cast(list[str], [docs[r["index"]] for r in ranked_results])
+
+        return reranked_docs
+
+    def _process_vector_index(
+        self,
+        vector_index_id: str,
+        query: str,
+        project_id: str | None = None,
+        space_id: str | None = None,
+    ) -> list[str]:
+        api_client = APIClient(
+            credentials=self._client.credentials,
+            project_id=project_id,
+            space_id=space_id,
+        )
+
+        index_details = api_client.data_assets.get_details(vector_index_id)["entity"][
+            "vector_index"
+        ]
+        query_results = self._query_vector_store(
+            api_client, index_details, query, vector_index_id
+        )
+        docs_content = self._extract_docs_content(query_results)
+
+        if index_details["settings"].get("rerank"):
+            docs_content = self._rerank_results(
+                api_client, index_details, query, docs_content
+            )
+
+        return docs_content
+
+    def _prepare_embeddings(
+        self, api_client: APIClient, embedding_model_id: str
+    ) -> Embeddings:
+        embedding_model_spec = cast(
+            dict,
+            api_client.foundation_models.get_model_specs(
+                model_id=embedding_model_id, filters=None
+            ),
+        )
+
+        max_sequence_length = get_from_json(
+            embedding_model_spec, ["model_limits", "max_sequence_length"]
+        )
+
+        parameters: dict = {}
+        if max_sequence_length:
+            parameters = {"truncate_input_tokens": max_sequence_length}
+
+        return Embeddings(
+            model_id=embedding_model_id,
+            params=parameters,
+            api_client=api_client,
+        )
+
+
 class Toolkit(WMLResource):
     """Toolkit for utility agent tools.
 
@@ -184,7 +478,11 @@ class Toolkit(WMLResource):
 
     """
 
-    def __init__(self, api_client: APIClient, params: dict[str, dict] | None = None):
+    def __init__(
+        self,
+        api_client: APIClient,
+        params: dict[str, dict] | None = None,
+    ):
         self._client = api_client
         self.params = params
 
@@ -200,18 +498,33 @@ class Toolkit(WMLResource):
 
         try:
             details = self._handle_response(
-                200, "getting utility agent tools", response
+                200,
+                "getting utility agent tools",
+                response,
+                _silent_response_logging=True,
             )
-        except ApiRequestFailure as exc:
+        except ApiRequestFailure:
             # Endpoint removed (August 2026, CPD 5.4)
-            raise WMLClientError("Operation is unsupported for this release.") from exc
+            toolkit_removal_message = (
+                "watsonx.ai Agent Lab and Utility Agent Tools are no longer supported. "
+                "The replacement offering is watsonx Orchestrate Agent Lab/builder. "
+                "Only the `RAGQuery` tool is available to maintain backward compatibility, "
+                "but it is not recommended for new solutions."
+            )
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("default", category=DeprecationWarning)
+                warnings.warn(toolkit_removal_message, category=DeprecationWarning)
+
+            return [_RAGQuery(self._client)]
 
         toolkit_deprecation_message = (
             "watsonx.ai Agent Lab and Utility Agent Tools are being deprecated. "
             "The replacement offering is watsonx Orchestrate Agent Lab/builder."
         )
-
-        warnings.warn(toolkit_deprecation_message, category=DeprecationWarning)
+        with warnings.catch_warnings():
+            warnings.simplefilter("default", category=DeprecationWarning)
+            warnings.warn(toolkit_deprecation_message, category=DeprecationWarning)
 
         return [
             Tool(

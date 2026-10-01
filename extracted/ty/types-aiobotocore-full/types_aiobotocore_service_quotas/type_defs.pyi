@@ -21,6 +21,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
+    AdjustableAtLevelEnumType,
     AppliedLevelEnumType,
     ErrorCodeType,
     OptInStatusType,
@@ -243,6 +244,7 @@ class QuotaContextInfoTypeDef(TypedDict):
     ContextScope: NotRequired[QuotaContextScopeType]
     ContextScopeType: NotRequired[str]
     ContextId: NotRequired[str]
+    AdjustableAtLevel: NotRequired[AdjustableAtLevelEnumType]
 
 class QuotaPeriodTypeDef(TypedDict):
     PeriodValue: NotRequired[int]

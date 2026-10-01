@@ -101,6 +101,7 @@ __all__ = (
     "TimeUnitType",
     "UpgradeStatusType",
     "UpgradeStepType",
+    "ValidationFailureSeverityType",
     "VolumeTypeType",
     "VpcEndpointErrorCodeType",
     "VpcEndpointStatusType",
@@ -368,6 +369,7 @@ TLSSecurityPolicyType = Literal[
 TimeUnitType = Literal["HOURS"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
 UpgradeStepType = Literal["PRE_UPGRADE_CHECK", "SNAPSHOT", "UPGRADE"]
+ValidationFailureSeverityType = Literal["Critical", "Warning"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "standard"]
 VpcEndpointErrorCodeType = Literal["ENDPOINT_NOT_FOUND", "SERVER_ERROR"]
 VpcEndpointStatusType = Literal[
@@ -455,6 +457,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -529,6 +532,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -557,6 +561,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -651,6 +656,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

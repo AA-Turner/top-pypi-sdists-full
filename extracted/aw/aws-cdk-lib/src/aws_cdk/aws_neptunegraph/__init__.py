@@ -106,6 +106,28 @@ class CfnGraph(
             # the properties below are optional
             deletion_protection=False,
             graph_name="graphName",
+            import_task=neptunegraph.CfnGraph.ImportTaskProperty(
+                role_arn="roleArn",
+                source="source",
+        
+                # the properties below are optional
+                blank_node_handling="blankNodeHandling",
+                fail_on_error=False,
+                format="format",
+                import_options=neptunegraph.CfnGraph.ImportOptionsProperty(
+                    neptune=neptunegraph.CfnGraph.NeptuneImportOptionsProperty(
+                        s3_export_kms_key_id="s3ExportKmsKeyId",
+                        s3_export_path="s3ExportPath",
+        
+                        # the properties below are optional
+                        preserve_default_vertex_labels=False,
+                        preserve_edge_ids=False
+                    )
+                ),
+                max_provisioned_memory=123,
+                min_provisioned_memory=123,
+                parquet_type="parquetType"
+            ),
             kms_key_identifier="kmsKeyIdentifier",
             public_connectivity=False,
             replica_count=123,
@@ -127,6 +149,7 @@ class CfnGraph(
         provisioned_memory: jsii.Number,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
+        import_task: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.ImportTaskProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         public_connectivity: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
@@ -140,6 +163,7 @@ class CfnGraph(
         :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
         :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
         :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+        :param import_task: The import task details to import data into the graph at creation time.
         :param kms_key_identifier: The ARN of the KMS key used to encrypt data in the Neptune Analytics graph. If not specified, the graph is encrypted with an AWS managed key.
         :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
         :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
@@ -154,6 +178,7 @@ class CfnGraph(
             provisioned_memory=provisioned_memory,
             deletion_protection=deletion_protection,
             graph_name=graph_name,
+            import_task=import_task,
             kms_key_identifier=kms_key_identifier,
             public_connectivity=public_connectivity,
             replica_count=replica_count,
@@ -322,6 +347,24 @@ class CfnGraph(
         jsii.set(self, "graphName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="importTask")
+    def import_task(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportTaskProperty"]]:
+        '''The import task details to import data into the graph at creation time.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportTaskProperty"]], jsii.get(self, "importTask"))
+
+    @import_task.setter
+    def import_task(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportTaskProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13f3ce8813d8cb6e7b44792fe5ad9ea3ff0a54eb7905b10a3d92e5b720263b30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "importTask", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
         '''The ARN of the KMS key used to encrypt data in the Neptune Analytics graph.'''
@@ -403,6 +446,405 @@ class CfnGraph(
         jsii.set(self, "vectorSearchConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph.ImportOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"neptune": "neptune"},
+    )
+    class ImportOptionsProperty:
+        def __init__(
+            self,
+            *,
+            neptune: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.NeptuneImportOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains options for controlling the import process.
+
+            For example, if the failOnError key is set to false, the import skips the data that caused the error and continues if possible (whereas if set to true, the default, or if omitted, the import operation halts immediately when an error is encountered).
+
+            :param neptune: Options for importing data from a Neptune database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_neptunegraph as neptunegraph
+                
+                import_options_property = neptunegraph.CfnGraph.ImportOptionsProperty(
+                    neptune=neptunegraph.CfnGraph.NeptuneImportOptionsProperty(
+                        s3_export_kms_key_id="s3ExportKmsKeyId",
+                        s3_export_path="s3ExportPath",
+                
+                        # the properties below are optional
+                        preserve_default_vertex_labels=False,
+                        preserve_edge_ids=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ddadf29a4ab21556257400ce0e605c1645233ea3efd256cc0ff4526b01ab77e9)
+                check_type(argname="argument neptune", value=neptune, expected_type=type_hints["neptune"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if neptune is not None:
+                self._values["neptune"] = neptune
+
+        @builtins.property
+        def neptune(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.NeptuneImportOptionsProperty"]]:
+            '''Options for importing data from a Neptune database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importoptions.html#cfn-neptunegraph-graph-importoptions-neptune
+            '''
+            result = self._values.get("neptune")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.NeptuneImportOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImportOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph.ImportTaskProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "role_arn": "roleArn",
+            "source": "source",
+            "blank_node_handling": "blankNodeHandling",
+            "fail_on_error": "failOnError",
+            "format": "format",
+            "import_options": "importOptions",
+            "max_provisioned_memory": "maxProvisionedMemory",
+            "min_provisioned_memory": "minProvisionedMemory",
+            "parquet_type": "parquetType",
+        },
+    )
+    class ImportTaskProperty:
+        def __init__(
+            self,
+            *,
+            role_arn: builtins.str,
+            source: builtins.str,
+            blank_node_handling: typing.Optional[builtins.str] = None,
+            fail_on_error: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            format: typing.Optional[builtins.str] = None,
+            import_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.ImportOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            max_provisioned_memory: typing.Optional[jsii.Number] = None,
+            min_provisioned_memory: typing.Optional[jsii.Number] = None,
+            parquet_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The import task details to import data into the graph at creation time.
+
+            :param role_arn: The ARN of the IAM role that will allow access to the data that is to be imported.
+            :param source: A URL identifying to the location of the data to be imported. This can be an Amazon S3 path, or can point to a Neptune database endpoint or snapshot.
+            :param blank_node_handling: The method to handle blank nodes in the dataset. Currently, only convertToIri is supported, meaning blank nodes are converted to unique IRIs at load time. Must be provided when format is NTRIPLES
+            :param fail_on_error: If set to true, the task halts when an import error is encountered. If set to false, the task skips the data that caused the error and continues if possible.
+            :param format: Specifies the format of S3 data to be imported. Valid values are CSV, which identifies the Gremlin CSV format, OPEN_CYPHER, which identifies the openCypher load format, or NTRIPLES, which identifies the RDF n-triples format.
+            :param import_options: Contains options for controlling the import process. For example, if the failOnError key is set to false, the import skips the data that caused the error and continues if possible (whereas if set to true, the default, or if omitted, the import operation halts immediately when an error is encountered).
+            :param max_provisioned_memory: The maximum provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Default: 1024, or the approved upper limit for your account. If both the minimum and maximum values are specified, the final provisioned-memory will be chosen per the actual size of your imported data. If neither value is specified, 128 m-NCUs are used.
+            :param min_provisioned_memory: The minimum provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Default: 16
+            :param parquet_type: The parquet type of the import task. Required when Format is PARQUET.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_neptunegraph as neptunegraph
+                
+                import_task_property = neptunegraph.CfnGraph.ImportTaskProperty(
+                    role_arn="roleArn",
+                    source="source",
+                
+                    # the properties below are optional
+                    blank_node_handling="blankNodeHandling",
+                    fail_on_error=False,
+                    format="format",
+                    import_options=neptunegraph.CfnGraph.ImportOptionsProperty(
+                        neptune=neptunegraph.CfnGraph.NeptuneImportOptionsProperty(
+                            s3_export_kms_key_id="s3ExportKmsKeyId",
+                            s3_export_path="s3ExportPath",
+                
+                            # the properties below are optional
+                            preserve_default_vertex_labels=False,
+                            preserve_edge_ids=False
+                        )
+                    ),
+                    max_provisioned_memory=123,
+                    min_provisioned_memory=123,
+                    parquet_type="parquetType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2c49e39747481b5fbda1de3c6858f163fd27faefda3189efe47b7b6bb083e061)
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+                check_type(argname="argument blank_node_handling", value=blank_node_handling, expected_type=type_hints["blank_node_handling"])
+                check_type(argname="argument fail_on_error", value=fail_on_error, expected_type=type_hints["fail_on_error"])
+                check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+                check_type(argname="argument import_options", value=import_options, expected_type=type_hints["import_options"])
+                check_type(argname="argument max_provisioned_memory", value=max_provisioned_memory, expected_type=type_hints["max_provisioned_memory"])
+                check_type(argname="argument min_provisioned_memory", value=min_provisioned_memory, expected_type=type_hints["min_provisioned_memory"])
+                check_type(argname="argument parquet_type", value=parquet_type, expected_type=type_hints["parquet_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role_arn": role_arn,
+                "source": source,
+            }
+            if blank_node_handling is not None:
+                self._values["blank_node_handling"] = blank_node_handling
+            if fail_on_error is not None:
+                self._values["fail_on_error"] = fail_on_error
+            if format is not None:
+                self._values["format"] = format
+            if import_options is not None:
+                self._values["import_options"] = import_options
+            if max_provisioned_memory is not None:
+                self._values["max_provisioned_memory"] = max_provisioned_memory
+            if min_provisioned_memory is not None:
+                self._values["min_provisioned_memory"] = min_provisioned_memory
+            if parquet_type is not None:
+                self._values["parquet_type"] = parquet_type
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role that will allow access to the data that is to be imported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source(self) -> builtins.str:
+            '''A URL identifying to the location of the data to be imported.
+
+            This can be an Amazon S3 path, or can point to a Neptune database endpoint or snapshot.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-source
+            '''
+            result = self._values.get("source")
+            assert result is not None, "Required property 'source' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def blank_node_handling(self) -> typing.Optional[builtins.str]:
+            '''The method to handle blank nodes in the dataset.
+
+            Currently, only convertToIri is supported, meaning blank nodes are converted to unique IRIs at load time. Must be provided when format is NTRIPLES
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-blanknodehandling
+            '''
+            result = self._values.get("blank_node_handling")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def fail_on_error(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''If set to true, the task halts when an import error is encountered.
+
+            If set to false, the task skips the data that caused the error and continues if possible.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-failonerror
+            '''
+            result = self._values.get("fail_on_error")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def format(self) -> typing.Optional[builtins.str]:
+            '''Specifies the format of S3 data to be imported.
+
+            Valid values are CSV, which identifies the Gremlin CSV format, OPEN_CYPHER, which identifies the openCypher load format, or NTRIPLES, which identifies the RDF n-triples format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-format
+            '''
+            result = self._values.get("format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def import_options(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportOptionsProperty"]]:
+            '''Contains options for controlling the import process.
+
+            For example, if the failOnError key is set to false, the import skips the data that caused the error and continues if possible (whereas if set to true, the default, or if omitted, the import operation halts immediately when an error is encountered).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-importoptions
+            '''
+            result = self._values.get("import_options")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportOptionsProperty"]], result)
+
+        @builtins.property
+        def max_provisioned_memory(self) -> typing.Optional[jsii.Number]:
+            '''The maximum provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph.
+
+            Default: 1024, or the approved upper limit for your account. If both the minimum and maximum values are specified, the final provisioned-memory will be chosen per the actual size of your imported data. If neither value is specified, 128 m-NCUs are used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-maxprovisionedmemory
+            '''
+            result = self._values.get("max_provisioned_memory")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_provisioned_memory(self) -> typing.Optional[jsii.Number]:
+            '''The minimum provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph.
+
+            Default: 16
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-minprovisionedmemory
+            '''
+            result = self._values.get("min_provisioned_memory")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def parquet_type(self) -> typing.Optional[builtins.str]:
+            '''The parquet type of the import task.
+
+            Required when Format is PARQUET.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-importtask.html#cfn-neptunegraph-graph-importtask-parquettype
+            '''
+            result = self._values.get("parquet_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImportTaskProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph.NeptuneImportOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_export_kms_key_id": "s3ExportKmsKeyId",
+            "s3_export_path": "s3ExportPath",
+            "preserve_default_vertex_labels": "preserveDefaultVertexLabels",
+            "preserve_edge_ids": "preserveEdgeIds",
+        },
+    )
+    class NeptuneImportOptionsProperty:
+        def __init__(
+            self,
+            *,
+            s3_export_kms_key_id: builtins.str,
+            s3_export_path: builtins.str,
+            preserve_default_vertex_labels: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            preserve_edge_ids: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Options for importing data from a Neptune database.
+
+            :param s3_export_kms_key_id: The KMS key to use to encrypt data in the S3 bucket where the graph data is exported.
+            :param s3_export_path: The path to an S3 bucket from which to import data.
+            :param preserve_default_vertex_labels: Neptune Analytics supports label-less vertices and no labels are assigned unless one is explicitly provided. Neptune assigns default labels when none is explicitly provided. When importing the data into Neptune Analytics, the default vertex labels can be omitted by setting preserveDefaultVertexLabels to false. Note that if the vertex only has default labels, and has no other properties or edges, then the vertex will effectively not get imported into Neptune Analytics when preserveDefaultVertexLabels is set to false.
+            :param preserve_edge_ids: Neptune Analytics currently does not support user defined edge ids. The edge ids are not imported by default. They are imported if preserveEdgeIds is set to true, and ids are stored as properties on the relationships with the property name neptuneEdgeId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-neptuneimportoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_neptunegraph as neptunegraph
+                
+                neptune_import_options_property = neptunegraph.CfnGraph.NeptuneImportOptionsProperty(
+                    s3_export_kms_key_id="s3ExportKmsKeyId",
+                    s3_export_path="s3ExportPath",
+                
+                    # the properties below are optional
+                    preserve_default_vertex_labels=False,
+                    preserve_edge_ids=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5e9eb0cdf9204cd7b2a4c4165f1d1d71ffa416b3b65656ed9cc096939bff499c)
+                check_type(argname="argument s3_export_kms_key_id", value=s3_export_kms_key_id, expected_type=type_hints["s3_export_kms_key_id"])
+                check_type(argname="argument s3_export_path", value=s3_export_path, expected_type=type_hints["s3_export_path"])
+                check_type(argname="argument preserve_default_vertex_labels", value=preserve_default_vertex_labels, expected_type=type_hints["preserve_default_vertex_labels"])
+                check_type(argname="argument preserve_edge_ids", value=preserve_edge_ids, expected_type=type_hints["preserve_edge_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_export_kms_key_id": s3_export_kms_key_id,
+                "s3_export_path": s3_export_path,
+            }
+            if preserve_default_vertex_labels is not None:
+                self._values["preserve_default_vertex_labels"] = preserve_default_vertex_labels
+            if preserve_edge_ids is not None:
+                self._values["preserve_edge_ids"] = preserve_edge_ids
+
+        @builtins.property
+        def s3_export_kms_key_id(self) -> builtins.str:
+            '''The KMS key to use to encrypt data in the S3 bucket where the graph data is exported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-neptuneimportoptions.html#cfn-neptunegraph-graph-neptuneimportoptions-s3exportkmskeyid
+            '''
+            result = self._values.get("s3_export_kms_key_id")
+            assert result is not None, "Required property 's3_export_kms_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_export_path(self) -> builtins.str:
+            '''The path to an S3 bucket from which to import data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-neptuneimportoptions.html#cfn-neptunegraph-graph-neptuneimportoptions-s3exportpath
+            '''
+            result = self._values.get("s3_export_path")
+            assert result is not None, "Required property 's3_export_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def preserve_default_vertex_labels(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Neptune Analytics supports label-less vertices and no labels are assigned unless one is explicitly provided.
+
+            Neptune assigns default labels when none is explicitly provided. When importing the data into Neptune Analytics, the default vertex labels can be omitted by setting preserveDefaultVertexLabels to false. Note that if the vertex only has default labels, and has no other properties or edges, then the vertex will effectively not get imported into Neptune Analytics when preserveDefaultVertexLabels is set to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-neptuneimportoptions.html#cfn-neptunegraph-graph-neptuneimportoptions-preservedefaultvertexlabels
+            '''
+            result = self._values.get("preserve_default_vertex_labels")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def preserve_edge_ids(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Neptune Analytics currently does not support user defined edge ids.
+
+            The edge ids are not imported by default. They are imported if preserveEdgeIds is set to true, and ids are stored as properties on the relationships with the property name neptuneEdgeId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-neptunegraph-graph-neptuneimportoptions.html#cfn-neptunegraph-graph-neptuneimportoptions-preserveedgeids
+            '''
+            result = self._values.get("preserve_edge_ids")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NeptuneImportOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph.VectorSearchConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"vector_search_dimension": "vectorSearchDimension"},
@@ -462,6 +904,7 @@ class CfnGraph(
         "provisioned_memory": "provisionedMemory",
         "deletion_protection": "deletionProtection",
         "graph_name": "graphName",
+        "import_task": "importTask",
         "kms_key_identifier": "kmsKeyIdentifier",
         "public_connectivity": "publicConnectivity",
         "replica_count": "replicaCount",
@@ -476,6 +919,7 @@ class CfnGraphProps:
         provisioned_memory: jsii.Number,
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         graph_name: typing.Optional[builtins.str] = None,
+        import_task: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGraph.ImportTaskProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         public_connectivity: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         replica_count: typing.Optional[jsii.Number] = None,
@@ -487,6 +931,7 @@ class CfnGraphProps:
         :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
         :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
         :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+        :param import_task: The import task details to import data into the graph at creation time.
         :param kms_key_identifier: The ARN of the KMS key used to encrypt data in the Neptune Analytics graph. If not specified, the graph is encrypted with an AWS managed key.
         :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
         :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
@@ -509,6 +954,28 @@ class CfnGraphProps:
                 # the properties below are optional
                 deletion_protection=False,
                 graph_name="graphName",
+                import_task=neptunegraph.CfnGraph.ImportTaskProperty(
+                    role_arn="roleArn",
+                    source="source",
+            
+                    # the properties below are optional
+                    blank_node_handling="blankNodeHandling",
+                    fail_on_error=False,
+                    format="format",
+                    import_options=neptunegraph.CfnGraph.ImportOptionsProperty(
+                        neptune=neptunegraph.CfnGraph.NeptuneImportOptionsProperty(
+                            s3_export_kms_key_id="s3ExportKmsKeyId",
+                            s3_export_path="s3ExportPath",
+            
+                            # the properties below are optional
+                            preserve_default_vertex_labels=False,
+                            preserve_edge_ids=False
+                        )
+                    ),
+                    max_provisioned_memory=123,
+                    min_provisioned_memory=123,
+                    parquet_type="parquetType"
+                ),
                 kms_key_identifier="kmsKeyIdentifier",
                 public_connectivity=False,
                 replica_count=123,
@@ -526,6 +993,7 @@ class CfnGraphProps:
             check_type(argname="argument provisioned_memory", value=provisioned_memory, expected_type=type_hints["provisioned_memory"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument graph_name", value=graph_name, expected_type=type_hints["graph_name"])
+            check_type(argname="argument import_task", value=import_task, expected_type=type_hints["import_task"])
             check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
             check_type(argname="argument public_connectivity", value=public_connectivity, expected_type=type_hints["public_connectivity"])
             check_type(argname="argument replica_count", value=replica_count, expected_type=type_hints["replica_count"])
@@ -538,6 +1006,8 @@ class CfnGraphProps:
             self._values["deletion_protection"] = deletion_protection
         if graph_name is not None:
             self._values["graph_name"] = graph_name
+        if import_task is not None:
+            self._values["import_task"] = import_task
         if kms_key_identifier is not None:
             self._values["kms_key_identifier"] = kms_key_identifier
         if public_connectivity is not None:
@@ -586,6 +1056,17 @@ class CfnGraphProps:
         '''
         result = self._values.get("graph_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def import_task(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportTaskProperty"]]:
+        '''The import task details to import data into the graph at creation time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-importtask
+        '''
+        result = self._values.get("import_task")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGraph.ImportTaskProperty"]], result)
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
@@ -1314,6 +1795,7 @@ def _typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89
     provisioned_memory: jsii.Number,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     graph_name: typing.Optional[builtins.str] = None,
+    import_task: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.ImportTaskProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     public_connectivity: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
@@ -1365,6 +1847,12 @@ def _typecheckingstub__e36e1cbffa42257001fdc31d1dd6378f3a98ce8e7f3bcd68a4772b9cb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__13f3ce8813d8cb6e7b44792fe5ad9ea3ff0a54eb7905b10a3d92e5b720263b30(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGraph.ImportTaskProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1395,6 +1883,38 @@ def _typecheckingstub__f52f361f4f645382b2e53faccee1b1e685b8665ddcc9f188eae9dec9c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ddadf29a4ab21556257400ce0e605c1645233ea3efd256cc0ff4526b01ab77e9(
+    *,
+    neptune: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.NeptuneImportOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c49e39747481b5fbda1de3c6858f163fd27faefda3189efe47b7b6bb083e061(
+    *,
+    role_arn: builtins.str,
+    source: builtins.str,
+    blank_node_handling: typing.Optional[builtins.str] = None,
+    fail_on_error: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    format: typing.Optional[builtins.str] = None,
+    import_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.ImportOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_provisioned_memory: typing.Optional[jsii.Number] = None,
+    min_provisioned_memory: typing.Optional[jsii.Number] = None,
+    parquet_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e9eb0cdf9204cd7b2a4c4165f1d1d71ffa416b3b65656ed9cc096939bff499c(
+    *,
+    s3_export_kms_key_id: builtins.str,
+    s3_export_path: builtins.str,
+    preserve_default_vertex_labels: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    preserve_edge_ids: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0a4625f08e1fb2af5a059a020fbbe4f9b64ced8f30cb593a275b3af90d3b579b(
     *,
     vector_search_dimension: jsii.Number,
@@ -1407,6 +1927,7 @@ def _typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c4
     provisioned_memory: jsii.Number,
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     graph_name: typing.Optional[builtins.str] = None,
+    import_task: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGraph.ImportTaskProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     public_connectivity: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     replica_count: typing.Optional[jsii.Number] = None,

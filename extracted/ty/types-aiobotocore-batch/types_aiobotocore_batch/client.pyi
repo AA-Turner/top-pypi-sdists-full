@@ -43,6 +43,8 @@ from .paginator import (
 )
 from .type_defs import (
     CancelJobRequestTypeDef,
+    CancelJobsRequestTypeDef,
+    CancelJobsResponseTypeDef,
     CreateComputeEnvironmentRequestTypeDef,
     CreateComputeEnvironmentResponseTypeDef,
     CreateConsumableResourceRequestTypeDef,
@@ -104,7 +106,11 @@ from .type_defs import (
     SubmitServiceJobResponseTypeDef,
     TagResourceRequestTypeDef,
     TerminateJobRequestTypeDef,
+    TerminateJobsRequestTypeDef,
+    TerminateJobsResponseTypeDef,
     TerminateServiceJobRequestTypeDef,
+    TerminateServiceJobsRequestTypeDef,
+    TerminateServiceJobsResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateComputeEnvironmentRequestTypeDef,
     UpdateComputeEnvironmentResponseTypeDef,
@@ -174,6 +180,16 @@ class BatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/cancel_job.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#cancel_job)
+        """
+
+    async def cancel_jobs(
+        self, **kwargs: Unpack[CancelJobsRequestTypeDef]
+    ) -> CancelJobsResponseTypeDef:
+        """
+        Cancels up to 50 jobs in an Batch job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/cancel_jobs.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#cancel_jobs)
         """
 
     async def create_compute_environment(
@@ -523,6 +539,16 @@ class BatchClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#terminate_job)
         """
 
+    async def terminate_jobs(
+        self, **kwargs: Unpack[TerminateJobsRequestTypeDef]
+    ) -> TerminateJobsResponseTypeDef:
+        """
+        Terminates up to 50 jobs in a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_jobs.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#terminate_jobs)
+        """
+
     async def terminate_service_job(
         self, **kwargs: Unpack[TerminateServiceJobRequestTypeDef]
     ) -> dict[str, Any]:
@@ -531,6 +557,16 @@ class BatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_service_job.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#terminate_service_job)
+        """
+
+    async def terminate_service_jobs(
+        self, **kwargs: Unpack[TerminateServiceJobsRequestTypeDef]
+    ) -> TerminateServiceJobsResponseTypeDef:
+        """
+        Terminates up to 50 service jobs in a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_service_jobs.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#terminate_service_jobs)
         """
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:

@@ -185,6 +185,37 @@ fn py_tool_run_normalize_definition<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "tool_run_duration_fit")]
+fn py_tool_run_duration_fit<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::DurationFitRequestWire =
+        telemetry_request_from_pydict(request, "DurationFitRequestWire")?;
+    let result = py
+        .allow_threads(|| sase_core::tool_run::duration_fit(request))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "tool_run_duration_calibration")]
+fn py_tool_run_duration_calibration<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::DurationCalibrationRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "DurationCalibrationRequestWire",
+        )?;
+    let result = py
+        .allow_threads(|| sase_core::tool_run::duration_calibration(request))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
 #[pyo3(name = "tool_run_canonicalize_fingerprint")]
 fn py_tool_run_canonicalize_fingerprint<'py>(
     py: Python<'py>,
@@ -359,6 +390,75 @@ fn py_tool_run_claim<'py>(
                 Duration::from_millis(busy_timeout_ms),
             )
         })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_join",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_join<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunJoinRequestWire =
+        telemetry_request_from_pydict(request, "ToolRunJoinRequestWire")?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::join(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_release_join",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_release_join<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunReleaseJoinRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunReleaseJoinRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::release_join(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "tool_run_sync_wait_budget")]
+fn py_tool_run_sync_wait_budget<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::SyncWaitBudgetRequestWire =
+        telemetry_request_from_pydict(request, "SyncWaitBudgetRequestWire")?;
+    let result = py
+        .allow_threads(|| sase_core::tool_run::sync_wait_budget(request))
         .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
     telemetry_result_to_py(py, &result)
 }
@@ -984,6 +1084,8 @@ pub(crate) fn register_telemetry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_telemetry_store_stats, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_normalize_definition, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_duration_fit, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_duration_calibration, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_canonicalize_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_unknown_evidence, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_begin, m)?)?;
@@ -992,6 +1094,9 @@ pub(crate) fn register_telemetry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_tool_run_observe, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_reconcile, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_claim, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_join, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_release_join, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_sync_wait_budget, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_request_stop, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_list, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_show, m)?)?;

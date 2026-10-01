@@ -277,6 +277,21 @@ class Release(TimestampMixin, table=True):
         default=None, sa_column=Column(JSON, nullable=True)
     )
 
+    #: The board's own id for this release (a Linear Release id), once InnoDay
+    #: has paired or created it. Lets a rename in InnoDay find the same board
+    #: release, and tells "the board deleted it" apart from "never pushed".
+    board_release_id: Optional[str] = Field(default=None, max_length=255)
+
+    #: Board ticket keys this release held on the board at the last release
+    #: sync -- the common ancestor for a three-way merge of membership. Without
+    #: it, a ticket in InnoDay's release but not the board's could be either
+    #: "removed on the board" (clear it) or "not pushed yet" (attach it), and
+    #: the two need opposite answers. Null = never synced: nothing is assumed
+    #: removed.
+    board_ticket_keys: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
     # Relationships
     organization: Optional["Organization"] = Relationship(back_populates="releases")
     project: Optional["Project"] = Relationship(back_populates="releases")

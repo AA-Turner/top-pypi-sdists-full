@@ -90,12 +90,21 @@ class CacheClusterReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_elasticache.GlobalReplicationGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"global_replication_group_id": "globalReplicationGroupId"},
+    name_mapping={
+        "global_replication_group_arn": "globalReplicationGroupArn",
+        "global_replication_group_id": "globalReplicationGroupId",
+    },
 )
 class GlobalReplicationGroupReference:
-    def __init__(self, *, global_replication_group_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        global_replication_group_arn: builtins.str,
+        global_replication_group_id: builtins.str,
+    ) -> None:
         '''A reference to a GlobalReplicationGroup resource.
 
+        :param global_replication_group_arn: The ARN of the GlobalReplicationGroup resource.
         :param global_replication_group_id: The GlobalReplicationGroupId of the GlobalReplicationGroup resource.
 
         :exampleMetadata: fixture=_generated
@@ -107,15 +116,25 @@ class GlobalReplicationGroupReference:
             from aws_cdk.interfaces import aws_elasticache as interfaces_elasticache
             
             global_replication_group_reference = interfaces_elasticache.GlobalReplicationGroupReference(
+                global_replication_group_arn="globalReplicationGroupArn",
                 global_replication_group_id="globalReplicationGroupId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1110cc555afddf2d94b13f3aa1ac1afa10f65e8907104e13f6b902a4643d6894)
+            check_type(argname="argument global_replication_group_arn", value=global_replication_group_arn, expected_type=type_hints["global_replication_group_arn"])
             check_type(argname="argument global_replication_group_id", value=global_replication_group_id, expected_type=type_hints["global_replication_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "global_replication_group_arn": global_replication_group_arn,
             "global_replication_group_id": global_replication_group_id,
         }
+
+    @builtins.property
+    def global_replication_group_arn(self) -> builtins.str:
+        '''The ARN of the GlobalReplicationGroup resource.'''
+        result = self._values.get("global_replication_group_arn")
+        assert result is not None, "Required property 'global_replication_group_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def global_replication_group_id(self) -> builtins.str:
@@ -1162,6 +1181,7 @@ def _typecheckingstub__e7fa7e3375e8ad9ab2e170d818c5ec8f7d2bde03d305b4be5f21f114b
 
 def _typecheckingstub__1110cc555afddf2d94b13f3aa1ac1afa10f65e8907104e13f6b902a4643d6894(
     *,
+    global_replication_group_arn: builtins.str,
     global_replication_group_id: builtins.str,
 ) -> None:
     """Type checking stubs"""

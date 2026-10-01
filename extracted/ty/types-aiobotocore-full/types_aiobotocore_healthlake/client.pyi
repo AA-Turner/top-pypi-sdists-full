@@ -69,6 +69,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     PublishDataTransformationProfileRequestTypeDef,
     PublishDataTransformationProfileResponseTypeDef,
+    RestoreFHIRDatastoreRequestTypeDef,
+    RestoreFHIRDatastoreResponseTypeDef,
     StartDataTransformationJobRequestTypeDef,
     StartDataTransformationJobResponseTypeDef,
     StartFHIRExportJobRequestTypeDef,
@@ -247,7 +249,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[ListDataTransformationJobsRequestTypeDef]
     ) -> ListDataTransformationJobsResponseTypeDef:
         """
-        Lists data transformation jobs for your AWS account.
+        Lists data transformation jobs for your Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_data_transformation_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_data_transformation_jobs)
@@ -327,13 +329,23 @@ class HealthLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#publish_data_transformation_profile)
         """
 
+    async def restore_fhir_datastore(
+        self, **kwargs: Unpack[RestoreFHIRDatastoreRequestTypeDef]
+    ) -> RestoreFHIRDatastoreResponseTypeDef:
+        """
+        Restore a backup-enabled data store to a point in time.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/restore_fhir_datastore.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#restore_fhir_datastore)
+        """
+
     async def start_data_transformation_job(
         self, **kwargs: Unpack[StartDataTransformationJobRequestTypeDef]
     ) -> StartDataTransformationJobResponseTypeDef:
         """
         Starts an asynchronous data transformation job that converts source files from
         Amazon Simple Storage Service (Amazon S3) and writes the output to Amazon S3 or
-        AWS HealthLake.
+        HealthLake.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/start_data_transformation_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#start_data_transformation_job)

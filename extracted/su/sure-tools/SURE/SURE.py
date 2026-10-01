@@ -142,7 +142,8 @@ class SURE(nn.Module):
         if covariate_dim is None:
             covariate_dim = z_dim 
         self.latent_dim = z_dim
-            
+        self.dtype = dtype
+        
         if method == 'flow':
             self.engine = SURENF(input_dim=input_dim,
                                   codebook_size=codebook_size,

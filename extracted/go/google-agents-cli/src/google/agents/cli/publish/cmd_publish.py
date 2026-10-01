@@ -18,8 +18,6 @@
 import json
 import logging
 import os
-import subprocess
-import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlparse
@@ -27,7 +25,6 @@ from urllib.parse import urlparse
 import click
 import requests
 from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
-from packaging import version
 from rich.table import Table
 
 from google.agents.cli._agent_platform import AgentPlatformClient
@@ -38,8 +35,6 @@ from google.agents.cli._gcp_project import (
 from google.agents.cli._output import Console, emit
 from google.agents.cli._project import read_project_config
 from google.agents.cli._remote import build_agent_runtime_passthrough_url
-from google.agents.cli._runner import run_resolved
-from google.agents.cli._tools import ToolNotFoundError
 from google.agents.cli.auth import get_access_token, get_id_token
 from google.agents.cli.scaffold.utils.gcp import (
     get_user_agent,
@@ -61,160 +56,8 @@ def _strip_callback(
     return value.strip() if value else value
 
 
-# SDK version that contains the fix for Gemini Enterprise session bug
-# See: https://github.com/GoogleCloudPlatform/agent-starter-pack/issues/495
-SDK_MIN_VERSION_FOR_GEMINI_ENTERPRISE = "1.128.0"
-
 # Only Gemini Enterprise (intranet) apps can be connected via registration.
 _GEMINI_ENTERPRISE_APP_TYPE = "APP_TYPE_INTRANET"
-
-# SDK upgrade command constants
-_SDK_UPGRADE_PACKAGE = (
-    "google-cloud-aiplatform[adk,agent_engines] "
-    "@ git+https://github.com/googleapis/python-aiplatform.git"
-)
-_SDK_UPGRADE_COMMAND = f'uv add "{_SDK_UPGRADE_PACKAGE}"'
-
-
-def get_sdk_version_from_lock_file() -> tuple[str | None, bool]:
-    """Get google-cloud-aiplatform version and source from uv.lock file.
-
-    Returns:
-        Tuple of (version string or None, is_from_git boolean).
-        If from git, the fix is assumed to be applied regardless of version.
-    """
-    lock_path = Path("uv.lock")
-    if not lock_path.exists():
-        return None, False
-
-    try:
-        with open(lock_path, "rb") as f:
-            lock_data = tomllib.load(f)
-
-        for package in lock_data.get("package", []):
-            if package.get("name") == "google-cloud-aiplatform":
-                found_version = package.get("version")
-                source = package.get("source")
-                is_from_git = isinstance(source, dict) and "git" in source
-                return found_version, is_from_git
-
-        return None, False
-    except (tomllib.TOMLDecodeError, OSError):
-        return None, False
-
-
-def _is_sdk_version_affected(current_version: str) -> bool:
-    """Check if the SDK version is affected by the Gemini Enterprise bug."""
-    return version.parse(current_version) <= version.parse(
-        SDK_MIN_VERSION_FOR_GEMINI_ENTERPRISE
-    )
-
-
-def _print_sdk_compatibility_warning(current_version: str) -> None:
-    """Print warning message about SDK compatibility issue."""
-    console.print("\n" + "=" * 70)
-    console.print("[yellow]⚠️  Agent Runtime SDK Compatibility Issue Detected[/yellow]")
-    console.print("=" * 70)
-    console.print(
-        f"\nYour current google-cloud-aiplatform version ({current_version}) has a known"
-    )
-    console.print("issue with Agent Runtime that causes 'Session not found' errors when")
-    console.print("registering to Gemini Enterprise.")
-    console.print(
-        "\nSee: https://github.com/GoogleCloudPlatform/agent-starter-pack/issues/495"
-    )
-    console.print(
-        "\n[bold]The fix is available in the SDK git repository "
-        "(will be in PyPI >1.128.0).[/bold]"
-    )
-
-
-def _run_sdk_upgrade() -> bool:
-    """Execute the SDK upgrade command.
-
-    Returns:
-        True if upgrade succeeded, False otherwise.
-    """
-    console.print("\n[blue]Upgrading SDK from git (this may take a minute)...[/blue]")
-    try:
-        result = run_resolved(
-            ["uv", "add", _SDK_UPGRADE_PACKAGE],
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout
-        )
-
-        if result.returncode == 0:
-            console.print("\n[green]✅ SDK upgraded successfully![/green]")
-            console.print("\n[bold]Next steps:[/bold]")
-            console.print(
-                "  1. Redeploy your agent to pick up the fix: [cyan]agents-cli deploy[/cyan]"
-            )
-            console.print("  2. Re-run this command to register with Gemini Enterprise")
-            return True
-
-        console.print(f"\n[red]❌ Failed to upgrade SDK:[/red]\n{result.stderr}")
-        console.print(f"\nYou can manually run:\n  {_SDK_UPGRADE_COMMAND}")
-        return False
-
-    except ToolNotFoundError:
-        # run_resolved raises ToolNotFoundError if it cannot find the executable (e.g., 'uv')
-        console.print(
-            "\n[yellow]⚠️  'uv' command not found. Please run manually:[/yellow]"
-        )
-        console.print(f"  {_SDK_UPGRADE_COMMAND}")
-        return False
-    except subprocess.TimeoutExpired:
-        console.print("\n[red]❌ Upgrade timed out.[/red]")
-        return False
-
-
-def check_and_upgrade_sdk_for_agent_runtime() -> bool:
-    """Check if SDK version is compatible with Gemini Enterprise and offer to upgrade.
-
-    For Agent Runtime deployments, there's a known issue with SDK versions <= 1.128.0
-    that causes 'Session not found' errors. The fix is available in the git repo.
-
-    Returns:
-        True if SDK is compatible or user upgraded, False if user chose to abort.
-    """
-    try:
-        current_version, is_from_git = get_sdk_version_from_lock_file()
-
-        if not current_version:
-            # No lock file or couldn't parse - skip check
-            return True
-
-        if is_from_git:
-            # Installed from git - assume fix is applied
-            return True
-
-        if not _is_sdk_version_affected(current_version):
-            return True  # Version is OK
-
-        # Version is affected - warn user and offer upgrade
-        _print_sdk_compatibility_warning(current_version)
-
-        if click.confirm(
-            "\nWould you like to upgrade to the fixed version from git now?",
-            default=True,
-        ):
-            if _run_sdk_upgrade():
-                return False  # User needs to redeploy and restart
-            return click.confirm(
-                "\nContinue anyway (may encounter errors)?", default=False
-            )
-
-        # User declined upgrade
-        console.print(
-            f"\nYou can manually upgrade later by running:\n  {_SDK_UPGRADE_COMMAND}"
-        )
-        return click.confirm("\nContinue anyway (may encounter errors)?", default=False)
-
-    except Exception as e:
-        # If we can't check the version, just continue
-        console.print(f"[dim]Warning: Could not check SDK version: {e}[/dim]")
-        return True
 
 
 def get_discovery_engine_endpoint(location: str) -> str:
@@ -1549,13 +1392,6 @@ def register_gemini_enterprise(
 
     # ADK
     else:
-        # Check SDK version compatibility for Agent Runtime deployments
-        # See: https://github.com/GoogleCloudPlatform/agent-starter-pack/issues/495
-        # Only show interactive upgrade prompts in interactive mode
-        if interactive and not check_and_upgrade_sdk_for_agent_runtime():
-            console.print("\n[yellow]Registration aborted.[/yellow]")
-            return
-
         # Step 1: Get Agent Runtime ID
         resolved_agent_runtime_id = agent_runtime_id
 

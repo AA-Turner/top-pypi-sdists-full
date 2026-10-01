@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opencolorio
-Version: 2.5.2
+Version: 2.6.0
 Summary: OpenColorIO (OCIO) is a complete color management solution geared towards motion picture production with an emphasis on visual effects and computer animation.
 Home-page: https://opencolorio.org/
 Author: OpenColorIO Developers
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

@@ -1,6 +1,6 @@
 [project]
 name = "aioamazondevices"
-version = "16.3.0"
+version = "16.3.1"
 requires-python = ">=3.12"
 description = "Python library to control Amazon devices"
 authors = [
@@ -45,13 +45,12 @@ dev = [
 
 [tool.uv-version]
 # Source of truth for the uv version. All other version references must be derived from this value.
-version = "0.12.13" # renovate: depName=uv datasource=pypi
+version = "0.12.21" # renovate: depName=uv datasource=pypi
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-version_variables = [
-    "src/aioamazondevices/__init__.py:__version__",
-]
+version_variables = ["src/aioamazondevices/__init__.py:__version__",]
+
 # Extract version from [tool.uv-version], single source of truth.
 build_command = """
     UV_VERSION=$(./scripts/get-pyproject-uv.version.sh)
@@ -78,12 +77,14 @@ match = "(?!main$)"
 prerelease = true
 
 [tool.pytest.ini_options]
-addopts = "-v -Wdefault"
+addopts = "-v -Wdefault --cov=aioamazondevices --cov-report=term-missing"
 pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
+source = ["aioamazondevices"]
+omit = ["library_test.py"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -95,6 +96,8 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+files = ["src", "tests"]
+mypy_path = "src"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true

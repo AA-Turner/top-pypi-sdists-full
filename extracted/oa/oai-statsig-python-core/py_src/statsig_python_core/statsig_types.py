@@ -1,5 +1,7 @@
 import json
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Generic, Optional, TypeVar
+
+_TypedConfigValue = TypeVar("_TypedConfigValue")
 
 _FeatureGateParts = tuple[
     bool, str, Optional[str], str, Optional[int], Optional[int], Optional[int]
@@ -175,6 +177,23 @@ class BaseConfigEvaluation(BaseEvaluation):
         base_dict = super().to_dict()
         base_dict["value"] = self.value
         return base_dict
+
+
+class TypedDynamicConfig(BaseEvaluation, Generic[_TypedConfigValue]):
+    """A typed value and metadata from one dynamic-config evaluation."""
+
+    def __init__(self, name: str, raw: dict, value: _TypedConfigValue):
+        super().__init__(name, raw)
+        self.value = value
+        self._revision = raw["__typed_revision"]
+
+    def get_value(self) -> _TypedConfigValue:
+        return self.value
+
+    def to_dict(self) -> dict:
+        result = super().to_dict()
+        result["value"] = self.value
+        return result
 
 
 class DynamicConfig(BaseConfigEvaluation):

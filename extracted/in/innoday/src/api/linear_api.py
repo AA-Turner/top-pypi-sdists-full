@@ -16,7 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 class LinearAPIError(RuntimeError):
-    """A Linear call failed, with Linear's own explanation attached."""
+    """A Linear call failed, with Linear's own explanation attached.
+
+    `http_status` is set when Linear answered with an HTTP error (auth, rate
+    limit, outage, a query Linear could not validate), and is None when the
+    request succeeded but GraphQL returned errors -- e.g. a feature the
+    workspace's plan does not include.
+    """
+
+    def __init__(self, message: str, http_status: Optional[int] = None):
+        super().__init__(message)
+        self.http_status = http_status
 
 
 _UUID_RE = re.compile(
@@ -94,7 +104,8 @@ class LinearAPI:
             )
             if response.is_error:
                 raise LinearAPIError(
-                    f"Linear returned HTTP {response.status_code}: {response.text[:500]}"
+                    f"Linear returned HTTP {response.status_code}: {response.text[:500]}",
+                    http_status=response.status_code,
                 )
             data = response.json()
             if "errors" in data:
@@ -279,6 +290,179 @@ class LinearAPI:
             query, {"input": {"issueId": issue_id, "body": body}}
         )
         return result.get("data", {}).get("commentCreate", {}).get("success", False)
+
+    async def get_team_release_pipelines(self, team_id: str) -> List[Dict[str, Any]]:
+        """The release pipelines linked to a team (Linear's Releases feature).
+
+        Releases are a Business/Enterprise feature, so on other plans this can
+        fail or come back empty -- callers treat either as "no release line".
+        """
+        query = """
+        query GetTeamReleasePipelines($teamId: String!) {
+            team(id: $teamId) {
+                releasePipelines(first: 50) {
+                    nodes {
+                        id name type isProduction
+                        stages { nodes { id type position } }
+                        teams { nodes { id } }
+                    }
+                }
+            }
+        }
+        """
+        result = await self._execute(query, {"teamId": team_id})
+        team = (result.get("data") or {}).get("team") or {}
+        return (team.get("releasePipelines") or {}).get("nodes") or []
+
+    async def get_pipeline_releases(
+        self, pipeline_id: str, cursor: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Every release in a pipeline, each with its stage and all its issues.
+
+        Paginates releases, and each release's issues, so a release holding
+        more than one page of issues is never silently truncated -- a missing
+        issue here would read as "not in this release".
+
+        **Archived rows are included, both releases and issues.** Linear
+        leaves them out by default and archives on its own (old completed
+        releases, closed issues after a while), so leaving them out would read
+        as "the board deleted this release" or "the ticket was removed".
+        """
+        query = """
+        query GetPipelineReleases($pipelineId: String!, $cursor: String) {
+            releasePipeline(id: $pipelineId) {
+                releases(first: 50, after: $cursor, includeArchived: true) {
+                    nodes {
+                        id
+                        name
+                        version
+                        archivedAt
+                        stage { type }
+                        issues(first: 50, includeArchived: true) {
+                            nodes { identifier }
+                            pageInfo { hasNextPage endCursor }
+                        }
+                    }
+                    pageInfo { hasNextPage endCursor }
+                }
+            }
+        }
+        """
+        result = await self._execute(
+            query, {"pipelineId": pipeline_id, "cursor": cursor}
+        )
+        pipeline = (result.get("data") or {}).get("releasePipeline") or {}
+        releases_data = pipeline.get("releases") or {}
+        releases = releases_data.get("nodes") or []
+
+        for release in releases:
+            issues = release.get("issues") or {}
+            page = issues.get("pageInfo") or {}
+            if page.get("hasNextPage") and page.get("endCursor"):
+                issues["nodes"] = (issues.get("nodes") or []) + (
+                    await self._get_release_issues(release["id"], page["endCursor"])
+                )
+
+        page_info = releases_data.get("pageInfo") or {}
+        if page_info.get("hasNextPage") and page_info.get("endCursor"):
+            releases.extend(
+                await self.get_pipeline_releases(
+                    pipeline_id, cursor=page_info["endCursor"]
+                )
+            )
+        return releases
+
+    async def create_release(
+        self,
+        pipeline_id: str,
+        version: str,
+        stage_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a release in a pipeline; `name` and `version` are both the version."""
+        query = """
+        mutation CreateRelease($input: ReleaseCreateInput!) {
+            releaseCreate(input: $input) {
+                success
+                release { id name version stage { type } }
+            }
+        }
+        """
+        release_input: Dict[str, Any] = {
+            "pipelineId": pipeline_id,
+            "name": version,
+            "version": version,
+        }
+        if stage_id:
+            release_input["stageId"] = stage_id
+        result = await self._execute(query, {"input": release_input})
+        payload = (result.get("data") or {}).get("releaseCreate") or {}
+        if not payload.get("success") or not payload.get("release"):
+            raise LinearAPIError(f"Linear did not create release {version}")
+        return payload["release"]
+
+    async def update_release(self, release_id: str, changes: Dict[str, Any]) -> None:
+        """Rename a release or move its stage (`ReleaseUpdateInput` fields)."""
+        query = """
+        mutation UpdateRelease($id: String!, $input: ReleaseUpdateInput!) {
+            releaseUpdate(id: $id, input: $input) { success }
+        }
+        """
+        result = await self._execute(query, {"id": release_id, "input": changes})
+        if not ((result.get("data") or {}).get("releaseUpdate") or {}).get("success"):
+            raise LinearAPIError(f"Linear did not update release {release_id}")
+
+    async def add_issue_to_release(self, issue_id: str, release_id: str) -> None:
+        query = """
+        mutation AddIssueToRelease($input: IssueToReleaseCreateInput!) {
+            issueToReleaseCreate(input: $input) { success }
+        }
+        """
+        result = await self._execute(
+            query, {"input": {"issueId": issue_id, "releaseId": release_id}}
+        )
+        if not ((result.get("data") or {}).get("issueToReleaseCreate") or {}).get(
+            "success"
+        ):
+            raise LinearAPIError(f"Linear did not attach {issue_id} to {release_id}")
+
+    async def remove_issue_from_release(self, issue_id: str, release_id: str) -> None:
+        query = """
+        mutation RemoveIssueFromRelease($issueId: String!, $releaseId: String!) {
+            issueToReleaseDeleteByIssueAndRelease(
+                issueId: $issueId, releaseId: $releaseId
+            ) { success }
+        }
+        """
+        result = await self._execute(
+            query, {"issueId": issue_id, "releaseId": release_id}
+        )
+        data = (result.get("data") or {}).get(
+            "issueToReleaseDeleteByIssueAndRelease"
+        ) or {}
+        if not data.get("success"):
+            raise LinearAPIError(f"Linear did not detach {issue_id} from {release_id}")
+
+    async def _get_release_issues(
+        self, release_id: str, cursor: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        """The remaining pages of one release's issues, from `cursor` on."""
+        query = """
+        query GetReleaseIssues($releaseId: String!, $cursor: String) {
+            release(id: $releaseId) {
+                issues(first: 50, after: $cursor, includeArchived: true) {
+                    nodes { identifier }
+                    pageInfo { hasNextPage endCursor }
+                }
+            }
+        }
+        """
+        result = await self._execute(query, {"releaseId": release_id, "cursor": cursor})
+        issues = ((result.get("data") or {}).get("release") or {}).get("issues") or {}
+        nodes = issues.get("nodes") or []
+        page = issues.get("pageInfo") or {}
+        if page.get("hasNextPage") and page.get("endCursor"):
+            nodes.extend(await self._get_release_issues(release_id, page["endCursor"]))
+        return nodes
 
     async def get_team_workflow_states(self, team_id: str) -> List[Dict[str, Any]]:
         """Fetch all workflow states for a team."""

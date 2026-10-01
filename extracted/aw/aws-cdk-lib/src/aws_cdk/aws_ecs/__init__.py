@@ -12018,6 +12018,7 @@ class CfnDaemon(
         cfn_daemon = ecs.CfnDaemon(self, "MyCfnDaemon",
             capacity_provider_arns=["capacityProviderArns"],
             cluster_arn="clusterArn",
+            critical=False,
             daemon_name="daemonName",
             daemon_task_definition_arn="daemonTaskDefinitionArn",
             deployment_configuration=ecs.CfnDaemon.DaemonDeploymentConfigurationProperty(
@@ -12045,6 +12046,7 @@ class CfnDaemon(
         *,
         capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         cluster_arn: typing.Optional[builtins.str] = None,
+        critical: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         daemon_name: typing.Optional[builtins.str] = None,
         daemon_task_definition_arn: typing.Optional[builtins.str] = None,
         deployment_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDaemon.DaemonDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12059,6 +12061,7 @@ class CfnDaemon(
         :param id: Construct identifier for this resource (unique in its scope).
         :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
+        :param critical: 
         :param daemon_name: 
         :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
         :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
@@ -12074,6 +12077,7 @@ class CfnDaemon(
         props = CfnDaemonProps(
             capacity_provider_arns=capacity_provider_arns,
             cluster_arn=cluster_arn,
+            critical=critical,
             daemon_name=daemon_name,
             daemon_task_definition_arn=daemon_task_definition_arn,
             deployment_configuration=deployment_configuration,
@@ -12228,6 +12232,23 @@ class CfnDaemon(
             type_hints = cached_type_hints(_typecheckingstub__84059ae9f43c73fc4b2e0616b63c00c81e0c7c6708ec1b35e2fbe8c76cf1d12b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="critical")
+    def critical(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "critical"))
+
+    @critical.setter
+    def critical(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1da36d2b05ee10f5c0afb1b996521ab2c1dfde48aeae7522653c7c16054de2d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "critical", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="daemonName")
@@ -12519,6 +12540,7 @@ class CfnDaemon(
     name_mapping={
         "capacity_provider_arns": "capacityProviderArns",
         "cluster_arn": "clusterArn",
+        "critical": "critical",
         "daemon_name": "daemonName",
         "daemon_task_definition_arn": "daemonTaskDefinitionArn",
         "deployment_configuration": "deploymentConfiguration",
@@ -12534,6 +12556,7 @@ class CfnDaemonProps:
         *,
         capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         cluster_arn: typing.Optional[builtins.str] = None,
+        critical: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         daemon_name: typing.Optional[builtins.str] = None,
         daemon_task_definition_arn: typing.Optional[builtins.str] = None,
         deployment_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDaemon.DaemonDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12546,6 +12569,7 @@ class CfnDaemonProps:
 
         :param capacity_provider_arns: The Amazon Resource Names (ARNs) of the capacity providers associated with the daemon.
         :param cluster_arn: The Amazon Resource Name (ARN) of the cluster that the daemon is running in.
+        :param critical: 
         :param daemon_name: 
         :param daemon_task_definition_arn: The Amazon Resource Name (ARN) of the daemon task definition used by this revision.
         :param deployment_configuration: Optional deployment parameters that control how a daemon rolls out updates across container instances.
@@ -12567,6 +12591,7 @@ class CfnDaemonProps:
             cfn_daemon_props = ecs.CfnDaemonProps(
                 capacity_provider_arns=["capacityProviderArns"],
                 cluster_arn="clusterArn",
+                critical=False,
                 daemon_name="daemonName",
                 daemon_task_definition_arn="daemonTaskDefinitionArn",
                 deployment_configuration=ecs.CfnDaemon.DaemonDeploymentConfigurationProperty(
@@ -12590,6 +12615,7 @@ class CfnDaemonProps:
             type_hints = cached_type_hints(_typecheckingstub__6cb41b86cc2919a74a22c4baa4c7787d893e475d6aa593236526298875122ea1)
             check_type(argname="argument capacity_provider_arns", value=capacity_provider_arns, expected_type=type_hints["capacity_provider_arns"])
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument critical", value=critical, expected_type=type_hints["critical"])
             check_type(argname="argument daemon_name", value=daemon_name, expected_type=type_hints["daemon_name"])
             check_type(argname="argument daemon_task_definition_arn", value=daemon_task_definition_arn, expected_type=type_hints["daemon_task_definition_arn"])
             check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
@@ -12602,6 +12628,8 @@ class CfnDaemonProps:
             self._values["capacity_provider_arns"] = capacity_provider_arns
         if cluster_arn is not None:
             self._values["cluster_arn"] = cluster_arn
+        if critical is not None:
+            self._values["critical"] = critical
         if daemon_name is not None:
             self._values["daemon_name"] = daemon_name
         if daemon_task_definition_arn is not None:
@@ -12634,6 +12662,16 @@ class CfnDaemonProps:
         '''
         result = self._values.get("cluster_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def critical(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-critical
+        '''
+        result = self._values.get("critical")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def daemon_name(self) -> typing.Optional[builtins.str]:
@@ -19770,6 +19808,7 @@ class CfnService(
             "bake_time_in_minutes": "bakeTimeInMinutes",
             "canary_configuration": "canaryConfiguration",
             "deployment_circuit_breaker": "deploymentCircuitBreaker",
+            "early_success_criteria": "earlySuccessCriteria",
             "lifecycle_hooks": "lifecycleHooks",
             "linear_configuration": "linearConfiguration",
             "maximum_percent": "maximumPercent",
@@ -19785,6 +19824,7 @@ class CfnService(
             bake_time_in_minutes: typing.Optional[jsii.Number] = None,
             canary_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.CanaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deployment_circuit_breaker: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DeploymentCircuitBreakerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            early_success_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DeploymentEarlySuccessCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lifecycle_hooks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DeploymentLifecycleHookProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             linear_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.LinearConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_percent: typing.Optional[jsii.Number] = None,
@@ -19797,6 +19837,7 @@ class CfnService(
             :param bake_time_in_minutes: The duration when both blue and green service revisions are running simultaneously after the production traffic has shifted. The following rules apply when you don't specify a value: - For rolling deployments, the value is set to 3 hours (180 minutes). - When you use an external deployment controller ( ``EXTERNAL`` ), or the CodeDeploy blue/green deployment controller ( ``CODE_DEPLOY`` ), the value is set to 3 hours (180 minutes). - For all other cases, the value is set to 36 hours (2160 minutes).
             :param canary_configuration: Configuration for canary deployment strategy. Only valid when the deployment strategy is ``CANARY`` . This configuration enables shifting a fixed percentage of traffic for testing, followed by shifting the remaining traffic after a bake period.
             :param deployment_circuit_breaker: .. epigraph:: The deployment circuit breaker can only be used for services using the rolling update ( ``ECS`` ) deployment type. The *deployment circuit breaker* determines whether a service deployment will fail if the service can't reach a steady state. If you use the deployment circuit breaker, a service deployment will transition to a failed state and stop launching new tasks. If you use the rollback option, when a service deployment fails, the service is rolled back to the last deployment that completed successfully. For more information, see `Rolling update <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html>`_ in the *Amazon Elastic Container Service Developer Guide*
+            :param early_success_criteria: 
             :param lifecycle_hooks: An array of deployment lifecycle hook objects to run custom logic at specific stages of the deployment lifecycle.
             :param linear_configuration: Configuration for linear deployment strategy. Only valid when the deployment strategy is ``LINEAR`` . This configuration enables progressive traffic shifting in equal percentage increments with configurable bake times between each step.
             :param maximum_percent: If a service is using the rolling update ( ``ECS`` ) deployment type, the ``maximumPercent`` parameter represents an upper limit on the number of your service's tasks that are allowed in the ``RUNNING`` or ``PENDING`` state during a deployment, as a percentage of the ``desiredCount`` (rounded down to the nearest integer). This parameter enables you to define the deployment batch size. For example, if your service is using the ``REPLICA`` service scheduler and has a ``desiredCount`` of four tasks and a ``maximumPercent`` value of 200%, the scheduler may start four new tasks before stopping the four older tasks (provided that the cluster resources required to do this are available). The default ``maximumPercent`` value for a service using the ``REPLICA`` service scheduler is 200%. The Amazon ECS scheduler uses this parameter to replace unhealthy tasks by starting replacement tasks first and then stopping the unhealthy tasks, as long as cluster resources for starting replacement tasks are available. For more information about how the scheduler replaces unhealthy tasks, see `Amazon ECS services <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html>`_ . If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and tasks in the service use the EC2 launch type, the *maximum percent* value is set to the default value. The *maximum percent* value is used to define the upper limit on the number of the tasks in the service that remain in the ``RUNNING`` state while the container instances are in the ``DRAINING`` state. .. epigraph:: You can't specify a custom ``maximumPercent`` value for a service that uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and has tasks that use the EC2 launch type. If the service uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and the tasks in the service use the Fargate launch type, the maximum percent value is not used. The value is still returned when describing your service.
@@ -19836,6 +19877,11 @@ class CfnService(
                             value=123
                         )
                     ),
+                    early_success_criteria=ecs.CfnService.DeploymentEarlySuccessCriteriaProperty(
+                        enable=False,
+                        healthy_percent=123,
+                        source_service_revision_cleanup="sourceServiceRevisionCleanup"
+                    ),
                     lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
                         lifecycle_stages=["lifecycleStages"],
                 
@@ -19864,6 +19910,7 @@ class CfnService(
                 check_type(argname="argument bake_time_in_minutes", value=bake_time_in_minutes, expected_type=type_hints["bake_time_in_minutes"])
                 check_type(argname="argument canary_configuration", value=canary_configuration, expected_type=type_hints["canary_configuration"])
                 check_type(argname="argument deployment_circuit_breaker", value=deployment_circuit_breaker, expected_type=type_hints["deployment_circuit_breaker"])
+                check_type(argname="argument early_success_criteria", value=early_success_criteria, expected_type=type_hints["early_success_criteria"])
                 check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
                 check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
                 check_type(argname="argument maximum_percent", value=maximum_percent, expected_type=type_hints["maximum_percent"])
@@ -19878,6 +19925,8 @@ class CfnService(
                 self._values["canary_configuration"] = canary_configuration
             if deployment_circuit_breaker is not None:
                 self._values["deployment_circuit_breaker"] = deployment_circuit_breaker
+            if early_success_criteria is not None:
+                self._values["early_success_criteria"] = early_success_criteria
             if lifecycle_hooks is not None:
                 self._values["lifecycle_hooks"] = lifecycle_hooks
             if linear_configuration is not None:
@@ -19942,6 +19991,16 @@ class CfnService(
             '''
             result = self._values.get("deployment_circuit_breaker")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DeploymentCircuitBreakerProperty"]], result)
+
+        @builtins.property
+        def early_success_criteria(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DeploymentEarlySuccessCriteriaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-earlysuccesscriteria
+            '''
+            result = self._values.get("early_success_criteria")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DeploymentEarlySuccessCriteriaProperty"]], result)
 
         @builtins.property
         def lifecycle_hooks(
@@ -20141,6 +20200,93 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "DeploymentControllerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.DeploymentEarlySuccessCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable": "enable",
+            "healthy_percent": "healthyPercent",
+            "source_service_revision_cleanup": "sourceServiceRevisionCleanup",
+        },
+    )
+    class DeploymentEarlySuccessCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            enable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            healthy_percent: typing.Optional[jsii.Number] = None,
+            source_service_revision_cleanup: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param enable: 
+            :param healthy_percent: 
+            :param source_service_revision_cleanup: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentearlysuccesscriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                deployment_early_success_criteria_property = ecs.CfnService.DeploymentEarlySuccessCriteriaProperty(
+                    enable=False,
+                    healthy_percent=123,
+                    source_service_revision_cleanup="sourceServiceRevisionCleanup"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3331c5065cbffc3672b1673f8476c5409248172d33dc766c728664d59ac89543)
+                check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
+                check_type(argname="argument healthy_percent", value=healthy_percent, expected_type=type_hints["healthy_percent"])
+                check_type(argname="argument source_service_revision_cleanup", value=source_service_revision_cleanup, expected_type=type_hints["source_service_revision_cleanup"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable is not None:
+                self._values["enable"] = enable
+            if healthy_percent is not None:
+                self._values["healthy_percent"] = healthy_percent
+            if source_service_revision_cleanup is not None:
+                self._values["source_service_revision_cleanup"] = source_service_revision_cleanup
+
+        @builtins.property
+        def enable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentearlysuccesscriteria.html#cfn-ecs-service-deploymentearlysuccesscriteria-enable
+            '''
+            result = self._values.get("enable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def healthy_percent(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentearlysuccesscriteria.html#cfn-ecs-service-deploymentearlysuccesscriteria-healthypercent
+            '''
+            result = self._values.get("healthy_percent")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def source_service_revision_cleanup(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentearlysuccesscriteria.html#cfn-ecs-service-deploymentearlysuccesscriteria-sourceservicerevisioncleanup
+            '''
+            result = self._values.get("source_service_revision_cleanup")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentEarlySuccessCriteriaProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -23374,6 +23520,11 @@ class CfnServiceProps:
                             type="type",
                             value=123
                         )
+                    ),
+                    early_success_criteria=ecs.CfnService.DeploymentEarlySuccessCriteriaProperty(
+                        enable=False,
+                        healthy_percent=123,
+                        source_service_revision_cleanup="sourceServiceRevisionCleanup"
                     ),
                     lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
                         lifecycle_stages=["lifecycleStages"],
@@ -58654,6 +58805,7 @@ def _typecheckingstub__5a98a65092791927beecc4d4f9faec65e71003c426bc5d6adeac27c48
     *,
     capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     cluster_arn: typing.Optional[builtins.str] = None,
+    critical: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     daemon_name: typing.Optional[builtins.str] = None,
     daemon_task_definition_arn: typing.Optional[builtins.str] = None,
     deployment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDaemon.DaemonDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -58697,6 +58849,12 @@ def _typecheckingstub__fd87e24629d3a613ef53e3bd1a119fd77176e36c3efc00b96d2e092e5
 
 def _typecheckingstub__84059ae9f43c73fc4b2e0616b63c00c81e0c7c6708ec1b35e2fbe8c76cf1d12b(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1da36d2b05ee10f5c0afb1b996521ab2c1dfde48aeae7522653c7c16054de2d3(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -58764,6 +58922,7 @@ def _typecheckingstub__6cb41b86cc2919a74a22c4baa4c7787d893e475d6aa59323652629887
     *,
     capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     cluster_arn: typing.Optional[builtins.str] = None,
+    critical: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     daemon_name: typing.Optional[builtins.str] = None,
     daemon_task_definition_arn: typing.Optional[builtins.str] = None,
     deployment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDaemon.DaemonDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -59681,6 +59840,7 @@ def _typecheckingstub__d809d14e704a11675cbface3b43579e5f8f2a29c9b48e27608c625a3f
     bake_time_in_minutes: typing.Optional[jsii.Number] = None,
     canary_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.CanaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_circuit_breaker: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DeploymentCircuitBreakerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    early_success_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DeploymentEarlySuccessCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lifecycle_hooks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DeploymentLifecycleHookProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     linear_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.LinearConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_percent: typing.Optional[jsii.Number] = None,
@@ -59693,6 +59853,15 @@ def _typecheckingstub__d809d14e704a11675cbface3b43579e5f8f2a29c9b48e27608c625a3f
 def _typecheckingstub__e9921934df7686d8808e649b9ab979d2747a6f8cba336af2424f597839d2103f(
     *,
     type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3331c5065cbffc3672b1673f8476c5409248172d33dc766c728664d59ac89543(
+    *,
+    enable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    healthy_percent: typing.Optional[jsii.Number] = None,
+    source_service_revision_cleanup: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1059
+Version: 0.4.1062
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -623,6 +623,7 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 | TabFM-GSA | `tabfm_gsa` | GSA sampler with Google Research TabFM as the local in-context estimator; GPU strongly recommended |
 | TabICL-GSA | `tabicl_gsa` | GSA sampler with TabICL as the local in-context estimator. Note it gets **conformal** intervals, not TabICL's native quantiles — GSA's function backend returns point predictions only |
 | Causilo | `causilo` | Pretrained tabular foundation model (Nums AI); 999 native quantiles give native prediction intervals; `geocif[causilo]` extra. **Weights are non-commercial research only — see the licensing note below** |
+| Kumo Tabular | `kumo` | NVIDIA in-context tabular foundation model, run through NVIDIA's [structured-data-models](https://github.com/NVIDIA/structured-data-models) (`sdm`, git-only); 999 native quantiles give native prediction intervals. Weights `nvidia/Kumo-Tabular` under OpenMDW 1.1, not gated. CPU works; see `ml/kumo.py` for install and launch notes |
 | GPR | `gpr` | sklearn Gaussian process regression |
 | Median | `median` | Median baseline |
 | Analog | `analog` | Analogous year baseline |
@@ -650,7 +651,13 @@ side by side and no arm inherits another's width. `causilo` takes
 `causilo_n_estimators` / `causilo_device` / `causilo_use_kv_cache` /
 `causilo_retain_preprocessing`; its `random_state` is *not* configurable — it is
 forced from geocif's fold seed so causilo permutes in step with every other
-model.
+model. `kumo` takes `kumo_size` (`small` | `medium` | `large`, default
+`large`) / `kumo_device` (default `auto`) / `kumo_num_estimators` (default 8);
+its seed is likewise geocif's fold seed. sdm is not on PyPI: install it with
+`pip install --no-deps git+https://github.com/NVIDIA/structured-data-models.git`
+(its dependencies — torch >= 2.7, pyarrow, huggingface_hub, safetensors — are
+already geocif dependencies) and set `HF_HUB_CACHE` before launch to keep the
+~0.9 GB checkpoint out of a small `$HOME`.
 
 ### TabPFN checkpoint selection
 
@@ -1107,6 +1114,10 @@ target = Yield (tn per ha)
 feature_selection = gOMP
 cluster_strategy = single
 check_yield_trend = False
+stress_switch = True        ; default: fit a fold WITHOUT detrending when its Jun-Aug national
+                            ; NDVI predicts a collapse year (maize 2012); needs check_yield_trend = True
+stress_switch_countries = ['united_states_of_america']  ; default; only US maize is validated
+stress_switch_crops = ['maize']                         ; default
 use_spatial_neighbors = True
 spatial_neighbor_method = knn
 spatial_neighbor_k = 5

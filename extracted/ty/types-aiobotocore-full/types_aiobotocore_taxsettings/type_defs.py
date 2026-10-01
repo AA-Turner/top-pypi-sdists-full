@@ -105,6 +105,7 @@ __all__ = (
     "MalaysiaAdditionalInfoOutputTypeDef",
     "MalaysiaAdditionalInfoTypeDef",
     "MalaysiaAdditionalInfoUnionTypeDef",
+    "MonacoAdditionalInfoTypeDef",
     "PaginatorConfigTypeDef",
     "PhilippinesAdditionalInfoTypeDef",
     "PolandAdditionalInfoTypeDef",
@@ -190,6 +191,7 @@ class EstoniaAdditionalInfoTypeDef(TypedDict):
 
 class FranceAdditionalInfoTypeDef(TypedDict):
     sirenNumber: str
+    eInvoiceRoutingCode: NotRequired[str]
 
 
 class GeorgiaAdditionalInfoTypeDef(TypedDict):
@@ -221,6 +223,10 @@ class ItalyAdditionalInfoTypeDef(TypedDict):
 
 class KenyaAdditionalInfoTypeDef(TypedDict):
     personType: PersonTypeType
+
+
+class MonacoAdditionalInfoTypeDef(TypedDict):
+    businessNumber: str
 
 
 class PhilippinesAdditionalInfoTypeDef(TypedDict):
@@ -433,6 +439,7 @@ class AdditionalInfoResponseTypeDef(TypedDict):
     belgiumAdditionalInfo: NotRequired[BelgiumAdditionalInfoTypeDef]
     chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
     franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
+    monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
 
 
 class TaxExemptionTypeTypeDef(TypedDict):
@@ -595,6 +602,7 @@ class AdditionalInfoRequestTypeDef(TypedDict):
     belgiumAdditionalInfo: NotRequired[BelgiumAdditionalInfoTypeDef]
     chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
     franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
+    monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
 
 
 class GetTaxRegistrationResponseTypeDef(TypedDict):

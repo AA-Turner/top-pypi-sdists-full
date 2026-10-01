@@ -1,12 +1,13 @@
 mod utils;
 
 use crate::utils::{
+    mock_event_logging_adapter::MockEventLoggingAdapter,
     mock_log_provider::{MockLogProvider, RecordedLog},
     mock_specs_adapter::MockSpecsAdapter,
 };
 use fancy_regex::Regex;
 use parking_lot::Mutex;
-use statsig_rust::{Statsig, StatsigOptions, StatsigUser};
+use statsig_rust::{Statsig, StatsigErr, StatsigOptions, StatsigUser};
 use std::{sync::Arc, time::Duration};
 
 fn get_dropped_count(provider: &Arc<MockLogProvider>) -> i64 {
@@ -41,8 +42,12 @@ async fn test_failing_flush() {
         logs: Mutex::new(Vec::new()),
     });
 
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new_with_background_flush(false));
+    *logging_adapter.mocked_log_events_result.lock().unwrap() =
+        Err(StatsigErr::CustomError("test failure".into()));
+
     let options = StatsigOptions {
-        log_event_url: Some("http://localhost".to_string()),
+        event_logging_adapter: Some(logging_adapter.clone()),
         specs_adapter: Some(specs_adapter),
         event_logging_max_queue_size: Some(100),
         event_logging_max_pending_batch_queue_size: Some(2),
@@ -59,21 +64,31 @@ async fn test_failing_flush() {
         let _ = statsig.check_gate(&user, "a-gate");
     }
 
-    assert_eventually!(|| { get_dropped_count(&provider) == 1 });
+    statsig.flush_events().await;
+    assert_eq!(get_dropped_count(&provider), 0);
 
-    let statsig_clone = statsig.clone();
-    std::thread::spawn(move || {
-        for i in 0..300_000 {
-            let user = StatsigUser::with_user_id(format!("user-b-{i}"));
-            let _ = statsig_clone.check_gate(&user, "a-gate");
-        }
-    })
-    .join()
-    .unwrap();
+    // Keep flushing explicit so queue accounting cannot race network retries.
+    for i in 0..300 {
+        let user = StatsigUser::with_user_id(format!("user-b-{i}"));
+        let _ = statsig.check_gate(&user, "a-gate");
+    }
 
     statsig.flush_events().await;
+    assert_eq!(get_dropped_count(&provider), 300); // 500 events minus 200 retained.
+    assert!(
+        logging_adapter
+            .times_called
+            .load(std::sync::atomic::Ordering::SeqCst)
+            > 0
+    );
 
-    assert_eventually!(|| {
-        get_dropped_count(&provider) == 299901 /* 300K + 1 diagnostics - 200 */
-    });
+    *logging_adapter.mocked_log_events_result.lock().unwrap() = Ok(true);
+    statsig.flush_events().await;
+    assert_eq!(
+        logging_adapter
+            .logged_event_count
+            .load(std::sync::atomic::Ordering::SeqCst),
+        200
+    );
+    assert_eq!(get_dropped_count(&provider), 300);
 }

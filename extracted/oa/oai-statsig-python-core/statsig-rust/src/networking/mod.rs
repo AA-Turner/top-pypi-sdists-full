@@ -1,3 +1,4 @@
+pub(crate) mod http2;
 mod http_types;
 mod network_client;
 pub mod network_error;

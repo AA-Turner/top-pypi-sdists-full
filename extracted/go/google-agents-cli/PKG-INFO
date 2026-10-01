@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-agents-cli
-Version: 1.7.0
+Version: 1.8.0
 Summary: Agents CLI — Agent Development Lifecycle toolchain for ADK
 Author-email: Google LLC <agents-cli-dev-pypi@google.com>
 Requires-Python: >=3.11
@@ -157,6 +157,8 @@ See the [full tutorial](https://google.github.io/agents-cli/guide/quickstart-tut
 
 </details>
 
+
+
 ## How it works
 
 <div align="center">
@@ -205,6 +207,42 @@ We value your input — it helps us improve `agents-cli` for the community.
 The best way to contribute is through feedback: bug reports, feature requests, and ideas shared via [issues](https://github.com/google/agents-cli/issues) to directly shape our roadmap.
 
 See the [contributing guide](CONTRIBUTING.md) for details.
+
+## Telemetry
+
+> **Note:** Telemetry is experimental and off by default. It only runs when
+> enabled with `AGENTS_CLI_EXPERIMENTS='{"cli_telemetry": true}'`.
+
+`agents-cli` can emit a single usage signal per command invocation to help
+improve the tool and better understand how it's used. Each signal
+is a structured log entry written to **your own Google Cloud project**:
+`GOOGLE_CLOUD_PROJECT`, or else the default project of your Application Default
+Credentials (`logName=projects/<project>/logs/agents-cli`), where you can query
+it in Cloud Logging. It records only the metadata such as command name
+(e.g. `deploy`, `scaffold.create`), exit code, error class, duration (measured
+from command dispatch to exit, so it excludes CLI startup), CLI/Python versions,
+and OS — never file contents, arguments, or other input. Commands added by
+extensions are recorded without their names.
+
+The request that writes the entry also carries usage metadata in its
+`User-Agent` and `X-Goog-Api-Client` headers, which Google receives for
+agents-cli usage analytics: the CLI and Python versions, the OS and its release,
+the CPU architecture, the command name and a random per-invocation ID. The log
+entry's contents, such as the exit code, error class and duration, stay in your
+project.
+
+To opt out of sending telemetry, use one of the following environment variables:
+
+```bash
+# our cli-specific variable
+# 0, false, no, or off (case-insensitive):
+export AGENTS_CLI_TELEMETRY=0
+
+# donottrack.sh standard variable
+export DO_NOT_TRACK=1
+```
+
+Use `agents-cli info` to see the current telemetry state.
 
 ## Terms of Service
 

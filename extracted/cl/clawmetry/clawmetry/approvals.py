@@ -1864,6 +1864,19 @@ _EXEC_POLICY_APPLY_TIMEOUT_S = 60
 _EXEC_POLICY_BACKOFF_BASE_S = 300      # first retry 5 min after a failure
 _EXEC_POLICY_BACKOFF_MAX_S = 3600     # never back off longer than an hour
 _EXEC_POLICY_BACKOFF = {"fails": 0, "until": 0.0}
+# The state file only records what WE last applied. OpenClaw's posture can
+# be changed underneath it (CVE-2026-25253 / ATLAS AML.CS0050 S06 flips
+# `exec.approvals.set {"ask": "off"}` through the gateway API), so while a
+# policy wants the gate we re-read OpenClaw's EFFECTIVE posture on this
+# interval and put `cautious` back if it is no longer gated
+# (vivekchand/clawmetry-pro#259). One `openclaw exec-policy show` per
+# minute, and only on hosts where a require-approval exec policy is active.
+_EXEC_POSTURE_CHECK_INTERVAL_S = 60
+_EXEC_POSTURE_CHECK = {"at": 0.0}
+# State-file value for "a policy wants the gate and OpenClaw was already at
+# least as strict when we looked" (e.g. a hand-set deny-all). We leave that
+# posture alone and, unlike "cautious", never relax it to yolo later.
+_EXEC_POLICY_HELD = "held"
 
 # Native approvals are live Gateway state. Keep the CLI poll bounded and
 # cache the result so the kick-driven policy watcher does not create a
@@ -2195,6 +2208,80 @@ def _apply_openclaw_exec_preset(preset: str) -> bool:
         return False
 
 
+def _exec_scope_gated(scope: dict) -> bool:
+    """Whether one ``exec-policy show`` scope stops a non-allowlisted command
+    from running unapproved. Reads the *effective* values (host approvals
+    intersected with the requested config), per docs/tools/exec-approvals.md:
+
+    * ``security: deny`` blocks all host exec.
+    * ``security: allowlist`` with ``ask: off`` runs only allowlisted
+      commands; with a prompt it is gated unless an unanswered prompt falls
+      back to ``full``.
+    * ``security: full`` is gated only when it prompts on every command.
+    """
+    def _eff(key):
+        v = scope.get(key)
+        return str((v or {}).get("effective") or "").strip().lower() \
+            if isinstance(v, dict) else ""
+    security, ask = _eff("security"), _eff("ask")
+    fallback = _eff("askFallback") or "deny"  # OpenClaw's documented default
+    if security == "deny":
+        return True
+    if security == "allowlist":
+        return ask == "off" or fallback in ("deny", "allowlist")
+    if security == "full":
+        return ask == "always" and fallback in ("deny", "allowlist")
+    return False
+
+
+def _openclaw_exec_posture() -> Optional[list]:
+    """OpenClaw's effective exec posture as ``[(scope_label, gated, detail)]``,
+    or None when it can't be read (CLI missing, timeout, unexpected JSON) —
+    unknown is never treated as drift."""
+    ok, payload, error = _run_openclaw_approval_command(
+        ["exec-policy", "show", "--json"])
+    if not ok or not isinstance(payload, dict):
+        log.debug("openclaw exec-policy show unavailable: %s", error)
+        return None
+    scopes = (payload.get("effectivePolicy") or {}).get("scopes")
+    if not isinstance(scopes, list) or not scopes:
+        return None
+    out = []
+    for sc in scopes:
+        if not isinstance(sc, dict):
+            continue
+        detail = {k: ((sc.get(k) or {}).get("effective")
+                      if isinstance(sc.get(k), dict) else None)
+                  for k in ("security", "ask", "askFallback")}
+        out.append((str(sc.get("scopeLabel") or sc.get("agentId") or "?"),
+                    _exec_scope_gated(sc), detail))
+    return out or None
+
+
+def _exec_posture_gated(posture: Optional[list]) -> Optional[bool]:
+    """True when every scope is gated, False when any is not, None unknown."""
+    if not posture:
+        return None
+    return all(gated for _label, gated, _detail in posture)
+
+
+def _note_exec_policy_drift(prev: str, posture: list) -> None:
+    """Surface an out-of-band relaxation before we re-assert the gate: a
+    warning in the daemon log and an Enterprise audit-log entry."""
+    relaxed = [{"scope": label, **detail}
+               for label, gated, detail in posture if not gated]
+    log.warning("openclaw exec approval was relaxed outside ClawMetry "
+                "(%s); re-applying cautious", relaxed)
+    try:
+        from clawmetry import audit as _audit
+        _audit.audit_event(
+            "guard.exec_approval_drift", actor="openclaw",
+            target="exec-policy", result="reasserting", source="approvals",
+            metadata={"relaxed_scopes": relaxed, "previous_state": prev})
+    except Exception:
+        pass
+
+
 def sync_openclaw_exec_policy(policies) -> None:
     """Align OpenClaw's native exec-approval posture with the active policies.
     Only touches OpenClaw when the desired posture CHANGES, and only restores
@@ -2209,8 +2296,13 @@ def sync_openclaw_exec_policy(policies) -> None:
 
 
 def _openclaw_gate_handler(want_gate: bool, policies) -> None:
-    """GATE_HANDLERS entry for runtime 'openclaw' — the historical exec
-    preset flip, body unchanged from sync_openclaw_exec_policy."""
+    """GATE_HANDLERS entry for runtime 'openclaw' — the exec preset flip.
+
+    While a policy wants the gate, OpenClaw's live effective posture is
+    re-read every ``_EXEC_POSTURE_CHECK_INTERVAL_S`` and ``cautious`` is
+    re-applied (and the drift audited) if something else relaxed it. A
+    posture that is already gated is never overwritten, so a hand-set
+    deny-all stays deny-all."""
     ocbin, _ = _openclaw_env_and_bin()
     if not ocbin:
         return  # not an OpenClaw box — nothing to gate
@@ -2219,19 +2311,43 @@ def _openclaw_gate_handler(want_gate: bool, policies) -> None:
         prev = _EXEC_POLICY_STATE.read_text().strip() if _EXEC_POLICY_STATE.exists() else ""
     except Exception:
         prev = ""
-    if want == prev:
-        return  # already in the posture we last applied
-    # Guard the restore: only relax to yolo if WE previously set cautious.
-    # (Fresh install with no gate wanted + no prior state → don't force yolo
-    # onto an operator who may have set deny-all by hand.)
-    if want == "yolo" and prev != "cautious":
-        return
+    if want == "yolo":
+        # Guard the restore: only relax to yolo if WE previously set
+        # cautious. (Fresh install with no gate wanted + no prior state, or
+        # a posture we found already gated → don't force yolo onto an
+        # operator who may have set deny-all by hand.)
+        if prev != "cautious":
+            return
     now = time.time()
     if now < _EXEC_POLICY_BACKOFF["until"]:
         return  # last apply failed; wait out the backoff before retrying
+    if want == "cautious":
+        if prev in ("cautious", _EXEC_POLICY_HELD):
+            # Gate already in force as far as our state file knows. Check
+            # that OpenClaw agrees, at most once per interval.
+            if now - _EXEC_POSTURE_CHECK["at"] < _EXEC_POSTURE_CHECK_INTERVAL_S:
+                return
+            _EXEC_POSTURE_CHECK["at"] = now
+            posture = _openclaw_exec_posture()
+            if _exec_posture_gated(posture) is not False:
+                return  # still gated, or unreadable (never guess drift)
+            _note_exec_policy_drift(prev, posture)
+        else:
+            posture = _openclaw_exec_posture()
+            if _exec_posture_gated(posture):
+                # Already at least as strict as cautious: record that the
+                # gate is wanted and held, but don't relax it to cautious.
+                try:
+                    _EXEC_POLICY_STATE.parent.mkdir(parents=True, exist_ok=True)
+                    _EXEC_POLICY_STATE.write_text(_EXEC_POLICY_HELD)
+                except Exception:
+                    pass
+                _EXEC_POSTURE_CHECK["at"] = now
+                return
     if _apply_openclaw_exec_preset(want):
         _EXEC_POLICY_BACKOFF["fails"] = 0
         _EXEC_POLICY_BACKOFF["until"] = 0.0
+        _EXEC_POSTURE_CHECK["at"] = now
         try:
             _EXEC_POLICY_STATE.parent.mkdir(parents=True, exist_ok=True)
             _EXEC_POLICY_STATE.write_text(want)

@@ -65,6 +65,16 @@ class ScreenOrientationType(str, Enum):
     LANDSCAPE_SECONDARY = "landscape-secondary"
 
 
+@register("emulation.TextLayoutMode")
+class TextLayoutMode(str, Enum):
+    """emulation.TextLayoutMode.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationtextlayoutmode
+    """
+
+    MOBILE = "mobile"
+
+
 @register("emulation.MediaFeaturesAnyHover")
 class MediaFeaturesAnyHover(str, Enum):
     NONE = "none"
@@ -604,6 +614,24 @@ class SetScrollbarTypeOverrideParameters(Record):
     )
 
 
+@register("emulation.SetTextLayoutModeOverrideParameters")
+@dataclass(frozen=True)
+class SetTextLayoutModeOverrideParameters(Record):
+    """emulation.SetTextLayoutModeOverrideParameters.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationsettextlayoutmodeoverrideparameters
+    """
+
+    text_layout_mode: TextLayoutMode | None = field(
+        metadata=meta("textLayoutMode", required=True, nullable=True, enum="emulation.TextLayoutMode"),
+    )
+    contexts: list[str] | UnsetType = field(default=UNSET, metadata=meta("contexts", is_list=True, primitive="str"))
+    user_contexts: list[str] | UnsetType = field(
+        default=UNSET,
+        metadata=meta("userContexts", is_list=True, primitive="str"),
+    )
+
+
 @register("emulation.SetTimezoneOverrideParameters")
 @dataclass(frozen=True)
 class SetTimezoneOverrideParameters(Record):
@@ -836,6 +864,23 @@ class Emulation(Domain):
             user_contexts=user_contexts,
         )
         return self._execute("emulation.setScrollbarTypeOverride", params=params, result=None)
+
+    def set_text_layout_mode_override(
+        self,
+        text_layout_mode: TextLayoutMode | None,
+        contexts: list[str] | UnsetType = UNSET,
+        user_contexts: list[str] | UnsetType = UNSET,
+    ) -> Any:
+        """Execute emulation.setTextLayoutModeOverride (internal, unsupported).
+
+        See https://w3c.github.io/webdriver-bidi/#command-emulation-setTextLayoutModeOverride
+        """
+        params = SetTextLayoutModeOverrideParameters(
+            text_layout_mode=text_layout_mode,
+            contexts=contexts,
+            user_contexts=user_contexts,
+        )
+        return self._execute("emulation.setTextLayoutModeOverride", params=params, result=None)
 
     def set_timezone_override(
         self,

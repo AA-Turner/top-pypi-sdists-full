@@ -8,6 +8,7 @@ from matrx_ai.processing.blocks.models.flashcards import FlashcardItem, Flashcar
 
 _FRONT_RE = re.compile(r'^(?:Front|Question):\s*(.*)', re.IGNORECASE)
 _BACK_RE = re.compile(r'^(?:Back|Answer):\s*(.*)', re.IGNORECASE)
+_TITLE_RE = re.compile(r'^Title:\s*(.+)', re.IGNORECASE)
 
 
 def parse_flashcards(content: str, *, is_final: bool = False) -> FlashcardsBlockData:
@@ -21,6 +22,9 @@ def parse_flashcards(content: str, *, is_final: bool = False) -> FlashcardsBlock
       - On finalize (is_final=True) → in-progress back is flushed as-is.
 
     React reads one list. No partial_card field to merge.
+
+    Optional set title: a ``Title: <name>`` line BEFORE the first card names
+    the set. After the first card a "Title:" line is card text like any other.
     """
     lines = content.split("\n")
     cards: list[FlashcardItem] = []
@@ -28,6 +32,8 @@ def parse_flashcards(content: str, *, is_final: bool = False) -> FlashcardsBlock
     current_back_lines: list[str] = []
     collecting_back = False
     is_complete = "</flashcards>" in content
+    title: str | None = None
+    saw_card = False
 
     def seal_card(back_text: str | None) -> None:
         nonlocal current_front, current_back_lines, collecting_back
@@ -48,8 +54,15 @@ def parse_flashcards(content: str, *, is_final: bool = False) -> FlashcardsBlock
                 seal_card(None)
             continue
 
+        if not saw_card and title is None:
+            title_m = _TITLE_RE.match(stripped)
+            if title_m:
+                title = title_m.group(1).strip() or None
+                continue
+
         front_m = _FRONT_RE.match(stripped)
         if front_m:
+            saw_card = True
             # Starting a new card — seal whatever was in progress
             if collecting_back:
                 back_text = "\n".join(current_back_lines).strip() or None
@@ -96,4 +109,4 @@ def parse_flashcards(content: str, *, is_final: bool = False) -> FlashcardsBlock
             # Still streaming — front may still be growing, withhold it
             pass
 
-    return FlashcardsBlockData(cards=cards, is_complete=is_complete)
+    return FlashcardsBlockData(cards=cards, is_complete=is_complete, title=title)

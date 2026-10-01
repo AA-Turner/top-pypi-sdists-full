@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: labric
-Version: 0.13.8
+Version: 0.14.0
 Summary: The official Python library for the Labric API
 Project-URL: Homepage, https://labric.co
 Project-URL: Platform, https://platform.labric.co
 Project-URL: Documentation, https://docs.labric.co
-Project-URL: Repository, https://github.com/Labric-Platforms/py-sdk
+Project-URL: Repository, https://github.com/labric/py-sdk
 Author: Labric
 License-Expression: MIT
 License-File: LICENSE
@@ -54,10 +54,10 @@ methods and types.
 ## Support
 
 - [Documentation](https://docs.labric.co)
-- [Issues](https://github.com/Labric-Platforms/py-sdk/issues)
+- [Issues](https://github.com/labric/py-sdk/issues)
 
 ## Contributing
 
 This SDK is largely generated code. See
-[CONTRIBUTING.md](https://github.com/Labric-Platforms/py-sdk/blob/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](https://github.com/labric/py-sdk/blob/main/CONTRIBUTING.md)
 for how it is generated and released.

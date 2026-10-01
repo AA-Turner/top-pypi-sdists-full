@@ -178,52 +178,25 @@ static void _enqueue_buffer_release(Py_buffer buf)
     _schedule_pending_drain();
 }
 
-// Check if the current thread already holds the GIL.
-// Uses PyGILState_Check which returns 1 if GIL is held by current thread.
-static bool _current_thread_holds_gil()
-{
-    return PyGILState_Check() == 1;
-}
-
+// The stable ABI (abi3) cannot tell whether this thread holds the GIL
+// (PyGILState_Check is not part of it), so no helper below asks. An incref must
+// happen now: PyGILState_Ensure is safe even on a thread already holding the GIL.
+// Releases are queued instead and drained by a pending call on the main thread,
+// so a thread never blocks waiting for the GIL just to drop a reference.
 inline void _inc_ref(PyObject* obj)
 {
 #ifdef _TRACE_REF_COUNT
     std::cout << "Inc ref " << obj << " " << obj->ob_refcnt << std::endl;
 #endif
-    // An incref must happen NOW (it keeps the object alive), so unlike _dec_ref
-    // it can never be deferred — if we don't hold the GIL we must acquire it.
-    // But when we already hold it, skip the redundant Ensure/Release pair and
-    // just drain + incref directly (mirrors _dec_ref's fast path).
-    if (_current_thread_holds_gil())
-    {
-        _drain_deferred_queue();
-        Py_INCREF(obj);
-    }
-    else
-    {
-        PyGILState_STATE state = PyGILState_Ensure();
-        _drain_deferred_queue();
-        Py_INCREF(obj);
-        PyGILState_Release(state);
-    }
+    PyGILState_STATE state = PyGILState_Ensure();
+    _drain_deferred_queue();
+    Py_INCREF(obj);
+    PyGILState_Release(state);
 }
 
 inline void _dec_ref(PyObject* obj)
 {
-    if (_current_thread_holds_gil())
-    {
-        // Fast path: we already hold the GIL, do it directly
-        _drain_deferred_queue();
-#ifdef _TRACE_REF_COUNT
-        std::cout << "Dec ref: " << obj << " " << obj->ob_refcnt << std::endl;
-#endif
-        Py_DECREF(obj);
-    }
-    else
-    {
-        // Slow path would block: defer instead
-        _enqueue_decref(obj);
-    }
+    _enqueue_decref(obj);
 }
 
 struct PyObjectWrapper
@@ -404,16 +377,7 @@ struct _PyBuffer_impl
     {
         if (this->is_valid)
         {
-            if (_current_thread_holds_gil())
-            {
-                _drain_deferred_queue();
-                PyBuffer_Release(&this->buffer);
-            }
-            else
-            {
-                // Defer the buffer release to avoid blocking on GIL
-                _enqueue_buffer_release(this->buffer);
-            }
+            _enqueue_buffer_release(this->buffer);
             this->is_valid = false;
             this->buffer = { 0 };
         }
@@ -784,6 +748,21 @@ void GetDataPyCallable::share(const GetDataPyCallable& other)
     {
         this->_impl = new _GetDataPyCallable_impl(other.py_object());
     }
+}
+
+PyObject* datetime_from_timestamp(double timestamp)
+{
+    // Through Python: the datetime C API is not part of the stable ABI.
+    PyObject* datetime_module = PyImport_ImportModule("datetime");
+    if (!datetime_module)
+        return nullptr;
+    PyObject* datetime_type = PyObject_GetAttrString(datetime_module, "datetime");
+    Py_DECREF(datetime_module);
+    if (!datetime_type)
+        return nullptr;
+    PyObject* result = PyObject_CallMethod(datetime_type, "fromtimestamp", "d", timestamp);
+    Py_DECREF(datetime_type);
+    return result;
 }
 
 GetDataPyCallable::GetDataPyCallable(PyObject* obj)

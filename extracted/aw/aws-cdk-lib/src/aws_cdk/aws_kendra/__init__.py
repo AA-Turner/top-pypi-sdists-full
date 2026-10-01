@@ -8639,6 +8639,504 @@ class CfnFaqProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kendra_b43b596c.IFeaturedResultsSetRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnFeaturedResultsSet(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kendra.CfnFeaturedResultsSet",
+):
+    '''Resource Type definition for AWS::Kendra::FeaturedResultsSet.
+
+    A set of featured results that are displayed at the top of your search results. Featured results are placed above all other results for certain queries. If there's an exact match of a query, then one or more specific documents are featured in the search results.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html
+    :cloudformationResource: AWS::Kendra::FeaturedResultsSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kendra as kendra
+        
+        cfn_featured_results_set = kendra.CfnFeaturedResultsSet(self, "MyCfnFeaturedResultsSet",
+            featured_results_set_name="featuredResultsSetName",
+            index_id="indexId",
+        
+            # the properties below are optional
+            description="description",
+            featured_documents=[kendra.CfnFeaturedResultsSet.FeaturedDocumentProperty(
+                id="id"
+            )],
+            query_texts=["queryTexts"],
+            status="status",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        featured_results_set_name: builtins.str,
+        index_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        featured_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeaturedResultsSet.FeaturedDocumentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        query_texts: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Kendra::FeaturedResultsSet``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param featured_results_set_name: A name for the set of featured results.
+        :param index_id: The identifier of the index that you want to use for featuring results.
+        :param description: A description for the set of featured results.
+        :param featured_documents: A list of document IDs for the documents you want to feature at the top of the search results page.
+        :param query_texts: A list of queries for featuring results.
+        :param status: The current status of the set of featured results. When the value is ACTIVE, featured results are ready for use.
+        :param tags: A list of key-value pairs that identify or categorize the featured results set.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ac563c2442bd4f7c834630b75d43803d7fce985e1656e6b33d9bea313dc75e5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFeaturedResultsSetProps(
+            featured_results_set_name=featured_results_set_name,
+            index_id=index_id,
+            description=description,
+            featured_documents=featured_documents,
+            query_texts=query_texts,
+            status=status,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFeaturedResultsSet")
+    @builtins.classmethod
+    def arn_for_featured_results_set(
+        cls,
+        resource: "_aws_kendra_b43b596c.IFeaturedResultsSetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d875145162c6533ae7c6b8efc6c000cd5b1a6fd35206b14468709f9574a9bcf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFeaturedResultsSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnFeaturedResultsSet")
+    @builtins.classmethod
+    def is_cfn_featured_results_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFeaturedResultsSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__181f4e590896530b19611a4a22042243b6dd303f1796b02843c1d5c73829e2dc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFeaturedResultsSet", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e4d77b1f02644c1ff6e3475cc3ee0babc64a712a06e69f4996795e8aa66c482)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1c96139b26099ddaafac84f42f477c1cd276e01905749b97c25ad1154cac014d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the featured results set.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFeaturedResultsSetId")
+    def attr_featured_results_set_id(self) -> builtins.str:
+        '''The identifier of the set of featured results.
+
+        :cloudformationAttribute: FeaturedResultsSetId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFeaturedResultsSetId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="featuredResultsSetRef")
+    def featured_results_set_ref(
+        self,
+    ) -> "_aws_kendra_b43b596c.FeaturedResultsSetReference":
+        '''A reference to a FeaturedResultsSet resource.'''
+        return typing.cast("_aws_kendra_b43b596c.FeaturedResultsSetReference", jsii.get(self, "featuredResultsSetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="featuredResultsSetName")
+    def featured_results_set_name(self) -> builtins.str:
+        '''A name for the set of featured results.'''
+        return typing.cast(builtins.str, jsii.get(self, "featuredResultsSetName"))
+
+    @featured_results_set_name.setter
+    def featured_results_set_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__00d7864dae3df3c71026185c1be908b852536f557d6d1285210a66766617ee35)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "featuredResultsSetName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="indexId")
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index that you want to use for featuring results.'''
+        return typing.cast(builtins.str, jsii.get(self, "indexId"))
+
+    @index_id.setter
+    def index_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d8dde7c3cca89dd04f697201430f5d01942e5a22a51ce892f51865e08ef05cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the set of featured results.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac74e970f7e90c2ff41147553e53e09840cf842053e4a3fa8cc68ac0c628e03f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="featuredDocuments")
+    def featured_documents(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeaturedResultsSet.FeaturedDocumentProperty"]]]]:
+        '''A list of document IDs for the documents you want to feature at the top of the search results page.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeaturedResultsSet.FeaturedDocumentProperty"]]]], jsii.get(self, "featuredDocuments"))
+
+    @featured_documents.setter
+    def featured_documents(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeaturedResultsSet.FeaturedDocumentProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__917f572dd60cb1690546d53035b76dc22acdb4c30f5b8e7c56a25926e9ed9f69)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "featuredDocuments", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryTexts")
+    def query_texts(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of queries for featuring results.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "queryTexts"))
+
+    @query_texts.setter
+    def query_texts(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f053041a94c2d1f368684288200ad4a0c502e65f5ab938db1aaf999a41d0a6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryTexts", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The current status of the set of featured results.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c585c1b2327efcf98688aee1598b8bd6833071294038311915d7c4884a8319df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the featured results set.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0db5362ad8b72a130456e58b9e0b831fda37770213fb18199cf12d81bbb3dc6b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kendra.CfnFeaturedResultsSet.FeaturedDocumentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"id": "id"},
+    )
+    class FeaturedDocumentProperty:
+        def __init__(self, *, id: typing.Optional[builtins.str] = None) -> None:
+            '''A featured document.
+
+            This document is displayed at the top of the search results page.
+
+            :param id: The identifier of the document to feature in the search results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-featuredresultsset-featureddocument.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kendra as kendra
+                
+                featured_document_property = kendra.CfnFeaturedResultsSet.FeaturedDocumentProperty(
+                    id="id"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__02cd8b7bbbbd70ddd2117873edfbdfb39f3ec27648c42724f1af6a20713cd705)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if id is not None:
+                self._values["id"] = id
+
+        @builtins.property
+        def id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the document to feature in the search results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-featuredresultsset-featureddocument.html#cfn-kendra-featuredresultsset-featureddocument-id
+            '''
+            result = self._values.get("id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FeaturedDocumentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnFeaturedResultsSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "featured_results_set_name": "featuredResultsSetName",
+        "index_id": "indexId",
+        "description": "description",
+        "featured_documents": "featuredDocuments",
+        "query_texts": "queryTexts",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnFeaturedResultsSetProps:
+    def __init__(
+        self,
+        *,
+        featured_results_set_name: builtins.str,
+        index_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        featured_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFeaturedResultsSet.FeaturedDocumentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        query_texts: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFeaturedResultsSet``.
+
+        :param featured_results_set_name: A name for the set of featured results.
+        :param index_id: The identifier of the index that you want to use for featuring results.
+        :param description: A description for the set of featured results.
+        :param featured_documents: A list of document IDs for the documents you want to feature at the top of the search results page.
+        :param query_texts: A list of queries for featuring results.
+        :param status: The current status of the set of featured results. When the value is ACTIVE, featured results are ready for use.
+        :param tags: A list of key-value pairs that identify or categorize the featured results set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_featured_results_set_props = kendra.CfnFeaturedResultsSetProps(
+                featured_results_set_name="featuredResultsSetName",
+                index_id="indexId",
+            
+                # the properties below are optional
+                description="description",
+                featured_documents=[kendra.CfnFeaturedResultsSet.FeaturedDocumentProperty(
+                    id="id"
+                )],
+                query_texts=["queryTexts"],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__33d2075ceeadaddd725487c5e75f99519cd18896de8359ba209e87d3fcfbe0e2)
+            check_type(argname="argument featured_results_set_name", value=featured_results_set_name, expected_type=type_hints["featured_results_set_name"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument featured_documents", value=featured_documents, expected_type=type_hints["featured_documents"])
+            check_type(argname="argument query_texts", value=query_texts, expected_type=type_hints["query_texts"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "featured_results_set_name": featured_results_set_name,
+            "index_id": index_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if featured_documents is not None:
+            self._values["featured_documents"] = featured_documents
+        if query_texts is not None:
+            self._values["query_texts"] = query_texts
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def featured_results_set_name(self) -> builtins.str:
+        '''A name for the set of featured results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-featuredresultssetname
+        '''
+        result = self._values.get("featured_results_set_name")
+        assert result is not None, "Required property 'featured_results_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index that you want to use for featuring results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the set of featured results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def featured_documents(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeaturedResultsSet.FeaturedDocumentProperty"]]]]:
+        '''A list of document IDs for the documents you want to feature at the top of the search results page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-featureddocuments
+        '''
+        result = self._values.get("featured_documents")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeaturedResultsSet.FeaturedDocumentProperty"]]]], result)
+
+    @builtins.property
+    def query_texts(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of queries for featuring results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-querytexts
+        '''
+        result = self._values.get("query_texts")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The current status of the set of featured results.
+
+        When the value is ACTIVE, featured results are ready for use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs that identify or categorize the featured results set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html#cfn-kendra-featuredresultsset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFeaturedResultsSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kendra_b43b596c.IIndexRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnIndex(
     _aws_cdk_0cae9daa.CfnResource,
@@ -11226,6 +11724,8 @@ __all__ = [
     "CfnDataSourceProps",
     "CfnFaq",
     "CfnFaqProps",
+    "CfnFeaturedResultsSet",
+    "CfnFeaturedResultsSetProps",
     "CfnIndex",
     "CfnIndexProps",
     "CfnQuerySuggestionsBlockList",
@@ -11958,6 +12458,107 @@ def _typecheckingstub__9d80eed0b304b1e2dc88b2a6b3ac2392e3650ef0ac292928d043232bd
     description: typing.Optional[builtins.str] = None,
     file_format: typing.Optional[builtins.str] = None,
     language_code: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ac563c2442bd4f7c834630b75d43803d7fce985e1656e6b33d9bea313dc75e5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    featured_results_set_name: builtins.str,
+    index_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    featured_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeaturedResultsSet.FeaturedDocumentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    query_texts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d875145162c6533ae7c6b8efc6c000cd5b1a6fd35206b14468709f9574a9bcf(
+    resource: _aws_kendra_b43b596c.IFeaturedResultsSetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__181f4e590896530b19611a4a22042243b6dd303f1796b02843c1d5c73829e2dc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e4d77b1f02644c1ff6e3475cc3ee0babc64a712a06e69f4996795e8aa66c482(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c96139b26099ddaafac84f42f477c1cd276e01905749b97c25ad1154cac014d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00d7864dae3df3c71026185c1be908b852536f557d6d1285210a66766617ee35(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d8dde7c3cca89dd04f697201430f5d01942e5a22a51ce892f51865e08ef05cb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac74e970f7e90c2ff41147553e53e09840cf842053e4a3fa8cc68ac0c628e03f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__917f572dd60cb1690546d53035b76dc22acdb4c30f5b8e7c56a25926e9ed9f69(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFeaturedResultsSet.FeaturedDocumentProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f053041a94c2d1f368684288200ad4a0c502e65f5ab938db1aaf999a41d0a6c(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c585c1b2327efcf98688aee1598b8bd6833071294038311915d7c4884a8319df(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0db5362ad8b72a130456e58b9e0b831fda37770213fb18199cf12d81bbb3dc6b(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02cd8b7bbbbd70ddd2117873edfbdfb39f3ec27648c42724f1af6a20713cd705(
+    *,
+    id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33d2075ceeadaddd725487c5e75f99519cd18896de8359ba209e87d3fcfbe0e2(
+    *,
+    featured_results_set_name: builtins.str,
+    index_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    featured_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFeaturedResultsSet.FeaturedDocumentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    query_texts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

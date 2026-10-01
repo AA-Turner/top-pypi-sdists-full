@@ -57,6 +57,9 @@ class RawToolsClient:
         """
         Write records to a table.
 
+        Deprecated: use write_data (client.data.write), which writes several
+        tables and raw series in one transaction.
+
         Inserts or updates records in the specified target table. Supports batch
         inserts, upserts with match columns, default value functions (DATETIME_NOW,
         UUID4), and optional dry-run validation. A job execution is created
@@ -151,9 +154,9 @@ class RawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -291,9 +294,9 @@ class RawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -424,9 +427,9 @@ class RawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -555,9 +558,9 @@ class RawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -636,6 +639,9 @@ class RawToolsClient:
         """
         Write records to multiple tables in a single transaction.
 
+        Deprecated: use write_data (client.data.write), which also writes raw
+        series and supports update and delete.
+
         Supports:
         - Batch references: Use "_ref" to label records, "@refname" to reference them
         - Natural keys: Use human-readable values for foreign keys (e.g., recipe name)
@@ -694,9 +700,9 @@ class RawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -789,6 +795,9 @@ class AsyncRawToolsClient:
     ) -> AsyncHttpResponse[typing.List[typing.Dict[str, typing.Any]]]:
         """
         Write records to a table.
+
+        Deprecated: use write_data (client.data.write), which writes several
+        tables and raw series in one transaction.
 
         Inserts or updates records in the specified target table. Supports batch
         inserts, upserts with match columns, default value functions (DATETIME_NOW,
@@ -884,9 +893,9 @@ class AsyncRawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1024,9 +1033,9 @@ class AsyncRawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1157,9 +1166,9 @@ class AsyncRawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1288,9 +1297,9 @@ class AsyncRawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1369,6 +1378,9 @@ class AsyncRawToolsClient:
         """
         Write records to multiple tables in a single transaction.
 
+        Deprecated: use write_data (client.data.write), which also writes raw
+        series and supports update and delete.
+
         Supports:
         - Batch references: Use "_ref" to label records, "@refname" to reference them
         - Natural keys: Use human-readable values for foreign keys (e.g., recipe name)
@@ -1427,9 +1439,9 @@ class AsyncRawToolsClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

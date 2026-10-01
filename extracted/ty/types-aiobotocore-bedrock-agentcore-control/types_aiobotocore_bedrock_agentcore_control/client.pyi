@@ -41,6 +41,7 @@ from .paginator import (
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
+    ListConsentPortalsPaginator,
     ListDatasetExamplesPaginator,
     ListDatasetsPaginator,
     ListDatasetVersionsPaginator,
@@ -90,6 +91,8 @@ from .type_defs import (
     CreateCodeInterpreterResponseTypeDef,
     CreateConfigurationBundleRequestTypeDef,
     CreateConfigurationBundleResponseTypeDef,
+    CreateConsentPortalRequestTypeDef,
+    CreateConsentPortalResponseTypeDef,
     CreateDatasetRequestTypeDef,
     CreateDatasetResponseTypeDef,
     CreateDatasetVersionRequestTypeDef,
@@ -145,6 +148,7 @@ from .type_defs import (
     DeleteCodeInterpreterResponseTypeDef,
     DeleteConfigurationBundleRequestTypeDef,
     DeleteConfigurationBundleResponseTypeDef,
+    DeleteConsentPortalRequestTypeDef,
     DeleteDatasetExamplesRequestTypeDef,
     DeleteDatasetExamplesResponseTypeDef,
     DeleteDatasetRequestTypeDef,
@@ -200,6 +204,8 @@ from .type_defs import (
     GetConfigurationBundleResponseTypeDef,
     GetConfigurationBundleVersionRequestTypeDef,
     GetConfigurationBundleVersionResponseTypeDef,
+    GetConsentPortalRequestTypeDef,
+    GetConsentPortalResponseTypeDef,
     GetDatasetRequestTypeDef,
     GetDatasetResponseTypeDef,
     GetEvaluatorRequestTypeDef,
@@ -272,6 +278,8 @@ from .type_defs import (
     ListConfigurationBundlesResponseTypeDef,
     ListConfigurationBundleVersionsRequestTypeDef,
     ListConfigurationBundleVersionsResponseTypeDef,
+    ListConsentPortalsRequestTypeDef,
+    ListConsentPortalsResponseTypeDef,
     ListDatasetExamplesRequestTypeDef,
     ListDatasetExamplesResponseTypeDef,
     ListDatasetsRequestTypeDef,
@@ -330,6 +338,8 @@ from .type_defs import (
     ListWorkloadIdentitiesResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
+    RotatePaymentConnectorCredentialsRequestTypeDef,
+    RotatePaymentConnectorCredentialsResponseTypeDef,
     SetTokenVaultCMKRequestTypeDef,
     SetTokenVaultCMKResponseTypeDef,
     StartPolicyGenerationRequestTypeDef,
@@ -350,6 +360,8 @@ from .type_defs import (
     UpdateCapacityProviderOutputTypeDef,
     UpdateConfigurationBundleRequestTypeDef,
     UpdateConfigurationBundleResponseTypeDef,
+    UpdateConsentPortalRequestTypeDef,
+    UpdateConsentPortalResponseTypeDef,
     UpdateDatasetExamplesRequestTypeDef,
     UpdateDatasetExamplesResponseTypeDef,
     UpdateDatasetRequestTypeDef,
@@ -561,6 +573,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_configuration_bundle.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_configuration_bundle)
+        """
+
+    async def create_consent_portal(
+        self, **kwargs: Unpack[CreateConsentPortalRequestTypeDef]
+    ) -> CreateConsentPortalResponseTypeDef:
+        """
+        Creates a new consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_consent_portal.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_consent_portal)
         """
 
     async def create_dataset(
@@ -845,6 +867,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_configuration_bundle.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_configuration_bundle)
+        """
+
+    async def delete_consent_portal(
+        self, **kwargs: Unpack[DeleteConsentPortalRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_consent_portal.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_consent_portal)
         """
 
     async def delete_dataset(
@@ -1147,6 +1179,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle_version.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_configuration_bundle_version)
+        """
+
+    async def get_consent_portal(
+        self, **kwargs: Unpack[GetConsentPortalRequestTypeDef]
+    ) -> GetConsentPortalResponseTypeDef:
+        """
+        Retrieves information about a consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_consent_portal.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_consent_portal)
         """
 
     async def get_dataset(
@@ -1517,6 +1559,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_configuration_bundles)
         """
 
+    async def list_consent_portals(
+        self, **kwargs: Unpack[ListConsentPortalsRequestTypeDef]
+    ) -> ListConsentPortalsResponseTypeDef:
+        """
+        Lists all of the consent portals in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_consent_portals.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_consent_portals)
+        """
+
     async def list_dataset_examples(
         self, **kwargs: Unpack[ListDatasetExamplesRequestTypeDef]
     ) -> ListDatasetExamplesResponseTypeDef:
@@ -1817,6 +1869,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#put_resource_policy)
         """
 
+    async def rotate_payment_connector_credentials(
+        self, **kwargs: Unpack[RotatePaymentConnectorCredentialsRequestTypeDef]
+    ) -> RotatePaymentConnectorCredentialsResponseTypeDef:
+        """
+        Replaces the service-managed credentials of a payment connector with newly
+        issued credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/rotate_payment_connector_credentials.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#rotate_payment_connector_credentials)
+        """
+
     async def set_token_vault_cmk(
         self, **kwargs: Unpack[SetTokenVaultCMKRequestTypeDef]
     ) -> SetTokenVaultCMKResponseTypeDef:
@@ -1831,7 +1894,7 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         self, **kwargs: Unpack[StartPolicyGenerationRequestTypeDef]
     ) -> StartPolicyGenerationResponseTypeDef:
         """
-        Initiates the AI-powered generation of Cedar policies from natural language
+        Initiates the AI-powered generation of Dogwood policies from natural language
         descriptions within the AgentCore Policy system.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/start_policy_generation.html)
@@ -1924,6 +1987,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_configuration_bundle.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_configuration_bundle)
+        """
+
+    async def update_consent_portal(
+        self, **kwargs: Unpack[UpdateConsentPortalRequestTypeDef]
+    ) -> UpdateConsentPortalResponseTypeDef:
+        """
+        Updates an existing consent portal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_consent_portal.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_consent_portal)
         """
 
     async def update_dataset(
@@ -2252,6 +2325,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configuration_bundles"]
     ) -> ListConfigurationBundlesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_consent_portals"]
+    ) -> ListConsentPortalsPaginator:
         """
         Create a paginator for an operation.
 

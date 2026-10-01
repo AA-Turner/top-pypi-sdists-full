@@ -303,6 +303,71 @@ class DedicatedIpPoolReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ses.EmailIdentityCertificateReference",
+    jsii_struct_bases=[],
+    name_mapping={"email_identity": "emailIdentity", "from_address": "fromAddress"},
+)
+class EmailIdentityCertificateReference:
+    def __init__(
+        self,
+        *,
+        email_identity: builtins.str,
+        from_address: builtins.str,
+    ) -> None:
+        '''A reference to a EmailIdentityCertificate resource.
+
+        :param email_identity: The EmailIdentity of the EmailIdentityCertificate resource.
+        :param from_address: The FromAddress of the EmailIdentityCertificate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ses as interfaces_ses
+            
+            email_identity_certificate_reference = interfaces_ses.EmailIdentityCertificateReference(
+                email_identity="emailIdentity",
+                from_address="fromAddress"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8d90dd61edf6beb83e66cc2b4202b129476d1c4fa1489956aab28ad12343093)
+            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
+            check_type(argname="argument from_address", value=from_address, expected_type=type_hints["from_address"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_identity": email_identity,
+            "from_address": from_address,
+        }
+
+    @builtins.property
+    def email_identity(self) -> builtins.str:
+        '''The EmailIdentity of the EmailIdentityCertificate resource.'''
+        result = self._values.get("email_identity")
+        assert result is not None, "Required property 'email_identity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def from_address(self) -> builtins.str:
+        '''The FromAddress of the EmailIdentityCertificate resource.'''
+        result = self._values.get("from_address")
+        assert result is not None, "Required property 'from_address' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailIdentityCertificateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ses.EmailIdentityReference",
     jsii_struct_bases=[],
     name_mapping={"email_identity": "emailIdentity"},
@@ -586,6 +651,53 @@ class _IDedicatedIpPoolRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDedicatedIpPoolRef).__jsii_proxy_class__ = lambda : _IDedicatedIpPoolRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ses.IEmailIdentityCertificateRef"
+)
+class IEmailIdentityCertificateRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailIdentityCertificate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityCertificateRef")
+    def email_identity_certificate_ref(self) -> "EmailIdentityCertificateReference":
+        '''(experimental) A reference to a EmailIdentityCertificate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEmailIdentityCertificateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailIdentityCertificate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ses.IEmailIdentityCertificateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityCertificateRef")
+    def email_identity_certificate_ref(self) -> "EmailIdentityCertificateReference":
+        '''(experimental) A reference to a EmailIdentityCertificate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("EmailIdentityCertificateReference", jsii.get(self, "emailIdentityCertificateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailIdentityCertificateRef).__jsii_proxy_class__ = lambda : _IEmailIdentityCertificateRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IEmailIdentityRef")
@@ -2214,12 +2326,14 @@ __all__ = [
     "ContactListReference",
     "CustomVerificationEmailTemplateReference",
     "DedicatedIpPoolReference",
+    "EmailIdentityCertificateReference",
     "EmailIdentityReference",
     "IConfigurationSetEventDestinationRef",
     "IConfigurationSetRef",
     "IContactListRef",
     "ICustomVerificationEmailTemplateRef",
     "IDedicatedIpPoolRef",
+    "IEmailIdentityCertificateRef",
     "IEmailIdentityRef",
     "IMailManagerAddonInstanceRef",
     "IMailManagerAddonSubscriptionRef",
@@ -2287,6 +2401,14 @@ def _typecheckingstub__eee22c43f539103bf5c9a3012ec0e02b3d53fefdbe06140992d58a1c5
 def _typecheckingstub__5b96dd5318bf107e0627b56848ee58eb242f0abb737a14fd282245dda453b702(
     *,
     pool_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8d90dd61edf6beb83e66cc2b4202b129476d1c4fa1489956aab28ad12343093(
+    *,
+    email_identity: builtins.str,
+    from_address: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2413,5 +2535,5 @@ def _typecheckingstub__602c7efea7e375b6f852dbd10f664e586f718be768b824afd2b7d09c6
     """Type checking stubs"""
     pass
 
-for cls in [IConfigurationSetEventDestinationRef, IConfigurationSetRef, IContactListRef, ICustomVerificationEmailTemplateRef, IDedicatedIpPoolRef, IEmailIdentityRef, IMailManagerAddonInstanceRef, IMailManagerAddonSubscriptionRef, IMailManagerAddressListRef, IMailManagerArchiveRef, IMailManagerIngressPointRef, IMailManagerRelayRef, IMailManagerRuleSetRef, IMailManagerTrafficPolicyRef, IMultiRegionEndpointRef, IReceiptFilterRef, IReceiptRuleRef, IReceiptRuleSetRef, ITemplateRef, ITenantRef, IVdmAttributesRef]:
+for cls in [IConfigurationSetEventDestinationRef, IConfigurationSetRef, IContactListRef, ICustomVerificationEmailTemplateRef, IDedicatedIpPoolRef, IEmailIdentityCertificateRef, IEmailIdentityRef, IMailManagerAddonInstanceRef, IMailManagerAddonSubscriptionRef, IMailManagerAddressListRef, IMailManagerArchiveRef, IMailManagerIngressPointRef, IMailManagerRelayRef, IMailManagerRuleSetRef, IMailManagerTrafficPolicyRef, IMultiRegionEndpointRef, IReceiptFilterRef, IReceiptRuleRef, IReceiptRuleSetRef, ITemplateRef, ITenantRef, IVdmAttributesRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

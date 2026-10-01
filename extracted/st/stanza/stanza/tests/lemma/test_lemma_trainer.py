@@ -17,6 +17,7 @@ from stanza.models.lemma.trainer import (
     _POS_INDEPENDENT,
     _DICTS_VERSION_LEGACY,
     _DICTS_VERSION_POS,
+    _DICTS_VERSION_POS_PICKLE,
     _pack_pos_dict,
     _unpack_pos_dict,
     _legacy_dicts_to_pos_dict,
@@ -496,3 +497,75 @@ class TestDictLemmatizer:
         assert loaded.predict_dict([("left", "VERB")]) == ["leave"]
         # unknown word
         assert loaded.predict_dict([("xyzzy", "NOUN")]) == ["xyzzy"]
+
+    def test_v2_pickle_load_raises(self, tmp_path):
+        """
+        A checkpoint in the v2 pickle format should raise a ValueError
+        with a message directing the user to convert_lemma_dict.py.
+        The v2 format was used briefly in 1.14.0 and replaced in 1.15.0
+        due to a security concern with pickle deserialization.
+        """
+        import gzip
+        import pickle
+        from stanza.models.lemma.vocab import MultiVocab, Vocab
+
+        pos_dict = {_POS_INDEPENDENT: {"running": "run"}}
+        packed = gzip.compress(pickle.dumps(pos_dict, protocol=4))
+
+        char_vocab = Vocab("abcdefghijklmnopqrstuvwxyz", "en")
+        pos_vocab  = Vocab(["VERB"], "en")
+        vocab      = MultiVocab({'char': char_vocab, 'pos': pos_vocab})
+
+        v2_checkpoint = {
+            'model':        None,
+            'dicts':        packed,
+            'dicts_version': _DICTS_VERSION_POS_PICKLE,
+            'vocab':        vocab.state_dict(),
+            'config':       {'dict_only': True, 'caseless': False,
+                             'charlm_forward_file': None, 'charlm_backward_file': None},
+            'contextual':   [],
+        }
+        save_path = str(tmp_path / "v2_lemmatizer.pt")
+        torch.save(v2_checkpoint, save_path, _use_new_zipfile_serialization=False)
+
+        with pytest.raises(ValueError, match="convert_lemma_dict.py"):
+            trainer.Trainer(model_file=save_path, device='cpu')
+
+    def test_load_without_charlm_keys(self, tmp_path):
+        """
+        A checkpoint missing charlm_forward_file and charlm_backward_file keys
+        should load successfully (simulates mimic_nocharlm model checkpoints).
+        """
+        from stanza.models.lemma.vocab import MultiVocab, Vocab
+
+        word_dict      = {"running": "run", "left": "leave"}
+        composite_dict = {("left", "ADJ"): "left"}
+
+        char_vocab = Vocab("abcdefghijklmnopqrstuvwxyz", "en")
+        pos_vocab  = Vocab(["VERB", "ADJ"], "en")
+        vocab      = MultiVocab({'char': char_vocab, 'pos': pos_vocab})
+
+        # Config without charlm_forward_file and charlm_backward_file keys
+        legacy_checkpoint = {
+            'model':    None,
+            'dicts':    (word_dict, composite_dict),
+            # no 'dicts_version' key — simulates an old checkpoint
+            'vocab':    vocab.state_dict(),
+            'config':   {'dict_only': True, 'caseless': False},  # missing charlm keys
+            'contextual': [],
+        }
+        save_path = str(tmp_path / "no_charlm_keys_lemmatizer.pt")
+        torch.save(legacy_checkpoint, save_path, _use_new_zipfile_serialization=False)
+
+        # This should not raise KeyError
+        loaded = trainer.Trainer(model_file=save_path, device='cpu')
+
+        # Verify predictions still work
+        assert loaded.predict_dict([("running", "NOUN")]) == ["run"]
+        assert loaded.predict_dict([("left", "ADJ")])  == ["left"]
+        assert loaded.predict_dict([("left", "VERB")]) == ["leave"]
+        assert loaded.predict_dict([("xyzzy", "NOUN")]) == ["xyzzy"]
+
+        # Verify the args dict has None for the missing keys
+        assert loaded.args.get('charlm_forward_file') is None
+        assert loaded.args.get('charlm_backward_file') is None

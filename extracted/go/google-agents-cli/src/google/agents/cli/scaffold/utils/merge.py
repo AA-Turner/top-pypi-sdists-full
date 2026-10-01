@@ -27,6 +27,7 @@ import shutil
 import tempfile
 from collections.abc import Callable
 
+import click
 from rich.markup import escape
 from rich.prompt import Prompt
 
@@ -265,25 +266,29 @@ def display_results(
             console.print("[dim]  You'll be prompted to resolve each conflict.[/dim]")
         console.print()
 
-    # Only show deps that actually changed, not unchanged ones.
+    display_dependency_changes(dep_resolutions)
+
+
+def display_dependency_changes(dep_resolutions: list[DependencyResolution]) -> None:
+    """Display dependency resolutions, omitting the unchanged ones."""
     changed = [r for r in dep_resolutions if r.status != "unchanged"]
-    if changed:
-        console.print("[bold]Dependency changes:[/bold]")
-        for resolution in changed:
-            dep_name = escape(resolution.name)
-            old_ver = escape(resolution.old_version or "")
-            new_ver = escape(resolution.new_version or "")
-            if resolution.status == "updated":
-                console.print(
-                    f"  [green]✓[/green] Update: {dep_name} {old_ver} → {new_ver}"
-                )
-            elif resolution.status == "added":
-                console.print(f"  [green]+[/green] Add: {dep_name}{new_ver}")
-            elif resolution.status == "kept":
-                console.print(f"  [cyan]✓[/cyan] Keep (yours): {dep_name}{old_ver}")
-            elif resolution.status == "removed":
-                console.print(f"  [yellow]-[/yellow] Remove: {dep_name}{old_ver}")
-        console.print()
+    if not changed:
+        return
+
+    console.print("[bold]Dependency changes:[/bold]")
+    for resolution in changed:
+        dep_name = escape(resolution.name)
+        old_ver = escape(resolution.old_version or "")
+        new_ver = escape(resolution.new_version or "")
+        if resolution.status == "updated":
+            console.print(f"  [green]✓[/green] Update: {dep_name} {old_ver} → {new_ver}")
+        elif resolution.status == "added":
+            console.print(f"  [green]+[/green] Add: {dep_name}{new_ver}")
+        elif resolution.status == "kept":
+            console.print(f"  [cyan]✓[/cyan] Keep (yours): {dep_name}{old_ver}")
+        elif resolution.status == "removed":
+            console.print(f"  [yellow]-[/yellow] Remove: {dep_name}{old_ver}")
+    console.print()
 
 
 def handle_conflict(
@@ -518,6 +523,10 @@ def run_three_way_merge(
         ``True`` if the pipeline completed (changes applied, user
         cancelled, or nothing to do).  ``False`` if template generation
         failed and the caller should fall back to an alternative strategy.
+
+    Raises:
+        SystemExit: If writing the merged dependencies fails. The post-apply
+            hook is skipped, so a rerun retries the merge.
     """
     same_config = sorted(old_args) == sorted(new_args) and old_version is None
 
@@ -648,12 +657,20 @@ def run_three_way_merge(
         )
 
         write_dependencies = WRITE_DEPENDENCY_HANDLERS.get(language)
-        if (
-            not dry_run
-            and has_dep_changes
-            and write_dependencies is not None
-            and write_dependencies(project_dir, dep_resolutions)
-        ):
+        should_write_dependencies = (
+            not dry_run and has_dep_changes and write_dependencies is not None
+        )
+        wrote_dependencies = bool(
+            should_write_dependencies and write_dependencies(project_dir, dep_resolutions)
+        )
+
+        if should_write_dependencies and not wrote_dependencies:
+            raise click.ClickException(
+                "Project files were updated, but dependencies were not. "
+                "Fix the error above and rerun."
+            )
+
+        if wrote_dependencies:
             console.print(
                 "[dim] Dependencies updated — run [bold]agents-cli install[/bold] "
                 "to install the new versions.[/dim]"

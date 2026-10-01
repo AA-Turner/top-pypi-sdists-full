@@ -2,49 +2,49 @@
 build-backend = "setuptools.build_meta"
 # Minimum requirements for the build system to execute.
 requires = [
-  "setuptools>=78.0.2",
-  "translate-toolkit"
+  "setuptools-gettext[translate-toolkit]==0.1.19",
+  "setuptools>=78.0.2"
 ]
 
 [dependency-groups]
 build = [
-  "translate-toolkit==3.19.15"
+  "translate-toolkit==3.20.0"
 ]
 dev = [
-  {include-group = "build"},
-  {include-group = "lint"},
-  {include-group = "test"},
-  {include-group = "types"}
+  { include-group = "build" },
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "types" }
 ]
 lint = [
-  {include-group = "pre-commit"}
+  { include-group = "pre-commit" }
 ]
 pre-commit = [
-  "prek==0.4.11"
+  "prek==0.5.3"
 ]
 test = [
 ]
 types = [
   "django-types==0.24.0",
-  "mypy==2.3.0",
-  "types-setuptools==83.0.0.20260724"
+  "mypy==2.3.1",
+  "types-setuptools==84.0.0.20260812"
 ]
 
 [project]
 authors = [
-  {email = "michal@weblate.org", name = "Michal Čihař"}
+  { email = "michal@weblate.org", name = "Michal Čihař" }
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Localization",
   "Topic :: Utilities"
@@ -62,7 +62,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
 requires-python = ">=3.11"
-version = "2026.10"
+version = "2026.11"
 
 [project.optional-dependencies]
 django = [
@@ -179,6 +179,12 @@ weblate_language_data = "weblate_language_data"
 [tool.setuptools.packages.find]
 exclude = ["modules*", "scripts*"]
 namespaces = true
+
+[tool.setuptools-gettext]
+build_dir = "weblate_language_data/locale"
+compiler = "translate-toolkit"
+install_layout = "package"
+source_dir = "weblate_language_data/locale"
 
 [tool.tomlsort]
 ignore_case = true

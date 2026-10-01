@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-allauth
-Version: 65.19.5
+Version: 65.19.6
 Summary: Integrated set of Django applications addressing authentication, registration, account management as well as 3rd party (social) account authentication.
 Author-email: Raymond Penners <raymond.penners@intenct.nl>
 License: MIT
@@ -42,7 +42,7 @@ Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "headless"
 Provides-Extra: headless-spec
 Requires-Dist: PyYAML<7,>=6; extra == "headless-spec"
 Provides-Extra: idp-oidc
-Requires-Dist: oauthlib<4,>=3.3.0; extra == "idp-oidc"
+Requires-Dist: oauthlib<5,>=4.0.0; extra == "idp-oidc"
 Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "idp-oidc"
 Provides-Extra: mfa
 Requires-Dist: qrcode<9,>=7.0.0; extra == "mfa"
@@ -54,7 +54,7 @@ Requires-Dist: python3-saml<2.0.0,>=1.15.0; extra == "saml"
 Provides-Extra: steam
 Requires-Dist: python3-openid<4,>=3.0.8; extra == "steam"
 Provides-Extra: socialaccount
-Requires-Dist: oauthlib<4,>=3.3.0; extra == "socialaccount"
+Requires-Dist: oauthlib<5,>=4.0.0; extra == "socialaccount"
 Requires-Dist: requests<3,>=2.0.0; extra == "socialaccount"
 Requires-Dist: pyjwt[crypto]<3,>=2.0; extra == "socialaccount"
 Dynamic: license-file

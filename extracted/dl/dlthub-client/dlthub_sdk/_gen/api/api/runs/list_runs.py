@@ -12,6 +12,7 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.job_category import JobCategory
 from ...models.list_page_detailed_run_response import ListPageDetailedRunResponse
 from ...models.list_runs_order_type_0_item import ListRunsOrderType0Item
 from ...models.list_runs_sort_type_0_item import ListRunsSortType0Item
@@ -44,6 +45,8 @@ def _get_kwargs(
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -214,6 +217,22 @@ def _get_kwargs(
 
     params["include_system_runs"] = include_system_runs
 
+    json_downstream_runs_limit: int | None | Unset
+    if isinstance(downstream_runs_limit, Unset):
+        json_downstream_runs_limit = UNSET
+    else:
+        json_downstream_runs_limit = downstream_runs_limit
+    params["downstream_runs_limit"] = json_downstream_runs_limit
+
+    json_downstream_runs_category: None | str | Unset
+    if isinstance(downstream_runs_category, Unset):
+        json_downstream_runs_category = UNSET
+    elif isinstance(downstream_runs_category, JobCategory):
+        json_downstream_runs_category = downstream_runs_category.value
+    else:
+        json_downstream_runs_category = downstream_runs_category
+    params["downstream_runs_category"] = json_downstream_runs_category
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -309,6 +328,8 @@ def sync_detailed(
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
@@ -326,6 +347,9 @@ def sync_detailed(
 
     System runs, such as the dashboard job, are excluded unless `script_id` or
     `prev_run_id` names one, or `include_system_runs` is set.
+
+    Set `downstream_runs_limit` to attach, to each run, the runs its outcome
+    triggered.
 
     Requires READ permission on the organization level.
 
@@ -369,6 +393,11 @@ def sync_detailed(
             `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -399,6 +428,8 @@ def sync_detailed(
         order=order,
         cursor=cursor,
         include_system_runs=include_system_runs,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     )
 
     response = client.get_httpx_client().request(
@@ -432,6 +463,8 @@ def sync(
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
@@ -450,6 +483,9 @@ def sync(
 
     System runs, such as the dashboard job, are excluded unless `script_id` or
     `prev_run_id` names one, or `include_system_runs` is set.
+
+    Set `downstream_runs_limit` to attach, to each run, the runs its outcome
+    triggered.
 
     Requires READ permission on the organization level.
 
@@ -493,6 +529,11 @@ def sync(
             `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -524,6 +565,8 @@ def sync(
         order=order,
         cursor=cursor,
         include_system_runs=include_system_runs,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     ).parsed
 
 
@@ -551,6 +594,8 @@ async def asyncio_detailed(
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
@@ -568,6 +613,9 @@ async def asyncio_detailed(
 
     System runs, such as the dashboard job, are excluded unless `script_id` or
     `prev_run_id` names one, or `include_system_runs` is set.
+
+    Set `downstream_runs_limit` to attach, to each run, the runs its outcome
+    triggered.
 
     Requires READ permission on the organization level.
 
@@ -611,6 +659,11 @@ async def asyncio_detailed(
             `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -641,6 +694,8 @@ async def asyncio_detailed(
         order=order,
         cursor=cursor,
         include_system_runs=include_system_runs,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -672,6 +727,8 @@ async def asyncio(
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
@@ -690,6 +747,9 @@ async def asyncio(
 
     System runs, such as the dashboard job, are excluded unless `script_id` or
     `prev_run_id` names one, or `include_system_runs` is set.
+
+    Set `downstream_runs_limit` to attach, to each run, the runs its outcome
+    triggered.
 
     Requires READ permission on the organization level.
 
@@ -733,6 +793,11 @@ async def asyncio(
             `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -765,5 +830,7 @@ async def asyncio(
             order=order,
             cursor=cursor,
             include_system_runs=include_system_runs,
+            downstream_runs_limit=downstream_runs_limit,
+            downstream_runs_category=downstream_runs_category,
         )
     ).parsed

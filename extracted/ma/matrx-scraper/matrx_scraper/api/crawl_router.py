@@ -64,7 +64,7 @@ from matrx_scraper.web_crawl.insights import (
     load_link_graph,
     load_progress_series,
 )
-from matrx_scraper.web_crawl.persistence import build_user_claims
+from matrx_scraper.web_crawl.persistence import CrawlStartConflict, build_user_claims
 from matrx_scraper.web_crawl.service import (
     PreparedAnalysis,
     PreparedCrawl,
@@ -98,6 +98,23 @@ def _stream_headers(
     return response
 
 
+def _runtime_http_error(exc: RuntimeError) -> HTTPException:
+    """409 for "already active" (with the run to follow, when known), else 503.
+
+    A start that loses the site's start lane is not a failure of what the
+    caller wanted — the run it asked for is already happening. The holder's id
+    rides `X-Active-Crawl-Session-Id` so a client can follow it instead.
+    """
+    if "already active" not in str(exc):
+        return HTTPException(status_code=503, detail=str(exc))
+    active = getattr(exc, "active_session_id", None) if isinstance(exc, CrawlStartConflict) else None
+    return HTTPException(
+        status_code=409,
+        detail=str(exc),
+        headers={"X-Active-Crawl-Session-Id": active} if active else None,
+    )
+
+
 @router.post("/crawler/sites/{site_id}/sessions")
 async def start_crawl(
     site_id: str,
@@ -115,9 +132,7 @@ async def start_crawl(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         # One active site-wide crawl per site — mirror resume's contract.
-        if "already active" in str(exc):
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise _runtime_http_error(exc) from exc
     response = create_streaming_response(
         ctx,
         service.run_prepared,
@@ -179,6 +194,10 @@ async def bootstrap_site(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        # One active initialization per site: a second start (double click,
+        # remounted page, second tab) is told to follow the live one.
+        raise _runtime_http_error(exc) from exc
     response = create_streaming_response(
         ctx,
         service.run_prepared,
@@ -237,6 +256,10 @@ async def initialize_site(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        # One active initialization per site: a second start (double click,
+        # remounted page, second tab) is told to follow the live one.
+        raise _runtime_http_error(exc) from exc
     response = create_streaming_response(
         ctx,
         service.run_initialize,
@@ -763,9 +786,7 @@ async def rescrape_site(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        if "already active" in str(exc):
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise _runtime_http_error(exc) from exc
     response = create_streaming_response(
         ctx,
         service.run_prepared,

@@ -49,6 +49,7 @@ __all__ = (
     "ComplianceStatusType",
     "ComplianceUploadTypeType",
     "ConnectionStatusType",
+    "DeletionModeType",
     "DescribeActivationsFilterKeysType",
     "DescribeActivationsPaginatorName",
     "DescribeAssociationExecutionTargetsPaginatorName",
@@ -267,6 +268,7 @@ ComplianceSeverityType = Literal[
 ComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 ComplianceUploadTypeType = Literal["COMPLETE", "PARTIAL"]
 ConnectionStatusType = Literal["connected", "notconnected"]
+DeletionModeType = Literal["RemoveSharing", "RollbackMigration"]
 DescribeActivationsFilterKeysType = Literal["ActivationIds", "DefaultInstanceName", "IamRole"]
 DescribeActivationsPaginatorName = Literal["describe_activations"]
 DescribeAssociationExecutionTargetsPaginatorName = Literal["describe_association_execution_targets"]
@@ -720,6 +722,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -794,6 +797,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -822,6 +826,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -916,6 +921,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

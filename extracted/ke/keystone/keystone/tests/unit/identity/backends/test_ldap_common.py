@@ -460,6 +460,283 @@ class LDAPPagedResultsTest(unit.TestCase):
         attrlist = sorted([attr for attr in args[3] if attr])
         self.assertEqual(['mail', 'userPassword'], attrlist)
 
+    @mock.patch.object(fakeldap.FakeLdap, 'search_ext')
+    @mock.patch.object(fakeldap.FakeLdap, 'result3')
+    def test_paged_search_handles_none_from_result3(
+        self, mock_result3, mock_search_ext
+    ):
+        """Verify _paged_search_s tolerates None rdata/serverctrls.
+
+        The python-ldap result3 docs do not exclude None as a possible value
+        for rdata or serverctrls.  The implementation must not crash on either.
+        """
+        mock_result3.return_value = ('', None, 1, None)
+
+        self.config_fixture.config(group='ldap', page_size=1)
+
+        conn = PROVIDERS.identity_api.user.get_connection()
+        result = conn._paged_search_s(
+            'dc=example,dc=test', ldap.SCOPE_SUBTREE, 'objectclass=*'
+        )
+        self.assertEqual([], result)
+
+    def test_list_users_returns_all_pages(self):
+        """Verify that list_users returns entries beyond a single page.
+
+        When the LDAP server enforces a page size limit (e.g. AD MaxPageSize),
+        _paged_search_s must loop through pages using the cookie and accumulate
+        all results.  This test uses page_size=2 with more users than that to
+        ensure all pages are fetched.
+        """
+        # Create extra users so total > page_size
+        extra_users = []
+        for _ in range(5):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            user = PROVIDERS.identity_api.create_user(user)
+            extra_users.append(user)
+
+        # page_size=2 forces multiple LDAP pages to be fetched.
+        self.config_fixture.config(group='ldap', page_size=2)
+        PROVIDERS.identity_api.user.page_size = 2
+
+        with mock.patch.object(
+            common_ldap.KeystoneLDAPHandler,
+            '_paged_search_s',
+            autospec=True,
+            side_effect=common_ldap.KeystoneLDAPHandler._paged_search_s,
+        ) as spy:
+            users = PROVIDERS.identity_api.list_users()
+            self.assertTrue(
+                spy.called,
+                '_paged_search_s was not called; pagination may be bypassed',
+            )
+
+        # All default fixture users plus the extra ones must be present
+        expected_count = len(default_fixtures.USERS) + len(extra_users)
+        self.assertEqual(expected_count, len(users))
+
+        extra_ids = {u['id'] for u in extra_users}
+        returned_ids = {u['id'] for u in users}
+        self.assertTrue(extra_ids.issubset(returned_ids))
+
+    def test_search_s_sizelimit_stops_pagination(self):
+        """Verify search_s stops fetching pages once sizelimit is reached.
+
+        When page_size is set and sizelimit is passed, _paged_search_s must
+        stop accumulating results after sizelimit entries even if the server
+        has more pages available.
+        """
+        for _ in range(5):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            PROVIDERS.identity_api.create_user(user)
+
+        sizelimit = 3
+        self.config_fixture.config(group='ldap', page_size=2)
+        PROVIDERS.identity_api.user.page_size = 2
+
+        user_api = PROVIDERS.identity_api.user
+        query = (
+            f'(&(objectClass={user_api.object_class})({user_api.id_attr}=*))'
+        )
+        conn = PROVIDERS.identity_api.user.get_connection()
+        res = conn.search_s(
+            user_api.tree_dn, user_api.LDAP_SCOPE, query, sizelimit=sizelimit
+        )
+        self.assertEqual(sizelimit, len(res))
+
+    def test_paged_search_abandons_cursor_on_sizelimit(self):
+        """Verify RFC 2696 cursor abandonment when sizelimit is reached.
+
+        When _paged_search_s stops early because sizelimit is reached while
+        the server still has more pages (non-empty cookie), it must send a
+        final search_ext with size=0 and the current cookie to release the
+        server-side cursor.  Without this the server holds the cursor open
+        until timeout, which can exhaust the concurrent-cursor limit under
+        connection pooling.
+        """
+        for _ in range(6):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            PROVIDERS.identity_api.create_user(user)
+
+        sizelimit = 3
+        self.config_fixture.config(group='ldap', page_size=2)
+        PROVIDERS.identity_api.user.page_size = 2
+
+        user_api = PROVIDERS.identity_api.user
+        query = (
+            f'(&(objectClass={user_api.object_class})({user_api.id_attr}=*))'
+        )
+
+        original_search_ext = fakeldap.FakeLdap.search_ext
+        search_ext_calls = []
+
+        def capturing_search_ext(
+            self_conn,
+            base,
+            scope,
+            filterstr,
+            attrlist=None,
+            attrsonly=0,
+            serverctrls=None,
+            **kwargs,
+        ):
+            search_ext_calls.append(serverctrls)
+            return original_search_ext(
+                self_conn,
+                base,
+                scope,
+                filterstr,
+                attrlist,
+                attrsonly,
+                serverctrls,
+                **kwargs,
+            )
+
+        with mock.patch.object(
+            fakeldap.FakeLdap, 'search_ext', capturing_search_ext
+        ):
+            conn = PROVIDERS.identity_api.user.get_connection()
+            conn.page_size = 2
+            res = conn._paged_search_s(
+                user_api.tree_dn,
+                user_api.LDAP_SCOPE,
+                query,
+                sizelimit=sizelimit,
+            )
+
+        self.assertEqual(sizelimit, len(res))
+
+        # At least one search_ext call must be the RFC 2696 abandonment:
+        # a SimplePagedResultsControl with size=0.
+        abandon_calls = [
+            ctrls
+            for ctrls in search_ext_calls
+            if ctrls and any(getattr(c, 'size', None) == 0 for c in ctrls)
+        ]
+        self.assertTrue(
+            abandon_calls,
+            'Expected a search_ext with size=0 to abandon the server cursor',
+        )
+
+    def test_paged_search_no_abandon_when_last_page(self):
+        """No RFC 2696 abandonment when sizelimit aligns with a page boundary.
+
+        If the server returns an empty cookie alongside the last batch of
+        results (no more data), there is no open cursor to abandon.
+        """
+        # Create exactly page_size users so pagination exhausts in one page.
+        for _ in range(2):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            PROVIDERS.identity_api.create_user(user)
+
+        total_users = len(default_fixtures.USERS) + 2
+        sizelimit = total_users
+        self.config_fixture.config(group='ldap', page_size=total_users)
+        PROVIDERS.identity_api.user.page_size = total_users
+
+        user_api = PROVIDERS.identity_api.user
+        query = (
+            f'(&(objectClass={user_api.object_class})({user_api.id_attr}=*))'
+        )
+
+        original_search_ext = fakeldap.FakeLdap.search_ext
+        search_ext_calls = []
+
+        def capturing_search_ext(
+            self_conn,
+            base,
+            scope,
+            filterstr,
+            attrlist=None,
+            attrsonly=0,
+            serverctrls=None,
+            **kwargs,
+        ):
+            search_ext_calls.append(serverctrls)
+            return original_search_ext(
+                self_conn,
+                base,
+                scope,
+                filterstr,
+                attrlist,
+                attrsonly,
+                serverctrls,
+                **kwargs,
+            )
+
+        with mock.patch.object(
+            fakeldap.FakeLdap, 'search_ext', capturing_search_ext
+        ):
+            conn = PROVIDERS.identity_api.user.get_connection()
+            conn.page_size = total_users
+            res = conn._paged_search_s(
+                user_api.tree_dn,
+                user_api.LDAP_SCOPE,
+                query,
+                sizelimit=sizelimit,
+            )
+
+        self.assertEqual(sizelimit, len(res))
+
+        # No call with size=0 — the cookie was empty so there was nothing
+        # to abandon.
+        abandon_calls = [
+            ctrls
+            for ctrls in search_ext_calls
+            if ctrls and any(getattr(c, 'size', None) == 0 for c in ctrls)
+        ]
+        self.assertFalse(
+            abandon_calls,
+            'Unexpected size=0 search_ext when no cursor was open',
+        )
+
+    def test_list_users_with_page_size_and_limit(self):
+        """Verify list_users truncates correctly when paging with a limit.
+
+        This covers the path where both conn.page_size and hints.limit are set,
+        e.g. page_size=1000 and list_limit=1500 against AD with MaxPageSize.
+        """
+        for _ in range(10):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            PROVIDERS.identity_api.create_user(user)
+
+        list_limit = len(default_fixtures.USERS) + 2
+        self.config_fixture.config(group='ldap', page_size=2)
+        PROVIDERS.identity_api.user.page_size = 2
+
+        hints = driver_hints.Hints()
+        hints.set_limit(list_limit)
+
+        with mock.patch.object(
+            common_ldap.KeystoneLDAPHandler,
+            '_paged_search_s',
+            autospec=True,
+            side_effect=common_ldap.KeystoneLDAPHandler._paged_search_s,
+        ) as spy:
+            users = PROVIDERS.identity_api.list_users(hints=hints)
+            self.assertTrue(
+                spy.called,
+                '_paged_search_s was not called; pagination may be bypassed',
+            )
+
+        self.assertLessEqual(len(users), list_limit)
+
+    def test_marker_ignored_for_ldap_domain(self):
+        """LDAP backends do not support marker pagination; markers are ignored.
+
+        LDAP has no native keyset pagination and the server-side paging cookie
+        cannot survive across stateless HTTP requests.  Client-side emulation
+        would require a full directory scan on every page request, which is
+        unacceptable at scale.  The correct behaviour is to ignore the marker
+        and return results from the beginning of the list, capped by
+        list_limit.  This test pins that behaviour so future developers do not
+        mistake it for a bug and attempt to "fix" it with an O(N) full fetch.
+        """
+        hints = driver_hints.Hints()
+        hints.set_marker(uuid.uuid4().hex)
+        users = PROVIDERS.identity_api.list_users(hints=hints)
+        self.assertEqual(len(default_fixtures.USERS), len(users))
+
 
 class CommonLdapTestCase(unit.BaseTestCase):
     """These test cases call functions in keystone.common.ldap."""
@@ -694,3 +971,25 @@ class LDAPSizeLimitTest(unit.TestCase):
             'dc=example,dc=test',
             ldap.SCOPE_SUBTREE,
         )
+
+    def test_search_s_sizelimit_enforced_without_paging(self):
+        """Verify search_s trims results to sizelimit when page_size is unset.
+
+        When page_size is 0 (disabled), sizelimit must still be honoured by
+        slicing the raw result set before returning it.
+        """
+        for _ in range(5):
+            user = unit.new_user_ref(domain_id=CONF.identity.default_domain_id)
+            PROVIDERS.identity_api.create_user(user)
+
+        sizelimit = 2
+        # page_size defaults to 0 via backend_ldap.conf - no paging path taken
+        user_api = PROVIDERS.identity_api.user
+        query = (
+            f'(&(objectClass={user_api.object_class})({user_api.id_attr}=*))'
+        )
+        conn = user_api.get_connection()
+        res = conn.search_s(
+            user_api.tree_dn, user_api.LDAP_SCOPE, query, sizelimit=sizelimit
+        )
+        self.assertEqual(sizelimit, len(res))

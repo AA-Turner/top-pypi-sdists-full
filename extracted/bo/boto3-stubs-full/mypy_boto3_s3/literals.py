@@ -243,6 +243,7 @@ InventoryOptionalFieldType = Literal[
     "ETag",
     "EncryptionStatus",
     "IntelligentTieringAccessTier",
+    "IntelligentTieringReferenceDate",
     "IsMultipartUploaded",
     "LastModifiedDate",
     "LifecycleExpirationDate",

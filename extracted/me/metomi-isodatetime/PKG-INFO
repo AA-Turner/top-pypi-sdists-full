@@ -1,30 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: metomi-isodatetime
-Version: 1!3.1.0
+Version: 1!3.2.0
 Summary: Python ISO 8601 date time parser and data model/manipulation utilities
-Home-page: https://github.com/metomi/isodatetime
-Author: Met Office
-Author-email: metomi@metoffice.gov.uk
-License: LGPLv3
-Keywords: isodatetime datetime iso8601 date time parser
+Author-email: Met Office <metomi@metoffice.gov.uk>
+License-Expression: LGPL-3.0-only
+Project-URL: Homepage, https://github.com/metomi/isodatetime
+Project-URL: Repository, https://github.com/metomi/isodatetime
+Project-URL: Changelog, https://github.com/metomi/isodatetime/blob/master/CHANGES.md
+Keywords: isodatetime,datetime,iso8601,date,time,parser
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: all
 License-File: LICENSE
+License-File: COPYING
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest>=6; extra == "test"
+Requires-Dist: pytest-env; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: flake8-type-checking; extra == "test"
+Requires-Dist: bandit>=1.7.1; extra == "test"
+Provides-Extra: all
+Requires-Dist: metomi-isodatetime[test]; extra == "all"
+Dynamic: license-file
 
 isodatetime
 ===========
@@ -32,7 +39,6 @@ isodatetime
 [![Test](https://github.com/metomi/isodatetime/workflows/Test/badge.svg?event=push)](https://github.com/metomi/isodatetime/actions?query=workflow%3ATest)
 [![codecov](https://codecov.io/gh/metomi/isodatetime/branch/master/graph/badge.svg)](https://codecov.io/gh/metomi/isodatetime)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.597555.svg)](https://doi.org/10.5281/zenodo.597555)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1fd1147b75474d4d9a0f64bececf3bb5)](https://www.codacy.com/app/metomi/isodatetime?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=metomi/isodatetime&amp;utm_campaign=Badge_Grade)
 [![PYPI Badge](https://img.shields.io/pypi/v/metomi-isodatetime)](https://pypi.org/project/metomi-isodatetime/)
 
 Python [ISO8601 (2004)](https://www.iso.org/standard/40874.html)
@@ -47,13 +53,7 @@ Install from PyPI:
 $ pip install metomi-isodatetime
 ```
 
-Or build yourself:
-
-```console
-$ git clone https://github.com/metomi/isodatetime.git isodatetime
-$ cd isodatetime
-$ python setup.py install
-```
+Or with conda: see https://github.com/conda-forge/metomi-isodatetime-feedstock
 
 ## Usage
 
@@ -105,7 +105,7 @@ $ isodatetime R/2000/P1Y --max 3
 
 ## Copyright and Terms of Use
 
-Copyright (C) 2013-<span actions:bind='current-year'>2023</span> British Crown
+Copyright (C) 2013-<span actions:bind='current-year'>2026</span> British Crown
 (Met Office) & Contributors.
 
 This program is free software: you can redistribute it and/or modify it under

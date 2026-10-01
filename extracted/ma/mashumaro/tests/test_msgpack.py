@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List
 
 import msgpack
+from typing_extensions import Buffer
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import ADD_DIALECT_SUPPORT, BaseConfig
@@ -63,16 +64,58 @@ def test_to_msg_pack_datetime():
     assert DataClass(dt).to_msgpack() == dumped
 
 
-def test_msgpack_with_bytes():
+def test_msgpack_slice():
+    @dataclass
+    class DataClass(DataClassMessagePackMixin):
+        x: slice
+
+    instance = DataClass(slice(1, 10, 3))
+    dumped = msgpack.packb({"x": [1, 10, 3]})
+    assert instance.to_msgpack() == dumped
+    assert DataClass.from_msgpack(dumped) == instance
+
+
+def test_msgpack_slice_with_none():
+    @dataclass
+    class DataClass(DataClassMessagePackMixin):
+        x: slice
+
+    instance = DataClass(slice(5))
+    dumped = msgpack.packb({"x": [None, 5, None]})
+    assert instance.to_msgpack() == dumped
+    assert DataClass.from_msgpack(dumped) == instance
+
+
+def test_msgpack_with_binary_types():
     @dataclass
     class DataClass(DataClassMessagePackMixin):
         x: bytes
         y: bytearray
+        z: memoryview
 
-    instance = DataClass(b"123", bytearray(b"456"))
-    dumped = msgpack.packb({"x": b"123", "y": bytearray(b"456")})
-    assert DataClass.from_msgpack(dumped) == instance
+    instance = DataClass(b"123", bytearray(b"456"), memoryview(b"789"))
+    dumped = msgpack.packb(
+        {"x": b"123", "y": bytearray(b"456"), "z": memoryview(b"789")}
+    )
+    loaded = DataClass.from_msgpack(dumped)
+    assert loaded == instance
+    assert type(loaded.x) is bytes
+    assert type(loaded.y) is bytearray
+    assert type(loaded.z) is memoryview
     assert instance.to_msgpack() == dumped
+
+
+def test_msgpack_with_buffer():
+    @dataclass
+    class DataClass(DataClassMessagePackMixin):
+        x: Buffer
+
+    for value in (b"123", bytearray(b"123"), memoryview(b"123")):
+        dumped = msgpack.packb({"x": value}, use_bin_type=True)
+        assert DataClass(value).to_msgpack() == dumped
+        loaded = DataClass.from_msgpack(dumped)
+        assert loaded.x == b"123"
+        assert type(loaded.x) is bytes
 
 
 def test_msgpack_with_serialization_strategy():

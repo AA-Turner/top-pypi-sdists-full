@@ -41,6 +41,7 @@ from .paginator import (
     DescribeCapacityBlockStatusPaginator,
     DescribeCapacityManagerDataExportsPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
+    DescribeCapacityReservationDateChangeQuotesPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
     DescribeCarrierGatewaysPaginator,
@@ -339,6 +340,8 @@ from .type_defs import (
     CreateCapacityReservationBySplittingResultTypeDef,
     CreateCapacityReservationCancellationQuoteRequestTypeDef,
     CreateCapacityReservationCancellationQuoteResultTypeDef,
+    CreateCapacityReservationDateChangeQuoteRequestTypeDef,
+    CreateCapacityReservationDateChangeQuoteResultTypeDef,
     CreateCapacityReservationFleetRequestTypeDef,
     CreateCapacityReservationFleetResultTypeDef,
     CreateCapacityReservationRequestTypeDef,
@@ -548,6 +551,8 @@ from .type_defs import (
     DeleteCapacityManagerDataExportResultTypeDef,
     DeleteCarrierGatewayRequestTypeDef,
     DeleteCarrierGatewayResultTypeDef,
+    DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef,
     DeleteClientVpnEndpointRequestTypeDef,
     DeleteClientVpnEndpointResultTypeDef,
     DeleteClientVpnRouteRequestTypeDef,
@@ -775,6 +780,8 @@ from .type_defs import (
     DescribeCapacityReservationBillingRequestsResultTypeDef,
     DescribeCapacityReservationCancellationQuotesRequestTypeDef,
     DescribeCapacityReservationCancellationQuotesResultTypeDef,
+    DescribeCapacityReservationDateChangeQuotesRequestTypeDef,
+    DescribeCapacityReservationDateChangeQuotesResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
     DescribeCapacityReservationFleetsResultTypeDef,
     DescribeCapacityReservationsRequestTypeDef,
@@ -1283,6 +1290,8 @@ from .type_defs import (
     GetCapacityManagerMonitoredTagKeysResultTypeDef,
     GetCapacityReservationUsageRequestTypeDef,
     GetCapacityReservationUsageResultTypeDef,
+    GetClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    GetClientVpnEndpointAuthorizationPolicyResultTypeDef,
     GetCoipPoolUsageRequestTypeDef,
     GetCoipPoolUsageResultTypeDef,
     GetConsoleOutputRequestTypeDef,
@@ -1452,6 +1461,8 @@ from .type_defs import (
     ModifyCapacityReservationFleetResultTypeDef,
     ModifyCapacityReservationRequestTypeDef,
     ModifyCapacityReservationResultTypeDef,
+    ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef,
+    ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef,
     ModifyClientVpnEndpointRequestTypeDef,
     ModifyClientVpnEndpointResultTypeDef,
     ModifyDefaultCreditSpecificationRequestTypeDef,
@@ -1657,6 +1668,8 @@ from .type_defs import (
     ReplaceIamInstanceProfileAssociationResultTypeDef,
     ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef,
     ReplaceImageCriteriaInAllowedImagesSettingsResultTypeDef,
+    ReplaceImageInstanceTypeSpecificationRequestTypeDef,
+    ReplaceImageInstanceTypeSpecificationResultTypeDef,
     ReplaceNetworkAclAssociationRequestTypeDef,
     ReplaceNetworkAclAssociationResultTypeDef,
     ReplaceNetworkAclEntryRequestTypeDef,
@@ -1747,6 +1760,8 @@ from .type_defs import (
     UpdateSecurityGroupRuleDescriptionsEgressResultTypeDef,
     UpdateSecurityGroupRuleDescriptionsIngressRequestTypeDef,
     UpdateSecurityGroupRuleDescriptionsIngressResultTypeDef,
+    ValidateSecurityGroupQuotasForInterfaceRequestTypeDef,
+    ValidateSecurityGroupQuotasForInterfaceResultTypeDef,
     VolumeAttachmentResponseTypeDef,
     VolumeResponseTypeDef,
     WithdrawByoipCidrRequestTypeDef,
@@ -2569,6 +2584,17 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_cancellation_quote.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_capacity_reservation_cancellation_quote)
+        """
+
+    async def create_capacity_reservation_date_change_quote(
+        self, **kwargs: Unpack[CreateCapacityReservationDateChangeQuoteRequestTypeDef]
+    ) -> CreateCapacityReservationDateChangeQuoteResultTypeDef:
+        """
+        Generates a quote for changing the start date of a future-dated Capacity
+        Reservation that has not yet been delivered.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_reservation_date_change_quote.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_capacity_reservation_date_change_quote)
         """
 
     async def create_capacity_reservation_fleet(
@@ -3692,6 +3718,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_client_vpn_endpoint)
         """
 
+    async def delete_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[DeleteClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> DeleteClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Deletes the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_client_vpn_endpoint_authorization_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_client_vpn_endpoint_authorization_policy)
+        """
+
     async def delete_client_vpn_route(
         self, **kwargs: Unpack[DeleteClientVpnRouteRequestTypeDef]
     ) -> DeleteClientVpnRouteResultTypeDef:
@@ -4779,7 +4815,7 @@ class EC2Client(AioBaseClient):
         self, **kwargs: Unpack[DescribeApplicationStatusRequestTypeDef]
     ) -> DescribeApplicationStatusResultTypeDef:
         """
-        Describes the application status for the specified instances.
+        Describes the aggregated application health status for the specified instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_application_status)
@@ -4799,7 +4835,8 @@ class EC2Client(AioBaseClient):
         self, **kwargs: Unpack[DescribeApplicationStatusChecksRequestTypeDef]
     ) -> DescribeApplicationStatusChecksResultTypeDef:
         """
-        Describes one or more application status checks.
+        Describes application status checks, including configuration details such as
+        protocol, port, path, thresholds, and associations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_checks.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_application_status_checks)
@@ -4931,6 +4968,18 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_cancellation_quotes.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_reservation_cancellation_quotes)
+        """
+
+    async def describe_capacity_reservation_date_change_quotes(
+        self, **kwargs: Unpack[DescribeCapacityReservationDateChangeQuotesRequestTypeDef]
+    ) -> DescribeCapacityReservationDateChangeQuotesResultTypeDef:
+        """
+        Describes one or more Capacity Reservation date change quotes that you
+        generated by using the <code>CreateCapacityReservationDateChangeQuote</code>
+        operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_date_change_quotes.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_reservation_date_change_quotes)
         """
 
     async def describe_capacity_reservation_fleets(
@@ -7612,6 +7661,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_capacity_reservation_usage)
         """
 
+    async def get_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[GetClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> GetClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Describes the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_client_vpn_endpoint_authorization_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_client_vpn_endpoint_authorization_policy)
+        """
+
     async def get_coip_pool_usage(
         self, **kwargs: Unpack[GetCoipPoolUsageRequestTypeDef]
     ) -> GetCoipPoolUsageResultTypeDef:
@@ -8493,6 +8552,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_client_vpn_endpoint.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_client_vpn_endpoint)
+        """
+
+    async def modify_client_vpn_endpoint_authorization_policy(
+        self, **kwargs: Unpack[ModifyClientVpnEndpointAuthorizationPolicyRequestTypeDef]
+    ) -> ModifyClientVpnEndpointAuthorizationPolicyResultTypeDef:
+        """
+        Creates or updates the authorization policy for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_client_vpn_endpoint_authorization_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_client_vpn_endpoint_authorization_policy)
         """
 
     async def modify_default_credit_specification(
@@ -9593,6 +9662,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#replace_image_criteria_in_allowed_images_settings)
         """
 
+    async def replace_image_instance_type_specification(
+        self, **kwargs: Unpack[ReplaceImageInstanceTypeSpecificationRequestTypeDef]
+    ) -> ReplaceImageInstanceTypeSpecificationResultTypeDef:
+        """
+        Replaces or removes the instance type specification for an AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/replace_image_instance_type_specification.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#replace_image_instance_type_specification)
+        """
+
     async def replace_network_acl_association(
         self, **kwargs: Unpack[ReplaceNetworkAclAssociationRequestTypeDef]
     ) -> ReplaceNetworkAclAssociationResultTypeDef:
@@ -10099,6 +10178,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#update_security_group_rule_descriptions_ingress)
         """
 
+    async def validate_security_group_quotas_for_interface(
+        self, **kwargs: Unpack[ValidateSecurityGroupQuotasForInterfaceRequestTypeDef]
+    ) -> ValidateSecurityGroupQuotasForInterfaceResultTypeDef:
+        """
+        Validates whether the specified security groups can be associated with a single
+        network interface.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/validate_security_group_quotas_for_interface.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#validate_security_group_quotas_for_interface)
+        """
+
     async def withdraw_byoip_cidr(
         self, **kwargs: Unpack[WithdrawByoipCidrRequestTypeDef]
     ) -> WithdrawByoipCidrResultTypeDef:
@@ -10223,6 +10313,17 @@ class EC2Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_capacity_reservation_billing_requests"]
     ) -> DescribeCapacityReservationBillingRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_reservation_date_change_quotes"]
+    ) -> DescribeCapacityReservationDateChangeQuotesPaginator:
         """
         Create a paginator for an operation.
 

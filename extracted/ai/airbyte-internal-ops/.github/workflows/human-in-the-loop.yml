@@ -215,36 +215,16 @@ jobs:
           echo "Downloading latest roster artifact..."
           ROSTER_FILE="/tmp/roster.json"
 
-          # Find the latest successful roster workflow run on main.
-          # Filtering by branch=main is critical: PR-triggered roster runs
-          # skip the artifact upload step (the upload step is gated on
-          # `github.event_name != 'pull_request'`), so picking them up
-          # yields an empty roster and broken Slack mentions. The
-          # `exclude_pull_requests` API parameter only strips the
-          # `pull_requests` metadata field from the response — it does
-          # NOT filter runs by event type — so we filter by branch
-          # instead.
-          RUN_ID=$(gh api \
-            "repos/${{ github.repository }}/actions/workflows/internal_team_roster.yml/runs?status=success&per_page=1&branch=main" \
-            --jq '.workflow_runs[0].id // empty')
-
-          if [ -z "$RUN_ID" ]; then
-            echo "::warning::No successful roster workflow run found. Slack mentions will use raw identifiers."
-            echo '[]' > "$ROSTER_FILE"
-            echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Download the artifact
+          # Select from the artifacts list because the filtered runs endpoint can
+          # return old runs whose artifacts have expired. PR-triggered roster runs
+          # upload no artifact, and other-branch dispatches are excluded by head_branch.
           ARTIFACT_ID=$(gh api \
-            "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '.artifacts[] | select(.name == "internal-team-roster") | .id // empty')
+            "repos/${{ github.repository }}/actions/artifacts?name=internal-team-roster&per_page=100" \
+            --jq '[.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main")] | sort_by(.created_at) | last | .id // empty')
 
           if [ -z "$ARTIFACT_ID" ]; then
-            echo "::warning::Roster artifact not found in run ${RUN_ID}. Using raw identifiers."
-            echo '[]' > "$ROSTER_FILE"
-            echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "::error::No non-expired internal-team-roster artifact from main found."
+            exit 1
           fi
 
           gh api \
@@ -257,8 +237,8 @@ jobs:
           if [ -n "$JSON_FILE" ]; then
             cp "$JSON_FILE" "$ROSTER_FILE"
           else
-            echo "::warning::No JSON file in roster artifact. Using raw identifiers."
-            echo '[]' > "$ROSTER_FILE"
+            echo "::error::No JSON file in roster artifact."
+            exit 1
           fi
 
           echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"

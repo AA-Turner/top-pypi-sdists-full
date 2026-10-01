@@ -239,7 +239,7 @@ CLAUDE_CODE_SSH_SHELL_PREFIX = (
     f"{AGENT_BROWSER_SOCKET_DIR_EXPORT}"
 )
 """``shell_prefix`` for reaching ``agent-browser`` over non-interactive SSH on
-the claude-code / gemini-cli / codex base images.
+the claude-code / codex base images.
 
 Inside an interactive agent subshell, ``plato.agents.browser_tooling``'s
 ``AGENT_BROWSER_PATH_EXPORT`` is enough because nvm.sh is already sourced.

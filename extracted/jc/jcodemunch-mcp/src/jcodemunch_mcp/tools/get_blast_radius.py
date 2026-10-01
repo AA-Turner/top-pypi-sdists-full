@@ -12,7 +12,9 @@ from ..retrieval.verdict import (
     build_verdict,
     index_changed_since_load as _index_changed_since_load,
     index_coverage_meta,
+    symbol_not_found,
 )
+from ._dynamic_boundary import FILES_CAP as DYNAMIC_FILES_CAP, DynamicBoundary
 from ._utils import index_status_to_tool_error, resolve_repo, resolve_fqn
 from .package_registry import extract_root_package_from_specifier
 from ._call_graph import build_symbols_by_file, bfs_callers
@@ -210,6 +212,134 @@ def _unresolved_package_edges(
     }
 
 
+def importers_with_verdict(index, sym_file: str, depth: int) -> tuple[list, Optional[dict]]:
+    """``(importer_files, unresolvable)``: the importer walk from ``sym_file``
+    paired with ``blast_verdict``'s reason when an EMPTY walk is one the graph
+    could not answer (a Go package import lands on no member file, #415).
+
+    The walk and its verdict in one call, so a caller cannot take the first and
+    forget the second (#879: four did). A found importer is positive evidence
+    and is never probed. ``tests/test_importer_walkers_ask_blast_verdict.py``
+    fails on a function that walks without asking.
+    """
+    source_files = frozenset(index.source_files)
+    rev = _build_reverse_adjacency(
+        index.imports, source_files, index.alias_map, getattr(index, "psr4_map", None)
+    )
+    importer_files, _ = _bfs_importers(sym_file, rev, depth)
+    unresolvable = None
+    if not importer_files:
+        _, unresolvable = blast_verdict(index, source_files, sym_file, 0)
+    return importer_files, unresolvable
+
+
+def blast_verdict(
+    index,
+    source_files: frozenset,
+    sym_file: str,
+    result_count: int,
+    *,
+    probe: Optional[bool] = None,
+    graph_gap: Optional[dict] = None,
+) -> tuple[dict, Optional[dict]]:
+    """THE verdict on an importer walk from ``sym_file``: ``(verdict, unresolvable)``.
+
+    One authority for every caller that walks the importer graph, because the
+    walk alone cannot tell "nothing depends on this" from "the graph cannot
+    reach this" (#415), and a second call site that ran the walk without asking
+    shipped a bare ``[]`` that read as no downstream impact (#718,
+    ``get_changed_symbols``). ``unresolvable`` is returned so a caller can
+    withhold a number it would otherwise compute from the zero.
+
+    ``result_count`` is what the caller found by EVERY channel it ran; only an
+    empty answer is probed, since a found importer is positive evidence. ⚠ A
+    channel left out of it is a channel the verdict cannot see: standalone
+    counted its cross-repo importers in ``probe`` and not here, so importers
+    found only in another repository published ``absent`` beside them (#877).
+    ``probe`` overrides the empty-answer test for a caller whose notion of
+    "answered nothing" is not ``result_count == 0``.
+    ``graph_gap`` is a caller's own reason the graph cannot answer -- a graph
+    built from a different revision than the one asked about. It outranks the
+    package probe, because it names what the caller can fix, and yields to
+    ``file_not_in_index``, which is the more specific statement of the same gap.
+
+    ⚠ ``file_not_in_index`` never fires for the standalone tool, whose symbol
+    comes from the index. It exists for a caller holding a path the index never
+    saw -- a file added since the indexed commit -- whose empty walk is a
+    question the graph was never asked.
+    """
+    unresolvable: Optional[dict] = None
+    if probe is None:
+        probe = result_count == 0
+    if probe:
+        if sym_file not in source_files:
+            unresolvable = {
+                "reason": "file_not_in_index",
+                "file": sym_file,
+                "note": (
+                    f"'{sym_file}' is not in the index, so its importers were never "
+                    "in the graph this walk read. An empty result here is NOT "
+                    "evidence that nothing depends on it; re-index and ask again."
+                ),
+            }
+        elif graph_gap:
+            unresolvable = dict(graph_gap)
+        else:
+            unresolvable = _unresolved_package_edges(
+                index.imports,
+                source_files,
+                sym_file,
+                index.alias_map,
+                getattr(index, "psr4_map", None),
+            )
+            if unresolvable is None:
+                unresolvable = _dynamic_import_boundary(index.imports, sym_file)
+    verdict = build_verdict(
+        result_count=result_count,
+        scanned_files=len(source_files),
+        coverage=index_coverage_meta(index),
+        # An empty answer measured while the .db was being rewritten underneath
+        # this call cannot prove absence either, and that gate outranks ours: it
+        # names something the caller can retry.
+        index_changed=_index_changed_since_load(index),
+        incomplete=unresolvable,
+    )["verdict"]
+    if probe and result_count == 0 and not unresolvable:
+        disclosed = _dynamic_import_disclosure(index.imports, sym_file)
+        if disclosed:
+            verdict["dynamic_imports_unfollowed"] = disclosed
+    return verdict, unresolvable
+
+
+def _dynamic_import_boundary(imports, sym_file: str) -> Optional[dict]:
+    """(#876) An empty Python walk cannot prove absence past a dynamic import that reaches it.
+
+    The reach rule is `_dynamic_boundary.DynamicBoundary`, shared with the
+    dead-code tools (LEDGER L-70).
+    """
+    reaching = DynamicBoundary(imports).reaching(sym_file)
+    if not reaching:
+        return None
+    return {
+        "reason": "dynamic_import_boundary",
+        "files": reaching[:DYNAMIC_FILES_CAP],
+        "files_total": len(reaching),
+        "note": (
+            f"{len(reaching)} file(s) import a module by a name that is not a literal "
+            f"and can reach this file (e.g. {reaching[0]}). An empty result here is "
+            "NOT evidence that nothing depends on it."
+        ),
+    }
+
+
+def _dynamic_import_disclosure(imports, sym_file: str) -> Optional[dict]:
+    """(#876) Opaque dynamic imports: disclosed beside an empty walk, never refused."""
+    if not sym_file.endswith((".py", ".pyi")):
+        return None
+    boundary = DynamicBoundary(imports)
+    return boundary.disclosure(excluding=boundary.reaching(sym_file))
+
+
 def _bfs_importers(
     start: str, rev: dict[str, list[str]], depth: int
 ) -> tuple[list[str], dict[int, list[str]]]:
@@ -395,7 +525,7 @@ def get_blast_radius(
     # Resolve symbol
     matches = _find_symbol(index, symbol)
     if not matches:
-        return {"error": f"Symbol not found: '{symbol}'. Try search_symbols first."}
+        return symbol_not_found(symbol, index.symbols)
     if len(matches) > 1:
         # Multiple definitions (e.g. overloads in different files) — report all
         ambiguous = [{"name": s["name"], "file": s["file"], "id": s["id"]} for s in matches]
@@ -548,14 +678,18 @@ def get_blast_radius(
             import logging as _logging
             _logging.getLogger(__name__).debug("cross_repo blast radius failed", exc_info=True)
 
-    # Risk scoring (always computed, cheap)
+    # Risk scoring (always computed, cheap). A cross-repo importer imports this
+    # repository's package directly, so it weighs as a depth-1 dependent; left
+    # out, importers found only in other repositories scored 0.0, "safe to
+    # change", beside the list naming them (#877).
     total = len(importer_files)
     direct_count = len(files_by_depth.get(1, []))
-    if total > 0:
-        overall_risk = sum(
-            (1.0 / (d ** 0.7)) * len(files)
-            for d, files in files_by_depth.items()
-        ) / total
+    cross_count = len(cross_repo_confirmed)
+    if total + cross_count > 0:
+        overall_risk = (
+            sum((1.0 / (d ** 0.7)) * len(files) for d, files in files_by_depth.items())
+            + cross_count
+        ) / (total + cross_count)
     else:
         overall_risk = 0.0
 
@@ -577,16 +711,12 @@ def get_blast_radius(
         and not callers
         and not cross_repo_confirmed
     )
-    unresolvable = (
-        _unresolved_package_edges(
-            index.imports,
-            source_files,
-            sym_file,
-            index.alias_map,
-            getattr(index, "psr4_map", None),
-        )
-        if answered_nothing
-        else None
+    verdict, unresolvable = blast_verdict(
+        index,
+        source_files,
+        sym_file,
+        0 if answered_nothing else max(total, len(confirmed), len(callers)) + cross_count,
+        probe=answered_nothing,
     )
 
     elapsed = (time.perf_counter() - start) * 1000
@@ -629,16 +759,12 @@ def get_blast_radius(
     # `absence_refused`, and the dispatcher turns that into
     # `absence_citable: False` + `absence_blocked_by` with no second rule to keep
     # in sync.
-    result["_meta"]["verdict"] = build_verdict(
-        result_count=0 if answered_nothing else max(total, len(confirmed), len(callers)),
-        scanned_files=len(source_files),
-        coverage=index_coverage_meta(index),
-        # An empty answer measured while the .db was being rewritten underneath
-        # this call cannot prove absence either, and that gate outranks ours: it
-        # names something the caller can retry.
-        index_changed=_index_changed_since_load(index),
-        incomplete=unresolvable,
-    )["verdict"]
+    result["_meta"]["verdict"] = verdict
+    # (#876) BODY, not `_meta`: `meta_fields` defaults to `[]` and the
+    # dispatcher strips `_meta`, so a disclosure left only in the verdict never
+    # reaches a default install (Standing lesson 08-30).
+    if verdict.get("dynamic_imports_unfollowed"):
+        result["dynamic_imports_unfollowed"] = verdict["dynamic_imports_unfollowed"]
     if call_depth > 0:
         result["caller_count"] = len(callers)
         result["callers"] = callers
@@ -693,10 +819,19 @@ def get_blast_radius(
             1 for items in (_focal_list, result.get("confirmed", []), result.get("callers", []) if "callers" in result else [])
             for e in items if isinstance(e, dict) and e.get("_runtime_confidence") == "confirmed"
         )
+        from ..runtime.confidence import BODY_BASIS as _BODY_BASIS
+        from ..runtime.confidence import body_counts as _body_counts
+
         result["_meta"]["runtime_freshness"] = {
             "sources": sorted(_all_sources),
             "last_seen": _last_seen,
             "coverage_pct": round(100 * _confirmed_count / max(1, _stamped)),
+            # (#875 review) The probe's count, not a second one: this block is
+            # assembled from several stamped lists and dropped `body` before.
+            "body": _body_counts(
+                [*_focal_list, *result.get("confirmed", []), *result.get("callers", [])]
+            ),
+            "body_basis": _BODY_BASIS,
         }
     # Decision context (read-only git archaeology) on request: focal symbol's
     # file first, then the confirmed affected files. Additive — absent the flag

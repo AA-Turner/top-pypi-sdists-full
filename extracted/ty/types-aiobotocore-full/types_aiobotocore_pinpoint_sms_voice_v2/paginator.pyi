@@ -35,6 +35,7 @@ Usage::
         DescribeSenderIdsPaginator,
         DescribeSpendLimitsPaginator,
         DescribeVerifiedDestinationNumbersPaginator,
+        ListAvailablePhoneNumbersPaginator,
         ListNotifyCountriesPaginator,
         ListPoolOriginationIdentitiesPaginator,
         ListProtectConfigurationRuleSetNumberOverridesPaginator,
@@ -68,6 +69,7 @@ Usage::
         describe_sender_ids_paginator: DescribeSenderIdsPaginator = client.get_paginator("describe_sender_ids")
         describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_paginator("describe_spend_limits")
         describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = client.get_paginator("describe_verified_destination_numbers")
+        list_available_phone_numbers_paginator: ListAvailablePhoneNumbersPaginator = client.get_paginator("list_available_phone_numbers")
         list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator("list_notify_countries")
         list_pool_origination_identities_paginator: ListPoolOriginationIdentitiesPaginator = client.get_paginator("list_pool_origination_identities")
         list_protect_configuration_rule_set_number_overrides_paginator: ListProtectConfigurationRuleSetNumberOverridesPaginator = client.get_paginator("list_protect_configuration_rule_set_number_overrides")
@@ -129,6 +131,8 @@ from .type_defs import (
     DescribeSpendLimitsResultTypeDef,
     DescribeVerifiedDestinationNumbersRequestPaginateTypeDef,
     DescribeVerifiedDestinationNumbersResultTypeDef,
+    ListAvailablePhoneNumbersRequestPaginateTypeDef,
+    ListAvailablePhoneNumbersResultTypeDef,
     ListNotifyCountriesRequestPaginateTypeDef,
     ListNotifyCountriesResultTypeDef,
     ListPoolOriginationIdentitiesRequestPaginateTypeDef,
@@ -168,6 +172,7 @@ __all__ = (
     "DescribeSenderIdsPaginator",
     "DescribeSpendLimitsPaginator",
     "DescribeVerifiedDestinationNumbersPaginator",
+    "ListAvailablePhoneNumbersPaginator",
     "ListNotifyCountriesPaginator",
     "ListPoolOriginationIdentitiesPaginator",
     "ListProtectConfigurationRuleSetNumberOverridesPaginator",
@@ -614,6 +619,24 @@ class DescribeVerifiedDestinationNumbersPaginator(_DescribeVerifiedDestinationNu
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeVerifiedDestinationNumbers.html#PinpointSMSVoiceV2.Paginator.DescribeVerifiedDestinationNumbers.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/paginators/#describeverifieddestinationnumberspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAvailablePhoneNumbersPaginatorBase = AioPaginator[ListAvailablePhoneNumbersResultTypeDef]
+else:
+    _ListAvailablePhoneNumbersPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAvailablePhoneNumbersPaginator(_ListAvailablePhoneNumbersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/ListAvailablePhoneNumbers.html#PinpointSMSVoiceV2.Paginator.ListAvailablePhoneNumbers)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/paginators/#listavailablephonenumberspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAvailablePhoneNumbersRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListAvailablePhoneNumbersResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/ListAvailablePhoneNumbers.html#PinpointSMSVoiceV2.Paginator.ListAvailablePhoneNumbers.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/paginators/#listavailablephonenumberspaginator)
         """
 
 if TYPE_CHECKING:

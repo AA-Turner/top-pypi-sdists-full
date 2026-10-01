@@ -296,7 +296,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
                     """
 
                 card: Optional[Card]
-                type: Optional[Literal["card"]]
+                type: Optional[Union[Literal["card"], str]]
                 """
                 funding type of the underlying payment method.
                 """
@@ -581,7 +581,10 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
                 Additional information about why 3D Secure succeeded or failed, based on the `result`.
                 """
                 version: Optional[
-                    Union[Literal["1.0.2", "2.1.0", "2.2.0"], str]
+                    Union[
+                        Literal["1.0.2", "2.1.0", "2.2.0", "2.3.0", "2.3.1"],
+                        str,
+                    ]
                 ]
                 """
                 The version of 3D Secure that was used.
@@ -597,19 +600,24 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
                 class GooglePay(StripeObject):
                     pass
 
+                class Link(StripeObject):
+                    pass
+
                 apple_pay: Optional[ApplePay]
                 dynamic_last4: Optional[str]
                 """
                 (For tokenized numbers only.) The last four digits of the device account number.
                 """
                 google_pay: Optional[GooglePay]
+                link: Optional[Link]
                 type: str
                 """
-                The type of the card wallet, one of `apple_pay` or `google_pay`. An additional hash is included on the Wallet subhash with a name matching this value. It contains additional information specific to the card wallet type.
+                The type of the card wallet, one of `apple_pay`, `google_pay`, or `link`. An additional hash is included on the Wallet subhash with a name matching this value. It contains additional information specific to the card wallet type.
                 """
                 _inner_class_types = {
                     "apple_pay": ApplePay,
                     "google_pay": GooglePay,
+                    "link": Link,
                 }
 
             authorization_code: Optional[str]
@@ -1450,6 +1458,10 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             """
             Two-letter ISO code representing the funding source country beneath the Link payment. You could use this attribute to get a sense of international fees.
             """
+            funding_source_group: Optional[str]
+            """
+            The [funding source group code](https://docs.stripe.com/payments/link/link-payment-methods) applied to this Link payment at confirmation time.
+            """
 
         class MbWay(StripeObject):
             pass
@@ -1482,6 +1494,16 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             Internal card details
             """
             _inner_class_types = {"card": Card}
+
+        class Momo(StripeObject):
+            fingerprint: Optional[str]
+            """
+            Uniquely identifies this particular MoMo account. You can use this attribute to check whether two MoMo accounts are the same.
+            """
+            mandate: Optional[str]
+            """
+            ID of the multi-use Mandate created by, or used to make, this MoMo payment.
+            """
 
         class Multibanco(StripeObject):
             entity: Optional[str]
@@ -1660,6 +1682,9 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             """
             _inner_class_types = {"seller_protection": SellerProtection}
 
+        class Paypay(StripeObject):
+            pass
+
         class Payto(StripeObject):
             bsb_number: Optional[str]
             """
@@ -1723,7 +1748,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
                     """
 
                 card: Optional[Card]
-                type: Optional[Literal["card"]]
+                type: Optional[Union[Literal["card"], str]]
                 """
                 Funding type of the underlying payment method.
                 """
@@ -1800,6 +1825,12 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             mandate: Optional[str]
             """
             Find the ID of the mandate used for this payment under the [payment_method_details.sepa_debit.mandate](https://docs.stripe.com/api/charges/object#charge_object-payment_method_details-sepa_debit-mandate) property on the Charge. Use this mandate ID to [retrieve the Mandate](https://docs.stripe.com/api/mandates/retrieve).
+            """
+
+        class Sequra(StripeObject):
+            transaction_id: Optional[str]
+            """
+            The SeQura transaction ID associated with this payment.
             """
 
         class Sofort(StripeObject):
@@ -1987,6 +2018,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         link: Optional[Link]
         mb_way: Optional[MbWay]
         mobilepay: Optional[Mobilepay]
+        momo: Optional[Momo]
         multibanco: Optional[Multibanco]
         naver_pay: Optional[NaverPay]
         nz_bank_account: Optional[NzBankAccount]
@@ -2000,6 +2032,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         """
         paynow: Optional[Paynow]
         paypal: Optional[Paypal]
+        paypay: Optional[Paypay]
         payto: Optional[Payto]
         pix: Optional[Pix]
         promptpay: Optional[Promptpay]
@@ -2009,6 +2042,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         scalapay: Optional[Scalapay]
         sepa_credit_transfer: Optional[SepaCreditTransfer]
         sepa_debit: Optional[SepaDebit]
+        sequra: Optional[Sequra]
         sofort: Optional[Sofort]
         stripe_account: Optional[StripeAccount]
         sunbit: Optional[Sunbit]
@@ -2061,6 +2095,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             "link": Link,
             "mb_way": MbWay,
             "mobilepay": Mobilepay,
+            "momo": Momo,
             "multibanco": Multibanco,
             "naver_pay": NaverPay,
             "nz_bank_account": NzBankAccount,
@@ -2070,6 +2105,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             "payco": Payco,
             "paynow": Paynow,
             "paypal": Paypal,
+            "paypay": Paypay,
             "payto": Payto,
             "pix": Pix,
             "promptpay": Promptpay,
@@ -2079,6 +2115,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
             "scalapay": Scalapay,
             "sepa_credit_transfer": SepaCreditTransfer,
             "sepa_debit": SepaDebit,
+            "sequra": Sequra,
             "sofort": Sofort,
             "stripe_account": StripeAccount,
             "sunbit": Sunbit,
@@ -2318,6 +2355,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     def _cls_report_payment_attempt(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptParams"],
     ) -> "PaymentRecord":
         """
@@ -2338,7 +2376,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @overload
     @staticmethod
     def report_payment_attempt(
-        id: str, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
+        id: str, /, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
     ) -> "PaymentRecord":
         """
         Report a new payment attempt on the specified Payment Record. A new payment
@@ -2357,7 +2395,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt")
-    def report_payment_attempt(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_payment_attempt(
         self, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
     ) -> "PaymentRecord":
         """
@@ -2379,6 +2417,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     async def _cls_report_payment_attempt_async(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptParams"],
     ) -> "PaymentRecord":
         """
@@ -2399,7 +2438,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @overload
     @staticmethod
     async def report_payment_attempt_async(
-        id: str, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
+        id: str, /, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
     ) -> "PaymentRecord":
         """
         Report a new payment attempt on the specified Payment Record. A new payment
@@ -2418,7 +2457,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_async")
-    async def report_payment_attempt_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_payment_attempt_async(
         self, **params: Unpack["PaymentRecordReportPaymentAttemptParams"]
     ) -> "PaymentRecord":
         """
@@ -2440,6 +2479,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     def _cls_report_payment_attempt_canceled(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
         """
@@ -2461,6 +2501,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     def report_payment_attempt_canceled(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
         """
@@ -2481,7 +2522,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_canceled")
-    def report_payment_attempt_canceled(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_payment_attempt_canceled(
         self,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
@@ -2504,6 +2545,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     async def _cls_report_payment_attempt_canceled_async(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
         """
@@ -2525,6 +2567,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     async def report_payment_attempt_canceled_async(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
         """
@@ -2545,7 +2588,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_canceled_async")
-    async def report_payment_attempt_canceled_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_payment_attempt_canceled_async(
         self,
         **params: Unpack["PaymentRecordReportPaymentAttemptCanceledParams"],
     ) -> "PaymentRecord":
@@ -2568,6 +2611,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     def _cls_report_payment_attempt_failed(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"],
     ) -> "PaymentRecord":
         """
@@ -2589,6 +2633,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     def report_payment_attempt_failed(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"],
     ) -> "PaymentRecord":
         """
@@ -2608,7 +2653,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_failed")
-    def report_payment_attempt_failed(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_payment_attempt_failed(
         self, **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"]
     ) -> "PaymentRecord":
         """
@@ -2630,6 +2675,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     async def _cls_report_payment_attempt_failed_async(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"],
     ) -> "PaymentRecord":
         """
@@ -2651,6 +2697,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     async def report_payment_attempt_failed_async(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"],
     ) -> "PaymentRecord":
         """
@@ -2670,7 +2717,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_failed_async")
-    async def report_payment_attempt_failed_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_payment_attempt_failed_async(
         self, **params: Unpack["PaymentRecordReportPaymentAttemptFailedParams"]
     ) -> "PaymentRecord":
         """
@@ -2692,6 +2739,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     def _cls_report_payment_attempt_guaranteed(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
         """
@@ -2713,6 +2761,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     def report_payment_attempt_guaranteed(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
         """
@@ -2733,7 +2782,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_guaranteed")
-    def report_payment_attempt_guaranteed(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_payment_attempt_guaranteed(
         self,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
@@ -2756,6 +2805,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     async def _cls_report_payment_attempt_guaranteed_async(
         cls,
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
         """
@@ -2777,6 +2827,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     async def report_payment_attempt_guaranteed_async(
         id: str,
+        /,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
         """
@@ -2797,7 +2848,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_guaranteed_async")
-    async def report_payment_attempt_guaranteed_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_payment_attempt_guaranteed_async(
         self,
         **params: Unpack["PaymentRecordReportPaymentAttemptGuaranteedParams"],
     ) -> "PaymentRecord":
@@ -2820,6 +2871,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     def _cls_report_payment_attempt_informational(
         cls,
         id: str,
+        /,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
         ],
@@ -2842,6 +2894,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     def report_payment_attempt_informational(
         id: str,
+        /,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
         ],
@@ -2864,7 +2917,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_informational")
-    def report_payment_attempt_informational(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_payment_attempt_informational(
         self,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
@@ -2888,6 +2941,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     async def _cls_report_payment_attempt_informational_async(
         cls,
         id: str,
+        /,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
         ],
@@ -2910,6 +2964,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @staticmethod
     async def report_payment_attempt_informational_async(
         id: str,
+        /,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
         ],
@@ -2932,7 +2987,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_payment_attempt_informational_async")
-    async def report_payment_attempt_informational_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_payment_attempt_informational_async(
         self,
         **params: Unpack[
             "PaymentRecordReportPaymentAttemptInformationalParams"
@@ -2954,7 +3009,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
 
     @classmethod
     def _cls_report_refund(
-        cls, id: str, **params: Unpack["PaymentRecordReportRefundParams"]
+        cls, id: str, /, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """
         Report that the most recent payment attempt on the specified Payment Record
@@ -2974,7 +3029,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @overload
     @staticmethod
     def report_refund(
-        id: str, **params: Unpack["PaymentRecordReportRefundParams"]
+        id: str, /, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """
         Report that the most recent payment attempt on the specified Payment Record
@@ -2993,7 +3048,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_refund")
-    def report_refund(  # pyright: ignore[reportGeneralTypeIssues]
+    def report_refund(
         self, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """
@@ -3013,7 +3068,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
 
     @classmethod
     async def _cls_report_refund_async(
-        cls, id: str, **params: Unpack["PaymentRecordReportRefundParams"]
+        cls, id: str, /, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """
         Report that the most recent payment attempt on the specified Payment Record
@@ -3033,7 +3088,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
     @overload
     @staticmethod
     async def report_refund_async(
-        id: str, **params: Unpack["PaymentRecordReportRefundParams"]
+        id: str, /, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """
         Report that the most recent payment attempt on the specified Payment Record
@@ -3052,7 +3107,7 @@ class PaymentRecord(ListableAPIResource["PaymentRecord"]):
         ...
 
     @class_method_variant("_cls_report_refund_async")
-    async def report_refund_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def report_refund_async(
         self, **params: Unpack["PaymentRecordReportRefundParams"]
     ) -> "PaymentRecord":
         """

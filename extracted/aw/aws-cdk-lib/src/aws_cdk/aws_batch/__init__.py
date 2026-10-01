@@ -1121,7 +1121,13 @@ class CfnComputeEnvironment(
             ),
             eks_configuration=batch.CfnComputeEnvironment.EksConfigurationProperty(
                 eks_cluster_arn="eksClusterArn",
-                kubernetes_namespace="kubernetesNamespace"
+                kubernetes_namespace="kubernetesNamespace",
+        
+                # the properties below are optional
+                access_entry=batch.CfnComputeEnvironment.EksAccessEntryProperty(
+                    desired_state="desiredState",
+                    status="status"
+                )
             ),
             replace_compute_environment=False,
             service_role="serviceRole",
@@ -1257,6 +1263,15 @@ class CfnComputeEnvironment(
         :cloudformationAttribute: ComputeEnvironmentArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrComputeEnvironmentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEksConfigurationAccessEntryStatus")
+    def attr_eks_configuration_access_entry_status(self) -> builtins.str:
+        '''The read-only status of the EKS access entry, returned by DescribeComputeEnvironments.
+
+        :cloudformationAttribute: EksConfiguration.AccessEntry.Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEksConfigurationAccessEntryStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2352,7 +2367,7 @@ class CfnComputeEnvironment(
             container_insights: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param container_insights: 
+            :param container_insights: The CloudWatch Container Insights setting applied to the Amazon ECS cluster that backs this compute environment. After you set this property, you can't revert it to the default (unset) state in which the setting is managed outside of AWS Batch. If you remove this property after previously setting it, AWS Batch treats the omission as DISABLED, because the underlying API has no way to unset the value. Because of this, if a stack rollback would return this property to its previous unset state, AWS Batch sets it to DISABLED instead.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ecssettings.html
             :exampleMetadata: fixture=_generated
@@ -2376,7 +2391,10 @@ class CfnComputeEnvironment(
 
         @builtins.property
         def container_insights(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The CloudWatch Container Insights setting applied to the Amazon ECS cluster that backs this compute environment.
+
+            After you set this property, you can't revert it to the default (unset) state in which the setting is managed outside of AWS Batch. If you remove this property after previously setting it, AWS Batch treats the omission as DISABLED, because the underlying API has no way to unset the value. Because of this, if a stack rollback would return this property to its previous unset state, AWS Batch sets it to DISABLED instead.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ecssettings.html#cfn-batch-computeenvironment-ecssettings-containerinsights
             '''
             result = self._values.get("container_insights")
@@ -2394,11 +2412,86 @@ class CfnComputeEnvironment(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.EksAccessEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"desired_state": "desiredState", "status": "status"},
+    )
+    class EksAccessEntryProperty:
+        def __init__(
+            self,
+            *,
+            desired_state: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The EKS access entry configuration for the compute environment.
+
+            Controls whether AWS Batch manages the EKS access entry for the compute environment's service role, or inherits it from the cluster.
+
+            :param desired_state: The desired state of the EKS access entry managed by AWS Batch. When omitted, AWS Batch applies INHERIT_FROM_CLUSTER.
+            :param status: The read-only status of the EKS access entry, returned by DescribeComputeEnvironments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-eksaccessentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                eks_access_entry_property = batch.CfnComputeEnvironment.EksAccessEntryProperty(
+                    desired_state="desiredState",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__09ab811f94b66deaea86e16250b14a757cd7d523dfe7804ac31f3298017f9e34)
+                check_type(argname="argument desired_state", value=desired_state, expected_type=type_hints["desired_state"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if desired_state is not None:
+                self._values["desired_state"] = desired_state
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def desired_state(self) -> typing.Optional[builtins.str]:
+            '''The desired state of the EKS access entry managed by AWS Batch.
+
+            When omitted, AWS Batch applies INHERIT_FROM_CLUSTER.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-eksaccessentry.html#cfn-batch-computeenvironment-eksaccessentry-desiredstate
+            '''
+            result = self._values.get("desired_state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The read-only status of the EKS access entry, returned by DescribeComputeEnvironments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-eksaccessentry.html#cfn-batch-computeenvironment-eksaccessentry-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EksAccessEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.EksConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "eks_cluster_arn": "eksClusterArn",
             "kubernetes_namespace": "kubernetesNamespace",
+            "access_entry": "accessEntry",
         },
     )
     class EksConfigurationProperty:
@@ -2407,6 +2500,7 @@ class CfnComputeEnvironment(
             *,
             eks_cluster_arn: builtins.str,
             kubernetes_namespace: builtins.str,
+            access_entry: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeEnvironment.EksAccessEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for the Amazon EKS cluster that supports the AWS Batch compute environment.
 
@@ -2414,6 +2508,7 @@ class CfnComputeEnvironment(
 
             :param eks_cluster_arn: The Amazon Resource Name (ARN) of the Amazon EKS cluster. An example is ``arn: *aws* :eks: *us-east-1* : *123456789012* :cluster/ *ClusterForBatch*`` .
             :param kubernetes_namespace: The namespace of the Amazon EKS cluster. AWS Batch manages pods in this namespace. The value can't left empty or null. It must be fewer than 64 characters long, can't be set to ``default`` , can't start with " ``kube-`` ," and must match this regular expression: ``^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`` . For more information, see `Namespaces <https://docs.aws.amazon.com/https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/>`_ in the Kubernetes documentation.
+            :param access_entry: The EKS access entry configuration for the compute environment. Controls whether AWS Batch manages the EKS access entry for the compute environment's service role, or inherits it from the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-eksconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2426,17 +2521,26 @@ class CfnComputeEnvironment(
                 
                 eks_configuration_property = batch.CfnComputeEnvironment.EksConfigurationProperty(
                     eks_cluster_arn="eksClusterArn",
-                    kubernetes_namespace="kubernetesNamespace"
+                    kubernetes_namespace="kubernetesNamespace",
+                
+                    # the properties below are optional
+                    access_entry=batch.CfnComputeEnvironment.EksAccessEntryProperty(
+                        desired_state="desiredState",
+                        status="status"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__5d01293eced89171b858aec2adc4c3362e7bc583fff04c8572350b492d38c641)
                 check_type(argname="argument eks_cluster_arn", value=eks_cluster_arn, expected_type=type_hints["eks_cluster_arn"])
                 check_type(argname="argument kubernetes_namespace", value=kubernetes_namespace, expected_type=type_hints["kubernetes_namespace"])
+                check_type(argname="argument access_entry", value=access_entry, expected_type=type_hints["access_entry"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "eks_cluster_arn": eks_cluster_arn,
                 "kubernetes_namespace": kubernetes_namespace,
             }
+            if access_entry is not None:
+                self._values["access_entry"] = access_entry
 
         @builtins.property
         def eks_cluster_arn(self) -> builtins.str:
@@ -2461,6 +2565,19 @@ class CfnComputeEnvironment(
             result = self._values.get("kubernetes_namespace")
             assert result is not None, "Required property 'kubernetes_namespace' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def access_entry(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EksAccessEntryProperty"]]:
+            '''The EKS access entry configuration for the compute environment.
+
+            Controls whether AWS Batch manages the EKS access entry for the compute environment's service role, or inherits it from the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-eksconfiguration.html#cfn-batch-computeenvironment-eksconfiguration-accessentry
+            '''
+            result = self._values.get("access_entry")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeEnvironment.EksAccessEntryProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3656,7 +3773,13 @@ class CfnComputeEnvironmentProps:
                 ),
                 eks_configuration=batch.CfnComputeEnvironment.EksConfigurationProperty(
                     eks_cluster_arn="eksClusterArn",
-                    kubernetes_namespace="kubernetesNamespace"
+                    kubernetes_namespace="kubernetesNamespace",
+            
+                    # the properties below are optional
+                    access_entry=batch.CfnComputeEnvironment.EksAccessEntryProperty(
+                        desired_state="desiredState",
+                        status="status"
+                    )
                 ),
                 replace_compute_environment=False,
                 service_role="serviceRole",
@@ -29017,10 +29140,19 @@ def _typecheckingstub__3ce795882a92ce4ddccf28104d448b1549ce89722f1be912d9fc1a911
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__09ab811f94b66deaea86e16250b14a757cd7d523dfe7804ac31f3298017f9e34(
+    *,
+    desired_state: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5d01293eced89171b858aec2adc4c3362e7bc583fff04c8572350b492d38c641(
     *,
     eks_cluster_arn: builtins.str,
     kubernetes_namespace: builtins.str,
+    access_entry: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeEnvironment.EksAccessEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

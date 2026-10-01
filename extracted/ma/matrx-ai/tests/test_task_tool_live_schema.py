@@ -197,7 +197,6 @@ async def test_every_task_action_works_against_the_live_columns(table, monkeypat
     listed = await _task({"action": "list"}, ctx)
     assert listed.success, _fail(listed)
     assert [t["id"] for t in listed.output["tasks"]] == [tid]
-    assert listed.output["organization_id"] == ORG
 
     got = await _task({"action": "get", "task_id": tid}, ctx)
     assert got.success, _fail(got)
@@ -251,10 +250,10 @@ async def test_create_without_an_organization_is_held_not_defaulted(table, monke
 
     assert_no_default_org_wording(result.error.message + (result.error.suggested_action or ""))
 
-    # Listing without an organization is held too — never "every organization".
+    # A LIST is a read of the person's own tasks: it needs no organization and never
+    # narrows by the selected one (access-belongs-to-the-person, 2026-09-25).
     listed = await _task({"action": "list"}, ctx)
-    assert not listed.success
-    assert listed.error.error_type == "organization_required"
+    assert listed.success, listed.error
 
 
 @pytest.mark.asyncio

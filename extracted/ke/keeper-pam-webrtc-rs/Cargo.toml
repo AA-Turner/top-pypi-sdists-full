@@ -3,7 +3,7 @@ members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guac
 resolver = "2"
 
 [workspace.package]
-version = "2.2.5"
+version = "2.2.7"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]
@@ -64,7 +64,14 @@ thiserror = "2.0.17"
 # Logging
 log = "0.4.29"
 zmq = "0.10"
-tracing = { version = "0.1.44" }
+# "log" feature: when no `tracing::Subscriber` is installed (the case for
+# every Rust proxy embedded in keeper_pam_connections.pyd — GW's Python-
+# mode `initialize_logger()` only installs a `log::Log` impl, never a
+# tracing subscriber), tracing's own macros fall back to emitting through
+# the classic `log` facade instead of silently doing nothing. Without this,
+# keeperrdp-proxy's and keeperssh-proxy's `tracing::info!()`/`debug!()`
+# calls never reach Python at all when Gateway-embedded.
+tracing = { version = "0.1.44", features = ["log"] }
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter", "json", "tracing-log"] }
 
 # Utilities
@@ -127,6 +134,13 @@ zstd = { version = "0.13", features = ["zstdmt"] }
 rustls-pemfile = "2"
 webpki-roots = "1.0"
 pyo3-log = "0.13.4"
+
+# keeperssh-proxy + guacr-ssh — must stay unified across both crates since
+# they link into the same python-bindings cdylib (same class of constraint
+# as the sspi pin shared by keeperrdp-proxy/keeperdb-proxy above).
+russh = "0.46"
+russh-keys = "0.46"
+ssh-key = "0.6"
 
 [patch.crates-io]
 # tiberius: match the fork keeperdb-driver-mssql is authored against. Keeper's fork

@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from stripe.params._subscription_migrate_params import (
         SubscriptionMigrateParams,
     )
+    from stripe.params._subscription_pause_params import (
+        SubscriptionPauseParams,
+    )
     from stripe.params._subscription_resume_params import (
         SubscriptionResumeParams,
     )
@@ -42,6 +45,7 @@ class SubscriptionService(StripeService):
     def cancel(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionCancelParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -70,6 +74,7 @@ class SubscriptionService(StripeService):
     async def cancel_async(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionCancelParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -98,6 +103,7 @@ class SubscriptionService(StripeService):
     def retrieve(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionRetrieveParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -122,6 +128,7 @@ class SubscriptionService(StripeService):
     async def retrieve_async(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionRetrieveParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -146,6 +153,7 @@ class SubscriptionService(StripeService):
     def update(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionUpdateParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -190,6 +198,7 @@ class SubscriptionService(StripeService):
     async def update_async(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionUpdateParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -234,6 +243,7 @@ class SubscriptionService(StripeService):
     def delete_discount(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionDeleteDiscountParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Discount":
@@ -258,6 +268,7 @@ class SubscriptionService(StripeService):
     async def delete_discount_async(
         self,
         subscription_exposed_id: str,
+        /,
         params: Optional["SubscriptionDeleteDiscountParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Discount":
@@ -414,6 +425,7 @@ class SubscriptionService(StripeService):
     def migrate(
         self,
         subscription: str,
+        /,
         params: "SubscriptionMigrateParams",
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -436,6 +448,7 @@ class SubscriptionService(StripeService):
     async def migrate_async(
         self,
         subscription: str,
+        /,
         params: "SubscriptionMigrateParams",
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -455,9 +468,56 @@ class SubscriptionService(StripeService):
             ),
         )
 
+    def pause(
+        self,
+        subscription: str,
+        /,
+        params: Optional["SubscriptionPauseParams"] = None,
+        options: Optional["RequestOptions"] = None,
+    ) -> "Subscription":
+        """
+        Pauses a subscription by transitioning it to the paused status. A paused subscription does not generate invoices and will not advance to new billing periods. The subscription can be resumed later using the resume endpoint. Cannot pause subscriptions with attached schedules.
+        """
+        return cast(
+            "Subscription",
+            self._request(
+                "post",
+                "/v1/subscriptions/{subscription}/pause".format(
+                    subscription=sanitize_id(subscription),
+                ),
+                base_address="api",
+                params=params,
+                options=options,
+            ),
+        )
+
+    async def pause_async(
+        self,
+        subscription: str,
+        /,
+        params: Optional["SubscriptionPauseParams"] = None,
+        options: Optional["RequestOptions"] = None,
+    ) -> "Subscription":
+        """
+        Pauses a subscription by transitioning it to the paused status. A paused subscription does not generate invoices and will not advance to new billing periods. The subscription can be resumed later using the resume endpoint. Cannot pause subscriptions with attached schedules.
+        """
+        return cast(
+            "Subscription",
+            await self._request_async(
+                "post",
+                "/v1/subscriptions/{subscription}/pause".format(
+                    subscription=sanitize_id(subscription),
+                ),
+                base_address="api",
+                params=params,
+                options=options,
+            ),
+        )
+
     def resume(
         self,
         subscription: str,
+        /,
         params: Optional["SubscriptionResumeParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":
@@ -480,6 +540,7 @@ class SubscriptionService(StripeService):
     async def resume_async(
         self,
         subscription: str,
+        /,
         params: Optional["SubscriptionResumeParams"] = None,
         options: Optional["RequestOptions"] = None,
     ) -> "Subscription":

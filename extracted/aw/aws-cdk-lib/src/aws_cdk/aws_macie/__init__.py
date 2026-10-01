@@ -1818,6 +1818,313 @@ class CfnFindingsFilterProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_macie_0a70ca3f.IMemberRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnMember(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_macie.CfnMember",
+):
+    '''Represents the association between an Amazon Macie administrator account and a member account.
+
+    Creating this resource associates the specified account with the Macie administrator account that performs the operation; deleting it removes the association.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-member.html
+    :cloudformationResource: AWS::Macie::Member
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_macie as macie
+        
+        cfn_member = macie.CfnMember(self, "MyCfnMember",
+            account_id="accountId",
+        
+            # the properties below are optional
+            email="email",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account_id: builtins.str,
+        email: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Macie::Member``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param account_id: The AWS account ID for the account to associate with the Amazon Macie administrator account.
+        :param email: The email address for the account to associate with the Amazon Macie administrator account. Required by the Amazon Macie CreateMember API at creation time; it is write-only because the service does not return it (it is null when the account is associated through AWS Organizations).
+        :param tags: The tags to associate with the member account in Amazon Macie.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff723896d8dcf731bf6899f7e8fb56179c67c50e496f671ec9d94e02e3745a46)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMemberProps(account_id=account_id, email=email, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMember")
+    @builtins.classmethod
+    def arn_for_member(cls, resource: "_aws_macie_0a70ca3f.IMemberRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b75bf59c5f685580de5694706eb5591ef18a0db185fa6c925e1378bfb9c1bbb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMember", [resource]))
+
+    @jsii.member(jsii_name="isCfnMember")
+    @builtins.classmethod
+    def is_cfn_member(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMember.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26fa39cd582cfa6a6d1887d0d72a1deaa11ce6c42280f22442dc769aee2968d0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMember", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__095f5d608e68d3a59482581230aa15062a53663cfca7c47e750d314359d4f0bb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e5a4903add14aaf4db1488f3370deb52c17ee4e43aa49b4cf8071294cffbc24)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAdministratorAccountId")
+    def attr_administrator_account_id(self) -> builtins.str:
+        '''The AWS account ID for the Amazon Macie administrator account.
+
+        :cloudformationAttribute: AdministratorAccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAdministratorAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the association between the member account and the Amazon Macie administrator account.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRelationshipStatus")
+    def attr_relationship_status(self) -> builtins.str:
+        '''The current status of the relationship between the account and the Amazon Macie administrator account.
+
+        :cloudformationAttribute: RelationshipStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRelationshipStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The date and time, in UTC and extended ISO 8601 format, of the most recent change to the status of the relationship between the account and the Amazon Macie administrator account.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memberRef")
+    def member_ref(self) -> "_aws_macie_0a70ca3f.MemberReference":
+        '''A reference to a Member resource.'''
+        return typing.cast("_aws_macie_0a70ca3f.MemberReference", jsii.get(self, "memberRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountId")
+    def account_id(self) -> builtins.str:
+        '''The AWS account ID for the account to associate with the Amazon Macie administrator account.'''
+        return typing.cast(builtins.str, jsii.get(self, "accountId"))
+
+    @account_id.setter
+    def account_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__46043d590af78c17f82c43686b08c42ac2bd6422df3864401acc5a2f3d466049)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="email")
+    def email(self) -> typing.Optional[builtins.str]:
+        '''The email address for the account to associate with the Amazon Macie administrator account.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "email"))
+
+    @email.setter
+    def email(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4bf8d8cea38348dfc2fc3a31893f306f360bb67737ed10e9dae3619c7c7c2a85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to associate with the member account in Amazon Macie.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a80bdd6f4dd17e19b96f34194419d693efb1d88b68f19dfee3298fae29a973c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_macie.CfnMemberProps",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId", "email": "email", "tags": "tags"},
+)
+class CfnMemberProps:
+    def __init__(
+        self,
+        *,
+        account_id: builtins.str,
+        email: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMember``.
+
+        :param account_id: The AWS account ID for the account to associate with the Amazon Macie administrator account.
+        :param email: The email address for the account to associate with the Amazon Macie administrator account. Required by the Amazon Macie CreateMember API at creation time; it is write-only because the service does not return it (it is null when the account is associated through AWS Organizations).
+        :param tags: The tags to associate with the member account in Amazon Macie.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-member.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_macie as macie
+            
+            cfn_member_props = macie.CfnMemberProps(
+                account_id="accountId",
+            
+                # the properties below are optional
+                email="email",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9b515fa1c781558c35b9af88a5e222c216da47791f73aefe3694db48e0c914d0)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+        if email is not None:
+            self._values["email"] = email
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AWS account ID for the account to associate with the Amazon Macie administrator account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-member.html#cfn-macie-member-accountid
+        '''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def email(self) -> typing.Optional[builtins.str]:
+        '''The email address for the account to associate with the Amazon Macie administrator account.
+
+        Required by the Amazon Macie CreateMember API at creation time; it is write-only because the service does not return it (it is null when the account is associated through AWS Organizations).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-member.html#cfn-macie-member-email
+        '''
+        result = self._values.get("email")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to associate with the member account in Amazon Macie.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-member.html#cfn-macie-member-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMemberProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_macie_0a70ca3f.ISessionRef)
 class CfnSession(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2081,6 +2388,8 @@ __all__ = [
     "CfnCustomDataIdentifierProps",
     "CfnFindingsFilter",
     "CfnFindingsFilterProps",
+    "CfnMember",
+    "CfnMemberProps",
     "CfnSession",
     "CfnSessionProps",
 ]
@@ -2375,6 +2684,68 @@ def _typecheckingstub__e4769b70b8b409b7293b4cfb98a775272d6996bc39a6b96c3ad8c76c7
     action: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     position: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff723896d8dcf731bf6899f7e8fb56179c67c50e496f671ec9d94e02e3745a46(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account_id: builtins.str,
+    email: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b75bf59c5f685580de5694706eb5591ef18a0db185fa6c925e1378bfb9c1bbb(
+    resource: _aws_macie_0a70ca3f.IMemberRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26fa39cd582cfa6a6d1887d0d72a1deaa11ce6c42280f22442dc769aee2968d0(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__095f5d608e68d3a59482581230aa15062a53663cfca7c47e750d314359d4f0bb(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e5a4903add14aaf4db1488f3370deb52c17ee4e43aa49b4cf8071294cffbc24(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46043d590af78c17f82c43686b08c42ac2bd6422df3864401acc5a2f3d466049(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bf8d8cea38348dfc2fc3a31893f306f360bb67737ed10e9dae3619c7c7c2a85(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a80bdd6f4dd17e19b96f34194419d693efb1d88b68f19dfee3298fae29a973c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b515fa1c781558c35b9af88a5e222c216da47791f73aefe3694db48e0c914d0(
+    *,
+    account_id: builtins.str,
+    email: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

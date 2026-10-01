@@ -1,15 +1,22 @@
+from datetime import datetime
 from typing import Dict, Iterable, Optional, Union
+
+from deprecated import deprecated
 
 from crowdin_api.api_resources.abstract.resources import BaseResource
 from crowdin_api.api_resources.ai.enums import (
     AIPromptAction,
     AiPromptFineTuningJobStatus,
+    AiRequestLogExportFormat,
+    AiRequestLogSourceAction,
+    AiRequestLogStatus,
     AIProviderType,
 )
 from crowdin_api.api_resources.ai.types import (
     AddAiCustomPlaceholderRequest,
     AddAIPromptRequestScheme,
     AddAIProviderReqeustScheme,
+    AddAiSnippetRequest,
     AiFileTranslationRequest,
     AiTranslateStringsRequest,
     CreateAIPromptFineTuningJobRequest,
@@ -17,6 +24,7 @@ from crowdin_api.api_resources.ai.types import (
     EditAIPromptScheme,
     EditAIProviderRequestScheme,
     EditAiSettingsPatch,
+    EditAiSnippetPatch,
     GenerateAiPromptCompletionRequest,
     GenerateAIPromptFineTuningDatasetRequest,
     GenerateAiReportRequest,
@@ -27,6 +35,7 @@ from crowdin_api.sorting import Sorting
 from crowdin_api.utils import (
     convert_enum_collection_to_string_if_exists,
     convert_enum_to_string_if_exists,
+    convert_to_query_string,
 )
 
 
@@ -35,7 +44,7 @@ class AIResource(BaseResource):
     Resource for AI.
 
     Link to documentation:
-    https://developer.crowdin.com/api/v2/#tag/AI
+    https://support.crowdin.com/developer/api/v2/#tag/AI
     """
 
     def get_ai_path(self, userId: int, aiPromptId: Optional[int] = None):
@@ -60,7 +69,7 @@ class AIResource(BaseResource):
         List AI Prompts
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.ai.prompts.getMany
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.getMany
         """
         params = {"projectId": projectId, "action": action}
         params.update(self.get_page_params(limit=limit, offset=offset))
@@ -74,7 +83,7 @@ class AIResource(BaseResource):
         Add AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.prompts.post
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.prompts.post
         """
 
         return self.requester.request(
@@ -88,7 +97,7 @@ class AIResource(BaseResource):
         Get AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.prompts.get
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.prompts.get
         """
 
         return self.requester.request(
@@ -101,7 +110,7 @@ class AIResource(BaseResource):
         Delete AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.prompts.delete
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.prompts.delete
         """
 
         return self.requester.request(
@@ -116,7 +125,7 @@ class AIResource(BaseResource):
         Edit AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.prompts.patch
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.prompts.patch
         """
 
         return self.requester.request(
@@ -135,7 +144,7 @@ class AIResource(BaseResource):
         List AI Providers
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.ai.providers.getMany
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.providers.getMany
         """
         params = self.get_page_params(limit=limit, offset=offset)
         return self.requester.request(
@@ -147,7 +156,7 @@ class AIResource(BaseResource):
         Add AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.providers.post
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.providers.post
         """
         return self.requester.request(
             method="post",
@@ -160,7 +169,7 @@ class AIResource(BaseResource):
         Get AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.providers.get
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.providers.get
         """
         return self.requester.request(
             method="get",
@@ -172,7 +181,7 @@ class AIResource(BaseResource):
         Delete AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.providers.delete
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.providers.delete
         """
         return self.requester.request(
             method="delete",
@@ -186,7 +195,7 @@ class AIResource(BaseResource):
         Edit AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.providers.patch
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.providers.patch
         """
         return self.requester.request(
             method="patch",
@@ -199,12 +208,27 @@ class AIResource(BaseResource):
         List AI Provider Models
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.ai.providers.models.getMany
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.providers.models.getMany
         """
         return self.requester.request(
             method="get",
             path=self.get_ai_provider_path(userId=userId, aiProviderId=aiProviderId)
             + "/models",
+        )
+
+    def list_all_ai_provider_models(self, user_id: int):
+        """
+        List AI Provider Models
+
+        Lists the models of all AI providers available to the user.
+        To list the models of a single AI provider, use `list_ai_provider_models`.
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.providers.models.crowdin.getMany
+        """
+        return self.requester.request(
+            method="get",
+            path=f"users/{user_id}/ai/providers/models",
         )
 
     def create_ai_proxy_chat_completion(
@@ -220,7 +244,7 @@ class AIResource(BaseResource):
         Please refer to the documentation for the specific provider you use to determine the required payload format.
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.users.ai.providers.chat.completions.post
+        https://support.crowdin.com/developer/api/v2/#operation/api.users.ai.providers.chat.completions.post
         """
         return self.requester.request(
             method="post",
@@ -393,9 +417,12 @@ class AIResource(BaseResource):
 
         return f"users/{user_id}/ai/settings/custom-placeholders"
 
+    @deprecated("Use `list_ai_snippets` instead")
     def list_ai_custom_placeholders(self, user_id: int):
         """
         List AI Custom Placeholders
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `list_ai_snippets` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.ai.prompt.custom.placeholders.getMany
@@ -406,9 +433,12 @@ class AIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path(user_id)
         )
 
+    @deprecated("Use `add_ai_snippet` instead")
     def add_ai_custom_placeholder(self, user_id: int, body: AddAiCustomPlaceholderRequest):
         """
         Add AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `add_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.settings.custom-placeholders.post
@@ -420,9 +450,12 @@ class AIResource(BaseResource):
             request_data=body,
         )
 
+    @deprecated("Use `get_ai_snippet` instead")
     def get_ai_custom_placeholder(self, user_id: int, ai_custom_placeholder_id: int):
         """
         Get AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `get_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.settings.custom-placeholders.get
@@ -433,9 +466,12 @@ class AIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path(user_id, ai_custom_placeholder_id),
         )
 
+    @deprecated("Use `delete_ai_snippet` instead")
     def delete_ai_custom_placeholder(self, user_id: int, ai_custom_placeholder_id: int):
         """
         Delete AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `delete_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.settings.custom-placeholders.delete
@@ -446,6 +482,7 @@ class AIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path(user_id, ai_custom_placeholder_id),
         )
 
+    @deprecated("Use `edit_ai_snippet` instead")
     def edit_ai_custom_placeholder(
         self,
         user_id: int,
@@ -455,6 +492,8 @@ class AIResource(BaseResource):
         """
         Edit AI Custom Placeholder
 
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `edit_ai_snippet` instead.
+
         Link to documentation:
         https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.settings.custom-placeholders.patch
         """
@@ -462,6 +501,84 @@ class AIResource(BaseResource):
         return self.requester.request(
             method="patch",
             path=self.get_ai_custom_placeholders_path(user_id, ai_custom_placeholder_id),
+            request_data=patches,
+        )
+
+    def get_ai_snippets_path(self, user_id: int, ai_snippet_id: Optional[int] = None):
+        if ai_snippet_id is not None:
+            return f"users/{user_id}/ai/settings/snippets/{ai_snippet_id}"
+        return f"users/{user_id}/ai/settings/snippets"
+
+    def list_ai_snippets(
+        self,
+        user_id: int,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Snippets
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.snippets.getMany
+        """
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_snippets_path(user_id),
+            params=self.get_page_params(limit=limit, offset=offset),
+        )
+
+    def add_ai_snippet(self, user_id: int, request_data: AddAiSnippetRequest):
+        """
+        Add AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.snippets.post
+        """
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_snippets_path(user_id),
+            request_data=request_data,
+        )
+
+    def get_ai_snippet(self, user_id: int, ai_snippet_id: int):
+        """
+        Get AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.snippets.get
+        """
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_snippets_path(user_id, ai_snippet_id=ai_snippet_id),
+        )
+
+    def delete_ai_snippet(self, user_id: int, ai_snippet_id: int):
+        """
+        Delete AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.snippets.delete
+        """
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_snippets_path(user_id, ai_snippet_id=ai_snippet_id),
+        )
+
+    def edit_ai_snippet(
+        self,
+        user_id: int,
+        ai_snippet_id: int,
+        patches: Iterable[EditAiSnippetPatch],
+    ):
+        """
+        Edit AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.prompts.snippets.patch
+        """
+        return self.requester.request(
+            method="patch",
+            path=self.get_ai_snippets_path(user_id, ai_snippet_id=ai_snippet_id),
             request_data=patches,
         )
 
@@ -626,6 +743,140 @@ class AIResource(BaseResource):
             path=self.get_ai_reports_path(user_id, ai_report_id) + "/download",
         )
 
+    def get_ai_request_logs_path(self, user_id: int):
+        return f"users/{user_id}/ai/request-logs"
+
+    def list_ai_request_logs(
+        self,
+        user_id: int,
+        request_id: Optional[str] = None,
+        project_id: Optional[int] = None,
+        request_user_id: Optional[int] = None,
+        ai_provider_id: Optional[int] = None,
+        model: Optional[str] = None,
+        source_action: Optional[AiRequestLogSourceAction] = None,
+        prompt_action: Optional[str] = None,
+        statuses: Optional[Iterable[AiRequestLogStatus]] = None,
+        system_credentials: Optional[bool] = None,
+        is_auto_triggered: Optional[bool] = None,
+        token_name: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Request Logs
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.requestLogs.getMany
+        """
+
+        params = {
+            "requestId": request_id,
+            "projectId": project_id,
+            "userId": request_user_id,
+            "aiProviderId": ai_provider_id,
+            "model": model,
+            "sourceAction": source_action,
+            "promptAction": prompt_action,
+            "statuses": convert_enum_collection_to_string_if_exists(statuses),
+            "systemCredentials": system_credentials,
+            "isAutoTriggered": is_auto_triggered,
+            "tokenName": token_name,
+            "oauthClientId": oauth_client_id,
+            "createdAfter": created_after,
+            "createdBefore": created_before,
+        }
+        params.update(self.get_page_params(limit=limit, offset=offset))
+
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_request_logs_path(user_id),
+            params=params,
+        )
+
+    def export_ai_request_logs(
+        self,
+        user_id: int,
+        export_format: Optional[AiRequestLogExportFormat] = None,
+        request_id: Optional[str] = None,
+        project_id: Optional[int] = None,
+        request_user_id: Optional[int] = None,
+        ai_provider_id: Optional[int] = None,
+        model: Optional[str] = None,
+        source_action: Optional[AiRequestLogSourceAction] = None,
+        prompt_action: Optional[str] = None,
+        statuses: Optional[Iterable[AiRequestLogStatus]] = None,
+        system_credentials: Optional[bool] = None,
+        is_auto_triggered: Optional[bool] = None,
+        token_name: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+    ):
+        """
+        Export AI Request Logs
+
+        Starts an asynchronous export of the AI request logs matching the filters.
+        Poll `check_ai_request_logs_export_status` until the status is `finished`,
+        then call `download_ai_request_logs_export`.
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.requestLogs.exports.post
+        """
+
+        request_data = {
+            "format": export_format,
+            "requestId": request_id,
+            "projectId": project_id,
+            "userId": request_user_id,
+            "aiProviderId": ai_provider_id,
+            "model": model,
+            "sourceAction": source_action,
+            "promptAction": prompt_action,
+            "statuses": statuses,
+            "systemCredentials": system_credentials,
+            "isAutoTriggered": is_auto_triggered,
+            "tokenName": token_name,
+            "oauthClientId": oauth_client_id,
+            "createdAfter": created_after,
+            "createdBefore": created_before,
+        }
+
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_request_logs_path(user_id) + "/exports",
+            request_data=request_data,
+        )
+
+    def check_ai_request_logs_export_status(self, user_id: int, export_id: str):
+        """
+        Check AI Request Logs Export Status
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.requestLogs.exports.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_request_logs_path(user_id) + f"/exports/{export_id}",
+        )
+
+    def download_ai_request_logs_export(self, user_id: int, export_id: str):
+        """
+        Download AI Request Logs Export
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.requestLogs.exports.download
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_request_logs_path(user_id) + f"/exports/{export_id}/download",
+        )
+
     def get_ai_settings_path(self, user_id: int):
         return f"users/{user_id}/ai/settings"
 
@@ -661,6 +912,68 @@ class AIResource(BaseResource):
             method="patch",
             path=self.get_ai_settings_path(user_id),
             request_data=patches,
+        )
+
+    def get_ai_usage_members_path(self, user_id: int, member_id: Optional[int] = None):
+        if member_id is not None:
+            return f"users/{user_id}/ai/usage/members/{member_id}"
+        return f"users/{user_id}/ai/usage/members"
+
+    def list_ai_usage_members(
+        self,
+        user_id: int,
+        user_ids: Optional[Iterable[int]] = None,
+        order_by: Optional[Sorting] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Usage Members
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.usage.members.getMany
+        """
+
+        params = {
+            "userIds": convert_to_query_string(user_ids),
+            "orderBy": order_by,
+        }
+        params.update(self.get_page_params(limit=limit, offset=offset))
+
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_usage_members_path(user_id),
+            params=params,
+        )
+
+    def get_ai_usage_member(self, user_id: int, member_id: int):
+        """
+        Get AI Usage Member
+
+        `member_id` is the identifier of the project member (or your own user id for own usage).
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.ai.usage.members.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_usage_members_path(user_id, member_id=member_id),
+        )
+
+    def get_project_ai_settings(self, projectId: Optional[int] = None):
+        """
+        Get Project AI Settings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#operation/api.projects.ai.settings.get
+        """
+
+        projectId = projectId or self.get_project_id()
+
+        return self.requester.request(
+            method="get",
+            path=f"projects/{projectId}/ai/settings",
         )
 
     def list_supported_ai_provider_models(
@@ -900,7 +1213,7 @@ class EnterpriseAIResource(BaseResource):
     Enterprise Resource for AI.
 
     Link to documentation:
-    https://developer.crowdin.com/enterprise/api/v2/#tag/AI
+    https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI
     """
 
     def get_ai_path(self, aiPromptId: Optional[int] = None):
@@ -924,7 +1237,7 @@ class EnterpriseAIResource(BaseResource):
         List AI Prompts
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.prompts.getMany
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.getMany
         """
         params = {"projectId": projectId, "action": action}
         params.update(self.get_page_params(limit=limit, offset=offset))
@@ -938,7 +1251,7 @@ class EnterpriseAIResource(BaseResource):
         Add AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.prompts.post
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.post
         """
 
         return self.requester.request(
@@ -952,7 +1265,7 @@ class EnterpriseAIResource(BaseResource):
         Get AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.prompts.get
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.get
         """
 
         return self.requester.request(
@@ -965,7 +1278,7 @@ class EnterpriseAIResource(BaseResource):
         Delete AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.prompts.delete
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.delete
         """
 
         return self.requester.request(
@@ -980,7 +1293,7 @@ class EnterpriseAIResource(BaseResource):
         Edit AI Prompt
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.prompts.patch
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.patch
         """
 
         return self.requester.request(
@@ -998,7 +1311,7 @@ class EnterpriseAIResource(BaseResource):
         List AI Providers
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.getMany
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.getMany
         """
         params = self.get_page_params(limit=limit, offset=offset)
         return self.requester.request(
@@ -1010,7 +1323,7 @@ class EnterpriseAIResource(BaseResource):
         Add AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.post
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.post
         """
         return self.requester.request(
             method="post",
@@ -1023,7 +1336,7 @@ class EnterpriseAIResource(BaseResource):
         Get AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.get
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.get
         """
         return self.requester.request(
             method="get",
@@ -1035,7 +1348,7 @@ class EnterpriseAIResource(BaseResource):
         Delete AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.delete
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.delete
         """
         return self.requester.request(
             method="delete",
@@ -1049,7 +1362,7 @@ class EnterpriseAIResource(BaseResource):
         Edit AI Provider
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.patch
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.patch
         """
         return self.requester.request(
             method="patch",
@@ -1062,11 +1375,26 @@ class EnterpriseAIResource(BaseResource):
         List AI Provider Models
 
         Link to documentation:
-        https://developer.crowdin.com/api/v2/#operation/api.ai.providers.models.getMany
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.models.getMany
         """
         return self.requester.request(
             method="get",
             path=self.get_ai_provider_path(aiProviderId=aiProviderId) + "/models",
+        )
+
+    def list_all_ai_provider_models(self):
+        """
+        List AI Provider Models
+
+        Lists the models of all AI providers available in the organization.
+        To list the models of a single AI provider, use `list_ai_provider_models`.
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.models.enterprise.getMany
+        """
+        return self.requester.request(
+            method="get",
+            path="ai/providers/models",
         )
 
     def create_ai_proxy_chat_completion(
@@ -1081,7 +1409,7 @@ class EnterpriseAIResource(BaseResource):
         Please refer to the documentation for the specific provider you use to determine the required payload format.
 
         Link to documentation:
-        https://developer.crowdin.com/enterprise/api/v2/#operation/api.ai.providers.chat.completions.post
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.providers.chat.completions.post
         """
         return self.requester.request(
             method="post",
@@ -1095,9 +1423,12 @@ class EnterpriseAIResource(BaseResource):
             return f"ai/settings/custom-placeholders/{ai_custom_placeholder_id}"
         return "ai/settings/custom-placeholders"
 
+    @deprecated("Use `list_ai_snippets` instead")
     def list_ai_custom_placeholders(self):
         """
         List AI Custom Placeholders
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `list_ai_snippets` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.prompts.custom.placeholders.getMany
@@ -1108,9 +1439,12 @@ class EnterpriseAIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path()
         )
 
+    @deprecated("Use `add_ai_snippet` instead")
     def add_ai_custom_placeholder(self, body: AddAiCustomPlaceholderRequest):
         """
         Add AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `add_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.settings.custom-placeholders.post
@@ -1122,9 +1456,12 @@ class EnterpriseAIResource(BaseResource):
             request_data=body,
         )
 
+    @deprecated("Use `get_ai_snippet` instead")
     def get_ai_custom_placeholder(self, ai_custom_placeholder_id: int):
         """
         Get AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `get_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.settings.custom-placeholders.get
@@ -1135,9 +1472,12 @@ class EnterpriseAIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path(ai_custom_placeholder_id),
         )
 
+    @deprecated("Use `delete_ai_snippet` instead")
     def delete_ai_custom_placeholder(self, ai_custom_placeholder_id: int):
         """
         Delete AI Custom Placeholder
+
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `delete_ai_snippet` instead.
 
         Link to documentation:
         https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.settings.custom-placeholders.delete
@@ -1148,6 +1488,7 @@ class EnterpriseAIResource(BaseResource):
             path=self.get_ai_custom_placeholders_path(ai_custom_placeholder_id),
         )
 
+    @deprecated("Use `edit_ai_snippet` instead")
     def edit_ai_custom_placeholder(
         self,
         ai_custom_placeholder_id: int,
@@ -1156,6 +1497,8 @@ class EnterpriseAIResource(BaseResource):
         """
         Edit AI Custom Placeholder
 
+        Deprecated: AI Custom Placeholders were replaced by AI Snippets, use `edit_ai_snippet` instead.
+
         Link to documentation:
         https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.settings.custom-placeholders.patch
         """
@@ -1163,6 +1506,82 @@ class EnterpriseAIResource(BaseResource):
         return self.requester.request(
             method="patch",
             path=self.get_ai_custom_placeholders_path(ai_custom_placeholder_id),
+            request_data=patches,
+        )
+
+    def get_ai_snippets_path(self, ai_snippet_id: Optional[int] = None):
+        if ai_snippet_id is not None:
+            return f"ai/settings/snippets/{ai_snippet_id}"
+        return "ai/settings/snippets"
+
+    def list_ai_snippets(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Snippets
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.snippets.getMany
+        """
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_snippets_path(),
+            params=self.get_page_params(limit=limit, offset=offset),
+        )
+
+    def add_ai_snippet(self, request_data: AddAiSnippetRequest):
+        """
+        Add AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.snippets.post
+        """
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_snippets_path(),
+            request_data=request_data,
+        )
+
+    def get_ai_snippet(self, ai_snippet_id: int):
+        """
+        Get AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.snippets.get
+        """
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_snippets_path(ai_snippet_id=ai_snippet_id),
+        )
+
+    def delete_ai_snippet(self, ai_snippet_id: int):
+        """
+        Delete AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.snippets.delete
+        """
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_snippets_path(ai_snippet_id=ai_snippet_id),
+        )
+
+    def edit_ai_snippet(
+        self,
+        ai_snippet_id: int,
+        patches: Iterable[EditAiSnippetPatch],
+    ):
+        """
+        Edit AI Snippet
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.prompts.snippets.patch
+        """
+        return self.requester.request(
+            method="patch",
+            path=self.get_ai_snippets_path(ai_snippet_id=ai_snippet_id),
             request_data=patches,
         )
 
@@ -1467,6 +1886,138 @@ class EnterpriseAIResource(BaseResource):
             path=self.get_ai_reports_path(ai_report_id) + "/download",
         )
 
+    def get_ai_request_logs_path(self):
+        return "ai/request-logs"
+
+    def list_ai_request_logs(
+        self,
+        request_id: Optional[str] = None,
+        project_id: Optional[int] = None,
+        request_user_id: Optional[int] = None,
+        ai_provider_id: Optional[int] = None,
+        model: Optional[str] = None,
+        source_action: Optional[AiRequestLogSourceAction] = None,
+        prompt_action: Optional[str] = None,
+        statuses: Optional[Iterable[AiRequestLogStatus]] = None,
+        system_credentials: Optional[bool] = None,
+        is_auto_triggered: Optional[bool] = None,
+        token_name: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Request Logs
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.requestLogs.getMany
+        """
+
+        params = {
+            "requestId": request_id,
+            "projectId": project_id,
+            "userId": request_user_id,
+            "aiProviderId": ai_provider_id,
+            "model": model,
+            "sourceAction": source_action,
+            "promptAction": prompt_action,
+            "statuses": convert_enum_collection_to_string_if_exists(statuses),
+            "systemCredentials": system_credentials,
+            "isAutoTriggered": is_auto_triggered,
+            "tokenName": token_name,
+            "oauthClientId": oauth_client_id,
+            "createdAfter": created_after,
+            "createdBefore": created_before,
+        }
+        params.update(self.get_page_params(limit=limit, offset=offset))
+
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_request_logs_path(),
+            params=params,
+        )
+
+    def export_ai_request_logs(
+        self,
+        export_format: Optional[AiRequestLogExportFormat] = None,
+        request_id: Optional[str] = None,
+        project_id: Optional[int] = None,
+        request_user_id: Optional[int] = None,
+        ai_provider_id: Optional[int] = None,
+        model: Optional[str] = None,
+        source_action: Optional[AiRequestLogSourceAction] = None,
+        prompt_action: Optional[str] = None,
+        statuses: Optional[Iterable[AiRequestLogStatus]] = None,
+        system_credentials: Optional[bool] = None,
+        is_auto_triggered: Optional[bool] = None,
+        token_name: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        created_after: Optional[datetime] = None,
+        created_before: Optional[datetime] = None,
+    ):
+        """
+        Export AI Request Logs
+
+        Starts an asynchronous export of the AI request logs matching the filters.
+        Poll `check_ai_request_logs_export_status` until the status is `finished`,
+        then call `download_ai_request_logs_export`.
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.requestLogs.exports.post
+        """
+
+        request_data = {
+            "format": export_format,
+            "requestId": request_id,
+            "projectId": project_id,
+            "userId": request_user_id,
+            "aiProviderId": ai_provider_id,
+            "model": model,
+            "sourceAction": source_action,
+            "promptAction": prompt_action,
+            "statuses": statuses,
+            "systemCredentials": system_credentials,
+            "isAutoTriggered": is_auto_triggered,
+            "tokenName": token_name,
+            "oauthClientId": oauth_client_id,
+            "createdAfter": created_after,
+            "createdBefore": created_before,
+        }
+
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_request_logs_path() + "/exports",
+            request_data=request_data,
+        )
+
+    def check_ai_request_logs_export_status(self, export_id: str):
+        """
+        Check AI Request Logs Export Status
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.requestLogs.exports.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_request_logs_path() + f"/exports/{export_id}",
+        )
+
+    def download_ai_request_logs_export(self, export_id: str):
+        """
+        Download AI Request Logs Export
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.requestLogs.exports.download
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_request_logs_path() + f"/exports/{export_id}/download",
+        )
+
     def get_ai_settings(self):
         """
         Get AI Settings
@@ -1495,6 +2046,67 @@ class EnterpriseAIResource(BaseResource):
             method="patch",
             path="ai/settings",
             request_data=patches,
+        )
+
+    def get_ai_usage_members_path(self, member_id: Optional[int] = None):
+        if member_id is not None:
+            return f"ai/usage/members/{member_id}"
+        return "ai/usage/members"
+
+    def list_ai_usage_members(
+        self,
+        user_ids: Optional[Iterable[int]] = None,
+        order_by: Optional[Sorting] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ):
+        """
+        List AI Usage Members
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.usage.members.getMany
+        """
+
+        params = {
+            "userIds": convert_to_query_string(user_ids),
+            "orderBy": order_by,
+        }
+        params.update(self.get_page_params(limit=limit, offset=offset))
+
+        return self._get_entire_data(
+            method="get",
+            path=self.get_ai_usage_members_path(),
+            params=params,
+        )
+
+    def get_ai_usage_member(self, member_id: int):
+        """
+        Get AI Usage Member
+
+        `member_id` is the identifier of the organization user.
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.ai.usage.members.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_usage_members_path(member_id=member_id),
+        )
+
+    def get_project_ai_settings(self, projectId: Optional[int] = None):
+        """
+        Get Project AI Settings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#operation/api.projects.ai.settings.get
+        """
+
+        projectId = projectId or self.get_project_id()
+
+        return self.requester.request(
+            method="get",
+            path=f"projects/{projectId}/ai/settings",
         )
 
     def list_supported_ai_provider_models(

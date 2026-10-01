@@ -27,6 +27,7 @@ from matrx_files.cloud_sync.models import SyncResult
 from matrx_files.service import FileService
 from matrx_orm import IntegrityError, call_function, rls_session, transaction
 from matrx_utils import utcnow
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
 from matrx_scraper.crawler import (
     CapturedShot,
@@ -114,6 +115,12 @@ STALE_SESSION_ERROR = (
 # boot sweep auto-resumes both. User cancellation never produces this: it
 # finishes the run as `partial` via CrawlCompletedEvent(status="canceled").
 WORKER_STOPPED_ERROR = "CancelledError: crawler worker stopped before completion"
+# A dead session retired because it sat on the start claim a new start needed.
+# Deliberately NOT a crash-resumable error (see list_crash_resumable_sessions).
+DEAD_SESSION_RETIRED_ERROR = (
+    "retired: this session's run was no longer alive when a new crawl of the "
+    "site claimed its start lane"
+)
 
 # How a session came to exist. Mirrors the `crawl_session_trigger_valid` CHECK
 # — a Python-side gate so a bad value names itself here instead of surfacing as
@@ -274,6 +281,42 @@ def read_run_lease(session: object) -> dict[str, Any]:
 
 
 EVENT_SEQUENCE_CONSTRAINT = "crawl_event_session_sequence_unique"
+
+# THE start claim: a partial unique index on web.crawl_session admitting ONE
+# queued/running session per (site, start lane). Lanes: `site_crawl`
+# (full/list) and `site_initialization` (initialization/homepage). Two starts
+# racing — a double click, a remounted page, two tabs, a schedule firing into
+# a manual run — cannot both insert; the loser gets a unique violation. The
+# index is the arbiter, not a check-then-insert (2026-09-14: one site creation
+# ran two full initializations 0.4 s apart).
+START_CLAIM_INDEX = "crawl_session_one_active_start_per_lane"
+START_LANE_BY_MODE: dict[str, str] = {
+    "full": "site_crawl",
+    "list": "site_crawl",
+    "initialization": "site_initialization",
+    "homepage": "site_initialization",
+}
+
+
+class CrawlStartConflict(RuntimeError):
+    """A start refused because another session already holds the site's start
+    lane. The message keeps the "already active" wording every caller keys on;
+    `active_session_id` lets a client rejoin the run instead of failing."""
+
+    def __init__(self, message: str, *, active_session_id: str | None = None) -> None:
+        super().__init__(message)
+        self.active_session_id = active_session_id
+
+
+def is_start_claim_conflict(exc: BaseException) -> bool:
+    """True only for a unique violation on THE start-claim index."""
+
+    details = getattr(exc, "details", None) or {}
+    if details.get("constraint") not in (None, "unique"):
+        return False
+    if details.get("constraint_name") == START_CLAIM_INDEX:
+        return True
+    return START_CLAIM_INDEX in f"{details.get('original_error') or ''}{exc.args}"
 
 
 def _is_event_sequence_collision(exc: BaseException) -> bool:
@@ -916,10 +959,20 @@ class WebCrawlRepository:
                 metadata["resume"] = resume
                 updates["finished_at"] = None
                 updates["error"] = None
-            result = await WebCrawlSession.update_where(
-                {"id": session_id, "deleted_at__isnull": True, "version": observed_version},
-                **updates,
-            )
+            try:
+                result = await WebCrawlSession.update_where(
+                    {"id": session_id, "deleted_at__isnull": True, "version": observed_version},
+                    **updates,
+                )
+            except IntegrityError as exc:
+                # Resuming flips a failed row back to `running`; while another
+                # session holds this site's start lane the claim index refuses.
+                if not is_start_claim_conflict(exc):
+                    raise
+                raise CrawlStartConflict(
+                    f"crawl session {session_id} cannot resume: another crawl is already "
+                    "active for this site — wait for it to finish or cancel it"
+                ) from None
             if not result.rows_affected:
                 raise RuntimeError(
                     f"crawl session {session_id} is already active elsewhere — another "
@@ -1014,18 +1067,22 @@ class WebCrawlRepository:
         ).all(use_cache=False)
 
     @staticmethod
-    async def abandon_duplicate_session(session_id: str, active_session_id: str) -> None:
-        """Terminate a just-created session that lost the one-active-crawl
-        race — a fresh queued row left behind would itself block every later
-        start for STALE_SESSION_AFTER."""
-        await WebCrawlSession.update_where(
-            {"id": session_id},
+    async def retire_dead_session(session_id: str) -> int:
+        """Fail a queued/running session whose run is provably dead (lease
+        expired, or queued past freshness) so it releases the start claim.
+
+        Only called after the live judgment said the session does NOT block —
+        it is the reaper's job done early for the one row standing in a new
+        start's way. Never STALE_SESSION_ERROR: that would make the boot sweep
+        resume it straight back into the lane.
+        """
+        result = await WebCrawlSession.update_where(
+            {"id": session_id, "status__in": ["queued", "running"]},
             status="failed",
             finished_at=utcnow(),
-            error=(
-                f"start refused: crawl session {active_session_id} is already active for this site"
-            ),
+            error=DEAD_SESSION_RETIRED_ERROR,
         )
+        return int(result.rows_affected or 0)
 
     async def complete_session(
         self, session_id: str, stats: dict[str, Any], *, lease_token: str | None = None
@@ -1255,6 +1312,7 @@ class WebCrawlRepository:
                     stats={
                         "pages_discovered": event.pages_discovered,
                         "pages_fetched": event.pages_fetched,
+                        "pages_downloaded": event.pages_downloaded,
                         "pages_failed": event.pages_failed,
                         "pages_unchanged": state.pages_unchanged,
                         "bytes_downloaded": event.bytes_downloaded,
@@ -1311,6 +1369,9 @@ class WebCrawlRepository:
         return {
             "pages_discovered": event.pages_discovered,
             "pages_fetched": event.pages_fetched,
+            # Responses received — what a live "N fetched" reads. Leads
+            # pages_fetched (fully captured) by the capture-persist time.
+            "pages_downloaded": event.pages_downloaded,
             "pages_failed": event.pages_failed,
             # Captures byte-identical to the page's previous capture: the
             # snapshot appended but pointed at the previously stored files.
@@ -1925,7 +1986,10 @@ class CanonicalBodyPersister:
             # triggered the run — every member (e.g. the marketing team) must be able to
             # find it, so shown_to stays NULL (the type's knob), never ``only_me``. This
             # is a hard product rule (Arman): crawler output is NEVER personal.
+            # STATED, never omitted: since access ladder T-13 an upload with no stated
+            # audience is born "only_me", which failed every capture (2026-09-30).
             "published_to_web": False,
+            "shown_to": SHOWN_TO_TYPE_DEFAULT,
             "change_summary": "Immutable web crawl capture",
             "metadata": {
                 "organization_id": self.state.organization_id,

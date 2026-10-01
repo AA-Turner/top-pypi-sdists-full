@@ -462,6 +462,12 @@ class TestVirtualenv(GenericEnvironmentTests):
 
         assert installed == [["pip==23.0.1"], ["pyjokes==0.6.0"]]
 
+    def test_compile_bytecode_affects_environment_key(self):
+        default = VirtualPythonEnvironment(resolver="uv")
+        compiled = VirtualPythonEnvironment(resolver="uv", compile_bytecode=True)
+
+        assert default.key != compiled.key
+
     @pytest.mark.skipif(not UV_PATH, reason="uv is not available")
     def test_try_using_uv(self, tmp_path):
         environment = self.get_environment(
@@ -469,9 +475,11 @@ class TestVirtualenv(GenericEnvironmentTests):
             {
                 "requirements": ["pyjokes==0.5"],
                 "resolver": "uv",
+                "compile_bytecode": True,
             },
         )
         connection_key = environment.create()
+        assert list(connection_key.glob("**/pyjokes/__pycache__/*.pyc"))
         pyjokes_version = self.get_example_version(environment, connection_key)
         assert pyjokes_version == "0.5.0"
 

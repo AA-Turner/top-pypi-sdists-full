@@ -14,7 +14,9 @@ use crate::evaluation::evaluator::SpecType;
 use crate::gcir::evaluation_plan::GcirEvaluationPlan;
 use crate::global_configs::GlobalConfigs;
 use crate::hashing::{self, HashUtil};
-use crate::id_lists_adapter::{IdList, IdListsUpdateListener};
+use crate::id_lists_adapter::{
+    IdList, IdListPropagationState, IdListPropagationUpdate, IdListUpdate, IdListsUpdateListener,
+};
 use crate::interned_string::InternedString;
 use crate::interned_values::interned_store::{InternedStore, MmapProjectId};
 use crate::macros::LOCK_TIMEOUT;
@@ -189,6 +191,8 @@ pub struct SpecStore {
     output_policy: crate::output_policy::OutputPolicy,
     data: ArcSwap<SpecStoreData>,
     update_lock: Mutex<()>,
+    id_list_propagation: Mutex<HashMap<String, IdListPropagationState>>,
+    config_updates: Arc<crate::ConfigUpdates>,
 
     data_store_keys: DataStoreCacheKeys,
     data_store: Option<Arc<dyn DataStoreTrait>>,
@@ -262,6 +266,8 @@ impl SpecStore {
                 field_checksums: SpecsFieldChecksums::default(),
             }),
             update_lock: Mutex::new(()),
+            id_list_propagation: Mutex::new(HashMap::new()),
+            config_updates: Arc::new(crate::ConfigUpdates::default()),
             event_emitter,
             data_store,
             statsig_runtime,
@@ -802,11 +808,22 @@ impl SpecStore {
         snapshot.id_lists = Arc::clone(&shared.id_lists);
         let snapshot = Arc::new(snapshot);
         self.data.store(Arc::clone(&snapshot));
+        self.config_updates.notify();
         snapshot
     }
 
     fn publish_data(&self, data: SpecStoreData) {
         self.data.store(Arc::new(data));
+        self.config_updates.notify();
+    }
+
+    #[cfg(feature = "ffi-support")]
+    pub(crate) fn config_updates(&self) -> Arc<crate::ConfigUpdates> {
+        self.config_updates.clone()
+    }
+
+    pub(crate) fn close_config_updates(&self) {
+        self.config_updates.close();
     }
 
     fn try_lock_for_update(&self, operation: &str) -> Option<MutexGuard<'_, ()>> {
@@ -1617,9 +1634,24 @@ impl IdListsUpdateListener for SpecStore {
             .collect()
     }
 
-    fn did_receive_id_list_updates(
+    fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>) {
+        self.apply_id_list_updates(updates, HashMap::new());
+    }
+
+    fn did_receive_id_list_updates_with_propagation(
         &self,
-        updates: HashMap<String, crate::id_lists_adapter::IdListUpdate>,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) {
+        self.apply_id_list_updates(updates, propagation);
+    }
+}
+
+impl SpecStore {
+    fn apply_id_list_updates(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
     ) {
         let _output_scope = self.output_policy.enter();
         let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
@@ -1646,7 +1678,41 @@ impl IdListsUpdateListener for SpecStore {
 
         let mut next_data = data.as_ref().clone();
         next_data.id_lists = Arc::new(id_lists);
+        let published_lists = next_data.id_lists.clone();
         self.publish_data(next_data);
+
+        let now = Utc::now().timestamp_millis() as u64;
+        let mut states = self.id_list_propagation.lock();
+        states.retain(|name, _| propagation.contains_key(name));
+        for (name, observation) in propagation {
+            // apply_update may reject an older generation. Never attribute it to the installed file.
+            if published_lists
+                .get(&name)
+                .is_none_or(|list| list.metadata.file_id != observation.file_id)
+            {
+                continue;
+            }
+            let initialized = states.contains_key(&name) && data.id_lists.contains_key(&name);
+            if let Some((lcut, prev_lcut)) =
+                states
+                    .entry(name.clone())
+                    .or_default()
+                    .apply(observation, initialized, now)
+            {
+                self.ops_stats.log(ObservabilityEvent::new_event(
+                    MetricType::Dist,
+                    "id_list_propagation_diff".to_string(),
+                    now.saturating_sub(lcut) as f64,
+                    Some(HashMap::from([
+                        ("source".to_string(), SpecsSource::Network.to_string()),
+                        ("id_list_name".to_string(), name),
+                        ("lcut".to_string(), lcut.to_string()),
+                        ("prev_lcut".to_string(), prev_lcut.to_string()),
+                        ("sdk_key".to_string(), self.loggable_sdk_key.clone()),
+                    ])),
+                ));
+            }
+        }
     }
 }
 

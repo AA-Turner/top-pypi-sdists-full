@@ -4,19 +4,19 @@ authors = [
 ]
 classifiers = [
     "Environment :: Console",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "aiohttp>=3.8.6",
-    "music_assistant_models==1.1.189",
+    "music_assistant_models==1.1.214",
     "orjson>=3.9",
 ]
 description = "Music Assistant Client"
 name = "music_assistant_client"
 readme = "README.md"
-requires-python = ">=3.12"
-version = "v1.5.1"
+requires-python = ">=3.13"
+version = "v1.6.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -24,12 +24,12 @@ text = "Apache-2.0"
 [project.optional-dependencies]
 test = [
     "codespell==2.4.3",
-    "isort==8.0.1",
-    "mypy==2.3.0",
+    "isort==9.0.1",
+    "mypy==2.3.1",
     "pre-commit==4.6.2",
     "pre-commit-hooks==6.0.0",
     "tomli==2.4.1",
-    "ruff==0.15.10",
+    "ruff==0.16.9",
 ]
 
 [project.urls]
@@ -56,7 +56,7 @@ music_assistant_client = [
 fix = true
 show-fixes = true
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 ignore = [
@@ -80,6 +80,7 @@ ignore = [
     "TRY003",
     "TRY400",
     "COM812",
+    "CPY001",
     "N818",
     "FBT001",
     "FBT002",

@@ -1,0 +1,2 @@
+(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[10859],{67307(n){function s(n){var s=new Error("Cannot find module '"+n+"'");throw s.code="MODULE_NOT_FOUND",s}s.keys=()=>[],s.resolve=s,s.id=67307,n.exports=s},97260(n){n.exports=function(){}}}]);
+//# sourceMappingURL=10859.28aa6d50af2793f7.js.map

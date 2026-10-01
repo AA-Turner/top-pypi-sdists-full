@@ -508,6 +508,43 @@ async def run_mandated(
     if not mandate_key:
         return await agent_cls.run(**kwargs)
 
+    # MANDATE CANDIDATES — the host observes this real run (input copied here,
+    # before anything below mutates ``kwargs``) and may re-run it through a
+    # candidate Holder in the background. The tap never alters the run.
+    from matrx_ai.mandate_taps import tapped_door
+
+    return await tapped_door(
+        "run_mandated",
+        mandate_key,
+        lambda: named_door_snapshot(agent_cls, offered, kwargs),
+        lambda: _run_mandated_resolved(agent_cls, mandate_key, offered, kwargs),
+    )
+
+
+def named_door_snapshot(
+    agent_cls: type[NamedAgent], offered: dict[str, Any] | None, kwargs: dict[str, Any]
+) -> dict[str, Any]:
+    """The ``run_mandated`` door's input exactly as the call site handed it — SHALLOW.
+
+    Cheap on purpose: it runs on the live path. ``agent_cls`` is recorded by
+    import path so the host can re-enter the SAME door with the SAME class; the
+    host serializes the rest off the path (a typed ``Inputs`` travels as its
+    JSON dump — the door coerces a dict back through ``cls.Inputs``) and counts
+    a value it cannot carry as an uncovered door, never silently.
+    """
+    return {
+        "agent_cls": f"{agent_cls.__module__}:{agent_cls.__qualname__}",
+        "offered": dict(offered) if offered else None,
+        "kwargs": dict(kwargs),
+    }
+
+
+async def _run_mandated_resolved(
+    agent_cls: type[NamedAgent],
+    mandate_key: str,
+    offered: dict[str, Any] | None,
+    kwargs: dict[str, Any],
+) -> AgentRunResult:
     resolution = await resolve_mandate_for(agent_cls)
     if resolution.holder_type != "agent" or resolution.source is None:
         # A NamedAgent funnel runs an AGENT record. A workflow-held mandate

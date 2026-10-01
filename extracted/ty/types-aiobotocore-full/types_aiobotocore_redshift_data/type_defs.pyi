@@ -163,8 +163,8 @@ class QueryRecordsTypeDef(TypedDict):
     CSVRecords: NotRequired[str]
 
 class ListDatabasesRequestTypeDef(TypedDict):
-    Database: str
     ClusterIdentifier: NotRequired[str]
+    Database: NotRequired[str]
     SecretArn: NotRequired[str]
     DbUser: NotRequired[str]
     NextToken: NotRequired[str]
@@ -380,8 +380,8 @@ class GetStatementResultV2RequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDatabasesRequestPaginateTypeDef(TypedDict):
-    Database: str
     ClusterIdentifier: NotRequired[str]
+    Database: NotRequired[str]
     SecretArn: NotRequired[str]
     DbUser: NotRequired[str]
     WorkgroupName: NotRequired[str]

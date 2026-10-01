@@ -12,8 +12,15 @@ config:
   internal-mcp-servers:dns-zone-project: airbyte-intranet
   internal-mcp-servers:dns-zone-name: internal-airbyte-ai
   internal-mcp-servers:oauth-issuer: https://cloud.airbyte.com/auth/realms/airbyte
+  # Non-secret Kapa Retrieval API endpoint for the cloud-mcp knowledge search
+  # tool. The API key is a Secret Manager secret (internal-mcp-kapa-api-key).
+  internal-mcp-servers:kapa-retrieval-api-url: https://api.kapa.ai/query/v1/projects/114210e3-270b-430b-9723-6ece2bcd9a62/retrieval/
   internal-mcp-servers:otelTracesEndpoint: https://otlp.datadoghq.com/v1/traces
   internal-mcp-servers:ops-mcp-oauth-client-id: airbyte-ops-mcp-client
+  # Optional: comma-separated `azp` allowlist for `airbyte`-realm user tokens
+  # forwarded by trusted first-party apps on cloud-mcp (default:
+  # airbyte-ops-webapp-client).
+  # internal-mcp-servers:user-token-client-ids: airbyte-ops-webapp-client
   # Non-secret Zendesk settings for the Ops MCP get_zendesk_ticket tool. The API
   # token itself is a Secret Manager secret (internal-ops-zendesk-api-token).
   internal-mcp-servers:zendesk-subdomain: airbyte1416

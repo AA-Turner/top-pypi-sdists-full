@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# ----------------------------------------------------------------------------
 # Copyright (C) British Crown (Met Office) & Contributors.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -19,7 +17,6 @@
 """This provides ISO 8601 parsing functionality."""
 
 import re
-import sre_constants
 
 from . import data
 from . import parser_spec
@@ -338,12 +335,13 @@ class TimePointParser(object):
             regex, strptime_data_string,
             dump_format=dump_format, source=strptime_format_string)
 
-    def _parse_from_custom_regex(self, regex, data_string, dump_format=None,
-                                 source=None):
+    def _parse_from_custom_regex(
+        self, regex, data_string, dump_format=None, source=None
+    ):
         """Parse data_string according to the regular expression in regex."""
         try:
             compiled_regex = re.compile(regex)
-        except sre_constants.error:
+        except Exception:
             raise StrptimeConversionError(source, regex)
         result = compiled_regex.match(data_string)
         if not result:
@@ -439,7 +437,7 @@ class TimePointParser(object):
             time_zone_info = (
                 self.process_time_zone_info({}))
             time_info.update(time_zone_info)
-        else:
+        elif len(date_time_time_zone) == 2:
             date, time_time_zone = date_time_time_zone
             if not date and self.allow_truncated:
                 keys = (None, "truncated", "")
@@ -501,6 +499,8 @@ class TimePointParser(object):
             parsed_expr += parser_spec.TIME_DESIGNATOR + (
                 time_expr + time_zone_expr)
             time_info.update(time_zone_info)
+        else:
+            raise ISO8601SyntaxError('time', timepoint_string)
         return date_info, time_info, parsed_expr
 
     def process_time_zone_info(self, time_zone_info=None):

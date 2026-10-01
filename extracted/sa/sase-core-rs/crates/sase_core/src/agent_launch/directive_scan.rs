@@ -211,22 +211,57 @@ pub(crate) fn launch_inline_literal_ranges(
     inline_code_ranges(prompt, &masks)
 }
 
+/// Start offset, opener-delimiter offset, and delimiter form for every
+/// alternation opener in `prompt`, in source order.
+///
+/// `%{` opens anywhere outside literal zones (mid-word, after punctuation,
+/// adjacent to another alternation, or nested inside a branch); `%(` and
+/// `%alt(` keep the directive-valid position rule (start of text or after
+/// whitespace, `(`, `[`, `{`, `"`, `'`, or `:`) so format strings like
+/// `%(name)s` never fan out. Callers skip literal zones themselves.
+///
+/// The walk visits every `%` byte position instead of iterating a regex with
+/// a consumed left-boundary prefix, so adjacent openers (`%{%(a,b) | c}`)
+/// all match: the paren branch's boundary (`{`/`(`) may be the previous
+/// match's delimiter.
 pub(crate) fn alt_directive_starts(
     prompt: &str,
 ) -> Vec<(usize, usize, AltDelimiter)> {
-    alt_directive_re()
-        .captures_iter(prompt)
-        .filter_map(|caps| {
-            let marker = caps.get(2)?;
-            let open = marker.end() - 1;
-            let delimiter = if prompt.as_bytes()[open] == b'{' {
-                AltDelimiter::Brace
-            } else {
-                AltDelimiter::Paren
-            };
-            Some((marker.start(), open, delimiter))
-        })
-        .collect()
+    let mut out = Vec::new();
+    for (i, _) in prompt.match_indices('%') {
+        let tail = &prompt[i..];
+        if tail.starts_with("%{") {
+            out.push((i, i + 1, AltDelimiter::Brace));
+            continue;
+        }
+        let (open_offset, delimiter) = if tail.starts_with("%alt(") {
+            (i + 4, AltDelimiter::Paren)
+        } else if tail.starts_with("%(") {
+            (i + 1, AltDelimiter::Paren)
+        } else {
+            continue;
+        };
+        if is_alt_paren_boundary(prompt, i) {
+            out.push((i, open_offset, delimiter));
+        }
+    }
+    out
+}
+
+/// Whether the paren alternation at byte offset `i` sits at a directive-valid
+/// position: start of text, or after whitespace, `(`, `[`, `{`, `"`, `'`, or
+/// `:`. `(?m)^` after `\n` is covered by whitespace.
+fn is_alt_paren_boundary(prompt: &str, i: usize) -> bool {
+    if i == 0 {
+        return true;
+    }
+    match prompt[..i].chars().next_back() {
+        Some(ch) => {
+            ch.is_whitespace()
+                || matches!(ch, '(' | '[' | '{' | '"' | '\'' | ':')
+        }
+        None => true,
+    }
 }
 
 pub(crate) fn alt_inner_ranges(
@@ -295,11 +330,18 @@ fn parse_directive_args(inner: &str) -> Vec<String> {
     args.into_iter().filter(|arg| !arg.is_empty()).collect()
 }
 
-pub(crate) fn parse_directive_args_with_names(
+/// Split `inner` at top-level `separator` occurrences, returning
+/// the raw segment ranges plus the byte offset of each separator.
+///
+/// The walk is the single shared branch-splitting rule launch uses:
+/// backticks, double quotes, `[[...]]` blocks, and bracket depth hide
+/// separators; single quotes do not. Offsets are relative to `inner`.
+pub(crate) fn split_top_level_arg_ranges(
     inner: &str,
     separator: char,
-) -> Vec<DirectiveArg> {
-    let mut args = Vec::new();
+) -> (Vec<(usize, usize)>, Vec<usize>) {
+    let mut segments = Vec::new();
+    let mut separators = Vec::new();
     let mut start = 0;
     let mut depth = 0_i32;
     let mut in_backticks = false;
@@ -332,14 +374,27 @@ pub(crate) fn parse_directive_args_with_names(
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' if depth > 0 => depth -= 1,
             _ if ch == separator && depth == 0 => {
-                push_directive_arg(&mut args, &inner[start..idx]);
+                segments.push((start, idx));
+                separators.push(idx);
                 start = idx + ch_len;
             }
             _ => {}
         }
         idx += ch_len;
     }
-    push_directive_arg(&mut args, &inner[start..]);
+    segments.push((start, inner.len()));
+    (segments, separators)
+}
+
+pub(crate) fn parse_directive_args_with_names(
+    inner: &str,
+    separator: char,
+) -> Vec<DirectiveArg> {
+    let (segments, _) = split_top_level_arg_ranges(inner, separator);
+    let mut args = Vec::with_capacity(segments.len());
+    for (start, end) in segments {
+        push_directive_arg(&mut args, &inner[start..end]);
+    }
     args.into_iter()
         .filter(|arg| !arg.value.is_empty() || arg.name.is_some())
         .collect()
@@ -358,7 +413,14 @@ fn push_arg(args: &mut Vec<String>, raw: &str) {
     args.push(unquote_directive_arg_value(trimmed));
 }
 
-pub(crate) fn split_named_directive_arg(raw: &str) -> (Option<String>, &str) {
+/// Byte offset of the top-level `=` in `raw`, or `None`.
+///
+/// This is the single shared `name=value` scan behind both
+/// [`split_named_directive_arg`] and the alternation scanner's
+/// branch-name spans: backticks, double quotes, `[[...]]` blocks, and
+/// bracket depth hide the `=`; single quotes do not. The offset is
+/// relative to `raw`, and `=` is always one byte.
+pub(crate) fn top_level_eq_offset(raw: &str) -> Option<usize> {
     let mut depth = 0_i32;
     let mut in_backticks = false;
     let mut in_double_quotes = false;
@@ -389,19 +451,23 @@ pub(crate) fn split_named_directive_arg(raw: &str) -> (Option<String>, &str) {
         match ch {
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' if depth > 0 => depth -= 1,
-            '=' if depth == 0 => {
-                let name = raw[..idx].trim();
-                let value = &raw[idx + ch_len..];
-                if !name.is_empty() {
-                    return (Some(unquote_backticks(name)), value);
-                }
-                return (None, raw);
-            }
+            '=' if depth == 0 => return Some(idx),
             _ => {}
         }
         idx += ch_len;
     }
-    (None, raw)
+    None
+}
+
+pub(crate) fn split_named_directive_arg(raw: &str) -> (Option<String>, &str) {
+    let Some(eq) = top_level_eq_offset(raw) else {
+        return (None, raw);
+    };
+    let name = raw[..eq].trim();
+    if name.is_empty() {
+        return (None, raw);
+    }
+    (Some(unquote_backticks(name)), &raw[eq + 1..])
 }
 
 pub(crate) fn unquote_directive_arg_value(trimmed: &str) -> String {
@@ -545,13 +611,6 @@ fn xprompt_reference_re() -> &'static Regex {
             r#"(?m)(^|[\s\(\[\{"'])(#!?([A-Za-z_][A-Za-z0-9_]*(?:/[A-Za-z_][A-Za-z0-9_]*)*)(?:!!|\?\?)?(?:(\()|:(`[^`]*`|\$\([^)]*\)|\{\{[^}]*\}\}|\{[^}]*\}|[A-Za-z0-9_.~,+/@-]*[A-Za-z0-9_~,+/@-])|(\+))?)"#,
         )
         .unwrap()
-    })
-}
-
-fn alt_directive_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r#"(?m)(^|[\s\(\[\{"':])(%(?:alt)?\(|%\{)"#).unwrap()
     })
 }
 

@@ -1,0 +1,1 @@
+import{a as e,i as t}from"./useForm-Dr9x-nY8.js";var n=n=>t({url:e().trim().min(1,n(`auth.field_required`)),name:e().trim().min(1,n(`auth.field_required`)),image:e()});export{n as t};

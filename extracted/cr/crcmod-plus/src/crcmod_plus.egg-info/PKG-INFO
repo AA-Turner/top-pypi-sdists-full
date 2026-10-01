@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crcmod-plus
-Version: 2.3.1
+Version: 2.3.6
 Summary: CRC generator - modernized
 Author-email: Ray Buvel <rlbuvel@gmail.com>
 Maintainer-email: Tamas Nepusz <tamas@sxd.hu>
@@ -33,7 +33,6 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: typing_extensions; python_version < "3.8"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Dynamic: license-file
@@ -88,7 +87,7 @@ a model for the new version.
 
 ### Python version
 
-This package supports Python 3.7 and newer.
+This package supports Python 3.9 and newer.
 
 ### Building C extension
 

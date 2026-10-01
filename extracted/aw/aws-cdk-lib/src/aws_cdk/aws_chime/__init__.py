@@ -1511,6 +1511,649 @@ class CfnAppInstanceUserProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IChannelRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnChannel(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnChannel",
+):
+    '''Creates a channel in an Amazon Chime SDK Messaging AppInstance.
+
+    Members of a channel exchange messages within it. Every channel operation is performed on behalf of an AppInstanceUser or AppInstanceBot, whose ARN is supplied as ChimeBearer and forms part of the channel's CloudFormation identifier.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html
+    :cloudformationResource: AWS::Chime::Channel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_channel = chime.CfnChannel(self, "MyCfnChannel",
+            app_instance_arn="appInstanceArn",
+            chime_bearer="chimeBearer",
+            name="name",
+        
+            # the properties below are optional
+            channel_id="channelId",
+            elastic_channel_configuration=chime.CfnChannel.ElasticChannelConfigurationProperty(
+                maximum_sub_channels=123,
+                minimum_membership_percentage=123,
+                target_memberships_per_sub_channel=123
+            ),
+            expiration_settings=chime.CfnChannel.ExpirationSettingsProperty(
+                expiration_criterion="expirationCriterion",
+                expiration_days=123
+            ),
+            member_arns=["memberArns"],
+            metadata="metadata",
+            mode="mode",
+            moderator_arns=["moderatorArns"],
+            privacy="privacy",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        app_instance_arn: builtins.str,
+        chime_bearer: builtins.str,
+        name: builtins.str,
+        channel_id: typing.Optional[builtins.str] = None,
+        elastic_channel_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ElasticChannelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        expiration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ExpirationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        member_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        metadata: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[builtins.str] = None,
+        moderator_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        privacy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::Channel``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param app_instance_arn: The ARN of the AppInstance that contains the channel.
+        :param chime_bearer: The ARN of the AppInstanceUser or AppInstanceBot that performs every operation on this channel. Whichever of the two creates a channel automatically becomes one of its moderators, so the same ARN can subsequently read, update and delete the channel.
+        :param name: The name of the channel.
+        :param channel_id: The ID of the channel. When omitted, the service generates a UUID.
+        :param elastic_channel_configuration: The attributes required to configure and create an elastic channel. An elastic channel must use RESTRICTED mode, cannot be created with MemberArns, and is available only in some regions.
+        :param expiration_settings: Settings that control the interval after which the channel is automatically deleted.
+        :param member_arns: The ARNs of the AppInstanceUsers to add to the channel as members when it is created. Cannot be combined with ElasticChannelConfiguration.
+        :param metadata: The metadata of the channel.
+        :param mode: The channel mode. In an UNRESTRICTED channel, members can add themselves and other members; in a RESTRICTED channel, only administrators and moderators can add members. An elastic channel must be RESTRICTED.
+        :param moderator_arns: The ARNs of the AppInstanceUsers to add to the channel as moderators when it is created.
+        :param privacy: The channel's privacy level. A PUBLIC channel is discoverable by anyone in the AppInstance; a PRIVATE channel is not. Privacy cannot be changed after creation.
+        :param tags: The tags for the channel.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a89763003c5889154da844ca3dad921cfa98c23c362a40a05e69b7812336097d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChannelProps(
+            app_instance_arn=app_instance_arn,
+            chime_bearer=chime_bearer,
+            name=name,
+            channel_id=channel_id,
+            elastic_channel_configuration=elastic_channel_configuration,
+            expiration_settings=expiration_settings,
+            member_arns=member_arns,
+            metadata=metadata,
+            mode=mode,
+            moderator_arns=moderator_arns,
+            privacy=privacy,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForChannel")
+    @builtins.classmethod
+    def arn_for_channel(
+        cls,
+        resource: "_aws_chime_58870695.IChannelRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c427c0278e1c98cd454086845e50069da70f9022ed5cdd80f053334831c2cbb7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
+
+    @jsii.member(jsii_name="isCfnChannel")
+    @builtins.classmethod
+    def is_cfn_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa4790ed4f040aa7c08ce37d765a2efe53b80721c32fd5b1bbda12dc3ae91a05)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56cb1e61db1c45729b964df35b81c00ecbadeb1e6841d345c0dfdce81520f8f3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fe58cc1b62badb3a367bdac675a7be40061ccddeb1291043e6a89f46b1941a0b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the channel.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelFlowArn")
+    def attr_channel_flow_arn(self) -> builtins.str:
+        '''The ARN of the channel flow.
+
+        :cloudformationAttribute: ChannelFlowArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelFlowArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The AppInstanceUser or AppInstanceBot that created the channel.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which the channel was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastMessageTimestamp")
+    def attr_last_message_timestamp(self) -> builtins.str:
+        '''The time at which a member sent the last message in the channel.
+
+        :cloudformationAttribute: LastMessageTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastMessageTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTimestamp")
+    def attr_last_updated_timestamp(self) -> builtins.str:
+        '''The time at which the channel was last updated.
+
+        :cloudformationAttribute: LastUpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "_aws_chime_58870695.ChannelReference":
+        '''A reference to a Channel resource.'''
+        return typing.cast("_aws_chime_58870695.ChannelReference", jsii.get(self, "channelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appInstanceArn")
+    def app_instance_arn(self) -> builtins.str:
+        '''The ARN of the AppInstance that contains the channel.'''
+        return typing.cast(builtins.str, jsii.get(self, "appInstanceArn"))
+
+    @app_instance_arn.setter
+    def app_instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8f59d56a9dbf4b3806ff1912cf07850ffda9a4e9b55db675fece72d4dd31b0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="chimeBearer")
+    def chime_bearer(self) -> builtins.str:
+        '''The ARN of the AppInstanceUser or AppInstanceBot that performs every operation on this channel.'''
+        return typing.cast(builtins.str, jsii.get(self, "chimeBearer"))
+
+    @chime_bearer.setter
+    def chime_bearer(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8fd04eb030be5b81f943a19c35fdeaa7124f05290326272628749488abfbd429)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "chimeBearer", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the channel.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d4a11111ed722fa1552e5357156422c544c2a4dd446be1ea345c98978081526)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="channelId")
+    def channel_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the channel.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "channelId"))
+
+    @channel_id.setter
+    def channel_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2899b697a3d0599c4e86d02b714e86b25a73faa81d81b0b5a8a2b846f90a193d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticChannelConfiguration")
+    def elastic_channel_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ElasticChannelConfigurationProperty"]]:
+        '''The attributes required to configure and create an elastic channel.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ElasticChannelConfigurationProperty"]], jsii.get(self, "elasticChannelConfiguration"))
+
+    @elastic_channel_configuration.setter
+    def elastic_channel_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ElasticChannelConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__702d50233a97086fe25c17623249cdf79a35a98fd0c2ff24fc4c4ff212b8c90d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "elasticChannelConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expirationSettings")
+    def expiration_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ExpirationSettingsProperty"]]:
+        '''Settings that control the interval after which the channel is automatically deleted.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ExpirationSettingsProperty"]], jsii.get(self, "expirationSettings"))
+
+    @expiration_settings.setter
+    def expiration_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ExpirationSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cfa4426ad9d68b9d95e87acf17bd96807ddb690c4339e557b335d54201155053)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expirationSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memberArns")
+    def member_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the AppInstanceUsers to add to the channel as members when it is created.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "memberArns"))
+
+    @member_arns.setter
+    def member_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d78aaa655e8d98ed189cc1db70ccbc99177cf80d3892ff11d41097adfbd6764)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memberArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(self) -> typing.Optional[builtins.str]:
+        '''The metadata of the channel.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metadata"))
+
+    @metadata.setter
+    def metadata(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d047bb8ce80e19c537d247457b6cc43cd31f25981080e85979a87b0c6d44eea3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> typing.Optional[builtins.str]:
+        '''The channel mode.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "mode"))
+
+    @mode.setter
+    def mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__826ffe751bf3da6b2ef69e117e86116849fa30257fc6a0ba2d55e0eee456d8cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="moderatorArns")
+    def moderator_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the AppInstanceUsers to add to the channel as moderators when it is created.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "moderatorArns"))
+
+    @moderator_arns.setter
+    def moderator_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7931948e641c85a29c91dc0f18a05368cce4d97845b3fe14bc39e397032efb1d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "moderatorArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privacy")
+    def privacy(self) -> typing.Optional[builtins.str]:
+        '''The channel's privacy level.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privacy"))
+
+    @privacy.setter
+    def privacy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c1ef91b405bc43229f3ad9bb756d161a4b0db50cfd4360ae21ef7c55c52f5944)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privacy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the channel.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__22aa1755f5052e591b4cabb4cbc7f1e285d37bd5839a3720256c387127f5aeb3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannel.ElasticChannelConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "maximum_sub_channels": "maximumSubChannels",
+            "minimum_membership_percentage": "minimumMembershipPercentage",
+            "target_memberships_per_sub_channel": "targetMembershipsPerSubChannel",
+        },
+    )
+    class ElasticChannelConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            maximum_sub_channels: jsii.Number,
+            minimum_membership_percentage: jsii.Number,
+            target_memberships_per_sub_channel: jsii.Number,
+        ) -> None:
+            '''The attributes required to configure and create an elastic channel.
+
+            An elastic channel must use RESTRICTED mode, cannot be created with MemberArns, and is available only in some regions.
+
+            :param maximum_sub_channels: The maximum number of SubChannels allowed in the elastic channel.
+            :param minimum_membership_percentage: The minimum allowed percentage of TargetMembershipsPerSubChannel users, used to balance members across SubChannels.
+            :param target_memberships_per_sub_channel: The maximum number of members allowed in a SubChannel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-elasticchannelconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                elastic_channel_configuration_property = chime.CfnChannel.ElasticChannelConfigurationProperty(
+                    maximum_sub_channels=123,
+                    minimum_membership_percentage=123,
+                    target_memberships_per_sub_channel=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__86e0f478c14d309a5588841538b8043223e8385c82a42bfb60c7a2bdb9d77a9a)
+                check_type(argname="argument maximum_sub_channels", value=maximum_sub_channels, expected_type=type_hints["maximum_sub_channels"])
+                check_type(argname="argument minimum_membership_percentage", value=minimum_membership_percentage, expected_type=type_hints["minimum_membership_percentage"])
+                check_type(argname="argument target_memberships_per_sub_channel", value=target_memberships_per_sub_channel, expected_type=type_hints["target_memberships_per_sub_channel"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "maximum_sub_channels": maximum_sub_channels,
+                "minimum_membership_percentage": minimum_membership_percentage,
+                "target_memberships_per_sub_channel": target_memberships_per_sub_channel,
+            }
+
+        @builtins.property
+        def maximum_sub_channels(self) -> jsii.Number:
+            '''The maximum number of SubChannels allowed in the elastic channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-elasticchannelconfiguration.html#cfn-chime-channel-elasticchannelconfiguration-maximumsubchannels
+            '''
+            result = self._values.get("maximum_sub_channels")
+            assert result is not None, "Required property 'maximum_sub_channels' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def minimum_membership_percentage(self) -> jsii.Number:
+            '''The minimum allowed percentage of TargetMembershipsPerSubChannel users, used to balance members across SubChannels.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-elasticchannelconfiguration.html#cfn-chime-channel-elasticchannelconfiguration-minimummembershippercentage
+            '''
+            result = self._values.get("minimum_membership_percentage")
+            assert result is not None, "Required property 'minimum_membership_percentage' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def target_memberships_per_sub_channel(self) -> jsii.Number:
+            '''The maximum number of members allowed in a SubChannel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-elasticchannelconfiguration.html#cfn-chime-channel-elasticchannelconfiguration-targetmembershipspersubchannel
+            '''
+            result = self._values.get("target_memberships_per_sub_channel")
+            assert result is not None, "Required property 'target_memberships_per_sub_channel' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ElasticChannelConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannel.ExpirationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "expiration_criterion": "expirationCriterion",
+            "expiration_days": "expirationDays",
+        },
+    )
+    class ExpirationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            expiration_criterion: builtins.str,
+            expiration_days: jsii.Number,
+        ) -> None:
+            '''Settings that control the interval after which the channel is automatically deleted.
+
+            :param expiration_criterion: The condition the expiration period is measured from.
+            :param expiration_days: The period in days after which the system automatically deletes the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-expirationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                expiration_settings_property = chime.CfnChannel.ExpirationSettingsProperty(
+                    expiration_criterion="expirationCriterion",
+                    expiration_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__61fc7651b450f23570f29d1017ecab7caa5c391d1b674257b21ed9b83c1c68f6)
+                check_type(argname="argument expiration_criterion", value=expiration_criterion, expected_type=type_hints["expiration_criterion"])
+                check_type(argname="argument expiration_days", value=expiration_days, expected_type=type_hints["expiration_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expiration_criterion": expiration_criterion,
+                "expiration_days": expiration_days,
+            }
+
+        @builtins.property
+        def expiration_criterion(self) -> builtins.str:
+            '''The condition the expiration period is measured from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-expirationsettings.html#cfn-chime-channel-expirationsettings-expirationcriterion
+            '''
+            result = self._values.get("expiration_criterion")
+            assert result is not None, "Required property 'expiration_criterion' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expiration_days(self) -> jsii.Number:
+            '''The period in days after which the system automatically deletes the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-expirationsettings.html#cfn-chime-channel-expirationsettings-expirationdays
+            '''
+            result = self._values.get("expiration_days")
+            assert result is not None, "Required property 'expiration_days' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExpirationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnChannel.IdentityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"arn": "arn", "name": "name"},
+    )
+    class IdentityProperty:
+        def __init__(
+            self,
+            *,
+            arn: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The AppInstanceUser or AppInstanceBot that created the channel.
+
+            :param arn: The ARN in an identity.
+            :param name: The name in an identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-identity.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                identity_property = chime.CfnChannel.IdentityProperty(
+                    arn="arn",
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2bfa5f1d241cfa51cfb94fc2037ee9ab05fc2825441e3b064b5c3346d71baebc)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if arn is not None:
+                self._values["arn"] = arn
+            if name is not None:
+                self._values["name"] = name
+
+        @builtins.property
+        def arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN in an identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-identity.html#cfn-chime-channel-identity-arn
+            '''
+            result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name in an identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-channel-identity.html#cfn-chime-channel-identity-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IChannelFlowRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnChannelFlow(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2144,6 +2787,2278 @@ class CfnChannelFlowProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_instance_arn": "appInstanceArn",
+        "chime_bearer": "chimeBearer",
+        "name": "name",
+        "channel_id": "channelId",
+        "elastic_channel_configuration": "elasticChannelConfiguration",
+        "expiration_settings": "expirationSettings",
+        "member_arns": "memberArns",
+        "metadata": "metadata",
+        "mode": "mode",
+        "moderator_arns": "moderatorArns",
+        "privacy": "privacy",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        app_instance_arn: builtins.str,
+        chime_bearer: builtins.str,
+        name: builtins.str,
+        channel_id: typing.Optional[builtins.str] = None,
+        elastic_channel_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ElasticChannelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        expiration_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ExpirationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        member_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        metadata: typing.Optional[builtins.str] = None,
+        mode: typing.Optional[builtins.str] = None,
+        moderator_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        privacy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param app_instance_arn: The ARN of the AppInstance that contains the channel.
+        :param chime_bearer: The ARN of the AppInstanceUser or AppInstanceBot that performs every operation on this channel. Whichever of the two creates a channel automatically becomes one of its moderators, so the same ARN can subsequently read, update and delete the channel.
+        :param name: The name of the channel.
+        :param channel_id: The ID of the channel. When omitted, the service generates a UUID.
+        :param elastic_channel_configuration: The attributes required to configure and create an elastic channel. An elastic channel must use RESTRICTED mode, cannot be created with MemberArns, and is available only in some regions.
+        :param expiration_settings: Settings that control the interval after which the channel is automatically deleted.
+        :param member_arns: The ARNs of the AppInstanceUsers to add to the channel as members when it is created. Cannot be combined with ElasticChannelConfiguration.
+        :param metadata: The metadata of the channel.
+        :param mode: The channel mode. In an UNRESTRICTED channel, members can add themselves and other members; in a RESTRICTED channel, only administrators and moderators can add members. An elastic channel must be RESTRICTED.
+        :param moderator_arns: The ARNs of the AppInstanceUsers to add to the channel as moderators when it is created.
+        :param privacy: The channel's privacy level. A PUBLIC channel is discoverable by anyone in the AppInstance; a PRIVATE channel is not. Privacy cannot be changed after creation.
+        :param tags: The tags for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_channel_props = chime.CfnChannelProps(
+                app_instance_arn="appInstanceArn",
+                chime_bearer="chimeBearer",
+                name="name",
+            
+                # the properties below are optional
+                channel_id="channelId",
+                elastic_channel_configuration=chime.CfnChannel.ElasticChannelConfigurationProperty(
+                    maximum_sub_channels=123,
+                    minimum_membership_percentage=123,
+                    target_memberships_per_sub_channel=123
+                ),
+                expiration_settings=chime.CfnChannel.ExpirationSettingsProperty(
+                    expiration_criterion="expirationCriterion",
+                    expiration_days=123
+                ),
+                member_arns=["memberArns"],
+                metadata="metadata",
+                mode="mode",
+                moderator_arns=["moderatorArns"],
+                privacy="privacy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1f68927a594352d4dfb82e54610caae5c2c52baa2dcf7cbb196f93b31a786fed)
+            check_type(argname="argument app_instance_arn", value=app_instance_arn, expected_type=type_hints["app_instance_arn"])
+            check_type(argname="argument chime_bearer", value=chime_bearer, expected_type=type_hints["chime_bearer"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
+            check_type(argname="argument elastic_channel_configuration", value=elastic_channel_configuration, expected_type=type_hints["elastic_channel_configuration"])
+            check_type(argname="argument expiration_settings", value=expiration_settings, expected_type=type_hints["expiration_settings"])
+            check_type(argname="argument member_arns", value=member_arns, expected_type=type_hints["member_arns"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument moderator_arns", value=moderator_arns, expected_type=type_hints["moderator_arns"])
+            check_type(argname="argument privacy", value=privacy, expected_type=type_hints["privacy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_instance_arn": app_instance_arn,
+            "chime_bearer": chime_bearer,
+            "name": name,
+        }
+        if channel_id is not None:
+            self._values["channel_id"] = channel_id
+        if elastic_channel_configuration is not None:
+            self._values["elastic_channel_configuration"] = elastic_channel_configuration
+        if expiration_settings is not None:
+            self._values["expiration_settings"] = expiration_settings
+        if member_arns is not None:
+            self._values["member_arns"] = member_arns
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if mode is not None:
+            self._values["mode"] = mode
+        if moderator_arns is not None:
+            self._values["moderator_arns"] = moderator_arns
+        if privacy is not None:
+            self._values["privacy"] = privacy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_instance_arn(self) -> builtins.str:
+        '''The ARN of the AppInstance that contains the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-appinstancearn
+        '''
+        result = self._values.get("app_instance_arn")
+        assert result is not None, "Required property 'app_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def chime_bearer(self) -> builtins.str:
+        '''The ARN of the AppInstanceUser or AppInstanceBot that performs every operation on this channel.
+
+        Whichever of the two creates a channel automatically becomes one of its moderators, so the same ARN can subsequently read, update and delete the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-chimebearer
+        '''
+        result = self._values.get("chime_bearer")
+        assert result is not None, "Required property 'chime_bearer' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the channel.
+
+        When omitted, the service generates a UUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-channelid
+        '''
+        result = self._values.get("channel_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def elastic_channel_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ElasticChannelConfigurationProperty"]]:
+        '''The attributes required to configure and create an elastic channel.
+
+        An elastic channel must use RESTRICTED mode, cannot be created with MemberArns, and is available only in some regions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-elasticchannelconfiguration
+        '''
+        result = self._values.get("elastic_channel_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ElasticChannelConfigurationProperty"]], result)
+
+    @builtins.property
+    def expiration_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ExpirationSettingsProperty"]]:
+        '''Settings that control the interval after which the channel is automatically deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-expirationsettings
+        '''
+        result = self._values.get("expiration_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.ExpirationSettingsProperty"]], result)
+
+    @builtins.property
+    def member_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the AppInstanceUsers to add to the channel as members when it is created.
+
+        Cannot be combined with ElasticChannelConfiguration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-memberarns
+        '''
+        result = self._values.get("member_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[builtins.str]:
+        '''The metadata of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional[builtins.str]:
+        '''The channel mode.
+
+        In an UNRESTRICTED channel, members can add themselves and other members; in a RESTRICTED channel, only administrators and moderators can add members. An elastic channel must be RESTRICTED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-mode
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def moderator_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the AppInstanceUsers to add to the channel as moderators when it is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-moderatorarns
+        '''
+        result = self._values.get("moderator_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def privacy(self) -> typing.Optional[builtins.str]:
+        '''The channel's privacy level.
+
+        A PUBLIC channel is discoverable by anyone in the AppInstance; a PRIVATE channel is not. Privacy cannot be changed after creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-privacy
+        '''
+        result = self._values.get("privacy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-channel.html#cfn-chime-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IMediaInsightsPipelineConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnMediaInsightsPipelineConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration",
+):
+    '''Resource Type definition for an Amazon Chime SDK Media Insights Pipeline Configuration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html
+    :cloudformationResource: AWS::Chime::MediaInsightsPipelineConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_media_insights_pipeline_configuration = chime.CfnMediaInsightsPipelineConfiguration(self, "MyCfnMediaInsightsPipelineConfiguration",
+            elements=[chime.CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty(
+                type="type",
+        
+                # the properties below are optional
+                amazon_transcribe_call_analytics_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty(
+                    language_code="languageCode",
+        
+                    # the properties below are optional
+                    call_analytics_stream_categories=["callAnalyticsStreamCategories"],
+                    content_identification_type="contentIdentificationType",
+                    content_redaction_type="contentRedactionType",
+                    enable_partial_results_stabilization=False,
+                    filter_partial_results=False,
+                    language_model_name="languageModelName",
+                    partial_results_stability="partialResultsStability",
+                    pii_entity_types="piiEntityTypes",
+                    post_call_analytics_settings=chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty(
+                        data_access_role_arn="dataAccessRoleArn",
+                        output_location="outputLocation",
+        
+                        # the properties below are optional
+                        content_redaction_output="contentRedactionOutput",
+                        output_encryption_kms_key_id="outputEncryptionKmsKeyId"
+                    ),
+                    vocabulary_filter_method="vocabularyFilterMethod",
+                    vocabulary_filter_name="vocabularyFilterName",
+                    vocabulary_name="vocabularyName"
+                ),
+                amazon_transcribe_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty(
+                    content_identification_type="contentIdentificationType",
+                    content_redaction_type="contentRedactionType",
+                    enable_partial_results_stabilization=False,
+                    filter_partial_results=False,
+                    identify_language=False,
+                    identify_multiple_languages=False,
+                    language_code="languageCode",
+                    language_model_name="languageModelName",
+                    language_options="languageOptions",
+                    partial_results_stability="partialResultsStability",
+                    pii_entity_types="piiEntityTypes",
+                    preferred_language="preferredLanguage",
+                    show_speaker_label=False,
+                    vocabulary_filter_method="vocabularyFilterMethod",
+                    vocabulary_filter_name="vocabularyFilterName",
+                    vocabulary_filter_names="vocabularyFilterNames",
+                    vocabulary_name="vocabularyName",
+                    vocabulary_names="vocabularyNames"
+                ),
+                kinesis_data_stream_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty(
+                    insights_target="insightsTarget"
+                ),
+                s3_recording_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty(
+                    destination="destination",
+                    recording_file_format="recordingFileFormat"
+                )
+            )],
+            media_insights_pipeline_configuration_name="mediaInsightsPipelineConfigurationName",
+            resource_access_role_arn="resourceAccessRoleArn",
+        
+            # the properties below are optional
+            real_time_alert_configuration=chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty(
+                disabled=False,
+                rules=[chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty(
+                    type="type",
+        
+                    # the properties below are optional
+                    issue_detection_configuration=chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty(
+                        rule_name="ruleName"
+                    ),
+                    keyword_match_configuration=chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty(
+                        keywords=["keywords"],
+                        rule_name="ruleName",
+        
+                        # the properties below are optional
+                        negate=False
+                    ),
+                    sentiment_configuration=chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty(
+                        rule_name="ruleName",
+                        sentiment_type="sentimentType",
+                        time_period=123
+                    )
+                )]
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        elements: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        media_insights_pipeline_configuration_name: builtins.str,
+        resource_access_role_arn: builtins.str,
+        real_time_alert_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::MediaInsightsPipelineConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param elements: The elements in the configuration.
+        :param media_insights_pipeline_configuration_name: The name of the media insights pipeline configuration.
+        :param resource_access_role_arn: The ARN of the role used by the service to access Amazon Web Services resources.
+        :param real_time_alert_configuration: 
+        :param tags: The tags associated with the configuration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__889d6d992b8d7ecaa497b89b0969fdfa7fa839fcacf07f58726b49cf8f323d52)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMediaInsightsPipelineConfigurationProps(
+            elements=elements,
+            media_insights_pipeline_configuration_name=media_insights_pipeline_configuration_name,
+            resource_access_role_arn=resource_access_role_arn,
+            real_time_alert_configuration=real_time_alert_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMediaInsightsPipelineConfiguration")
+    @builtins.classmethod
+    def arn_for_media_insights_pipeline_configuration(
+        cls,
+        resource: "_aws_chime_58870695.IMediaInsightsPipelineConfigurationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d947022873d1e6882ae47a189d20b3d7f2aa53c157b7df911c6e8deb1b32e31a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMediaInsightsPipelineConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnMediaInsightsPipelineConfiguration")
+    @builtins.classmethod
+    def is_cfn_media_insights_pipeline_configuration(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnMediaInsightsPipelineConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc4a193dcd334a33221d899407a55bf4c92b7885da28e3b9f57712ac4e0b6bfd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMediaInsightsPipelineConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ffe32f64919fa553c3f22877220b9efb5fbcdcf2ad1ec025355c8a02c6f847c2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__883a85ed849985e75e040b5f613e64f571f44974766f3824019aee35d3eecdfc)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which the configuration was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMediaInsightsPipelineConfigurationArn")
+    def attr_media_insights_pipeline_configuration_arn(self) -> builtins.str:
+        '''The ARN of the configuration.
+
+        :cloudformationAttribute: MediaInsightsPipelineConfigurationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMediaInsightsPipelineConfigurationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMediaInsightsPipelineConfigurationId")
+    def attr_media_insights_pipeline_configuration_id(self) -> builtins.str:
+        '''The unique identifier of the configuration.
+
+        :cloudformationAttribute: MediaInsightsPipelineConfigurationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMediaInsightsPipelineConfigurationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedTimestamp")
+    def attr_updated_timestamp(self) -> builtins.str:
+        '''The time at which the configuration was last updated.
+
+        :cloudformationAttribute: UpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaInsightsPipelineConfigurationRef")
+    def media_insights_pipeline_configuration_ref(
+        self,
+    ) -> "_aws_chime_58870695.MediaInsightsPipelineConfigurationReference":
+        '''A reference to a MediaInsightsPipelineConfiguration resource.'''
+        return typing.cast("_aws_chime_58870695.MediaInsightsPipelineConfigurationReference", jsii.get(self, "mediaInsightsPipelineConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="elements")
+    def elements(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty"]]]:
+        '''The elements in the configuration.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty"]]], jsii.get(self, "elements"))
+
+    @elements.setter
+    def elements(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c400f356cf18466a3dff483e35943c01e7e22de89435c0c061ebb9510b901ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "elements", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaInsightsPipelineConfigurationName")
+    def media_insights_pipeline_configuration_name(self) -> builtins.str:
+        '''The name of the media insights pipeline configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "mediaInsightsPipelineConfigurationName"))
+
+    @media_insights_pipeline_configuration_name.setter
+    def media_insights_pipeline_configuration_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__703c89c9d6f653e3380e4187a1fddc6718e6cef2c715047ba16991465db1d4ee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mediaInsightsPipelineConfigurationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceAccessRoleArn")
+    def resource_access_role_arn(self) -> builtins.str:
+        '''The ARN of the role used by the service to access Amazon Web Services resources.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceAccessRoleArn"))
+
+    @resource_access_role_arn.setter
+    def resource_access_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a5495e3e7636c99bb133b9fe920d64aee710982f4fd245f2c92bb8034ee192b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceAccessRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="realTimeAlertConfiguration")
+    def real_time_alert_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty"]], jsii.get(self, "realTimeAlertConfiguration"))
+
+    @real_time_alert_configuration.setter
+    def real_time_alert_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a72716e62afe90194547497ab6f884c0ec05d923704b462976f68d92a5a76f2a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "realTimeAlertConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the configuration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__99fa72bce81eb4333c1c1c86d38e36204aef77b68b24d9f3a58023ffe14e0700)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "language_code": "languageCode",
+            "call_analytics_stream_categories": "callAnalyticsStreamCategories",
+            "content_identification_type": "contentIdentificationType",
+            "content_redaction_type": "contentRedactionType",
+            "enable_partial_results_stabilization": "enablePartialResultsStabilization",
+            "filter_partial_results": "filterPartialResults",
+            "language_model_name": "languageModelName",
+            "partial_results_stability": "partialResultsStability",
+            "pii_entity_types": "piiEntityTypes",
+            "post_call_analytics_settings": "postCallAnalyticsSettings",
+            "vocabulary_filter_method": "vocabularyFilterMethod",
+            "vocabulary_filter_name": "vocabularyFilterName",
+            "vocabulary_name": "vocabularyName",
+        },
+    )
+    class AmazonTranscribeCallAnalyticsProcessorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            language_code: builtins.str,
+            call_analytics_stream_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+            content_identification_type: typing.Optional[builtins.str] = None,
+            content_redaction_type: typing.Optional[builtins.str] = None,
+            enable_partial_results_stabilization: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            filter_partial_results: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            language_model_name: typing.Optional[builtins.str] = None,
+            partial_results_stability: typing.Optional[builtins.str] = None,
+            pii_entity_types: typing.Optional[builtins.str] = None,
+            post_call_analytics_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vocabulary_filter_method: typing.Optional[builtins.str] = None,
+            vocabulary_filter_name: typing.Optional[builtins.str] = None,
+            vocabulary_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param language_code: The language code in the configuration.
+            :param call_analytics_stream_categories: The categories to send to the insights target.
+            :param content_identification_type: Labels all PII identified in the transcript.
+            :param content_redaction_type: Redacts all PII identified in the transcript.
+            :param enable_partial_results_stabilization: Enables partial result stabilization.
+            :param filter_partial_results: If true, partial results are filtered out.
+            :param language_model_name: The name of the custom language model.
+            :param partial_results_stability: The level of stability for partial results.
+            :param pii_entity_types: The types of PII to redact.
+            :param post_call_analytics_settings: 
+            :param vocabulary_filter_method: The vocabulary filtering method.
+            :param vocabulary_filter_name: The name of the custom vocabulary filter.
+            :param vocabulary_name: The name of the custom vocabulary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                amazon_transcribe_call_analytics_processor_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty(
+                    language_code="languageCode",
+                
+                    # the properties below are optional
+                    call_analytics_stream_categories=["callAnalyticsStreamCategories"],
+                    content_identification_type="contentIdentificationType",
+                    content_redaction_type="contentRedactionType",
+                    enable_partial_results_stabilization=False,
+                    filter_partial_results=False,
+                    language_model_name="languageModelName",
+                    partial_results_stability="partialResultsStability",
+                    pii_entity_types="piiEntityTypes",
+                    post_call_analytics_settings=chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty(
+                        data_access_role_arn="dataAccessRoleArn",
+                        output_location="outputLocation",
+                
+                        # the properties below are optional
+                        content_redaction_output="contentRedactionOutput",
+                        output_encryption_kms_key_id="outputEncryptionKmsKeyId"
+                    ),
+                    vocabulary_filter_method="vocabularyFilterMethod",
+                    vocabulary_filter_name="vocabularyFilterName",
+                    vocabulary_name="vocabularyName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__afcc5b2f060868f5e44a495cf81d3fbeeebe9d579aabcae3cc02c92e4f318015)
+                check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+                check_type(argname="argument call_analytics_stream_categories", value=call_analytics_stream_categories, expected_type=type_hints["call_analytics_stream_categories"])
+                check_type(argname="argument content_identification_type", value=content_identification_type, expected_type=type_hints["content_identification_type"])
+                check_type(argname="argument content_redaction_type", value=content_redaction_type, expected_type=type_hints["content_redaction_type"])
+                check_type(argname="argument enable_partial_results_stabilization", value=enable_partial_results_stabilization, expected_type=type_hints["enable_partial_results_stabilization"])
+                check_type(argname="argument filter_partial_results", value=filter_partial_results, expected_type=type_hints["filter_partial_results"])
+                check_type(argname="argument language_model_name", value=language_model_name, expected_type=type_hints["language_model_name"])
+                check_type(argname="argument partial_results_stability", value=partial_results_stability, expected_type=type_hints["partial_results_stability"])
+                check_type(argname="argument pii_entity_types", value=pii_entity_types, expected_type=type_hints["pii_entity_types"])
+                check_type(argname="argument post_call_analytics_settings", value=post_call_analytics_settings, expected_type=type_hints["post_call_analytics_settings"])
+                check_type(argname="argument vocabulary_filter_method", value=vocabulary_filter_method, expected_type=type_hints["vocabulary_filter_method"])
+                check_type(argname="argument vocabulary_filter_name", value=vocabulary_filter_name, expected_type=type_hints["vocabulary_filter_name"])
+                check_type(argname="argument vocabulary_name", value=vocabulary_name, expected_type=type_hints["vocabulary_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "language_code": language_code,
+            }
+            if call_analytics_stream_categories is not None:
+                self._values["call_analytics_stream_categories"] = call_analytics_stream_categories
+            if content_identification_type is not None:
+                self._values["content_identification_type"] = content_identification_type
+            if content_redaction_type is not None:
+                self._values["content_redaction_type"] = content_redaction_type
+            if enable_partial_results_stabilization is not None:
+                self._values["enable_partial_results_stabilization"] = enable_partial_results_stabilization
+            if filter_partial_results is not None:
+                self._values["filter_partial_results"] = filter_partial_results
+            if language_model_name is not None:
+                self._values["language_model_name"] = language_model_name
+            if partial_results_stability is not None:
+                self._values["partial_results_stability"] = partial_results_stability
+            if pii_entity_types is not None:
+                self._values["pii_entity_types"] = pii_entity_types
+            if post_call_analytics_settings is not None:
+                self._values["post_call_analytics_settings"] = post_call_analytics_settings
+            if vocabulary_filter_method is not None:
+                self._values["vocabulary_filter_method"] = vocabulary_filter_method
+            if vocabulary_filter_name is not None:
+                self._values["vocabulary_filter_name"] = vocabulary_filter_name
+            if vocabulary_name is not None:
+                self._values["vocabulary_name"] = vocabulary_name
+
+        @builtins.property
+        def language_code(self) -> builtins.str:
+            '''The language code in the configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-languagecode
+            '''
+            result = self._values.get("language_code")
+            assert result is not None, "Required property 'language_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def call_analytics_stream_categories(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''The categories to send to the insights target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-callanalyticsstreamcategories
+            '''
+            result = self._values.get("call_analytics_stream_categories")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def content_identification_type(self) -> typing.Optional[builtins.str]:
+            '''Labels all PII identified in the transcript.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-contentidentificationtype
+            '''
+            result = self._values.get("content_identification_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def content_redaction_type(self) -> typing.Optional[builtins.str]:
+            '''Redacts all PII identified in the transcript.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-contentredactiontype
+            '''
+            result = self._values.get("content_redaction_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def enable_partial_results_stabilization(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables partial result stabilization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-enablepartialresultsstabilization
+            '''
+            result = self._values.get("enable_partial_results_stabilization")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def filter_partial_results(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''If true, partial results are filtered out.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-filterpartialresults
+            '''
+            result = self._values.get("filter_partial_results")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def language_model_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom language model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-languagemodelname
+            '''
+            result = self._values.get("language_model_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def partial_results_stability(self) -> typing.Optional[builtins.str]:
+            '''The level of stability for partial results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-partialresultsstability
+            '''
+            result = self._values.get("partial_results_stability")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pii_entity_types(self) -> typing.Optional[builtins.str]:
+            '''The types of PII to redact.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-piientitytypes
+            '''
+            result = self._values.get("pii_entity_types")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def post_call_analytics_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-postcallanalyticssettings
+            '''
+            result = self._values.get("post_call_analytics_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty"]], result)
+
+        @builtins.property
+        def vocabulary_filter_method(self) -> typing.Optional[builtins.str]:
+            '''The vocabulary filtering method.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-vocabularyfiltermethod
+            '''
+            result = self._values.get("vocabulary_filter_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_filter_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom vocabulary filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-vocabularyfiltername
+            '''
+            result = self._values.get("vocabulary_filter_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom vocabulary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribecallanalyticsprocessorconfiguration-vocabularyname
+            '''
+            result = self._values.get("vocabulary_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AmazonTranscribeCallAnalyticsProcessorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "content_identification_type": "contentIdentificationType",
+            "content_redaction_type": "contentRedactionType",
+            "enable_partial_results_stabilization": "enablePartialResultsStabilization",
+            "filter_partial_results": "filterPartialResults",
+            "identify_language": "identifyLanguage",
+            "identify_multiple_languages": "identifyMultipleLanguages",
+            "language_code": "languageCode",
+            "language_model_name": "languageModelName",
+            "language_options": "languageOptions",
+            "partial_results_stability": "partialResultsStability",
+            "pii_entity_types": "piiEntityTypes",
+            "preferred_language": "preferredLanguage",
+            "show_speaker_label": "showSpeakerLabel",
+            "vocabulary_filter_method": "vocabularyFilterMethod",
+            "vocabulary_filter_name": "vocabularyFilterName",
+            "vocabulary_filter_names": "vocabularyFilterNames",
+            "vocabulary_name": "vocabularyName",
+            "vocabulary_names": "vocabularyNames",
+        },
+    )
+    class AmazonTranscribeProcessorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            content_identification_type: typing.Optional[builtins.str] = None,
+            content_redaction_type: typing.Optional[builtins.str] = None,
+            enable_partial_results_stabilization: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            filter_partial_results: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            identify_language: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            identify_multiple_languages: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            language_code: typing.Optional[builtins.str] = None,
+            language_model_name: typing.Optional[builtins.str] = None,
+            language_options: typing.Optional[builtins.str] = None,
+            partial_results_stability: typing.Optional[builtins.str] = None,
+            pii_entity_types: typing.Optional[builtins.str] = None,
+            preferred_language: typing.Optional[builtins.str] = None,
+            show_speaker_label: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            vocabulary_filter_method: typing.Optional[builtins.str] = None,
+            vocabulary_filter_name: typing.Optional[builtins.str] = None,
+            vocabulary_filter_names: typing.Optional[builtins.str] = None,
+            vocabulary_name: typing.Optional[builtins.str] = None,
+            vocabulary_names: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param content_identification_type: Labels all PII identified in the transcript.
+            :param content_redaction_type: Redacts all PII identified in the transcript.
+            :param enable_partial_results_stabilization: Enables partial result stabilization.
+            :param filter_partial_results: If true, partial results are filtered out.
+            :param identify_language: Turns language identification on or off.
+            :param identify_multiple_languages: Turns multiple language identification on or off.
+            :param language_code: The language code.
+            :param language_model_name: The name of the custom language model.
+            :param language_options: The language options for transcription.
+            :param partial_results_stability: The level of stability for partial results.
+            :param pii_entity_types: The types of PII to redact.
+            :param preferred_language: The preferred language for transcription.
+            :param show_speaker_label: Enables speaker partitioning.
+            :param vocabulary_filter_method: The vocabulary filtering method.
+            :param vocabulary_filter_name: The name of the custom vocabulary filter.
+            :param vocabulary_filter_names: The names of the custom vocabulary filters.
+            :param vocabulary_name: The name of the custom vocabulary.
+            :param vocabulary_names: The names of the custom vocabularies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                amazon_transcribe_processor_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty(
+                    content_identification_type="contentIdentificationType",
+                    content_redaction_type="contentRedactionType",
+                    enable_partial_results_stabilization=False,
+                    filter_partial_results=False,
+                    identify_language=False,
+                    identify_multiple_languages=False,
+                    language_code="languageCode",
+                    language_model_name="languageModelName",
+                    language_options="languageOptions",
+                    partial_results_stability="partialResultsStability",
+                    pii_entity_types="piiEntityTypes",
+                    preferred_language="preferredLanguage",
+                    show_speaker_label=False,
+                    vocabulary_filter_method="vocabularyFilterMethod",
+                    vocabulary_filter_name="vocabularyFilterName",
+                    vocabulary_filter_names="vocabularyFilterNames",
+                    vocabulary_name="vocabularyName",
+                    vocabulary_names="vocabularyNames"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__55202693225010e49bacdad3bec7e625d84491c4df67d1192367340ff7385560)
+                check_type(argname="argument content_identification_type", value=content_identification_type, expected_type=type_hints["content_identification_type"])
+                check_type(argname="argument content_redaction_type", value=content_redaction_type, expected_type=type_hints["content_redaction_type"])
+                check_type(argname="argument enable_partial_results_stabilization", value=enable_partial_results_stabilization, expected_type=type_hints["enable_partial_results_stabilization"])
+                check_type(argname="argument filter_partial_results", value=filter_partial_results, expected_type=type_hints["filter_partial_results"])
+                check_type(argname="argument identify_language", value=identify_language, expected_type=type_hints["identify_language"])
+                check_type(argname="argument identify_multiple_languages", value=identify_multiple_languages, expected_type=type_hints["identify_multiple_languages"])
+                check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+                check_type(argname="argument language_model_name", value=language_model_name, expected_type=type_hints["language_model_name"])
+                check_type(argname="argument language_options", value=language_options, expected_type=type_hints["language_options"])
+                check_type(argname="argument partial_results_stability", value=partial_results_stability, expected_type=type_hints["partial_results_stability"])
+                check_type(argname="argument pii_entity_types", value=pii_entity_types, expected_type=type_hints["pii_entity_types"])
+                check_type(argname="argument preferred_language", value=preferred_language, expected_type=type_hints["preferred_language"])
+                check_type(argname="argument show_speaker_label", value=show_speaker_label, expected_type=type_hints["show_speaker_label"])
+                check_type(argname="argument vocabulary_filter_method", value=vocabulary_filter_method, expected_type=type_hints["vocabulary_filter_method"])
+                check_type(argname="argument vocabulary_filter_name", value=vocabulary_filter_name, expected_type=type_hints["vocabulary_filter_name"])
+                check_type(argname="argument vocabulary_filter_names", value=vocabulary_filter_names, expected_type=type_hints["vocabulary_filter_names"])
+                check_type(argname="argument vocabulary_name", value=vocabulary_name, expected_type=type_hints["vocabulary_name"])
+                check_type(argname="argument vocabulary_names", value=vocabulary_names, expected_type=type_hints["vocabulary_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if content_identification_type is not None:
+                self._values["content_identification_type"] = content_identification_type
+            if content_redaction_type is not None:
+                self._values["content_redaction_type"] = content_redaction_type
+            if enable_partial_results_stabilization is not None:
+                self._values["enable_partial_results_stabilization"] = enable_partial_results_stabilization
+            if filter_partial_results is not None:
+                self._values["filter_partial_results"] = filter_partial_results
+            if identify_language is not None:
+                self._values["identify_language"] = identify_language
+            if identify_multiple_languages is not None:
+                self._values["identify_multiple_languages"] = identify_multiple_languages
+            if language_code is not None:
+                self._values["language_code"] = language_code
+            if language_model_name is not None:
+                self._values["language_model_name"] = language_model_name
+            if language_options is not None:
+                self._values["language_options"] = language_options
+            if partial_results_stability is not None:
+                self._values["partial_results_stability"] = partial_results_stability
+            if pii_entity_types is not None:
+                self._values["pii_entity_types"] = pii_entity_types
+            if preferred_language is not None:
+                self._values["preferred_language"] = preferred_language
+            if show_speaker_label is not None:
+                self._values["show_speaker_label"] = show_speaker_label
+            if vocabulary_filter_method is not None:
+                self._values["vocabulary_filter_method"] = vocabulary_filter_method
+            if vocabulary_filter_name is not None:
+                self._values["vocabulary_filter_name"] = vocabulary_filter_name
+            if vocabulary_filter_names is not None:
+                self._values["vocabulary_filter_names"] = vocabulary_filter_names
+            if vocabulary_name is not None:
+                self._values["vocabulary_name"] = vocabulary_name
+            if vocabulary_names is not None:
+                self._values["vocabulary_names"] = vocabulary_names
+
+        @builtins.property
+        def content_identification_type(self) -> typing.Optional[builtins.str]:
+            '''Labels all PII identified in the transcript.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-contentidentificationtype
+            '''
+            result = self._values.get("content_identification_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def content_redaction_type(self) -> typing.Optional[builtins.str]:
+            '''Redacts all PII identified in the transcript.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-contentredactiontype
+            '''
+            result = self._values.get("content_redaction_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def enable_partial_results_stabilization(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables partial result stabilization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-enablepartialresultsstabilization
+            '''
+            result = self._values.get("enable_partial_results_stabilization")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def filter_partial_results(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''If true, partial results are filtered out.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-filterpartialresults
+            '''
+            result = self._values.get("filter_partial_results")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def identify_language(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Turns language identification on or off.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-identifylanguage
+            '''
+            result = self._values.get("identify_language")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def identify_multiple_languages(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Turns multiple language identification on or off.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-identifymultiplelanguages
+            '''
+            result = self._values.get("identify_multiple_languages")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def language_code(self) -> typing.Optional[builtins.str]:
+            '''The language code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-languagecode
+            '''
+            result = self._values.get("language_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def language_model_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom language model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-languagemodelname
+            '''
+            result = self._values.get("language_model_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def language_options(self) -> typing.Optional[builtins.str]:
+            '''The language options for transcription.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-languageoptions
+            '''
+            result = self._values.get("language_options")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def partial_results_stability(self) -> typing.Optional[builtins.str]:
+            '''The level of stability for partial results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-partialresultsstability
+            '''
+            result = self._values.get("partial_results_stability")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pii_entity_types(self) -> typing.Optional[builtins.str]:
+            '''The types of PII to redact.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-piientitytypes
+            '''
+            result = self._values.get("pii_entity_types")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def preferred_language(self) -> typing.Optional[builtins.str]:
+            '''The preferred language for transcription.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-preferredlanguage
+            '''
+            result = self._values.get("preferred_language")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def show_speaker_label(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables speaker partitioning.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-showspeakerlabel
+            '''
+            result = self._values.get("show_speaker_label")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def vocabulary_filter_method(self) -> typing.Optional[builtins.str]:
+            '''The vocabulary filtering method.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-vocabularyfiltermethod
+            '''
+            result = self._values.get("vocabulary_filter_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_filter_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom vocabulary filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-vocabularyfiltername
+            '''
+            result = self._values.get("vocabulary_filter_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_filter_names(self) -> typing.Optional[builtins.str]:
+            '''The names of the custom vocabulary filters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-vocabularyfilternames
+            '''
+            result = self._values.get("vocabulary_filter_names")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the custom vocabulary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-vocabularyname
+            '''
+            result = self._values.get("vocabulary_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vocabulary_names(self) -> typing.Optional[builtins.str]:
+            '''The names of the custom vocabularies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-amazontranscribeprocessorconfiguration-vocabularynames
+            '''
+            result = self._values.get("vocabulary_names")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AmazonTranscribeProcessorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rule_name": "ruleName"},
+    )
+    class IssueDetectionConfigurationProperty:
+        def __init__(self, *, rule_name: builtins.str) -> None:
+            '''
+            :param rule_name: The name of the issue detection rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-issuedetectionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                issue_detection_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty(
+                    rule_name="ruleName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ab8c7535ce89e3bcb112d465f75d85b0285fad63a58b8b26215f096155d80c62)
+                check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rule_name": rule_name,
+            }
+
+        @builtins.property
+        def rule_name(self) -> builtins.str:
+            '''The name of the issue detection rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-issuedetectionconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-issuedetectionconfiguration-rulename
+            '''
+            result = self._values.get("rule_name")
+            assert result is not None, "Required property 'rule_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IssueDetectionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "keywords": "keywords",
+            "rule_name": "ruleName",
+            "negate": "negate",
+        },
+    )
+    class KeywordMatchConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            keywords: typing.Sequence[builtins.str],
+            rule_name: builtins.str,
+            negate: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''
+            :param keywords: The keywords or phrases to match.
+            :param rule_name: The name of the keyword match rule.
+            :param negate: Matches keywords on their presence or absence.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                keyword_match_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty(
+                    keywords=["keywords"],
+                    rule_name="ruleName",
+                
+                    # the properties below are optional
+                    negate=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6a2dae732e141f2e4061d354a319ad3929393a26356474daf8eb6b533ae66cac)
+                check_type(argname="argument keywords", value=keywords, expected_type=type_hints["keywords"])
+                check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+                check_type(argname="argument negate", value=negate, expected_type=type_hints["negate"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "keywords": keywords,
+                "rule_name": rule_name,
+            }
+            if negate is not None:
+                self._values["negate"] = negate
+
+        @builtins.property
+        def keywords(self) -> typing.List[builtins.str]:
+            '''The keywords or phrases to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration-keywords
+            '''
+            result = self._values.get("keywords")
+            assert result is not None, "Required property 'keywords' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def rule_name(self) -> builtins.str:
+            '''The name of the keyword match rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration-rulename
+            '''
+            result = self._values.get("rule_name")
+            assert result is not None, "Required property 'rule_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def negate(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Matches keywords on their presence or absence.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-keywordmatchconfiguration-negate
+            '''
+            result = self._values.get("negate")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeywordMatchConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"insights_target": "insightsTarget"},
+    )
+    class KinesisDataStreamSinkConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            insights_target: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param insights_target: The ARN of the Kinesis Data Stream sink.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-kinesisdatastreamsinkconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                kinesis_data_stream_sink_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty(
+                    insights_target="insightsTarget"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0c7b26f7516e3f0c94b597c003af93479cb85b1b15e8dbdfdf2dfaa9fd033949)
+                check_type(argname="argument insights_target", value=insights_target, expected_type=type_hints["insights_target"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if insights_target is not None:
+                self._values["insights_target"] = insights_target
+
+        @builtins.property
+        def insights_target(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the Kinesis Data Stream sink.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-kinesisdatastreamsinkconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-kinesisdatastreamsinkconfiguration-insightstarget
+            '''
+            result = self._values.get("insights_target")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisDataStreamSinkConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "amazon_transcribe_call_analytics_processor_configuration": "amazonTranscribeCallAnalyticsProcessorConfiguration",
+            "amazon_transcribe_processor_configuration": "amazonTranscribeProcessorConfiguration",
+            "kinesis_data_stream_sink_configuration": "kinesisDataStreamSinkConfiguration",
+            "s3_recording_sink_configuration": "s3RecordingSinkConfiguration",
+        },
+    )
+    class MediaInsightsPipelineConfigurationElementProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            amazon_transcribe_call_analytics_processor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            amazon_transcribe_processor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_data_stream_sink_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_recording_sink_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param type: The element type.
+            :param amazon_transcribe_call_analytics_processor_configuration: 
+            :param amazon_transcribe_processor_configuration: 
+            :param kinesis_data_stream_sink_configuration: 
+            :param s3_recording_sink_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                media_insights_pipeline_configuration_element_property = chime.CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    amazon_transcribe_call_analytics_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty(
+                        language_code="languageCode",
+                
+                        # the properties below are optional
+                        call_analytics_stream_categories=["callAnalyticsStreamCategories"],
+                        content_identification_type="contentIdentificationType",
+                        content_redaction_type="contentRedactionType",
+                        enable_partial_results_stabilization=False,
+                        filter_partial_results=False,
+                        language_model_name="languageModelName",
+                        partial_results_stability="partialResultsStability",
+                        pii_entity_types="piiEntityTypes",
+                        post_call_analytics_settings=chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty(
+                            data_access_role_arn="dataAccessRoleArn",
+                            output_location="outputLocation",
+                
+                            # the properties below are optional
+                            content_redaction_output="contentRedactionOutput",
+                            output_encryption_kms_key_id="outputEncryptionKmsKeyId"
+                        ),
+                        vocabulary_filter_method="vocabularyFilterMethod",
+                        vocabulary_filter_name="vocabularyFilterName",
+                        vocabulary_name="vocabularyName"
+                    ),
+                    amazon_transcribe_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty(
+                        content_identification_type="contentIdentificationType",
+                        content_redaction_type="contentRedactionType",
+                        enable_partial_results_stabilization=False,
+                        filter_partial_results=False,
+                        identify_language=False,
+                        identify_multiple_languages=False,
+                        language_code="languageCode",
+                        language_model_name="languageModelName",
+                        language_options="languageOptions",
+                        partial_results_stability="partialResultsStability",
+                        pii_entity_types="piiEntityTypes",
+                        preferred_language="preferredLanguage",
+                        show_speaker_label=False,
+                        vocabulary_filter_method="vocabularyFilterMethod",
+                        vocabulary_filter_name="vocabularyFilterName",
+                        vocabulary_filter_names="vocabularyFilterNames",
+                        vocabulary_name="vocabularyName",
+                        vocabulary_names="vocabularyNames"
+                    ),
+                    kinesis_data_stream_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty(
+                        insights_target="insightsTarget"
+                    ),
+                    s3_recording_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty(
+                        destination="destination",
+                        recording_file_format="recordingFileFormat"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9ee2b917d23080d4fd427d093f10d15a4b47ba3f834e7d360f29dcc6254db811)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument amazon_transcribe_call_analytics_processor_configuration", value=amazon_transcribe_call_analytics_processor_configuration, expected_type=type_hints["amazon_transcribe_call_analytics_processor_configuration"])
+                check_type(argname="argument amazon_transcribe_processor_configuration", value=amazon_transcribe_processor_configuration, expected_type=type_hints["amazon_transcribe_processor_configuration"])
+                check_type(argname="argument kinesis_data_stream_sink_configuration", value=kinesis_data_stream_sink_configuration, expected_type=type_hints["kinesis_data_stream_sink_configuration"])
+                check_type(argname="argument s3_recording_sink_configuration", value=s3_recording_sink_configuration, expected_type=type_hints["s3_recording_sink_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if amazon_transcribe_call_analytics_processor_configuration is not None:
+                self._values["amazon_transcribe_call_analytics_processor_configuration"] = amazon_transcribe_call_analytics_processor_configuration
+            if amazon_transcribe_processor_configuration is not None:
+                self._values["amazon_transcribe_processor_configuration"] = amazon_transcribe_processor_configuration
+            if kinesis_data_stream_sink_configuration is not None:
+                self._values["kinesis_data_stream_sink_configuration"] = kinesis_data_stream_sink_configuration
+            if s3_recording_sink_configuration is not None:
+                self._values["s3_recording_sink_configuration"] = s3_recording_sink_configuration
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The element type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def amazon_transcribe_call_analytics_processor_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement-amazontranscribecallanalyticsprocessorconfiguration
+            '''
+            result = self._values.get("amazon_transcribe_call_analytics_processor_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty"]], result)
+
+        @builtins.property
+        def amazon_transcribe_processor_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement-amazontranscribeprocessorconfiguration
+            '''
+            result = self._values.get("amazon_transcribe_processor_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty"]], result)
+
+        @builtins.property
+        def kinesis_data_stream_sink_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement-kinesisdatastreamsinkconfiguration
+            '''
+            result = self._values.get("kinesis_data_stream_sink_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty"]], result)
+
+        @builtins.property
+        def s3_recording_sink_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationelement-s3recordingsinkconfiguration
+            '''
+            result = self._values.get("s3_recording_sink_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaInsightsPipelineConfigurationElementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "data_access_role_arn": "dataAccessRoleArn",
+            "output_location": "outputLocation",
+            "content_redaction_output": "contentRedactionOutput",
+            "output_encryption_kms_key_id": "outputEncryptionKmsKeyId",
+        },
+    )
+    class PostCallAnalyticsSettingsProperty:
+        def __init__(
+            self,
+            *,
+            data_access_role_arn: builtins.str,
+            output_location: builtins.str,
+            content_redaction_output: typing.Optional[builtins.str] = None,
+            output_encryption_kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param data_access_role_arn: The ARN of the role used by Transcribe to upload post-call analysis.
+            :param output_location: The URL of the Amazon S3 bucket for post-call data.
+            :param content_redaction_output: The content redaction output settings.
+            :param output_encryption_kms_key_id: The ID of the KMS key used to encrypt the output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-postcallanalyticssettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                post_call_analytics_settings_property = chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty(
+                    data_access_role_arn="dataAccessRoleArn",
+                    output_location="outputLocation",
+                
+                    # the properties below are optional
+                    content_redaction_output="contentRedactionOutput",
+                    output_encryption_kms_key_id="outputEncryptionKmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__55dd53917f4d820371c3d2de6f1b1b305b775665440acf4e8b26628464786c06)
+                check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+                check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
+                check_type(argname="argument content_redaction_output", value=content_redaction_output, expected_type=type_hints["content_redaction_output"])
+                check_type(argname="argument output_encryption_kms_key_id", value=output_encryption_kms_key_id, expected_type=type_hints["output_encryption_kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "data_access_role_arn": data_access_role_arn,
+                "output_location": output_location,
+            }
+            if content_redaction_output is not None:
+                self._values["content_redaction_output"] = content_redaction_output
+            if output_encryption_kms_key_id is not None:
+                self._values["output_encryption_kms_key_id"] = output_encryption_kms_key_id
+
+        @builtins.property
+        def data_access_role_arn(self) -> builtins.str:
+            '''The ARN of the role used by Transcribe to upload post-call analysis.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-postcallanalyticssettings.html#cfn-chime-mediainsightspipelineconfiguration-postcallanalyticssettings-dataaccessrolearn
+            '''
+            result = self._values.get("data_access_role_arn")
+            assert result is not None, "Required property 'data_access_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_location(self) -> builtins.str:
+            '''The URL of the Amazon S3 bucket for post-call data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-postcallanalyticssettings.html#cfn-chime-mediainsightspipelineconfiguration-postcallanalyticssettings-outputlocation
+            '''
+            result = self._values.get("output_location")
+            assert result is not None, "Required property 'output_location' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_redaction_output(self) -> typing.Optional[builtins.str]:
+            '''The content redaction output settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-postcallanalyticssettings.html#cfn-chime-mediainsightspipelineconfiguration-postcallanalyticssettings-contentredactionoutput
+            '''
+            result = self._values.get("content_redaction_output")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the KMS key used to encrypt the output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-postcallanalyticssettings.html#cfn-chime-mediainsightspipelineconfiguration-postcallanalyticssettings-outputencryptionkmskeyid
+            '''
+            result = self._values.get("output_encryption_kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PostCallAnalyticsSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"disabled": "disabled", "rules": "rules"},
+    )
+    class RealTimeAlertConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            disabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param disabled: Turns off real-time alerts.
+            :param rules: The rules in the alert.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                real_time_alert_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty(
+                    disabled=False,
+                    rules=[chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        issue_detection_configuration=chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty(
+                            rule_name="ruleName"
+                        ),
+                        keyword_match_configuration=chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty(
+                            keywords=["keywords"],
+                            rule_name="ruleName",
+                
+                            # the properties below are optional
+                            negate=False
+                        ),
+                        sentiment_configuration=chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty(
+                            rule_name="ruleName",
+                            sentiment_type="sentimentType",
+                            time_period=123
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f58a5091b81af0969b48eb2cb8c038f94af7be3f100d23e47633ebcfa5075b09)
+                check_type(argname="argument disabled", value=disabled, expected_type=type_hints["disabled"])
+                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if disabled is not None:
+                self._values["disabled"] = disabled
+            if rules is not None:
+                self._values["rules"] = rules
+
+        @builtins.property
+        def disabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Turns off real-time alerts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertconfiguration-disabled
+            '''
+            result = self._values.get("disabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def rules(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty"]]]]:
+            '''The rules in the alert.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertconfiguration-rules
+            '''
+            result = self._values.get("rules")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RealTimeAlertConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "issue_detection_configuration": "issueDetectionConfiguration",
+            "keyword_match_configuration": "keywordMatchConfiguration",
+            "sentiment_configuration": "sentimentConfiguration",
+        },
+    )
+    class RealTimeAlertRuleProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            issue_detection_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            keyword_match_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sentiment_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param type: The type of alert rule.
+            :param issue_detection_configuration: 
+            :param keyword_match_configuration: 
+            :param sentiment_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                real_time_alert_rule_property = chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    issue_detection_configuration=chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty(
+                        rule_name="ruleName"
+                    ),
+                    keyword_match_configuration=chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty(
+                        keywords=["keywords"],
+                        rule_name="ruleName",
+                
+                        # the properties below are optional
+                        negate=False
+                    ),
+                    sentiment_configuration=chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty(
+                        rule_name="ruleName",
+                        sentiment_type="sentimentType",
+                        time_period=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__014418bc181569b08f625dde46ac0798963eb491d4ad04fc180d53234cb2164c)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument issue_detection_configuration", value=issue_detection_configuration, expected_type=type_hints["issue_detection_configuration"])
+                check_type(argname="argument keyword_match_configuration", value=keyword_match_configuration, expected_type=type_hints["keyword_match_configuration"])
+                check_type(argname="argument sentiment_configuration", value=sentiment_configuration, expected_type=type_hints["sentiment_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if issue_detection_configuration is not None:
+                self._values["issue_detection_configuration"] = issue_detection_configuration
+            if keyword_match_configuration is not None:
+                self._values["keyword_match_configuration"] = keyword_match_configuration
+            if sentiment_configuration is not None:
+                self._values["sentiment_configuration"] = sentiment_configuration
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of alert rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertrule.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertrule-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issue_detection_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertrule.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertrule-issuedetectionconfiguration
+            '''
+            result = self._values.get("issue_detection_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty"]], result)
+
+        @builtins.property
+        def keyword_match_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertrule.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertrule-keywordmatchconfiguration
+            '''
+            result = self._values.get("keyword_match_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty"]], result)
+
+        @builtins.property
+        def sentiment_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-realtimealertrule.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertrule-sentimentconfiguration
+            '''
+            result = self._values.get("sentiment_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RealTimeAlertRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination": "destination",
+            "recording_file_format": "recordingFileFormat",
+        },
+    )
+    class S3RecordingSinkConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Optional[builtins.str] = None,
+            recording_file_format: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param destination: The default URI of the Amazon S3 bucket.
+            :param recording_file_format: The recording file format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-s3recordingsinkconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                s3_recording_sink_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty(
+                    destination="destination",
+                    recording_file_format="recordingFileFormat"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__282a9f6918db78f8c2ba6791400feb36b9c506d6568b739ade819b651c917da5)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+                check_type(argname="argument recording_file_format", value=recording_file_format, expected_type=type_hints["recording_file_format"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination is not None:
+                self._values["destination"] = destination
+            if recording_file_format is not None:
+                self._values["recording_file_format"] = recording_file_format
+
+        @builtins.property
+        def destination(self) -> typing.Optional[builtins.str]:
+            '''The default URI of the Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-s3recordingsinkconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-s3recordingsinkconfiguration-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def recording_file_format(self) -> typing.Optional[builtins.str]:
+            '''The recording file format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-s3recordingsinkconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-s3recordingsinkconfiguration-recordingfileformat
+            '''
+            result = self._values.get("recording_file_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3RecordingSinkConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rule_name": "ruleName",
+            "sentiment_type": "sentimentType",
+            "time_period": "timePeriod",
+        },
+    )
+    class SentimentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rule_name: builtins.str,
+            sentiment_type: builtins.str,
+            time_period: jsii.Number,
+        ) -> None:
+            '''
+            :param rule_name: The name of the sentiment rule.
+            :param sentiment_type: The type of sentiment.
+            :param time_period: The analysis interval in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-sentimentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                sentiment_configuration_property = chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty(
+                    rule_name="ruleName",
+                    sentiment_type="sentimentType",
+                    time_period=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__433bc2f178f4e21ad76e84ccc78517a72d926ae25aba59dc382a92cb7e86654f)
+                check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+                check_type(argname="argument sentiment_type", value=sentiment_type, expected_type=type_hints["sentiment_type"])
+                check_type(argname="argument time_period", value=time_period, expected_type=type_hints["time_period"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rule_name": rule_name,
+                "sentiment_type": sentiment_type,
+                "time_period": time_period,
+            }
+
+        @builtins.property
+        def rule_name(self) -> builtins.str:
+            '''The name of the sentiment rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-sentimentconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-sentimentconfiguration-rulename
+            '''
+            result = self._values.get("rule_name")
+            assert result is not None, "Required property 'rule_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def sentiment_type(self) -> builtins.str:
+            '''The type of sentiment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-sentimentconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-sentimentconfiguration-sentimenttype
+            '''
+            result = self._values.get("sentiment_type")
+            assert result is not None, "Required property 'sentiment_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def time_period(self) -> jsii.Number:
+            '''The analysis interval in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediainsightspipelineconfiguration-sentimentconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-sentimentconfiguration-timeperiod
+            '''
+            result = self._values.get("time_period")
+            assert result is not None, "Required property 'time_period' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SentimentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnMediaInsightsPipelineConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "elements": "elements",
+        "media_insights_pipeline_configuration_name": "mediaInsightsPipelineConfigurationName",
+        "resource_access_role_arn": "resourceAccessRoleArn",
+        "real_time_alert_configuration": "realTimeAlertConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnMediaInsightsPipelineConfigurationProps:
+    def __init__(
+        self,
+        *,
+        elements: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        media_insights_pipeline_configuration_name: builtins.str,
+        resource_access_role_arn: builtins.str,
+        real_time_alert_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMediaInsightsPipelineConfiguration``.
+
+        :param elements: The elements in the configuration.
+        :param media_insights_pipeline_configuration_name: The name of the media insights pipeline configuration.
+        :param resource_access_role_arn: The ARN of the role used by the service to access Amazon Web Services resources.
+        :param real_time_alert_configuration: 
+        :param tags: The tags associated with the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_media_insights_pipeline_configuration_props = chime.CfnMediaInsightsPipelineConfigurationProps(
+                elements=[chime.CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    amazon_transcribe_call_analytics_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty(
+                        language_code="languageCode",
+            
+                        # the properties below are optional
+                        call_analytics_stream_categories=["callAnalyticsStreamCategories"],
+                        content_identification_type="contentIdentificationType",
+                        content_redaction_type="contentRedactionType",
+                        enable_partial_results_stabilization=False,
+                        filter_partial_results=False,
+                        language_model_name="languageModelName",
+                        partial_results_stability="partialResultsStability",
+                        pii_entity_types="piiEntityTypes",
+                        post_call_analytics_settings=chime.CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty(
+                            data_access_role_arn="dataAccessRoleArn",
+                            output_location="outputLocation",
+            
+                            # the properties below are optional
+                            content_redaction_output="contentRedactionOutput",
+                            output_encryption_kms_key_id="outputEncryptionKmsKeyId"
+                        ),
+                        vocabulary_filter_method="vocabularyFilterMethod",
+                        vocabulary_filter_name="vocabularyFilterName",
+                        vocabulary_name="vocabularyName"
+                    ),
+                    amazon_transcribe_processor_configuration=chime.CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty(
+                        content_identification_type="contentIdentificationType",
+                        content_redaction_type="contentRedactionType",
+                        enable_partial_results_stabilization=False,
+                        filter_partial_results=False,
+                        identify_language=False,
+                        identify_multiple_languages=False,
+                        language_code="languageCode",
+                        language_model_name="languageModelName",
+                        language_options="languageOptions",
+                        partial_results_stability="partialResultsStability",
+                        pii_entity_types="piiEntityTypes",
+                        preferred_language="preferredLanguage",
+                        show_speaker_label=False,
+                        vocabulary_filter_method="vocabularyFilterMethod",
+                        vocabulary_filter_name="vocabularyFilterName",
+                        vocabulary_filter_names="vocabularyFilterNames",
+                        vocabulary_name="vocabularyName",
+                        vocabulary_names="vocabularyNames"
+                    ),
+                    kinesis_data_stream_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty(
+                        insights_target="insightsTarget"
+                    ),
+                    s3_recording_sink_configuration=chime.CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty(
+                        destination="destination",
+                        recording_file_format="recordingFileFormat"
+                    )
+                )],
+                media_insights_pipeline_configuration_name="mediaInsightsPipelineConfigurationName",
+                resource_access_role_arn="resourceAccessRoleArn",
+            
+                # the properties below are optional
+                real_time_alert_configuration=chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty(
+                    disabled=False,
+                    rules=[chime.CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        issue_detection_configuration=chime.CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty(
+                            rule_name="ruleName"
+                        ),
+                        keyword_match_configuration=chime.CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty(
+                            keywords=["keywords"],
+                            rule_name="ruleName",
+            
+                            # the properties below are optional
+                            negate=False
+                        ),
+                        sentiment_configuration=chime.CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty(
+                            rule_name="ruleName",
+                            sentiment_type="sentimentType",
+                            time_period=123
+                        )
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c5edcf05aa706b7cb6499c317d5a3073fbd8b8e091f593c38e6cbbcd4e4b4835)
+            check_type(argname="argument elements", value=elements, expected_type=type_hints["elements"])
+            check_type(argname="argument media_insights_pipeline_configuration_name", value=media_insights_pipeline_configuration_name, expected_type=type_hints["media_insights_pipeline_configuration_name"])
+            check_type(argname="argument resource_access_role_arn", value=resource_access_role_arn, expected_type=type_hints["resource_access_role_arn"])
+            check_type(argname="argument real_time_alert_configuration", value=real_time_alert_configuration, expected_type=type_hints["real_time_alert_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "elements": elements,
+            "media_insights_pipeline_configuration_name": media_insights_pipeline_configuration_name,
+            "resource_access_role_arn": resource_access_role_arn,
+        }
+        if real_time_alert_configuration is not None:
+            self._values["real_time_alert_configuration"] = real_time_alert_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def elements(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty"]]]:
+        '''The elements in the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-elements
+        '''
+        result = self._values.get("elements")
+        assert result is not None, "Required property 'elements' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty"]]], result)
+
+    @builtins.property
+    def media_insights_pipeline_configuration_name(self) -> builtins.str:
+        '''The name of the media insights pipeline configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-mediainsightspipelineconfigurationname
+        '''
+        result = self._values.get("media_insights_pipeline_configuration_name")
+        assert result is not None, "Required property 'media_insights_pipeline_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_access_role_arn(self) -> builtins.str:
+        '''The ARN of the role used by the service to access Amazon Web Services resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-resourceaccessrolearn
+        '''
+        result = self._values.get("resource_access_role_arn")
+        assert result is not None, "Required property 'resource_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def real_time_alert_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-realtimealertconfiguration
+        '''
+        result = self._values.get("real_time_alert_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediainsightspipelineconfiguration.html#cfn-chime-mediainsightspipelineconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMediaInsightsPipelineConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IMediaPipelineKinesisVideoStreamPoolRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMediaPipelineKinesisVideoStreamPool(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2628,6 +5543,810 @@ class CfnMediaPipelineKinesisVideoStreamPoolProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.ISipMediaApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSipMediaApplication(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnSipMediaApplication",
+):
+    '''Resource Type definition for AWS::Chime::SipMediaApplication.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html
+    :cloudformationResource: AWS::Chime::SipMediaApplication
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_sip_media_application = chime.CfnSipMediaApplication(self, "MyCfnSipMediaApplication",
+            aws_region="awsRegion",
+            endpoints=[chime.CfnSipMediaApplication.SipMediaApplicationEndpointProperty(
+                lambda_arn="lambdaArn"
+            )],
+            name="name",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        aws_region: builtins.str,
+        endpoints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSipMediaApplication.SipMediaApplicationEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::SipMediaApplication``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param aws_region: The AWS Region in which the SIP media application is created.
+        :param endpoints: List of endpoints (Lambda ARNs) specified for the SIP media application.
+        :param name: The name of the SIP media application.
+        :param tags: Tags assigned to the SIP media application.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26eb8c1bc4a1f86978d3246e599a9aa699835a5d089fa644436e38af502db993)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSipMediaApplicationProps(
+            aws_region=aws_region, endpoints=endpoints, name=name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSipMediaApplication")
+    @builtins.classmethod
+    def arn_for_sip_media_application(
+        cls,
+        resource: "_aws_chime_58870695.ISipMediaApplicationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba0d683650689e2081014db2d6fb9a99607330603aeb24831e1b4435308282a6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSipMediaApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnSipMediaApplication")
+    @builtins.classmethod
+    def is_cfn_sip_media_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSipMediaApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2be69fd45b5d6f37793e1a3c4568d5fefa809a190aa3b6d71debe22da918b05d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSipMediaApplication", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be1e3584a84de325a695edf5be77fbe8848ccb44a374d874697fb274c323ed00)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3492a5dbb051d3de8df839802771567711dc67d94bf59796892bbc6bfb37fdf7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The SIP media application creation timestamp, in ISO 8601 format.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSipMediaApplicationArn")
+    def attr_sip_media_application_arn(self) -> builtins.str:
+        '''The ARN of the SIP media application.
+
+        :cloudformationAttribute: SipMediaApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSipMediaApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSipMediaApplicationId")
+    def attr_sip_media_application_id(self) -> builtins.str:
+        '''The SIP media application ID.
+
+        :cloudformationAttribute: SipMediaApplicationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSipMediaApplicationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedTimestamp")
+    def attr_updated_timestamp(self) -> builtins.str:
+        '''The time at which the SIP media application was updated.
+
+        :cloudformationAttribute: UpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sipMediaApplicationRef")
+    def sip_media_application_ref(
+        self,
+    ) -> "_aws_chime_58870695.SipMediaApplicationReference":
+        '''A reference to a SipMediaApplication resource.'''
+        return typing.cast("_aws_chime_58870695.SipMediaApplicationReference", jsii.get(self, "sipMediaApplicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="awsRegion")
+    def aws_region(self) -> builtins.str:
+        '''The AWS Region in which the SIP media application is created.'''
+        return typing.cast(builtins.str, jsii.get(self, "awsRegion"))
+
+    @aws_region.setter
+    def aws_region(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4a2351c8de98c40a4806a6c3430bda1438b5d8da90910f625bff87ae9672466c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpoints")
+    def endpoints(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSipMediaApplication.SipMediaApplicationEndpointProperty"]]]:
+        '''List of endpoints (Lambda ARNs) specified for the SIP media application.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSipMediaApplication.SipMediaApplicationEndpointProperty"]]], jsii.get(self, "endpoints"))
+
+    @endpoints.setter
+    def endpoints(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSipMediaApplication.SipMediaApplicationEndpointProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d39849434edfc162ba7322548e8f937629a922e919e923822c0d77e54c9544f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpoints", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the SIP media application.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__637cbb29fb24b5f18d6dd14a0acb910eec6b79c40ed43346a0bfef34740a74a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags assigned to the SIP media application.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e77d8effaf0cfae22ca3cab05ea8c172429af80efd993b6d6b08b6f7a6e033a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnSipMediaApplication.SipMediaApplicationEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn"},
+    )
+    class SipMediaApplicationEndpointProperty:
+        def __init__(self, *, lambda_arn: builtins.str) -> None:
+            '''
+            :param lambda_arn: Valid Amazon Resource Name (ARN) of the Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-sipmediaapplication-sipmediaapplicationendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                sip_media_application_endpoint_property = chime.CfnSipMediaApplication.SipMediaApplicationEndpointProperty(
+                    lambda_arn="lambdaArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a21df4d9a86ef098cfa2390c70577cdd058412ed46b6983f7ae3e8d0e64c9c53)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "lambda_arn": lambda_arn,
+            }
+
+        @builtins.property
+        def lambda_arn(self) -> builtins.str:
+            '''Valid Amazon Resource Name (ARN) of the Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-sipmediaapplication-sipmediaapplicationendpoint.html#cfn-chime-sipmediaapplication-sipmediaapplicationendpoint-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            assert result is not None, "Required property 'lambda_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SipMediaApplicationEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnSipMediaApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aws_region": "awsRegion",
+        "endpoints": "endpoints",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnSipMediaApplicationProps:
+    def __init__(
+        self,
+        *,
+        aws_region: builtins.str,
+        endpoints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSipMediaApplication.SipMediaApplicationEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSipMediaApplication``.
+
+        :param aws_region: The AWS Region in which the SIP media application is created.
+        :param endpoints: List of endpoints (Lambda ARNs) specified for the SIP media application.
+        :param name: The name of the SIP media application.
+        :param tags: Tags assigned to the SIP media application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_sip_media_application_props = chime.CfnSipMediaApplicationProps(
+                aws_region="awsRegion",
+                endpoints=[chime.CfnSipMediaApplication.SipMediaApplicationEndpointProperty(
+                    lambda_arn="lambdaArn"
+                )],
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4b2d633e5b779a6c367587f51d4100a3e0e2a07b261dd3f0daa879adca38fe54)
+            check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
+            check_type(argname="argument endpoints", value=endpoints, expected_type=type_hints["endpoints"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aws_region": aws_region,
+            "endpoints": endpoints,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def aws_region(self) -> builtins.str:
+        '''The AWS Region in which the SIP media application is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html#cfn-chime-sipmediaapplication-awsregion
+        '''
+        result = self._values.get("aws_region")
+        assert result is not None, "Required property 'aws_region' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoints(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSipMediaApplication.SipMediaApplicationEndpointProperty"]]]:
+        '''List of endpoints (Lambda ARNs) specified for the SIP media application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html#cfn-chime-sipmediaapplication-endpoints
+        '''
+        result = self._values.get("endpoints")
+        assert result is not None, "Required property 'endpoints' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSipMediaApplication.SipMediaApplicationEndpointProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the SIP media application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html#cfn-chime-sipmediaapplication-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags assigned to the SIP media application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-sipmediaapplication.html#cfn-chime-sipmediaapplication-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSipMediaApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IVoiceConnectorRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnVoiceConnector(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnVoiceConnector",
+):
+    '''An Amazon Chime SDK Voice Connector configuration, including outbound host name and encryption settings.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html
+    :cloudformationResource: AWS::Chime::VoiceConnector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_voice_connector = chime.CfnVoiceConnector(self, "MyCfnVoiceConnector",
+            name="name",
+            require_encryption=False,
+        
+            # the properties below are optional
+            aws_region="awsRegion",
+            network_type="networkType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        require_encryption: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        aws_region: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::VoiceConnector``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the Voice Connector.
+        :param require_encryption: Enables or disables encryption for the Voice Connector.
+        :param aws_region: The AWS Region in which the Voice Connector is created.
+        :param network_type: The type of network for the Voice Connector.
+        :param tags: The tags assigned to the Voice Connector.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__45a25fd89e9de3fb404a08691b4c7ee98e0f077a34dc286b1cfce7f532fc05a2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnVoiceConnectorProps(
+            name=name,
+            require_encryption=require_encryption,
+            aws_region=aws_region,
+            network_type=network_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForVoiceConnector")
+    @builtins.classmethod
+    def arn_for_voice_connector(
+        cls,
+        resource: "_aws_chime_58870695.IVoiceConnectorRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__665d280f8f7569acff61b157dc414017ab7f482e10a00950ec6899957eb17cdf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVoiceConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnVoiceConnector")
+    @builtins.classmethod
+    def is_cfn_voice_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVoiceConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2ecc4f32023674befc0ccc9379b88b16aae99e14435795fce3c30cb902fae2c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVoiceConnector", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3977b7652d57b9a0da2fb652c70c5b8445222f780f87d4b34dff3b3a830124e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0191f5993b709064b78f286535ab05ebb6ffe17837ee9caec0239b04963c4e1e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The Voice Connector creation timestamp, in ISO 8601 format.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutboundHostName")
+    def attr_outbound_host_name(self) -> builtins.str:
+        '''The outbound host name for the Voice Connector.
+
+        :cloudformationAttribute: OutboundHostName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOutboundHostName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedTimestamp")
+    def attr_updated_timestamp(self) -> builtins.str:
+        '''The Voice Connector updated timestamp, in ISO 8601 format.
+
+        :cloudformationAttribute: UpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVoiceConnectorArn")
+    def attr_voice_connector_arn(self) -> builtins.str:
+        '''The ARN of the Voice Connector.
+
+        :cloudformationAttribute: VoiceConnectorArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVoiceConnectorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVoiceConnectorId")
+    def attr_voice_connector_id(self) -> builtins.str:
+        '''The Voice Connector ID.
+
+        :cloudformationAttribute: VoiceConnectorId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVoiceConnectorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="voiceConnectorRef")
+    def voice_connector_ref(self) -> "_aws_chime_58870695.VoiceConnectorReference":
+        '''A reference to a VoiceConnector resource.'''
+        return typing.cast("_aws_chime_58870695.VoiceConnectorReference", jsii.get(self, "voiceConnectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the Voice Connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__787a84d7c3d4d36ba68b8e307c922a0ec73d2389a1a30a84ddc055d72d127ffa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="requireEncryption")
+    def require_encryption(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Enables or disables encryption for the Voice Connector.'''
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "requireEncryption"))
+
+    @require_encryption.setter
+    def require_encryption(
+        self,
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74f77946a6da8b6b6475129ab1e18916bd7b6b0329c2b4d16869d6db6e4d5b4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "requireEncryption", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="awsRegion")
+    def aws_region(self) -> typing.Optional[builtins.str]:
+        '''The AWS Region in which the Voice Connector is created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "awsRegion"))
+
+    @aws_region.setter
+    def aws_region(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c3900dc2719e0dab876645a1db496658a0424323d8a7781cb0e0d33e57147d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The type of network for the Voice Connector.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ddaa871794b6518dc8bd6140a4ce963a409e289a5f48e907522ad7766dffa252)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the Voice Connector.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__035b14d74fc5c3eb7431fd43c26137270d2039024e8aed2254c225c80aee44b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnVoiceConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "require_encryption": "requireEncryption",
+        "aws_region": "awsRegion",
+        "network_type": "networkType",
+        "tags": "tags",
+    },
+)
+class CfnVoiceConnectorProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        require_encryption: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        aws_region: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVoiceConnector``.
+
+        :param name: The name of the Voice Connector.
+        :param require_encryption: Enables or disables encryption for the Voice Connector.
+        :param aws_region: The AWS Region in which the Voice Connector is created.
+        :param network_type: The type of network for the Voice Connector.
+        :param tags: The tags assigned to the Voice Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_voice_connector_props = chime.CfnVoiceConnectorProps(
+                name="name",
+                require_encryption=False,
+            
+                # the properties below are optional
+                aws_region="awsRegion",
+                network_type="networkType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8ce9a6b502ef05469370c725a4e8275d6f0ef0b0d8135c1376f5871e55058375)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument require_encryption", value=require_encryption, expected_type=type_hints["require_encryption"])
+            check_type(argname="argument aws_region", value=aws_region, expected_type=type_hints["aws_region"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "require_encryption": require_encryption,
+        }
+        if aws_region is not None:
+            self._values["aws_region"] = aws_region
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the Voice Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html#cfn-chime-voiceconnector-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def require_encryption(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+        '''Enables or disables encryption for the Voice Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html#cfn-chime-voiceconnector-requireencryption
+        '''
+        result = self._values.get("require_encryption")
+        assert result is not None, "Required property 'require_encryption' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+    @builtins.property
+    def aws_region(self) -> typing.Optional[builtins.str]:
+        '''The AWS Region in which the Voice Connector is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html#cfn-chime-voiceconnector-awsregion
+        '''
+        result = self._values.get("aws_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The type of network for the Voice Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html#cfn-chime-voiceconnector-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the Voice Connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-voiceconnector.html#cfn-chime-voiceconnector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVoiceConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAppInstance",
     "CfnAppInstanceBot",
@@ -2635,10 +6354,18 @@ __all__ = [
     "CfnAppInstanceProps",
     "CfnAppInstanceUser",
     "CfnAppInstanceUserProps",
+    "CfnChannel",
     "CfnChannelFlow",
     "CfnChannelFlowProps",
+    "CfnChannelProps",
+    "CfnMediaInsightsPipelineConfiguration",
+    "CfnMediaInsightsPipelineConfigurationProps",
     "CfnMediaPipelineKinesisVideoStreamPool",
     "CfnMediaPipelineKinesisVideoStreamPoolProps",
+    "CfnSipMediaApplication",
+    "CfnSipMediaApplicationProps",
+    "CfnVoiceConnector",
+    "CfnVoiceConnectorProps",
 ]
 
 publication.publish()
@@ -2903,6 +6630,147 @@ def _typecheckingstub__c191e7d70c48f14aeb5305a9541ebc0cb899fc4cc9efe9e64a380ae20
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a89763003c5889154da844ca3dad921cfa98c23c362a40a05e69b7812336097d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    app_instance_arn: builtins.str,
+    chime_bearer: builtins.str,
+    name: builtins.str,
+    channel_id: typing.Optional[builtins.str] = None,
+    elastic_channel_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ElasticChannelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    expiration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ExpirationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    member_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    metadata: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[builtins.str] = None,
+    moderator_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    privacy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c427c0278e1c98cd454086845e50069da70f9022ed5cdd80f053334831c2cbb7(
+    resource: _aws_chime_58870695.IChannelRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa4790ed4f040aa7c08ce37d765a2efe53b80721c32fd5b1bbda12dc3ae91a05(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56cb1e61db1c45729b964df35b81c00ecbadeb1e6841d345c0dfdce81520f8f3(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe58cc1b62badb3a367bdac675a7be40061ccddeb1291043e6a89f46b1941a0b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8f59d56a9dbf4b3806ff1912cf07850ffda9a4e9b55db675fece72d4dd31b0e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fd04eb030be5b81f943a19c35fdeaa7124f05290326272628749488abfbd429(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d4a11111ed722fa1552e5357156422c544c2a4dd446be1ea345c98978081526(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2899b697a3d0599c4e86d02b714e86b25a73faa81d81b0b5a8a2b846f90a193d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__702d50233a97086fe25c17623249cdf79a35a98fd0c2ff24fc4c4ff212b8c90d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.ElasticChannelConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfa4426ad9d68b9d95e87acf17bd96807ddb690c4339e557b335d54201155053(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.ExpirationSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d78aaa655e8d98ed189cc1db70ccbc99177cf80d3892ff11d41097adfbd6764(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d047bb8ce80e19c537d247457b6cc43cd31f25981080e85979a87b0c6d44eea3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__826ffe751bf3da6b2ef69e117e86116849fa30257fc6a0ba2d55e0eee456d8cc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7931948e641c85a29c91dc0f18a05368cce4d97845b3fe14bc39e397032efb1d(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1ef91b405bc43229f3ad9bb756d161a4b0db50cfd4360ae21ef7c55c52f5944(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22aa1755f5052e591b4cabb4cbc7f1e285d37bd5839a3720256c387127f5aeb3(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86e0f478c14d309a5588841538b8043223e8385c82a42bfb60c7a2bdb9d77a9a(
+    *,
+    maximum_sub_channels: jsii.Number,
+    minimum_membership_percentage: jsii.Number,
+    target_memberships_per_sub_channel: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61fc7651b450f23570f29d1017ecab7caa5c391d1b674257b21ed9b83c1c68f6(
+    *,
+    expiration_criterion: builtins.str,
+    expiration_days: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bfa5f1d241cfa51cfb94fc2037ee9ab05fc2825441e3b064b5c3346d71baebc(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__553e37c55476a947075ca59056beea348820f4c9d0001731f2dc6df208e46aac(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2998,6 +6866,224 @@ def _typecheckingstub__04fab589c36890507658f03e0daf5dda656b997e99d4f0f5d449cfb43
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1f68927a594352d4dfb82e54610caae5c2c52baa2dcf7cbb196f93b31a786fed(
+    *,
+    app_instance_arn: builtins.str,
+    chime_bearer: builtins.str,
+    name: builtins.str,
+    channel_id: typing.Optional[builtins.str] = None,
+    elastic_channel_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ElasticChannelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    expiration_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ExpirationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    member_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    metadata: typing.Optional[builtins.str] = None,
+    mode: typing.Optional[builtins.str] = None,
+    moderator_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    privacy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__889d6d992b8d7ecaa497b89b0969fdfa7fa839fcacf07f58726b49cf8f323d52(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    elements: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    media_insights_pipeline_configuration_name: builtins.str,
+    resource_access_role_arn: builtins.str,
+    real_time_alert_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d947022873d1e6882ae47a189d20b3d7f2aa53c157b7df911c6e8deb1b32e31a(
+    resource: _aws_chime_58870695.IMediaInsightsPipelineConfigurationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc4a193dcd334a33221d899407a55bf4c92b7885da28e3b9f57712ac4e0b6bfd(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffe32f64919fa553c3f22877220b9efb5fbcdcf2ad1ec025355c8a02c6f847c2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__883a85ed849985e75e040b5f613e64f571f44974766f3824019aee35d3eecdfc(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c400f356cf18466a3dff483e35943c01e7e22de89435c0c061ebb9510b901ef(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__703c89c9d6f653e3380e4187a1fddc6718e6cef2c715047ba16991465db1d4ee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5495e3e7636c99bb133b9fe920d64aee710982f4fd245f2c92bb8034ee192b2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a72716e62afe90194547497ab6f884c0ec05d923704b462976f68d92a5a76f2a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99fa72bce81eb4333c1c1c86d38e36204aef77b68b24d9f3a58023ffe14e0700(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afcc5b2f060868f5e44a495cf81d3fbeeebe9d579aabcae3cc02c92e4f318015(
+    *,
+    language_code: builtins.str,
+    call_analytics_stream_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+    content_identification_type: typing.Optional[builtins.str] = None,
+    content_redaction_type: typing.Optional[builtins.str] = None,
+    enable_partial_results_stabilization: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    filter_partial_results: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    language_model_name: typing.Optional[builtins.str] = None,
+    partial_results_stability: typing.Optional[builtins.str] = None,
+    pii_entity_types: typing.Optional[builtins.str] = None,
+    post_call_analytics_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.PostCallAnalyticsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vocabulary_filter_method: typing.Optional[builtins.str] = None,
+    vocabulary_filter_name: typing.Optional[builtins.str] = None,
+    vocabulary_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55202693225010e49bacdad3bec7e625d84491c4df67d1192367340ff7385560(
+    *,
+    content_identification_type: typing.Optional[builtins.str] = None,
+    content_redaction_type: typing.Optional[builtins.str] = None,
+    enable_partial_results_stabilization: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    filter_partial_results: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    identify_language: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    identify_multiple_languages: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    language_code: typing.Optional[builtins.str] = None,
+    language_model_name: typing.Optional[builtins.str] = None,
+    language_options: typing.Optional[builtins.str] = None,
+    partial_results_stability: typing.Optional[builtins.str] = None,
+    pii_entity_types: typing.Optional[builtins.str] = None,
+    preferred_language: typing.Optional[builtins.str] = None,
+    show_speaker_label: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    vocabulary_filter_method: typing.Optional[builtins.str] = None,
+    vocabulary_filter_name: typing.Optional[builtins.str] = None,
+    vocabulary_filter_names: typing.Optional[builtins.str] = None,
+    vocabulary_name: typing.Optional[builtins.str] = None,
+    vocabulary_names: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab8c7535ce89e3bcb112d465f75d85b0285fad63a58b8b26215f096155d80c62(
+    *,
+    rule_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a2dae732e141f2e4061d354a319ad3929393a26356474daf8eb6b533ae66cac(
+    *,
+    keywords: typing.Sequence[builtins.str],
+    rule_name: builtins.str,
+    negate: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c7b26f7516e3f0c94b597c003af93479cb85b1b15e8dbdfdf2dfaa9fd033949(
+    *,
+    insights_target: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ee2b917d23080d4fd427d093f10d15a4b47ba3f834e7d360f29dcc6254db811(
+    *,
+    type: builtins.str,
+    amazon_transcribe_call_analytics_processor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.AmazonTranscribeCallAnalyticsProcessorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    amazon_transcribe_processor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.AmazonTranscribeProcessorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_data_stream_sink_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.KinesisDataStreamSinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_recording_sink_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.S3RecordingSinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55dd53917f4d820371c3d2de6f1b1b305b775665440acf4e8b26628464786c06(
+    *,
+    data_access_role_arn: builtins.str,
+    output_location: builtins.str,
+    content_redaction_output: typing.Optional[builtins.str] = None,
+    output_encryption_kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f58a5091b81af0969b48eb2cb8c038f94af7be3f100d23e47633ebcfa5075b09(
+    *,
+    disabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.RealTimeAlertRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__014418bc181569b08f625dde46ac0798963eb491d4ad04fc180d53234cb2164c(
+    *,
+    type: builtins.str,
+    issue_detection_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.IssueDetectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    keyword_match_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.KeywordMatchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sentiment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.SentimentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__282a9f6918db78f8c2ba6791400feb36b9c506d6568b739ade819b651c917da5(
+    *,
+    destination: typing.Optional[builtins.str] = None,
+    recording_file_format: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__433bc2f178f4e21ad76e84ccc78517a72d926ae25aba59dc382a92cb7e86654f(
+    *,
+    rule_name: builtins.str,
+    sentiment_type: builtins.str,
+    time_period: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5edcf05aa706b7cb6499c317d5a3073fbd8b8e091f593c38e6cbbcd4e4b4835(
+    *,
+    elements: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.MediaInsightsPipelineConfigurationElementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    media_insights_pipeline_configuration_name: builtins.str,
+    resource_access_role_arn: builtins.str,
+    real_time_alert_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaInsightsPipelineConfiguration.RealTimeAlertConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b336d9205da99d4437e13b57fe31566b7bcddbad8a4aca01118d6e9af2e64130(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3072,6 +7158,161 @@ def _typecheckingstub__0a4fb7dfa431fc097a5630ce4858b4dd3da0617dbc59442dd069b3856
     pool_name: builtins.str,
     stream_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     tags: typing.Optional[typing.Sequence[typing.Union[CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26eb8c1bc4a1f86978d3246e599a9aa699835a5d089fa644436e38af502db993(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    aws_region: builtins.str,
+    endpoints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSipMediaApplication.SipMediaApplicationEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba0d683650689e2081014db2d6fb9a99607330603aeb24831e1b4435308282a6(
+    resource: _aws_chime_58870695.ISipMediaApplicationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2be69fd45b5d6f37793e1a3c4568d5fefa809a190aa3b6d71debe22da918b05d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be1e3584a84de325a695edf5be77fbe8848ccb44a374d874697fb274c323ed00(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3492a5dbb051d3de8df839802771567711dc67d94bf59796892bbc6bfb37fdf7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a2351c8de98c40a4806a6c3430bda1438b5d8da90910f625bff87ae9672466c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d39849434edfc162ba7322548e8f937629a922e919e923822c0d77e54c9544f(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSipMediaApplication.SipMediaApplicationEndpointProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__637cbb29fb24b5f18d6dd14a0acb910eec6b79c40ed43346a0bfef34740a74a4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e77d8effaf0cfae22ca3cab05ea8c172429af80efd993b6d6b08b6f7a6e033a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a21df4d9a86ef098cfa2390c70577cdd058412ed46b6983f7ae3e8d0e64c9c53(
+    *,
+    lambda_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b2d633e5b779a6c367587f51d4100a3e0e2a07b261dd3f0daa879adca38fe54(
+    *,
+    aws_region: builtins.str,
+    endpoints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSipMediaApplication.SipMediaApplicationEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45a25fd89e9de3fb404a08691b4c7ee98e0f077a34dc286b1cfce7f532fc05a2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    require_encryption: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    aws_region: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__665d280f8f7569acff61b157dc414017ab7f482e10a00950ec6899957eb17cdf(
+    resource: _aws_chime_58870695.IVoiceConnectorRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2ecc4f32023674befc0ccc9379b88b16aae99e14435795fce3c30cb902fae2c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3977b7652d57b9a0da2fb652c70c5b8445222f780f87d4b34dff3b3a830124e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0191f5993b709064b78f286535ab05ebb6ffe17837ee9caec0239b04963c4e1e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__787a84d7c3d4d36ba68b8e307c922a0ec73d2389a1a30a84ddc055d72d127ffa(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74f77946a6da8b6b6475129ab1e18916bd7b6b0329c2b4d16869d6db6e4d5b4f(
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c3900dc2719e0dab876645a1db496658a0424323d8a7781cb0e0d33e57147d9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddaa871794b6518dc8bd6140a4ce963a409e289a5f48e907522ad7766dffa252(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__035b14d74fc5c3eb7431fd43c26137270d2039024e8aed2254c225c80aee44b3(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ce9a6b502ef05469370c725a4e8275d6f0ef0b0d8135c1376f5871e55058375(
+    *,
+    name: builtins.str,
+    require_encryption: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    aws_region: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -23,6 +23,7 @@ Usage::
         DescribeCapacityBlocksPaginator,
         DescribeCapacityManagerDataExportsPaginator,
         DescribeCapacityReservationBillingRequestsPaginator,
+        DescribeCapacityReservationDateChangeQuotesPaginator,
         DescribeCapacityReservationFleetsPaginator,
         DescribeCapacityReservationsPaginator,
         DescribeCarrierGatewaysPaginator,
@@ -201,6 +202,7 @@ Usage::
         describe_capacity_blocks_paginator: DescribeCapacityBlocksPaginator = client.get_paginator("describe_capacity_blocks")
         describe_capacity_manager_data_exports_paginator: DescribeCapacityManagerDataExportsPaginator = client.get_paginator("describe_capacity_manager_data_exports")
         describe_capacity_reservation_billing_requests_paginator: DescribeCapacityReservationBillingRequestsPaginator = client.get_paginator("describe_capacity_reservation_billing_requests")
+        describe_capacity_reservation_date_change_quotes_paginator: DescribeCapacityReservationDateChangeQuotesPaginator = client.get_paginator("describe_capacity_reservation_date_change_quotes")
         describe_capacity_reservation_fleets_paginator: DescribeCapacityReservationFleetsPaginator = client.get_paginator("describe_capacity_reservation_fleets")
         describe_capacity_reservations_paginator: DescribeCapacityReservationsPaginator = client.get_paginator("describe_capacity_reservations")
         describe_carrier_gateways_paginator: DescribeCarrierGatewaysPaginator = client.get_paginator("describe_carrier_gateways")
@@ -395,6 +397,8 @@ from .type_defs import (
     DescribeCapacityManagerDataExportsResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestPaginateTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
+    DescribeCapacityReservationDateChangeQuotesRequestPaginateTypeDef,
+    DescribeCapacityReservationDateChangeQuotesResultTypeDef,
     DescribeCapacityReservationFleetsRequestPaginateTypeDef,
     DescribeCapacityReservationFleetsResultTypeDef,
     DescribeCapacityReservationsRequestPaginateTypeDef,
@@ -737,6 +741,7 @@ __all__ = (
     "DescribeCapacityBlocksPaginator",
     "DescribeCapacityManagerDataExportsPaginator",
     "DescribeCapacityReservationBillingRequestsPaginator",
+    "DescribeCapacityReservationDateChangeQuotesPaginator",
     "DescribeCapacityReservationFleetsPaginator",
     "DescribeCapacityReservationsPaginator",
     "DescribeCarrierGatewaysPaginator",
@@ -1152,6 +1157,31 @@ class DescribeCapacityReservationBillingRequestsPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityReservationBillingRequests.html#EC2.Paginator.DescribeCapacityReservationBillingRequests.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityreservationbillingrequestspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeCapacityReservationDateChangeQuotesPaginatorBase = AioPaginator[
+        DescribeCapacityReservationDateChangeQuotesResultTypeDef
+    ]
+else:
+    _DescribeCapacityReservationDateChangeQuotesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeCapacityReservationDateChangeQuotesPaginator(
+    _DescribeCapacityReservationDateChangeQuotesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityReservationDateChangeQuotes.html#EC2.Paginator.DescribeCapacityReservationDateChangeQuotes)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityreservationdatechangequotespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeCapacityReservationDateChangeQuotesRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeCapacityReservationDateChangeQuotesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityReservationDateChangeQuotes.html#EC2.Paginator.DescribeCapacityReservationDateChangeQuotes.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityreservationdatechangequotespaginator)
         """
 
 

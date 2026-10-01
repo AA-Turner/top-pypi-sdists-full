@@ -19,9 +19,16 @@ fn prompt_stash_lifecycle_bindings_are_registered_and_round_trip() {
             "restore_prompt_stash",
             "purge_prompt_stash",
             "reconcile_prompt_stash_trash",
+            "prompt_stash_archive_wire_schema_version",
+            "read_prompt_stash_archive",
+            "recover_prompt_stash_archive",
         ] {
             assert!(module.hasattr(name).unwrap(), "missing binding {name}");
         }
+        assert_eq!(
+            py_prompt_stash_archive_wire_schema_version(),
+            PROMPT_STASH_ARCHIVE_WIRE_SCHEMA_VERSION
+        );
 
         let temp = tempfile::tempdir().unwrap();
         let path = temp
@@ -118,6 +125,98 @@ fn prompt_stash_lifecycle_bindings_are_registered_and_round_trip() {
         let outcome = py_to_json_value(&outcome).unwrap();
         assert_eq!(outcome["changed"], json!(["bound"]));
         assert_eq!(outcome["snapshot"]["trash"], json!([]));
+
+        let snapshot = module
+            .getattr("read_prompt_stash_archive")
+            .unwrap()
+            .call1((path.clone(), 20_u64))
+            .unwrap();
+        let snapshot = py_to_json_value(&snapshot).unwrap();
+        assert_eq!(snapshot["schema_version"], json!(1));
+        assert_eq!(snapshot["records"][0]["reason"], json!("purged"));
+        assert_eq!(snapshot["records"][0]["entry"]["id"], json!("bound"));
+        assert_eq!(snapshot["records"][0]["trashed_at"], json!(trashed_at));
+
+        let outcome = module
+            .getattr("recover_prompt_stash_archive")
+            .unwrap()
+            .call1((path.clone(), vec!["bound".to_string()]))
+            .unwrap();
+        let outcome = py_to_json_value(&outcome).unwrap();
+        assert_eq!(outcome["changed"], json!(["bound"]));
+        assert_eq!(outcome["snapshot"]["active"][0]["id"], json!("bound"));
+    });
+}
+
+#[test]
+fn prompt_stash_archive_bindings_round_trip_pop_and_overwrite() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        register_editor_content(&module).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp
+            .path()
+            .join("prompt_stash.jsonl")
+            .to_string_lossy()
+            .into_owned();
+
+        let entry = json_value_to_py(
+            py,
+            &json!({
+                "id": "arch",
+                "created_at": "2026-06-16T01:02:03+00:00",
+                "text": "v1",
+            }),
+        )
+        .unwrap();
+        let entry = entry.bind(py).downcast::<PyDict>().unwrap();
+        module
+            .getattr("append_prompt_stash")
+            .unwrap()
+            .call1((path.clone(), entry))
+            .unwrap();
+
+        let updated = json_value_to_py(
+            py,
+            &json!({
+                "id": "arch",
+                "created_at": "2026-06-16T01:02:03+00:00",
+                "text": "v2",
+            }),
+        )
+        .unwrap();
+        // rewrite takes a list; build it from the single dict.
+        let list = PyList::new_bound(py, [updated]);
+        module
+            .getattr("rewrite_prompt_stash")
+            .unwrap()
+            .call1((path.clone(), list))
+            .unwrap();
+
+        let snapshot = module
+            .getattr("read_prompt_stash_archive")
+            .unwrap()
+            .call1((path.clone(), 20_u64))
+            .unwrap();
+        let snapshot = py_to_json_value(&snapshot).unwrap();
+        assert_eq!(snapshot["records"][0]["reason"], json!("overwritten"));
+        assert_eq!(snapshot["records"][0]["entry"]["text"], json!("v1"));
+
+        module
+            .getattr("pop_prompt_stash")
+            .unwrap()
+            .call1((path.clone(), vec!["arch".to_string()]))
+            .unwrap();
+        let snapshot = module
+            .getattr("read_prompt_stash_archive")
+            .unwrap()
+            .call1((path.clone(), 1_u64))
+            .unwrap();
+        let snapshot = py_to_json_value(&snapshot).unwrap();
+        assert_eq!(snapshot["records"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["records"][0]["reason"], json!("popped"));
+        assert_eq!(snapshot["stats"]["loaded_rows"], json!(2));
     });
 }
 
@@ -288,6 +387,104 @@ fn text_tail_binding_returns_plain_dict_and_counts_unicode_chars() {
                 "omitted_lines": 1,
                 "omitted_chars": 6
             })
+        );
+    });
+}
+
+#[test]
+fn alternation_scan_binding_is_registered_and_uses_char_offsets() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        register_editor_content(&module).unwrap();
+        assert!(module.hasattr("alternation_scan").unwrap());
+
+        let value = module
+            .getattr("alternation_scan")
+            .unwrap()
+            .call1(("foo%{bar | baz}qux",))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&value).unwrap(),
+            json!([{
+                "form": "brace",
+                "marker_start": 3,
+                "opener_end": 5,
+                "close": 14,
+                "separators": [9],
+                "branch_names": [],
+                "depth": 0,
+            }])
+        );
+
+        let value = module
+            .getattr("alternation_scan")
+            .unwrap()
+            .call1(("foo%{bar",))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&value).unwrap(),
+            json!([{
+                "form": "brace",
+                "marker_start": 3,
+                "opener_end": 5,
+                "close": null,
+                "separators": [],
+                "branch_names": [],
+                "depth": 0,
+            }])
+        );
+    });
+}
+
+#[test]
+fn alternation_scan_binding_converts_non_ascii_to_char_offsets() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        module
+            .add_function(
+                wrap_pyfunction!(py_alternation_scan, &module).unwrap(),
+            )
+            .unwrap();
+        // `é` is two bytes but one code point: the byte-based marker
+        // would sit at 7, the code-point marker at 6.
+        let value = module
+            .getattr("alternation_scan")
+            .unwrap()
+            .call1(("héllo %{a | b} wörld",))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&value).unwrap(),
+            json!([{
+                "form": "brace",
+                "marker_start": 6,
+                "opener_end": 8,
+                "close": 13,
+                "separators": [10],
+                "branch_names": [],
+                "depth": 0,
+            }])
+        );
+
+        // A multibyte branch name converts at its own span, proving
+        // every span goes through the shared table.
+        let value = module
+            .getattr("alternation_scan")
+            .unwrap()
+            .call1(("%{☃=x | y}",))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&value).unwrap(),
+            json!([{
+                "form": "brace",
+                "marker_start": 0,
+                "opener_end": 2,
+                "close": 9,
+                "separators": [6],
+                "branch_names": [[2, 3]],
+                "depth": 0,
+            }])
         );
     });
 }

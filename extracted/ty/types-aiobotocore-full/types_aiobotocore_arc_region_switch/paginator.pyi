@@ -20,6 +20,7 @@ Usage::
         ListPlansPaginator,
         ListRoute53HealthChecksInRegionPaginator,
         ListRoute53HealthChecksPaginator,
+        ListServiceQuotaWarningsPaginator,
     )
 
     session = get_session()
@@ -34,6 +35,7 @@ Usage::
         list_plans_paginator: ListPlansPaginator = client.get_paginator("list_plans")
         list_route53_health_checks_in_region_paginator: ListRoute53HealthChecksInRegionPaginator = client.get_paginator("list_route53_health_checks_in_region")
         list_route53_health_checks_paginator: ListRoute53HealthChecksPaginator = client.get_paginator("list_route53_health_checks")
+        list_service_quota_warnings_paginator: ListServiceQuotaWarningsPaginator = client.get_paginator("list_service_quota_warnings")
     ```
 """
 
@@ -61,6 +63,8 @@ from .type_defs import (
     ListRoute53HealthChecksInRegionResponseTypeDef,
     ListRoute53HealthChecksRequestPaginateTypeDef,
     ListRoute53HealthChecksResponseTypeDef,
+    ListServiceQuotaWarningsRequestPaginateTypeDef,
+    ListServiceQuotaWarningsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -77,6 +81,7 @@ __all__ = (
     "ListPlansPaginator",
     "ListRoute53HealthChecksInRegionPaginator",
     "ListRoute53HealthChecksPaginator",
+    "ListServiceQuotaWarningsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -223,4 +228,22 @@ class ListRoute53HealthChecksPaginator(_ListRoute53HealthChecksPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListRoute53HealthChecks.html#ARCRegionswitch.Paginator.ListRoute53HealthChecks.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_arc_region_switch/paginators/#listroute53healthcheckspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListServiceQuotaWarningsPaginatorBase = AioPaginator[ListServiceQuotaWarningsResponseTypeDef]
+else:
+    _ListServiceQuotaWarningsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListServiceQuotaWarningsPaginator(_ListServiceQuotaWarningsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListServiceQuotaWarnings.html#ARCRegionswitch.Paginator.ListServiceQuotaWarnings)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_arc_region_switch/paginators/#listservicequotawarningspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListServiceQuotaWarningsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListServiceQuotaWarningsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListServiceQuotaWarnings.html#ARCRegionswitch.Paginator.ListServiceQuotaWarnings.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_arc_region_switch/paginators/#listservicequotawarningspaginator)
         """

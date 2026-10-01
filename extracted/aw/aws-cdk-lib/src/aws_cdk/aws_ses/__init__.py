@@ -5011,6 +5011,255 @@ class CfnEmailIdentity(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ses_9999e6ba.IEmailIdentityCertificateRef)
+class CfnEmailIdentityCertificate(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentityCertificate",
+):
+    '''Associates an AWS Certificate Manager certificate with a sender under an SES email identity, so that SES signs the sender's mail with S/MIME.
+
+    Removing this resource removes only the association. The ACM certificate itself stays intact. SES stores the sender lower-cased, and this provider matches senders case-insensitively and preserves the casing from the template.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html
+    :cloudformationResource: AWS::SES::EmailIdentityCertificate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ses as ses
+        
+        cfn_email_identity_certificate = ses.CfnEmailIdentityCertificate(self, "MyCfnEmailIdentityCertificate",
+            certificate_arn="certificateArn",
+            email_identity="emailIdentity",
+            from_address="fromAddress"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        certificate_arn: builtins.str,
+        email_identity: builtins.str,
+        from_address: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::SES::EmailIdentityCertificate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param certificate_arn: The ARN of the AWS Certificate Manager certificate to associate with the sender.
+        :param email_identity: The email identity that owns the sender the certificate is associated with.
+        :param from_address: The sender the certificate signs for. For an email address identity this is the identity itself.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__473ff99c4cdd197afb7603963a109399402aef2d539049fc46861b162e03e24a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEmailIdentityCertificateProps(
+            certificate_arn=certificate_arn,
+            email_identity=email_identity,
+            from_address=from_address,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnEmailIdentityCertificate")
+    @builtins.classmethod
+    def is_cfn_email_identity_certificate(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEmailIdentityCertificate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6599f16dc5f4910274ea1dc607d91ebd42f58b8fe2e4dac668a0460822300fa5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEmailIdentityCertificate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56427898ba54b1b46b53fae0b3c9f3003f843bda5acd40115d1a503ae667a093)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13bd48acb2adf00919e0dfb512a7bedbffbe8b8deaa7193553b5d9e6eb6420ad)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityCertificateRef")
+    def email_identity_certificate_ref(
+        self,
+    ) -> "_aws_ses_9999e6ba.EmailIdentityCertificateReference":
+        '''A reference to a EmailIdentityCertificate resource.'''
+        return typing.cast("_aws_ses_9999e6ba.EmailIdentityCertificateReference", jsii.get(self, "emailIdentityCertificateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateArn")
+    def certificate_arn(self) -> builtins.str:
+        '''The ARN of the AWS Certificate Manager certificate to associate with the sender.'''
+        return typing.cast(builtins.str, jsii.get(self, "certificateArn"))
+
+    @certificate_arn.setter
+    def certificate_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b18c9501b88c221e64034949f9727e7475e277393a8bf228156767e81ea78faf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentity")
+    def email_identity(self) -> builtins.str:
+        '''The email identity that owns the sender the certificate is associated with.'''
+        return typing.cast(builtins.str, jsii.get(self, "emailIdentity"))
+
+    @email_identity.setter
+    def email_identity(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3dbbec5535a06a6ac932b9211a9b9dd821b29f26dacaa81070a106922fb6d36)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "emailIdentity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fromAddress")
+    def from_address(self) -> builtins.str:
+        '''The sender the certificate signs for.'''
+        return typing.cast(builtins.str, jsii.get(self, "fromAddress"))
+
+    @from_address.setter
+    def from_address(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dba6ec0777d642bae532294556e6470251600b0800d3ebe3307a39444e01600f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fromAddress", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentityCertificateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_arn": "certificateArn",
+        "email_identity": "emailIdentity",
+        "from_address": "fromAddress",
+    },
+)
+class CfnEmailIdentityCertificateProps:
+    def __init__(
+        self,
+        *,
+        certificate_arn: builtins.str,
+        email_identity: builtins.str,
+        from_address: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnEmailIdentityCertificate``.
+
+        :param certificate_arn: The ARN of the AWS Certificate Manager certificate to associate with the sender.
+        :param email_identity: The email identity that owns the sender the certificate is associated with.
+        :param from_address: The sender the certificate signs for. For an email address identity this is the identity itself.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_email_identity_certificate_props = ses.CfnEmailIdentityCertificateProps(
+                certificate_arn="certificateArn",
+                email_identity="emailIdentity",
+                from_address="fromAddress"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__907cef567604d956277ffcaf0dca5824c7d862e8ac9e4b08df763f7f5cb8b1a3)
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
+            check_type(argname="argument from_address", value=from_address, expected_type=type_hints["from_address"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_arn": certificate_arn,
+            "email_identity": email_identity,
+            "from_address": from_address,
+        }
+
+    @builtins.property
+    def certificate_arn(self) -> builtins.str:
+        '''The ARN of the AWS Certificate Manager certificate to associate with the sender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html#cfn-ses-emailidentitycertificate-certificatearn
+        '''
+        result = self._values.get("certificate_arn")
+        assert result is not None, "Required property 'certificate_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def email_identity(self) -> builtins.str:
+        '''The email identity that owns the sender the certificate is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html#cfn-ses-emailidentitycertificate-emailidentity
+        '''
+        result = self._values.get("email_identity")
+        assert result is not None, "Required property 'email_identity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def from_address(self) -> builtins.str:
+        '''The sender the certificate signs for.
+
+        For an email address identity this is the identity itself.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html#cfn-ses-emailidentitycertificate-fromaddress
+        '''
+        result = self._values.get("from_address")
+        assert result is not None, "Required property 'from_address' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEmailIdentityCertificateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentityProps",
     jsii_struct_bases=[],
@@ -22106,6 +22355,8 @@ __all__ = [
     "CfnDedicatedIpPool",
     "CfnDedicatedIpPoolProps",
     "CfnEmailIdentity",
+    "CfnEmailIdentityCertificate",
+    "CfnEmailIdentityCertificateProps",
     "CfnEmailIdentityProps",
     "CfnMailManagerAddonInstance",
     "CfnMailManagerAddonInstanceProps",
@@ -22901,6 +23152,62 @@ def _typecheckingstub__172959be1e69fff5bd9bf8f0d9d248c8bcc08b8792f68376cb22ae484
     *,
     behavior_on_mx_failure: typing.Optional[builtins.str] = None,
     mail_from_domain: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__473ff99c4cdd197afb7603963a109399402aef2d539049fc46861b162e03e24a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    certificate_arn: builtins.str,
+    email_identity: builtins.str,
+    from_address: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6599f16dc5f4910274ea1dc607d91ebd42f58b8fe2e4dac668a0460822300fa5(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56427898ba54b1b46b53fae0b3c9f3003f843bda5acd40115d1a503ae667a093(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13bd48acb2adf00919e0dfb512a7bedbffbe8b8deaa7193553b5d9e6eb6420ad(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b18c9501b88c221e64034949f9727e7475e277393a8bf228156767e81ea78faf(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3dbbec5535a06a6ac932b9211a9b9dd821b29f26dacaa81070a106922fb6d36(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dba6ec0777d642bae532294556e6470251600b0800d3ebe3307a39444e01600f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__907cef567604d956277ffcaf0dca5824c7d862e8ac9e4b08df763f7f5cb8b1a3(
+    *,
+    certificate_arn: builtins.str,
+    email_identity: builtins.str,
+    from_address: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,7 +1,7 @@
 import copy
 import AOT_biomaps
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, reshape_field_cpu, reshape_field_gpu
+from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope, calculate_envelope_squared, loadmat, sensor_data_to_grid, compute_target_sizes, resample_field, to_pipeline_layout
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
@@ -37,10 +37,7 @@ try:
     from kwave.utils.signals import tone_burst
     from kwave.ksource import kSource
     from kwave.ksensor import kSensor
-    from kwave.kspaceFirstOrder3D import kspaceFirstOrder3D
-    from kwave.kspaceFirstOrder2D import kspaceFirstOrder2D
-    from kwave.options.simulation_options import SimulationOptions
-    from kwave.options.simulation_execution_options import SimulationExecutionOptions
+    from kwave.kspaceFirstOrder import kspaceFirstOrder
     KWAVE_AVAILABLE = True
     
     # correct kwave issue with subprocess.Popen on Windows and Linux (encoding)
@@ -163,49 +160,43 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in __del__ method: {e}")
             raise
 
-    ## TOOLS METHODS ##
-
-    def generate_field(self, burst=None, isGPU=None, GPUdevice=None,tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
+    def generate_field(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName=None, generation_type="envelope_squarred", show_log=False):
         """
-        Generate the acoustic field based on the specified simulation type and parameters.
+        Generate the acoustic field.
+
+        k-Wave path: simulation + envelope + band-limited resampling to the
+        SAVE grid (general.dx/dz, 1/ft), fused in a single GPU pass.
+        SIMPLE_SIM path: analytic field produced directly on the save grid.
+        In both cases self.field has layout (Nt', Nz', Nx') and the effective
+        sampling is stored in self.last_decimation.
+
+        tempFieldName is VESTIGIAL (kept for API compatibility): the native
+        pipeline uses no temporary files.
         """
         try:
+            if isGPU is None:
+                isGPU = True if config.get_process() == 'gpu' else False
+
             if self.medium.medium_properties is None:
                 raise ValueError("[AOT-biomaps] Medium properties are not defined. Please generate or load a valid Medium object.")
 
             logging.getLogger('root').setLevel(logging.ERROR)
+
             if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")
             elif self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
                 self.field = self._generate_acoustic_field_SIMPLE_SIM(burst=burst, show_log=show_log)
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if self.params.acoustic["dim"] == Dim.D2.value:
-                    try:
-                        field = self._generate_acoustic_field_KWAVE_2D(burst, isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
-                    except Exception as e:
-                        raise RuntimeError(f"[AOT-biomaps] Failed to generate 2D acoustic field: {e}")
-                    if generation_type == "envelope_squarred":
-                        self.field = calculate_envelope_squared(field, isGPU, GPUdevice)
-                    elif generation_type == "envelope":
-                        self.field = calculate_envelope(field, isGPU, GPUdevice)
-                    elif generation_type == "field":
-                        self.field = field
-                    else:  
-                        raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. Supported types are: 'envelope_squarred', 'envelope', 'field'.")
+                    self.field = self._generate_acoustic_field_KWAVE_2D(
+                        burst=burst, isGPU=isGPU, GPUdevice=GPUdevice,
+                        generation_type=generation_type, show_log=show_log)
                 elif self.params.acoustic["dim"] == Dim.D3.value:
-                    field = self._generate_acoustic_field_KWAVE_3D(isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
-                    if generation_type == "envelope_squarred":
-                        self.field = calculate_envelope_squared(field, isGPU, GPUdevice)
-                    elif generation_type == "envelope":
-                        self.field = calculate_envelope(field, isGPU, GPUdevice)
-                    elif generation_type == "field":
-                        self.field = field
-                    else:
-                        raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. Supported types are: 'envelope_squarred', 'envelope', 'field'.")
+                    raise NotImplementedError("[AOT-biomaps] 3D k-Wave generation is not implemented yet.")
             elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
-                raise ValueError(f"[AOT-biomaps] Cannot generate field for Hydrophone simulation, load exciting acquisitions.")
+                raise ValueError("[AOT-biomaps] Cannot generate field for Hydrophone simulation, load existing acquisitions.")
             else:
-                raise ValueError(f"[AOT-biomaps] Invalid simulation type. Supported types are: FIELD2, KWAVE, HYDRO.")
+                raise ValueError("[AOT-biomaps] Invalid simulation type. Supported types are: FIELD2, KWAVE, SIMPLE_SIM, HYDRO.")
         except Exception as e:
             print(f"[AOT-biomaps] Error in generate_field method: {e}")
             raise
@@ -352,11 +343,16 @@ class AcousticField(ABC):
             ax.set_xlabel("x (mm)")
             ax.set_ylabel("z (mm)")
 
+            # Effective time step of self.field (decimated fields are NOT
+            # sampled at 1/f_AQ)
+            dec = getattr(self, 'last_decimation', None)
+            dt_frame = dec['dt'] if dec else 1.0 / float(self.params.acoustic['f_AQ'])
+
             # Unified update function for all subplots
             def update(frame):
                 im.set_data(self.field[frame, :, :])
-                ax.set_title(f"t = {frame / self.params.acoustic['f_AQ'] * 1000:.2f} ms")
-                return [im]  # Return a list of artists that were modified
+                ax.set_title(f"t = {frame * dt_frame * 1000:.2f} ms")
+                return [im]
 
             interval = desired_duration_ms / self.field.shape[0]
 
@@ -466,237 +462,115 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in _generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave", show_log=True):
+    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None,
+                                          generation_type="envelope_squarred",
+                                          show_log=True, keep_on_gpu=False, free_vram=False,
+                                          target_dt=None, target_dx=None, target_dz=None):
         """
-        Base function to generate a 2D acoustic field using k-Wave.
-        Handles common setup, simulation, and post-processing.
+        k-Wave native simulation + post-processing, all on GPU, in one pass:
+            1. simulation on the SIMULATION grid (medium.kgrid),
+            2. envelope / envelope squared (Hilbert, time axis),
+            3. band-limited resampling to the TARGET resolutions
+               (defaults: medium.dx_save/dz_save/dt_save, i.e. the schema).
+
+        Returns the field in pipeline layout (Nt', Nz', Nx').
+        The effective sampling is stored in self.last_decimation.
         """
+        if target_dt is None:
+            target_dt = getattr(self.medium, 'dt_save', None)
+        if target_dx is None:
+            target_dx = getattr(self.medium, 'dx_save', None)
+        if target_dz is None:
+            target_dz = getattr(self.medium, 'dz_save', None)
+        if target_dz is None:
+            target_dz = target_dx
+
         try:
             if isGPU is None:
                 isGPU = True if config.get_process() == 'gpu' else False
             if GPUdevice is None:
                 GPUdevice = config.select_best_gpu()
 
-            unique_id = uuid.uuid4().hex
-            input_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5")
-            output_filename = os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5")
-
+            # --- 1. Source & sensor (SIMULATION grid) ---------------------
             source = kSource()
             source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
-            
-            source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean, self.medium.factorT, burst=burst)
-
+            source = self._set_up_source(source, burst=burst)
             sensor = kSensor()
             sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
 
+            pml_val = self.params.acoustic['medium'].get('pml_size', 0)
+            pml_size = [pml_val, pml_val] if isinstance(pml_val, int) else list(pml_val)
 
-            simulation_options = SimulationOptions(
-                pml_inside=False,
-                pml_size=self.params.acoustic['medium']['pml_size'] if 'pml_size' in self.params.acoustic['medium'] else 0,
-                use_sg=False,
-                save_to_disk=True,
-                input_filename=input_filename,
-                output_filename=output_filename,
-                smooth_c0=True,
-                smooth_rho0=True,
-                smooth_p0=True,
-                scale_source_terms=True,
-                use_kspace=True,
-            )
-
-            execution_options = SimulationExecutionOptions(
-                is_gpu_simulation=isGPU,
-                device_num=GPUdevice,
-                show_sim_log=show_log
-            )
+            if isGPU and not CUPY_AVAILABLE:
+                print("[AOT-biomaps] Warning: CuPy not available -> CPU fallback.")
+                isGPU = False
+            if isGPU and CUPY_AVAILABLE:
+                cp.cuda.Device(GPUdevice).use()
 
             medium_copy = copy.deepcopy(self.medium)
 
-            sensor_data = kspaceFirstOrder2D(
-                kgrid=medium_copy.kgrid,
-                medium=medium_copy.kmedium,
-                source=source,
-                sensor=sensor,
-                simulation_options=simulation_options,
-                execution_options=execution_options,
+            # --- 2. Simulation (native backend, no temp files) ------------
+            sensor_data = kspaceFirstOrder(
+                medium_copy.kgrid, medium_copy.kmedium, source, sensor,
+                pml_size=pml_size, pml_inside=False, use_sg=False,
+                use_kspace=True, smooth_p0=True,
+                backend="python", device="gpu" if isGPU else "cpu",
+                dtype=np.float32, device_num=GPUdevice,
+                quiet=not show_log,
             )
 
-            try:
-                if os.path.exists(input_filename): os.remove(input_filename)
-                if os.path.exists(output_filename): os.remove(output_filename)
-            except Exception:
-                pass
+            # --- 3. Post-processing chain (envelope + resample) -----------
+            Nx, Nz = self.medium.Nx_reshaped, self.medium.Nz_reshaped
+            g = sensor_data_to_grid(sensor_data['p'], Nx, Nz)
+            Nt = g.shape[-1]
 
-            data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped)
-            if isGPU is None:
-                isGPU = True if config.get_process() == 'gpu' else False
-            if GPUdevice is None:
-                GPUdevice = config.select_best_gpu()
-            if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
-                if isGPU and CUPY_AVAILABLE:
-                    data = reshape_field_gpu(data, [self.medium.factorT, self.medium.factorZ, self.medium.factorX], GPUdevice=GPUdevice)
-                else:
-                    data = reshape_field_cpu(data, [self.medium.factorT, self.medium.factorZ, self.medium.factorX])
+            dx = float(self.medium.dx_reshaped)          # SIMULATION step
+            dz = float(self.medium.dz_reshaped)
+            dt = float(medium_copy.kgrid.dt)
 
-            return data
-        except Exception as e:
-            print(f"[AOT-biomaps] Error in _generate_acoustic_field_KWAVE_2D method: {e}")
-            raise
-    
-    def reshape_field(self, dx=None, dy=None, dz=None, dt=None, Nx=None, Ny=None, Nz=None, Nt=None, factorX=None, factorY=None, factorZ=None, factorT=None, reshape_type='NxNyNzNt', isGPU=None, GPUdevice=None):
-        """
-        Reshape the acoustic field based on the specified spatial resolutions.
+            sizes, steps = compute_target_sizes(Nx, Nz, Nt, dx, dz, dt,
+                                                target_dt, target_dx, target_dz)
+            self.last_decimation = dict(zip(('Nt', 'Nz', 'Nx'), sizes)) | \
+                                    dict(zip(('dt', 'dz', 'dx'), steps))
+            if show_log:
+                print(f"resampling: ({Nx},{Nz},{Nt}) -> {tuple(reversed(sizes))} | "
+                      f"dt {dt*1e9:.1f}->{steps[0]*1e9:.1f} ns, "
+                      f"dx {dx*1e6:.0f}->{steps[2]*1e6:.1f} um, "
+                      f"dz {dz*1e6:.0f}->{steps[1]*1e6:.1f} um")
 
-        Parameters:
-        - dx (float): Desired spatial resolution in the x-direction (optional).
-        - dy (float): Desired spatial resolution in the y-direction (optional).
-        - dz (float): Desired spatial resolution in the z-direction (optional).
-        - dt (float): Desired temporal resolution (optional).
-        - Nx (int): Desired number of points in the x-direction (optional).
-        - Ny (int): Desired number of points in the y-direction (optional).
-        - Nz (int): Desired number of points in the z-direction (optional).
-        - Nt (int): Desired number of time points (optional).
-        - factorX (int): Reshaping factor in the x-direction (optional).
-        - factorY (int): Reshaping factor in the y-direction (optional).
-        - factorZ (int): Reshaping factor in the z-direction (optional).
-        - factorT (int): Reshaping factor in the time direction (optional).
-        - reshape_type (str): Type of reshaping to perform. Options are 'NxNyNzNt' (default) or 'factor'. 
-          - 'NxNyNzNt': Reshape based on the desired number of points (Nx, Ny, Nz, Nt).
-          - 'dxdydzdt': Reshape based on the desired spatial resolutions (dx, dy, dz, dt).
-          - 'factor': Reshape based on the specified factors (factorX, factorY, factorZ).
-        """
-        try:
-            if self.field is None:
-                raise ValueError("Field data is not available. Please generate or load the field first.")
-
-            if reshape_type == 'NxNyNzNt':
-                if self.params.acoustic["dim"] == Dim.D2.value:
-                    factorX = self.field.shape[2] // Nx if Nx is not None else 1
-                    factorZ = self.field.shape[1] // Nz if Nz is not None else 1
-                    factorT = self.field.shape[0] // Nt if Nt is not None else 1
-                elif self.params.acoustic["dim"] == Dim.D3.value:
-                    factorX = self.field.shape[3] // Nx if Nx is not None else 1
-                    factorY = self.field.shape[2] // Ny if Ny is not None else 1
-                    factorZ = self.field.shape[1] // Nz if Nz is not None else 1
-                    factorT = self.field.shape[0] // Nt if Nt is not None else 1
-            elif reshape_type == 'dxdydzdt':
-                factorX = int(np.round(self.params.general['dx'] / dx)) if dx else 1
-                factorY = int(np.round(self.params.general['dy'] / dy)) if dy else 1
-                factorZ = int(np.round(self.params.general['dz'] / dz)) if dz else 1
-                factorT = int(np.round(self.params.general['dt'] / dt)) if dt else 1
-            elif reshape_type == 'factor':
-                factorX = factorX if factorX is not None else 1
-                factorY = factorY if factorY is not None else 1
-                factorZ = factorZ if factorZ is not None else 1
-                factorT = factorT if factorT is not None else 1
+            if generation_type == "envelope_squarred":
+                out = calculate_envelope_squared(g)
+            elif generation_type == "envelope":
+                out = calculate_envelope(g)
+            elif generation_type == "field":
+                out = g
             else:
-                raise ValueError("Invalid reshape_type. Supported types are: 'NxNyNzNt', 'dxdydzdt', 'factor'.")
-            factorX = max(1, factorX)
-            if self.params.acoustic["dim"] == Dim.D3.value:
-                factorY = max(1, factorY)
-            factorZ = max(1, factorZ)
-            factorT = max(1, factorT)
+                raise ValueError(f"[AOT-biomaps] Invalid generation_type: {generation_type}. "
+                                 f"Supported types are: 'envelope_squarred', 'envelope', 'field'.")
+            if generation_type != "field":
+                del g
 
-            if isGPU is None:
-                isGPU = True if config.get_process() == 'gpu' else False
-            if GPUdevice is None:
-                GPUdevice = config.select_best_gpu()
+            out = resample_field(out, sizes)
+            out = to_pipeline_layout(out)            # (Nt', Nz', Nx')
 
-            if self.params.acoustic["dim"] == Dim.D2.value:
-                factor = [factorT, factorZ, factorX]
-            elif self.params.acoustic["dim"] == Dim.D3.value:
-                factor = [factorT, factorZ, factorY, factorX]
+            if keep_on_gpu:
+                return out
+            out_np = cp.asnumpy(out) if CUPY_AVAILABLE else np.asarray(out)
+            del out
+            if free_vram and CUPY_AVAILABLE:
+                cp.get_default_memory_pool().free_all_blocks()
+            return out_np
 
-            if isGPU and CUPY_AVAILABLE:
-                self.field = reshape_field_gpu(self.field, factor, GPUdevice=GPUdevice)
-            else:
-                self.field = reshape_field_cpu(self.field, factor)
         except Exception as e:
-            print(f"[AOT-biomaps] Error in reshape_fields method: {e}")
+            print(f"[AOT-biomaps] Error in _generate_acoustic_field_KWAVE_2D: {e}")
             raise
-
-    # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):
-    #     """
-    #     Generate a 3D acoustic field using k-Wave.
-    #     """
-    #     try:
-    #         # ---
-    #         dx = self.params['dx']
-    #         if dx >= self.params['element_width']:
-    #             dx = self.params['element_width'] / 2
-    #             if self.params['width_phantom'] is not None:
-    #                 Nx = int(np.round((self.params['width_phantom'])/dx))
-    #             else:
-    #                 Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / dx))
-    #             if self.params['height_phantom'] is not None:
-    #                 Nz = int(np.round((self.params['height_phantom'])/dx))
-    #             else:
-    #                 Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / dx))
-    #         else:
-    #             if self.params['width_phantom'] is not None:
-    #                 Nx = int(np.round((self.params['width_phantom'])/self.params['dx']))
-    #             else:
-    #                 Nx = int(round((self.params['Xrange'][1] - self.params['Xrange'][0]) / self.params['dx']))
-    #             if self.params['height_phantom'] is not None:
-    #                 Nz = int(np.round((self.params['height_phantom'])/self.params['dz']))
-    #             else:
-    #                 Nz = int(round((self.params['Zrange'][1] - self.params['Zrange'][0]) / self.params['dz']))
-
-    #         # ---
-    #         factorT = int(np.ceil(self.params['f_AQ'] / self.params['f_saving']))
-    #         factorX = int(np.ceil(Nx / self.params['Nx']))
-    #         factorZ = int(np.ceil(Nz / self.params['Nz']))
-
-    #         kgrid = kWaveGrid([Nx, Nz], [dx, dx])
-    #         kgrid.setTime(self.kgrid.Nt, 1 / self.params['f_AQ'])
-
-    #         source = kSource()
-    #         source.p_mask = np.zeros((self.params['Nx'], self.params['Ny'], self.params['Nz']))
-
-    #         # Appel à la méthode spécialisée
-    #         self._set_up_source(source, self.params['Nx'], self.params['dx'], factorT)  # factorT=1 pour simplifier
-
-    #         sensor = kSensor()
-    #         sensor.mask = np.ones((self.params['Nx'], self.params['Ny'], self.params['Nz']))
-
-    #         simulation_options = SimulationOptions(
-    #             pml_inside=False,
-    #             pml_auto=True,
-    #             use_sg=False,
-    #             save_to_disk=True,
-    #             input_filename=os.path.join(gettempdir(), f"{tempFieldName}IN.h5"),
-    #             output_filename=os.path.join(gettempdir(), f"{tempFieldName}OUT.h5")
-    #         )
-
-    #         execution_options = SimulationExecutionOptions(
-    #             is_gpu_simulation=config.get_process() == 'gpu' and isGPU,
-    #             device_num=config.bestGPU,
-    #             show_sim_log=show_log
-    #         )
-
-    #         sensor_data = kspaceFirstOrder3D(
-    #             kgrid=kgrid,
-    #             medium=self.medium,
-    #             source=source,
-    #             sensor=sensor,
-    #             simulation_options=simulation_options,
-    #             execution_options=execution_options,
-    #         )
-
-    #         data = sensor_data['p'].reshape(kgrid.Nt, Nz, Nx)
-    #         if factorT != 1 or factorX != 1 or factorZ != 1:
-    #             return reshape_field(data, [factorT, factorX, factorZ])
-    #         else:
-    #             return data
-
-    #     except Exception as e:
-    #         print(f"Error generating 3D acoustic field: {e}")
-    #         return None
-        
+ 
     @abstractmethod
-    def _set_up_source(self, source, Nx, dt, dx, c0, factorT):
+    def _set_up_source(self, source, burst=None):
         """
         Abstract method: each subclass must implement its own source setup.
+        All grid/physical parameters come from self.medium (SIMULATION grid);
+        the source is always built at the simulation sampling rate.
         """
         pass
 
@@ -767,38 +641,30 @@ class AcousticField(ABC):
 
     def _load_fieldKWAVE_XZ(self, hdr_path):
         """
-        Read an Interfile (.hdr) and its binary file (.img) to reconstruct an acoustic field.
-
-        Parameters:
-        - hdr_path (str): The path to the .hdr file.
-
-        Returns:
-        - field (numpy.ndarray): The reconstructed acoustic field with dimensions reordered to (X, Z, time).
-        - header (dict): A dictionary containing the metadata from the .hdr file.
+        Read an Interfile (.hdr) and its binary file (.img).
+        Loads the field lazily via np.memmap (read-only) and restores the
+        EFFECTIVE sampling metadata (last_decimation) from the header, so
+        that display/save/reconstruction use the correct grid even after
+        loading a decimated field.
         """
         try:
             header = {}
-            # Read the .hdr file
             with open(hdr_path, 'r') as f:
                 for line in f:
                     if ':=' in line:
                         key, value = line.split(':=', 1)
                         key = key.strip().lower().replace('!', '')
-                        value = value.strip()
-                        header[key] = value
+                        header[key] = value.strip()
 
-            # Get the associated .img file name
             data_file = header.get('name of data file') or header.get('name of date file')
             if data_file is None:
                 raise ValueError(f"Cannot find the data file associated with the header file {hdr_path}")
             img_path = os.path.join(os.path.dirname(hdr_path), os.path.basename(data_file))
 
-            # Determine the field size from metadata
             shape = [int(header[f'matrix size [{i}]']) for i in range(1, 3) if f'matrix size [{i}]' in header]
             if not shape:
                 raise ValueError("Cannot determine the shape of the acoustic field from metadata.")
 
-            # Data type
             data_type = header.get('number format', 'short float').lower()
             dtype_map = {
                 'short float': np.float32,
@@ -812,28 +678,41 @@ class AcousticField(ABC):
             if dtype is None:
                 raise ValueError(f"Unsupported data type: {data_type}")
 
-            # Byte order (endianness)
             byte_order = header.get('imagedata byte order', 'LITTLEENDIAN').lower()
             endianess = '<' if 'little' in byte_order else '>'
 
-            # Verify the actual size of the .img file
             fileSize = os.path.getsize(img_path)
             timeDim = int(fileSize / (np.dtype(dtype).itemsize * np.prod(shape)))
+            if f'matrix size [3]' in header and int(header['matrix size [3]']) != timeDim:
+                raise ValueError(f"[AOT-biomaps] Truncated .img: header declares "
+                                 f"{header['matrix size [3]']} time samples, file has {timeDim}.")
             shape = shape + [timeDim]
 
-            # Read binary data
-            with open(img_path, 'rb') as f:
-                data = np.fromfile(f, dtype=endianess + np.dtype(dtype).char)
+            self.field = np.memmap(img_path, dtype=endianess + np.dtype(dtype).char,
+                                   mode='r', shape=tuple(shape[::-1]))
 
-            # Reshape data to (time, Z, X)
-            field = data.reshape(shape[::-1])  # NumPy interprets in C order (opposite of MATLAB)
-
-            # Apply scaling factors if available
+            # Apply scaling factors if available (materializes a copy only if needed)
             rescale_slope = float(header.get('data rescale slope', 1))
             rescale_offset = float(header.get('data rescale offset', 0))
-            field = field * rescale_slope + rescale_offset
+            if rescale_slope != 1.0 or rescale_offset != 0.0:
+                self.field = self.field * rescale_slope + rescale_offset
 
-            self.field = field
+            # ------------------------------------------------------------------
+            # Effective sampling metadata, FROM THE HEADER (survives
+            # generation, save, load, re-save cycles)
+            # ------------------------------------------------------------------
+            self.last_decimation = None
+            try:
+                dt_h = float(header.get('scaling factor (s/pixel) [3]'))
+                dx_h = float(header.get('scaling factor (mm/pixel) [1]')) / 1000.0
+                dz_h = float(header.get('scaling factor (mm/pixel) [2]')) / 1000.0
+                self.last_decimation = {'Nt': timeDim, 'dt': dt_h,
+                                        'Nx': shape[0], 'dx': dx_h,
+                                        'Nz': shape[1], 'dz': dz_h}
+            except (TypeError, ValueError):
+                print("[AOT-biomaps] Warning: incomplete sampling metadata in the "
+                      "header; last_decimation not restored.")
+
         except Exception as e:
             print(f"[AOT-biomaps] Error in _load_fieldKWAVE_XZ method: {e}")
             raise

@@ -25,6 +25,7 @@ __all__ = (
     "ActionType",
     "CentralizationFailureReasonType",
     "CloudWatchObservabilityAdminServiceServiceName",
+    "ContextGraphStatusType",
     "DestinationTypeType",
     "EncryptedLogGroupStrategyType",
     "EncryptionConflictResolutionStrategyType",
@@ -34,6 +35,7 @@ __all__ = (
     "FilterRequirementType",
     "IntegrationStatusType",
     "ListCentralizationRulesForOrganizationPaginatorName",
+    "ListDatasetIntegrationsPaginatorName",
     "ListResourceTelemetryForOrganizationPaginatorName",
     "ListResourceTelemetryPaginatorName",
     "ListS3TableIntegrationsPaginatorName",
@@ -67,6 +69,7 @@ ActionType = Literal["ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDE
 CentralizationFailureReasonType = Literal[
     "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
 ]
+ContextGraphStatusType = Literal["Healthy", "Provisioning", "Unhealthy"]
 DestinationTypeType = Literal["cloud-watch-logs"]
 EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
 EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
@@ -78,6 +81,7 @@ IntegrationStatusType = Literal["ACTIVE", "DELETING"]
 ListCentralizationRulesForOrganizationPaginatorName = Literal[
     "list_centralization_rules_for_organization"
 ]
+ListDatasetIntegrationsPaginatorName = Literal["list_dataset_integrations"]
 ListResourceTelemetryForOrganizationPaginatorName = Literal[
     "list_resource_telemetry_for_organization"
 ]
@@ -108,6 +112,7 @@ ResourceTypeType = Literal[
     "AWS::BedrockAgentCore::CodeInterpreter",
     "AWS::BedrockAgentCore::Gateway",
     "AWS::BedrockAgentCore::Memory",
+    "AWS::BedrockAgentCore::PaymentManager",
     "AWS::BedrockAgentCore::Runtime",
     "AWS::BedrockAgentCore::WorkloadIdentity",
     "AWS::CloudFront::Distribution",
@@ -231,6 +236,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -305,6 +311,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -333,6 +340,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -427,6 +435,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -587,6 +596,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_centralization_rules_for_organization",
+    "list_dataset_integrations",
     "list_resource_telemetry",
     "list_resource_telemetry_for_organization",
     "list_s3_table_integrations",

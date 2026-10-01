@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.163.1"
+  version: "1.182.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -149,7 +149,7 @@ x-documentation:
 
     Legacy AppSumo lifetime tiers get a flat 600 req/min regardless of tier.
 
-    Posts themselves are unlimited on every connected account; the rate limit applies only to API request throughput. Zernio also applies per-account daily publish caps as an anti-abuse safeguard (Instagram 100/day, Facebook 100/day, Google Business 100/day, Threads 250/day, X 50/day, Pinterest 25/day, 50/day for every other platform), plus a 25-posts-per-hour per-account velocity cap.
+    Posts themselves are unlimited on every connected account; the rate limit applies only to API request throughput. Zernio also applies per-account daily publish caps as an anti-abuse safeguard (Instagram 100/day, Facebook 100/day, Google Business 100/day, Threads 250/day, X 50/day plus 200 replies for unverified accounts and 2,400 posts a day for verified X accounts, Pinterest 25/day, 50/day for every other platform), plus a 25-posts-per-hour per-account velocity cap.
 
     TikTok caps accounts connected through the TikTok for Business app lower than any of those: 15 videos and 15 photo posts per account per day, counted separately. Zernio enforces it as a trailing 24 hour window rather than a calendar day, and a post over the cap is not rejected. It is held and published automatically once the oldest post of the same kind leaves the window, so `scheduledFor` on that platform entry moves to the time it will go out.
 
@@ -197,6 +197,10 @@ x-documentation:
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
     - `whatsapp.template.category_updated` - Meta reclassified a WhatsApp Business template's category (drives tariff and marketing opt-out applicability). `template.changeType` is `scheduled` (24h advance notice) or `applied`; `template.category` is always the category right now.
     - `whatsapp.account.name_status_updated` - Meta finished reviewing a WhatsApp display-name change. `name.status` carries the outcome (APPROVED, DECLINED, PENDING_REVIEW). Fires only on a review outcome; a name applied without review (`name_status: AVAILABLE_WITHOUT_REVIEW`) produces no event.
+    - `whatsapp.account.quality_updated` - A WhatsApp number's quality rating or messaging limit tier changed (Meta `phone_number_quality_update` or `business_capability_update`). Carries the previous and new value of both.
+    - `whatsapp.account.status_updated` - Meta restricted, banned, disabled or reinstated the WhatsApp Business Account (Meta `account_update`). Fires once per connected number on the WABA; `status.restrictions` lists what was restricted and until when.
+    - `whatsapp.account.alert_received` - Meta sent an account alert (Meta `account_alerts`), for example a messaging-limit increase deferred or an Official Business Account decision.
+    - `whatsapp.contact.identity_changed` - A WhatsApp user's identifier changed (new phone number, a regenerated business-scoped user id, or a username adoption). `previous` and `current` carry the phone number, BSUID, parent BSUID and username so you can re-key your records; Zernio already moved the inbox conversation and contact.
     - `call.received` - An inbound call (phone/PSTN or WhatsApp) reached one of your numbers and was routed to its destination
     - `call.ended` - A call ended; carries duration, end reason, cost breakdown, and the recording when enabled
     - `call.failed` - A call failed with a hard error before or during bridging
@@ -237,7 +241,7 @@ x-documentation:
     | `post.platform.*`, `post.tiktok.url_resolved` | `account.accountId` (the target this event is about; `post.platforms[].accountId` lists every target) |
     | `post.scheduled`, `post.published`, `post.failed`, `post.partial`, `post.cancelled`, `post.recycled` | `post.platforms[].accountId`, one per target; there is no top-level account |
     | `post.external.*` | `account.accountId` (also `post.accountId`) |
-    | `ad.status_changed`, `whatsapp.template.*`, `whatsapp.account.name_status_updated` | `account.accountId` |
+    | `ad.status_changed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
     | `whatsapp.automatic_event` | top-level `accountId` |
     | `whatsapp.number.*`, `sms.registration.*` | none; `number.id` / `registration.id` are the number and registration ids, `number.profileId` / `registration.profileId` the profile |
     | `verification.*`, `phone_number.stock_available`, `webhook.test` | none |
@@ -569,7 +573,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
@@ -1800,6 +1804,8 @@ components:
         maxAttempts: { type: integer }
         sendCount: { type: integer, description: 'Accepted deliveries (initial send + resends); each bills one verification fee.' }
         lastSentAt: { type: [string, "null"], format: date-time }
+        deliveryStatus: { type: [string, "null"], enum: [delivered, read, failed, null], description: 'WhatsApp only, returned by GET /v1/verify/verifications/{verificationId} (null on create and check responses): what Meta reported for the latest send, null until it reports. A code that never reached the recipient (for example a number not on WhatsApp) reads failed, with the Meta error in deliveryErrorCode. failed does not settle the verification: Meta can report failed and later deliver the same message. Reported for at least an hour after the send, well past any code''s expiry.' }
+        deliveryErrorCode: { type: [integer, "null"], description: 'Meta error code when deliveryStatus is failed (e.g. 131026, message undeliverable).' }
         createdAt: { type: string, format: date-time }
         resend: { type: boolean, description: 'Present on create responses: true when an active verification was resent instead of created.' }
     ImessageSenderLifecycle:
@@ -2304,7 +2310,7 @@ components:
               type: array
               items: { type: string, enum: [mobile, desktop] }
               description: "Restrict by device. Omit to deliver on both mobile and desktop."
-        gender: { type: string, enum: [all, male, female], default: all, description: "Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`." }
+        gender: { type: string, enum: [all, male, female], description: "Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`." }
         languages: { type: array, items: { type: string }, description: "Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants (\"en\" = all English), a region-qualified code a specific one (\"en_GB\", \"pt_BR\"); unknown codes are rejected." }
         places: { type: array, items: { type: object, required: [key], properties: { key: { type: string } } }, description: "Meta place keys (from GET /v1/ads/targeting/search)." }
         neighborhoods: { type: array, items: { type: object, required: [key], properties: { key: { type: string } } }, description: "Meta neighborhood keys (from GET /v1/ads/targeting/search)." }
@@ -2312,7 +2318,7 @@ components:
           type: object
           description: 'Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).'
           additionalProperties: true
-        behaviors: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } }, description: "Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across." }
+        behaviors: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } }, description: "Behavior ids from /v1/ads/targeting/search?dimension=behavior. Meta: each dimension is its own flexible_spec entry (OR within, AND across). TikTok: video/creator interaction categories, sent as the ad group's actions." }
         workPositions: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
         workEmployers: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
         workIndustries: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
@@ -2890,8 +2896,8 @@ components:
               description: 'Google Ads 429 only, when Google names the scope. DEVELOPER is the shared developer-token budget; ACCOUNT is your ad account.'
             budgetScope:
               type: string
-              enum: [user, platform]
-              description: "Zernio Google Ads operations-budget 429 only (never set alongside `quotaExhausted`). `user` is your own burst/daily allowance; `platform` is the fleet-wide daily budget shared across customers."
+              enum: [user]
+              description: "Zernio Google Ads burst-limit 429 only (never set alongside `quotaExhausted`). `user` is your own per-minute allowance on user-driven Google Ads calls; it clears within a minute."
     CommentAutomationAudience:
       type: object
       description: |
@@ -2919,6 +2925,14 @@ components:
               * `verify` - send `followGate.message` with a confirm button. Tapping it is a
                 message, which grants consent, so the re-check on the tap resolves and the
                 real DM (or `followGate.notFollowingMessage`) follows automatically.
+        tapToUnlock:
+          type: boolean
+          default: false
+          description: |
+            Send `followGate.message` with its button to EVERY commenter and deliver the real
+            DM when they tap it, with no follow check at any point. Cannot be combined with a
+            `followerStatus` other than `any` or with `minFollowerCount` (400); `whenUnknown`
+            is ignored. Instagram only. A PATCH that sends `audience` without this field clears it.
     CommentAutomationFollowGate:
       type: object
       description: 'Copy for the follow gate. Sensible defaults are used for any field left empty.'
@@ -2926,11 +2940,11 @@ components:
         message:
           type: string
           maxLength: 640
-          description: 'Confirmation DM sent when whenUnknown=verify.'
+          description: 'Confirmation DM sent when whenUnknown=verify or tapToUnlock=true. The default copy asks for a follow under whenUnknown=verify and only for the tap under tapToUnlock.'
         buttonLabel:
           type: string
           maxLength: 20
-          description: 'Confirm button label. Defaults to "I''m following".'
+          description: 'Confirm button label. Defaults to "I''m following" (whenUnknown=verify) or "Unlock" (tapToUnlock).'
         notFollowingMessage:
           type: string
           maxLength: 1000
@@ -3802,7 +3816,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -4159,6 +4173,7 @@ components:
         metaVerificationStatus: { type: string, enum: [pending, code_requested, verified, expired] }
         metaVerifiedAt: { type: string, format: date-time }
         metaVerificationExpiresAt: { type: string, format: date-time }
+        metaPoolAddRejectedAt: { type: string, format: date-time, description: 'Set when WhatsApp reported the number as registered to another WhatsApp account while connecting it. The number keeps working for Calls and SMS; remove it from the other account and connect again, or replace it with POST /v1/whatsapp/phone-numbers/{id}/replace. Absent once WhatsApp accepts the number.' }
         socialAccountId: { type: [string, "null"], description: 'The WhatsApp account the number is linked to; null when WhatsApp is not connected.' }
         ownerAccountId: { type: [string, "null"], description: 'The telephony account that owns Calls and SMS on the number.' }
         sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
@@ -5051,6 +5066,10 @@ components:
               payload:
                 type: object
                 description: Additional attachment metadata
+                properties:
+                  voice:
+                    type: boolean
+                    description: 'WhatsApp audio only. True for a voice note recorded in the WhatsApp client, false for an audio file.'
         sender:
           type: object
           required: [id]
@@ -5101,7 +5120,7 @@ components:
             whatsappUsername:
               type: string
               description: |
-                WhatsApp only. User's WhatsApp username (e.g. `@jane`). Not a
+                WhatsApp only. User's WhatsApp username (e.g. `jane.shop`). Not a
                 stable identifier, because users can change it. Useful for display, not
                 recommended as an identity anchor.
             instagramProfile:
@@ -5421,6 +5440,10 @@ components:
                   payload:
                     type: object
                     description: Additional attachment metadata
+                    properties:
+                      voice:
+                        type: boolean
+                        description: 'WhatsApp audio only. True for a voice note recorded in the WhatsApp client, false for an audio file.'
             sender:
               type: object
               required: [id]
@@ -5467,7 +5490,7 @@ components:
                 whatsappUsername:
                   type: string
                   description: |
-                    WhatsApp only. User's WhatsApp username (e.g. `@jane`). Not a
+                    WhatsApp only. User's WhatsApp username (e.g. `jane.shop`). Not a
                     stable identifier, because users can change it. Useful for display,
                     not recommended as an identity anchor.
                 instagramProfile:
@@ -5634,6 +5657,12 @@ components:
                 product_retailer_id:
                   type: string
                   description: Retailer ID (SKU) of the product being asked about.
+            forwarded:
+              type: boolean
+              description: 'WhatsApp only. True when the user forwarded this message (5 times or fewer). Absent when not forwarded.'
+            frequentlyForwarded:
+              type: boolean
+              description: 'WhatsApp only. True when the message was forwarded more than 5 times; Meta then omits forwarded.'
             location:
               type: object
               description: |
@@ -5733,6 +5762,12 @@ components:
                   type: string
                 thumbnail_url:
                   type: string
+                welcome_message:
+                  type: object
+                  description: 'WhatsApp CTWA only. The greeting Meta showed the user in the ad.'
+                  properties:
+                    text:
+                      type: string
                 ad_id:
                   type: string
                   description: |
@@ -5797,6 +5832,9 @@ components:
                 details:
                   type: string
                   description: Meta's human-readable error detail string.
+                type:
+                  type: string
+                  description: 'Meta''s name for the content WhatsApp could not deliver, e.g. view_once, poll_creation, group_invite, edit. Absent when Meta sends none.'
             noRenderableContent:
               type: boolean
               description: |
@@ -5804,7 +5842,7 @@ components:
                 carries nothing an integrator can render (a `template`
                 attachment with no text and no parseable content, or Meta's
                 own `is_unsupported` flag). Sibling of `unsupported` above
-                (WhatsApp only, carries Meta's error code/title/details): this
+                (WhatsApp only, carries Meta's error code/title/details and unsupported type): this
                 field has no error envelope, only the boolean. Absence means
                 "not flagged", never "checked and renderable".
             tiktokMessageType:
@@ -5931,6 +5969,10 @@ components:
                 stored before this field shipped (2026-08). Existing messages
                 are NOT backfilled, so treat `null` as "unknown", never as
                 "sent by a human".
+        pricing:
+          $ref: '#/components/schemas/WhatsAppMessagePricing'
+        billingConversation:
+          $ref: '#/components/schemas/WhatsAppBillingConversation'
         conversation:
           $ref: '#/components/schemas/InboxWebhookConversation'
         account:
@@ -6095,7 +6137,7 @@ components:
     WebhookPayloadMessageDeliveryStatus:
       type: object
       description: |
-        Shared payload for message.delivered, message.read, and
+        Shared payload for message.delivered, message.read, message.played and
         message.failed events. Fires when the platform reports a new
         delivery state for an outgoing message.
 
@@ -6103,6 +6145,7 @@ components:
           * message.delivered: WhatsApp, Facebook Messenger, SMS, RCS.
           * message.read: WhatsApp, Facebook Messenger, Instagram, RCS. Not SMS
             (carriers report delivery, never read).
+          * message.played: WhatsApp only, voice messages.
           * message.failed: WhatsApp, SMS and RCS (other platforms don't expose
             per-message failure via webhook). On SMS, `error.code` is the
             carrier's numeric code and `error.message` its reason.
@@ -6111,7 +6154,7 @@ components:
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
-          enum: [message.delivered, message.read, message.failed]
+          enum: [message.delivered, message.read, message.played, message.failed]
         message:
           $ref: '#/components/schemas/InboxWebhookMessage'
         statusAt:
@@ -6140,6 +6183,10 @@ components:
                 templates are unaffected, or for 131031, that Meta restricted the
                 WhatsApp Business Account). Null for unmapped codes; fall back to
                 title/message.
+        pricing:
+          $ref: '#/components/schemas/WhatsAppMessagePricing'
+        billingConversation:
+          $ref: '#/components/schemas/WhatsAppBillingConversation'
         conversation:
           $ref: '#/components/schemas/InboxWebhookConversation'
         account:
@@ -6148,6 +6195,50 @@ components:
           type: string
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WhatsAppMessagePricing:
+      type: [object, "null"]
+      description: |
+        WhatsApp only. Meta's `pricing` object from the status webhook, camelCased.
+        Present (possibly null) on every WhatsApp `message.sent`, `message.delivered`,
+        `message.read` and `message.failed`; absent on other platforms. Meta includes it
+        on `sent` and on one of `delivered` or `read`, so it is null on the others and
+        usually on `failed`.
+      required: [billable, pricingModel, category, type]
+      properties:
+        billable:
+          type: [boolean, "null"]
+          description: Whether Meta bills this message. Meta has announced it will deprecate this field.
+        pricingModel:
+          type: [string, "null"]
+          description: '`PMP` (per-message pricing) or `CBP` (conversation-based, messages before 2025-07-01).'
+          example: PMP
+        category:
+          type: [string, "null"]
+          description: 'Pricing category as Meta sends it, for example `marketing`, `marketing_lite`, `utility`, `authentication`, `authentication-international`, `service`, `referral_conversion`.'
+          example: marketing
+        type:
+          type: [string, "null"]
+          description: '`regular` (billable), `free_customer_service` or `free_entry_point`.'
+          example: regular
+    WhatsAppBillingConversation:
+      type: [object, "null"]
+      description: |
+        WhatsApp only. Meta's `conversation` object from the status webhook (the billing
+        window, not the Zernio inbox `conversation`). Same presence rules as `pricing`;
+        from Graph API v24 Meta sends it only inside an open free entry point window.
+      required: [id, expiresAt, originType]
+      properties:
+        id:
+          type: [string, "null"]
+          description: Meta's conversation id.
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: When the window expires. Meta sends it only on the `sent` status.
+        originType:
+          type: [string, "null"]
+          description: 'Meta `origin.type`, for example `marketing`, `utility`, `service`, `referral_conversion`.'
+          example: utility
     WebhookPayloadConversationStarted:
       type: object
       description: |
@@ -6429,6 +6520,12 @@ components:
           - `with_issues_ad_objects` - the ad object entered `WITH_ISSUES`.
             `status.raw` is `WITH_ISSUES` and the `error` block is populated
             from Meta's `error_code` / `error_summary` / `error_message`.
+
+        Review outcomes (an ad leaving `PENDING_REVIEW` for `ACTIVE`,
+        `DISAPPROVED` and so on) are also emitted from Zernio's own ad sync,
+        so they arrive even when Meta skips the webhook. `status.raw` is Meta's
+        `effective_status`. An ad-level outcome is delivered once per status:
+        whichever source sees it first sends it.
       required: [id, event, account, adObject, status, timestamp]
       properties:
         id:
@@ -6690,6 +6787,235 @@ components:
           type: string
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadWhatsAppAccountQualityUpdated:
+      type: object
+      description: |
+        Webhook payload for `whatsapp.account.quality_updated`. Fired when a connected
+        number's quality rating or messaging limit tier differs from the value Zernio held.
+        Tier changes that Meta applies to the whole portfolio fire once per connected number.
+      required: [id, event, account, quality, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        event:
+          type: string
+          enum: [whatsapp.account.quality_updated]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: [string, "null"] }
+        quality:
+          type: object
+          required: [source, metaEvent, qualityRating, previousQualityRating, messagingLimitTier, previousMessagingLimitTier, displayPhoneNumber]
+          properties:
+            source:
+              type: string
+              enum: [phone_number_quality_update, business_capability_update]
+              description: The Meta webhook field that reported the change.
+            metaEvent:
+              type: [string, "null"]
+              description: 'Meta''s `event` on phone_number_quality_update (for example FLAGGED, UNFLAGGED, UPGRADE, DOWNGRADE, ONBOARDING, THROUGHPUT_UPGRADE). Null on business_capability_update.'
+            qualityRating:
+              type: [string, "null"]
+              description: 'Current quality rating (GREEN, YELLOW, RED, UNKNOWN), read live from Meta on FLAGGED/UNFLAGGED.'
+            previousQualityRating: { type: [string, "null"] }
+            messagingLimitTier:
+              type: [string, "null"]
+              description: 'Current messaging limit tier, for example TIER_250, TIER_2K, TIER_10K, TIER_100K, TIER_UNLIMITED.'
+            previousMessagingLimitTier: { type: [string, "null"] }
+            displayPhoneNumber: { type: [string, "null"] }
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadWhatsAppAccountStatusUpdated:
+      type: object
+      description: |
+        Webhook payload for `whatsapp.account.status_updated`. Fired when Meta restricts,
+        flags a violation on, disables, deletes or reinstates the WhatsApp Business Account.
+        The same status is also exposed on the account as `platformStatus`.
+      required: [id, event, account, status, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        event:
+          type: string
+          enum: [whatsapp.account.status_updated]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: [string, "null"] }
+        status:
+          type: object
+          required: [status, metaEvent, reason, violationType, restrictions, banState, banDate]
+          properties:
+            status:
+              type: string
+              enum: [restricted, active]
+              description: '`active` only on a reinstatement (DISABLED_UPDATE with ban state REINSTATE).'
+            metaEvent:
+              type: string
+              description: 'Meta `account_update` event: ACCOUNT_RESTRICTION, ACCOUNT_VIOLATION, ACCOUNT_DELETED or DISABLED_UPDATE.'
+            reason:
+              type: [string, "null"]
+              description: Human-readable summary. Null on reinstatement.
+            violationType:
+              type: [string, "null"]
+              description: 'ACCOUNT_VIOLATION only, for example SCAM, ADULT.'
+            restrictions:
+              type: array
+              description: ACCOUNT_RESTRICTION only. Empty otherwise.
+              items:
+                type: object
+                required: [type, expiresAt]
+                properties:
+                  type:
+                    type: string
+                    description: 'For example RESTRICTED_BIZ_INITIATED_MESSAGING, RESTRICTED_CUSTOMER_INITIATED_MESSAGING, RESTRICTED_ADD_PHONE_NUMBER_ACTION.'
+                  expiresAt:
+                    type: [string, "null"]
+                    description: 'When the restriction lifts, as Meta sent it (for example 2026-10-30T13:38:04+0000).'
+            banState:
+              type: [string, "null"]
+              description: 'DISABLED_UPDATE only (for example DISABLE, REINSTATE).'
+            banDate:
+              type: [string, "null"]
+              description: 'DISABLED_UPDATE only, as Meta sent it (for example "September 23, 2026").'
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadWhatsAppAccountAlertReceived:
+      type: object
+      description: |
+        Webhook payload for `whatsapp.account.alert_received`, forwarded from Meta's
+        `account_alerts` webhook. Alerts about a specific number go to that number's
+        account; business-level alerts go to every connected number on the WABA.
+      required: [id, event, account, alert, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        event:
+          type: string
+          enum: [whatsapp.account.alert_received]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: [string, "null"] }
+        alert:
+          type: object
+          required: [entityType, entityId, severity, status, type, description]
+          properties:
+            entityType:
+              type: [string, "null"]
+              description: 'BUSINESS, PHONE_NUMBER or CURRENT_STATUS_ID.'
+            entityId: { type: [string, "null"] }
+            severity:
+              type: [string, "null"]
+              description: 'CRITICAL, WARNING or INFORMATIONAL.'
+            status:
+              type: [string, "null"]
+              description: 'ACTIVE or NONE.'
+            type:
+              type: [string, "null"]
+              description: 'For example INCREASED_CAPABILITIES_ELIGIBILITY_DEFERRED, INCREASED_CAPABILITIES_ELIGIBILITY_FAILED, INCREASED_CAPABILITIES_ELIGIBILITY_NEED_MORE_INFO, OBA_APPROVED, OBA_REJECTED, PROFILE_PICTURE_LOST.'
+            description: { type: [string, "null"] }
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WhatsAppContactIdentity:
+      type: object
+      required: [phoneNumber, businessScopedUserId, parentBusinessScopedUserId, whatsappUsername]
+      properties:
+        phoneNumber:
+          type: [string, "null"]
+          description: 'The user''s WhatsApp phone number (wa_id), null when Meta did not send it (a username adopter who hides it).'
+        businessScopedUserId:
+          type: [string, "null"]
+          description: Meta business-scoped user id (BSUID), for example `US.13491208655302741918`.
+        parentBusinessScopedUserId:
+          type: [string, "null"]
+          description: Parent BSUID, shared across the businesses of one portfolio when Meta sends it.
+        whatsappUsername:
+          type: [string, "null"]
+          description: The user's WhatsApp username, when Meta sent one with the change. Null on `previous`.
+    WebhookPayloadWhatsAppContactIdentityChanged:
+      type: object
+      description: |
+        Webhook payload for the `whatsapp.contact.identity_changed` event. Fired when
+        Meta reports that a WhatsApp user is now known by a different identifier: a
+        `system` message of type `user_changed_number`, `user_changed_user_id` or
+        `user_identity_changed`, or a `user_id_update` webhook (BSUID regenerated).
+        Zernio re-keys the inbox conversation and contact channel before firing.
+      required: [id, event, account, reason, previous, current, contactId, conversationId, changedAt, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        event:
+          type: string
+          enum: [whatsapp.contact.identity_changed]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: [string, "null"] }
+        reason:
+          type: string
+          enum: [user_changed_number, user_changed_user_id, user_identity_changed, user_id_update]
+          description: 'Which Meta signal reported the change. `user_changed_number`: new phone number. `user_changed_user_id` and `user_id_update`: new BSUID.'
+        previous:
+          $ref: '#/components/schemas/WhatsAppContactIdentity'
+        current:
+          $ref: '#/components/schemas/WhatsAppContactIdentity'
+        contactId:
+          type: [string, "null"]
+          description: Zernio contact id matched on the new identity, null when none exists yet.
+        conversationId:
+          type: [string, "null"]
+          description: Zernio inbox conversation that was re-keyed, null when there was none.
+        changedAt:
+          type: string
+          format: date-time
+          description: When Meta reported the change.
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+      example:
+        id: 7f1c2d4e-0000-4000-8000-000000000001
+        event: whatsapp.contact.identity_changed
+        account: { accountId: 6a0000000000000000000001, profileId: 6a0000000000000000000002, platform: whatsapp, username: '+15550001111', displayName: Acme }
+        reason: user_changed_number
+        previous: { phoneNumber: '18325355831', businessScopedUserId: US.13491208655302741918, parentBusinessScopedUserId: null, whatsappUsername: null }
+        current: { phoneNumber: '15129984441', businessScopedUserId: US.13491208655302741918, parentBusinessScopedUserId: null, whatsappUsername: null }
+        contactId: 6a0000000000000000000003
+        conversationId: 6a0000000000000000000004
+        changedAt: '2026-09-30T12:00:00.000Z'
+        timestamp: '2026-09-30T12:00:01.000Z'
     WebhookPayloadTest:
       type: object
       description: Webhook payload for test deliveries
@@ -10943,7 +11269,7 @@ components:
               name: { type: string }
         behaviors:
           type: array
-          description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior. Supported on Meta only (TikTok behaviours are rejected with a 400)."
+          description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only."
           items:
             type: object
             required: [id]
@@ -12252,7 +12578,7 @@ components:
         syncedAt: { type: [string, "null"], format: date-time }
         metrics:
           type: [object, "null"]
-          description: 'Trailing 30-day window. Null on rows synced before the metrics columns existed (re-synced on the keyword''s next weekly sweep).'
+          description: 'Trailing 30-day window. Null on rows synced before the metrics columns existed (re-synced on the keyword''s next daily sweep).'
           properties:
             windowDays: { type: integer }
             clicks: { type: integer }
@@ -13941,6 +14267,8 @@ webhooks:
       description: |
         Fired when an outgoing message is delivered to the recipient.
         Supported on WhatsApp and Facebook Messenger.
+        On WhatsApp, `pricing` and `billingConversation` carry Meta's billing context for
+        the message (also on `message.sent`, `message.read` and `message.failed`).
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -13958,6 +14286,21 @@ webhooks:
       description: |
         Fired when an outgoing message is read by the recipient. Supported on
         WhatsApp, Facebook Messenger, Instagram, and RCS.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadMessageDeliveryStatus'
+      responses:
+        '200':
+          description: Webhook received successfully
+  message.played:
+    post:
+      operationId: onMessagePlayed
+      summary: Message played event
+      description: 'Fires the first time the recipient plays a voice message you sent on WhatsApp.'
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -14314,6 +14657,76 @@ webhooks:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookPayloadWhatsAppTemplateCategoryUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.account.quality_updated:
+    post:
+      operationId: onWhatsAppAccountQualityUpdated
+      summary: WhatsApp quality rating or messaging limit changed
+      description: |
+        Fired when a connected WhatsApp number's quality rating or messaging limit tier
+        changes. Delivery is at-least-once; dedupe on the event `id`.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppAccountQualityUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.account.status_updated:
+    post:
+      operationId: onWhatsAppAccountStatusUpdated
+      summary: WhatsApp Business Account restricted or reinstated
+      description: |
+        Fired when Meta restricts, disables, deletes or reinstates the WhatsApp Business
+        Account, once per connected number on it.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppAccountStatusUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.account.alert_received:
+    post:
+      operationId: onWhatsAppAccountAlertReceived
+      summary: WhatsApp account alert received
+      description: |
+        Fired for each Meta `account_alerts` notification on a connected WhatsApp
+        Business Account.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppAccountAlertReceived'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.contact.identity_changed:
+    post:
+      operationId: onWhatsAppContactIdentityChanged
+      summary: WhatsApp contact identity changed event
+      description: |
+        Fired when a WhatsApp user changes phone number or Meta regenerates their
+        business-scoped user id (BSUID). Carries the previous and current identifiers
+        so you can re-key records stored against the old phone number or BSUID.
+        Delivery is at-least-once; dedupe on the event `id`.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppContactIdentityChanged'
       responses:
         '200':
           description: Webhook received successfully
@@ -20823,6 +21236,9 @@ paths:
                     - bluesky
                     - googlebusiness
                     - telegram
+                accountId:
+                  type: string
+                  description: "Which account's copy to delete when the post was published to several accounts on this platform. Required in that case."
             example:
               platform: "threads"
       responses:
@@ -20839,7 +21255,7 @@ paths:
                 success: true
                 message: "Post deleted from threads successfully"
         '400':
-          description: "Invalid request: platform not supported for deletion, post not on that platform, not published, no platform post ID, or no access token."
+          description: "Invalid request: platform not supported for deletion, post not on that platform (or not for the given accountId), not published, no platform post ID, or no access token."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -20850,6 +21266,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: "The post was published to several accounts on this platform and no accountId was sent (ambiguous_account)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
           description: Platform API deletion failed
   /v1/posts/{postId}/edit:
@@ -20862,8 +21283,8 @@ paths:
         Edit the text of an already-published post. Supported on X, Discord,
         Facebook, Reddit, LinkedIn, Telegram, Pinterest, Google Business Profile, YouTube,
         and Slack. When a post was published to several accounts on the same platform,
-        pass `accountId` to pick which account's copy to edit (the first entry is edited
-        otherwise). Each platform enforces its own rules:
+        pass `accountId` to pick which account's copy to edit (without it the request
+        returns 409). Each platform enforces its own rules:
 
         **X**
         - Connected X account must have an active X Premium subscription
@@ -20957,7 +21378,7 @@ paths:
                   type: string
                   description: >
                     Which account's copy of the post to edit when the post was published
-                    to several accounts on the same platform; defaults to the first.
+                    to several accounts on the same platform. Required in that case.
             example:
               platform: "facebook"
               content: "Updated post text with corrected information"
@@ -20995,6 +21416,11 @@ paths:
         '403':
           description: Forbidden
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: "The post was published to several accounts on this platform and no accountId was sent (ambiguous_account)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
           description: Platform API edit failed for a reason the platform did not classify.
   /v1/posts/{postId}/update-metadata:
@@ -21037,7 +21463,7 @@ paths:
                   description: YouTube video ID (required for direct mode, ignored for post-based mode)
                 accountId:
                   type: string
-                  description: Zernio account ID (required for direct mode, ignored for post-based mode)
+                  description: "Zernio account ID. Required for direct mode. In post-based mode, picks which account's copy to update when the post was published to several accounts on this platform (required in that case)."
                 title:
                   type: string
                   maxLength: 100
@@ -21124,6 +21550,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: "The post was published to several accounts on this platform and no accountId was sent (ambiguous_account)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
           description: Platform API update failed
   /v1/users:
@@ -21791,12 +22222,18 @@ paths:
                         issues: { type: array, items: { type: string } }
                         messagingRestriction:
                           type: [object, "null"]
-                          description: 'Observed from Meta''s own error subcodes on our own sends (2534122, 1893063, 2534029), not a live probe. Set on the first refused send and cleared when a later send succeeds, so it lags reality by one send in each direction.'
+                          description: 'Observed from Meta''s own errors on our own sends, not a live probe. Facebook/Instagram: error subcodes 2534122, 1893063, 2534029, set on the first refused send and cleared when a later send succeeds. WhatsApp: Cloud API error codes 131042 (payment or eligibility issue), 131031 (Business Account locked) and 368 (policy block), set when a send or a delivery status fails with one and cleared when a later message is delivered. It lags reality by one message in each direction. After subcode 1893063 (Meta refusing the Page''s messages), comment automation DMs are held and one is retried at `pausedUntil`: 30 minutes, doubling per refused retry up to 4 hours; held DMs stay pending and are sent once Meta accepts again, within the 7-day private-reply window.'
                           properties:
-                            subcode: { type: integer }
-                            message: { type: string }
+                            code:
+                              type: [integer, "null"]
+                              description: WhatsApp Cloud API error code. Null on Facebook and Instagram.
+                            subcode:
+                              type: [integer, "null"]
+                              description: Meta error subcode (Facebook and Instagram). Null on WhatsApp.
+                            message: { type: [string, "null"] }
                             firstSeenAt: { type: string, format: date-time }
                             lastSeenAt: { type: string, format: date-time }
+                            pausedUntil: { type: [string, "null"], format: date-time, description: 'When held automation DMs are next retried. Null when nothing is held.' }
               example:
                 summary:
                   total: 5
@@ -22084,12 +22521,18 @@ paths:
                     description: Actionable recommendations to fix issues
                   messagingRestriction:
                     type: [object, "null"]
-                    description: 'Observed from Meta''s own error subcodes on our own sends (2534122, 1893063, 2534029), not a live probe. Set on the first refused send and cleared when a later send succeeds, so it lags reality by one send in each direction.'
+                    description: 'Observed from Meta''s own errors on our own sends, not a live probe. Facebook/Instagram: error subcodes 2534122, 1893063, 2534029, set on the first refused send and cleared when a later send succeeds. WhatsApp: Cloud API error codes 131042 (payment or eligibility issue), 131031 (Business Account locked) and 368 (policy block), set when a send or a delivery status fails with one and cleared when a later message is delivered. It lags reality by one message in each direction. After subcode 1893063 (Meta refusing the Page''s messages), comment automation DMs are held and one is retried at `pausedUntil`: 30 minutes, doubling per refused retry up to 4 hours; held DMs stay pending and are sent once Meta accepts again, within the 7-day private-reply window.'
                     properties:
-                      subcode: { type: integer }
-                      message: { type: string }
+                      code:
+                        type: [integer, "null"]
+                        description: WhatsApp Cloud API error code. Null on Facebook and Instagram.
+                      subcode:
+                        type: [integer, "null"]
+                        description: Meta error subcode (Facebook and Instagram). Null on WhatsApp.
+                      message: { type: [string, "null"] }
                       firstSeenAt: { type: string, format: date-time }
                       lastSeenAt: { type: string, format: date-time }
+                      pausedUntil: { type: [string, "null"], format: date-time, description: 'When held automation DMs are next retried. Null when nothing is held.' }
                   platformConnection:
                     type: object
                     description: 'WhatsApp accounts only. Live probe of the Meta link behind the channel, performed at request time (the same read as GET /v1/whatsapp/number-info).'
@@ -23009,6 +23452,10 @@ paths:
           required: true
           schema: { type: string }
           description: 'Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409.'
+        - name: reconnectAccountId
+          in: query
+          schema: { type: string }
+          description: "Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. While a profile holds one account per platform the login still replaces this account as before. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url."
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -23020,7 +23467,7 @@ paths:
             `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are
             conditional and must be treated as optional. Your own query params are kept on every
             redirect, but ours overwrite a param of yours with the same name. On an error redirect the
-            internal `headless`, `adsConnect` and `adsScope` markers we add during the flow are removed.
+            internal `headless`, `adsConnect`, `adsScope` and `reconnectAccountId` markers we add during the flow are removed.
 
             Correlation (every redirect from an OAuth callback, success and failure, and the
             `redirect_url` returned by the selection endpoints such as POST /v1/connect/facebook/select-page):
@@ -28347,6 +28794,11 @@ paths:
         '400': { description: Page not in available pages }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+        '409':
+          description: "Another account on this profile is already connected to that destination (profile_platform_conflict)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/accounts/{accountId}/linkedin-organizations:
     get:
@@ -28874,6 +29326,11 @@ paths:
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+        '409':
+          description: "Another account on this profile is already connected to that destination (profile_platform_conflict)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/accounts/{accountId}/linkedin-mentions:
     get:
@@ -29844,6 +30301,11 @@ paths:
         '400': { description: 'Location not in available locations, or the provided googleAccountId is not one of the accounts this connection manages' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+        '409':
+          description: "Another account on this profile is already connected to that destination (profile_platform_conflict)."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/accounts/{accountId}/gmb-locations/assign:
     post:
@@ -31950,7 +32412,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -32107,7 +32569,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -32724,6 +33186,12 @@ paths:
                           type: [string, "null"]
                           enum: [blue, government, business, none]
                           description: X verified badge type. Only present for X conversations.
+                        businessScopedUserId:
+                          type: string
+                          description: 'WhatsApp only. Meta business-scoped user ID (BSUID), the stable identity anchor; present when Meta has sent it for this participant.'
+                        whatsappUsername:
+                          type: string
+                          description: 'WhatsApp only. The participant''s WhatsApp username (e.g. `jane.shop`, no leading @). Not a stable identifier, because users can change it: useful for display, not recommended as an identity anchor. Captured from inbound messages, so older threads fill in on their next inbound.'
                         lastMessage: { type: string }
                         updatedTime: { type: string, format: date-time }
                         status: { type: string, enum: [active, archived] }
@@ -33312,6 +33780,12 @@ paths:
                             participantName: { type: [string, "null"] }
                             participantUsername: { type: [string, "null"] }
                             participantPicture: { type: [string, "null"] }
+                            businessScopedUserId:
+                              type: string
+                              description: 'WhatsApp only. Meta business-scoped user ID (BSUID), the stable identity anchor; present when Meta has sent it for this participant.'
+                            whatsappUsername:
+                              type: string
+                              description: 'WhatsApp only. The participant''s WhatsApp username (e.g. `jane.shop`, no leading @). Not a stable identifier, because users can change it: useful for display, not recommended as an identity anchor. Captured from inbound messages, so older threads fill in on their next inbound.'
                             status: { type: string, enum: [active, archived] }
                             lastMessage: { type: [string, "null"], description: "The conversation's most recent message preview" }
                             lastMessageAt: { type: [string, "null"], format: date-time }
@@ -33402,6 +33876,12 @@ paths:
                         type: [string, "null"]
                         enum: [blue, government, business, none]
                         description: X verified badge type. Only present for X conversations.
+                      businessScopedUserId:
+                        type: string
+                        description: 'WhatsApp only. Meta business-scoped user ID (BSUID), the stable identity anchor; present when Meta has sent it for this participant.'
+                      whatsappUsername:
+                        type: string
+                        description: 'WhatsApp only. The participant''s WhatsApp username (e.g. `jane.shop`, no leading @). Not a stable identifier, because users can change it: useful for display, not recommended as an identity anchor. Captured from inbound messages, so older threads fill in on their next inbound.'
                       lastMessage: { type: string }
                       lastMessageAt: { type: string, format: date-time }
                       updatedTime: { type: string, format: date-time }
@@ -33739,7 +34219,7 @@ paths:
                           format: date-time
                         deliveryStatus:
                           type: [string, "null"]
-                          enum: [sent, delivered, read, failed, deleted]
+                          enum: [sent, delivered, read, played, failed, deleted]
                           description: Lifecycle status for outgoing messages. Not all platforms emit every state (see webhook support matrix).
                         deliveredAt:
                           type: [string, "null"]
@@ -42240,6 +42720,94 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp account not found }
 
+  /v1/whatsapp/pricing-analytics:
+    get:
+      x-resource-group: "analytics"
+      operationId: getWhatsAppPricingAnalytics
+      tags: [WhatsApp Phone Numbers]
+      summary: Get pricing analytics
+      description: |
+        Message volume and approximate cost for one connected WhatsApp number, read live
+        from Meta's `pricing_analytics` on the WhatsApp Business Account and scoped to
+        that account's phone number. Meta's figures are approximate and can lag; Meta
+        bills from its own invoice. Meta limits how far back and how fine the data goes
+        (for example HALF_HOUR only over short ranges) and answers out-of-range requests
+        with an error.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: WhatsApp account ID }
+        - { name: start, in: query, required: true, schema: { type: string, format: date-time }, description: 'Range start, ISO 8601 date or date-time.' }
+        - { name: end, in: query, required: true, schema: { type: string, format: date-time }, description: 'Range end, ISO 8601 date or date-time. Must be after start.' }
+        - { name: granularity, in: query, required: true, schema: { type: string, enum: [HALF_HOUR, DAILY, MONTHLY] } }
+        - name: dimensions
+          in: query
+          required: false
+          schema: { type: string, example: 'PRICING_CATEGORY,COUNTRY' }
+          description: 'Comma-separated breakdowns: COUNTRY, PHONE, PRICING_CATEGORY, PRICING_TYPE, TIER. Without it each data point is a total for the interval.'
+        - name: metricTypes
+          in: query
+          required: false
+          schema: { type: string, example: 'COST,VOLUME' }
+          description: 'Comma-separated: COST, VOLUME. Defaults to both.'
+        - name: pricingTypes
+          in: query
+          required: false
+          schema: { type: string, example: REGULAR }
+          description: 'Comma-separated filter: REGULAR, FREE_CUSTOMER_SERVICE, FREE_ENTRY_POINT.'
+        - name: pricingCategories
+          in: query
+          required: false
+          schema: { type: string, example: 'MARKETING,UTILITY' }
+          description: 'Comma-separated filter of Meta pricing categories, for example MARKETING, MARKETING_LITE, UTILITY, AUTHENTICATION, AUTHENTICATION_INTERNATIONAL, SERVICE, REFERRAL_CONVERSION.'
+        - name: countryCodes
+          in: query
+          required: false
+          schema: { type: string, example: 'ES,MX' }
+          description: Comma-separated ISO 3166-1 alpha-2 country codes to filter on.
+      responses:
+        '200':
+          description: Pricing data points for the range
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accountId, phoneNumber, granularity, start, end, dataPoints]
+                properties:
+                  accountId: { type: string }
+                  phoneNumber: { type: string, description: 'The number the data is scoped to, digits only.' }
+                  granularity: { type: string, enum: [HALF_HOUR, DAILY, MONTHLY] }
+                  start: { type: string, format: date-time }
+                  end: { type: string, format: date-time }
+                  dataPoints:
+                    type: array
+                    items:
+                      type: object
+                      required: [start, end, phoneNumber, country, tier, pricingType, pricingCategory, volume, cost]
+                      properties:
+                        start: { type: string, format: date-time }
+                        end: { type: string, format: date-time }
+                        phoneNumber: { type: [string, "null"], description: 'Set when dimensions includes PHONE.' }
+                        country: { type: [string, "null"], description: 'Set when dimensions includes COUNTRY.' }
+                        tier: { type: [string, "null"], description: 'Volume pricing tier. Set when dimensions includes TIER.' }
+                        pricingType: { type: [string, "null"], description: 'Set when dimensions includes PRICING_TYPE.' }
+                        pricingCategory: { type: [string, "null"], description: 'Set when dimensions includes PRICING_CATEGORY.' }
+                        volume: { type: [integer, "null"], description: Messages delivered. }
+                        cost: { type: [number, "null"], description: 'Approximate charge, in the currency of the WABA''s payment method.' }
+              example:
+                accountId: '66e000000000000000000001'
+                phoneNumber: '34600000000'
+                granularity: DAILY
+                start: '2026-09-01T00:00:00.000Z'
+                end: '2026-09-30T00:00:00.000Z'
+                dataPoints:
+                  - { start: '2026-09-01T00:00:00.000Z', end: '2026-09-02T00:00:00.000Z', phoneNumber: null, country: ES, tier: null, pricingType: null, pricingCategory: MARKETING, volume: 12, cost: 0.73 }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /v1/whatsapp/block-users/status:
     get:
       x-resource-group: "contacts"
@@ -49385,7 +49953,9 @@ paths:
         follow relationship for people who have messaged the account, so `audience.whenUnknown`
         decides what happens for everyone else - including `verify`, which sends a one-tap
         confirmation DM (`followGate`) and then delivers the real DM automatically. People we
-        already know follow you skip the tap entirely.
+        already know follow you skip the tap entirely. Set `audience.tapToUnlock: true` instead
+        to send that button DM to every commenter and deliver the real DM on the tap with no
+        follow check.
 
         Set `alsoMatchInDms: true` on a `comment` automation to also answer people who send
         a keyword as a direct message instead of commenting it. One automation then covers
@@ -50303,12 +50873,11 @@ paths:
       description: |
         Returns the Google Search keyword criteria (positive and negative) synced from
         connected Google Ads accounts, one row per ad-group keyword. Refreshed about
-        once a week per Google Ads customer (the keyword sweep rides the ads discovery
-        pass on a slower slot, to stay inside Google's shared daily API quota), so
-        keywords added on Google can take several days to appear. A customer synced
-        for the first time is populated on the next discovery pass rather than
-        waiting for its weekly slot, and connecting an account or triggering a
-        manual sync refreshes it immediately.
+        once a day per Google Ads customer (the keyword sweep rides the ads discovery
+        pass on a slower slot), so keywords added on Google can take up to a day to
+        appear. A customer synced for the first time is populated on the next discovery
+        pass rather than waiting for its daily slot, and connecting an account or
+        triggering a manual sync refreshes it immediately.
         Campaign-level negative keywords are not included; only ad-group-level
         criteria are.
       security:
@@ -52263,7 +52832,8 @@ paths:
         - { name: pageId, in: query, schema: { type: string }, description: "Meta only: Facebook Page ID. Prunes the tree to ads whose creative is backed by this Page: campaigns and ad sets with no ad on the Page drop out, and rolled-up metrics cover only the Page's ads. Mirrors the same filter on /v1/ads and /v1/ads/campaigns." }
         - { name: accountId, in: query, schema: { type: string }, description: Account ID }
         - { name: profileId, in: query, schema: { type: string }, description: Profile ID }
-        - { name: campaignId, in: query, schema: { type: string }, description: "Restrict the tree to a single campaign by its platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Filters the campaign set itself, so it works regardless of account size and pagination. Pass this when you already hold a campaign id instead of paging the tree to find it. Mirrors the `campaignId` filter on GET /v1/ads." }
+        - { name: campaignId, in: query, schema: { type: string }, description: "Restrict the tree to one or more campaigns by platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Comma-separate up to 100 ids (`?campaignId=123,456`). Filters the campaign set itself, so it works regardless of account size and pagination. Pass this when you already hold campaign ids (for example from an `ad.status_changed` webhook) instead of paging the whole tree." }
+        - { name: updatedSince, in: query, schema: { type: string, format: date-time }, description: "Return only campaigns with a change stored since this time (ISO 8601 with offset, e.g. `2026-09-30T10:00:00Z`): a new ad, or a change to any ad's status, review status, name, budget or creative. Each matching campaign comes back whole (every ad set and ad). Metrics are not a change: to refresh numbers, filter with `hasDelivery=true` and a date range instead. Combines with every other filter (with `hasDelivery`/`minSpend` a campaign must match both)." }
         - { name: search, in: query, schema: { type: string, maxLength: 500 }, description: "Case-insensitive substring match on campaign, ad set and ad names (`_`, `%` and spaces match literally), or an exact platform campaign, ad set or ad id. A campaign whose name matches returns with all its ad sets and ads; a match on an ad set or ad name returns only the matching branch. Filters the campaign set itself, so `pagination.total` counts only matching campaigns." }
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Start of the METRICS date range (YYYY-MM-DD). On its own it affects only the spend/impression numbers overlaid on each node, not which campaigns are returned. Pass `hasDelivery` or `minSpend` to also filter the campaign set to this window. Defaults to 90 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range." }
@@ -53931,7 +54501,7 @@ paths:
                       nextPageToken: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
         '400': { description: "Invalid input, or Google rejected the request; the message carries Google's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: "Per-user Google Ads operations budget or the shared Google quota reached; the message says which and when it resets." }
+        '429': { description: "Per-user Google Ads burst limit (15 requests per minute) or a Google rate limit reached; the message says which and when to retry." }
         '501': { description: Only supported on Google Ads }
 
   /v1/ads/keywords/historical-metrics:
@@ -53982,7 +54552,7 @@ paths:
                   aggregateMetricResults: { type: [object, "null"] }
         '400': { description: "Invalid input, or Google rejected the request; the message carries Google's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: "Per-user Google Ads operations budget or the shared Google quota reached; the message says which and when it resets." }
+        '429': { description: "Per-user Google Ads burst limit (15 requests per minute) or a Google rate limit reached; the message says which and when to retry." }
         '501': { description: Only supported on Google Ads }
 
   /v1/ads/insights:
@@ -54091,7 +54661,7 @@ paths:
         '400': { description: "Invalid input, or the platform rejected the query (unknown field, invalid breakdown combo, malformed GAQL); the message carries the platform's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: "TikTok only: the connection cannot read that advertiser." }
-        '429': { description: "Platform rate limit reached. For Google this is the per-user operations budget or the shared quota; the message says which and when it resets." }
+        '429': { description: "Platform rate limit reached. For Google this is the per-user burst limit or a Google rate limit; the message says which and when to retry." }
         '501': { description: "Only supported on Meta (facebook/instagram), Google Ads and TikTok" }
 
   /v1/ads/insights/reports:
@@ -58705,6 +59275,9 @@ paths:
                             - `101` CLOSED. Terminal.
                         approvalStatus: { type: string, description: "X only. X's own ad account approval status. Observed values are `ACCEPTED`, `PENDING` and `REJECTED`, but X does not publish the full vocabulary, so treat an unrecognised value as not usable. Other platforms report `accountStatus` or `status` instead." }
                         disableReason: { type: integer, description: "Meta only. Meta's `disable_reason` code, forwarded unchanged. Present when `accountStatus` is `2` (DISABLED) and Meta gives a reason, which is what separates a policy action from a payment problem. Meta does not publish a stable list of values for this field, so none are enumerated here: resolve the code against Meta's own ad account reference. Absent when Meta reports no reason, or when the connected token cannot read the field." }
+                        balance: { type: number, description: "TikTok only. Total balance the advertiser can spend (cash plus grant), in whole units of `currency`. Read from the Business Center balance when the connection has a finance role there, which is the only TikTok source that counts cash held in a shared payment portfolio; otherwise TikTok's advertiser-level balance, which can read 0 for a cash-funded advertiser." }
+                        cashBalance: { type: number, description: "TikTok only. Cash part of `balance`, in whole units of `currency`. Absent when the connection has no finance role in the advertiser's Business Center." }
+                        grantBalance: { type: number, description: "TikTok only. Grant (ad credit) part of `balance`, in whole units of `currency`. Absent when the connection has no finance role in the advertiser's Business Center." }
                         timezoneName: { type: string, description: "IANA timezone of the ad account (Meta only). Drives daily-budget reset and Insights day boundaries." }
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
@@ -60114,7 +60687,7 @@ paths:
                       address: { type: string }
                 behaviors:
                   type: array
-                  description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior. Supported on Meta only (TikTok behaviours are rejected with a 400). Each must include id."
+                  description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only. Each must include id."
                   items:
                     type: object
                     required: [id]
@@ -61687,8 +62260,14 @@ paths:
 
         - `geo`: locations, further scoped by `geoType`
         - `interest`
-        - `behavior`: Meta-only, matched by name against Meta's fixed behaviors catalog
-          (e.g. `Small business owners`, `Frequent Travelers`); ids feed `TargetingSpec.behaviors`
+        - `behavior`: Meta, TikTok and LinkedIn, matched by name; ids feed `TargetingSpec.behaviors`.
+          Meta: its fixed behaviors catalog (e.g. `Small business owners`, `Frequent Travelers`).
+          TikTok: video and creator interaction categories (e.g. `Software & Apps`), with ids like
+          `video:1913101` or `creator:24001` and `path` starting with `Video interactions` or
+          `Creator interactions`. LinkedIn: member behaviors (e.g. `Frequent Travelers`,
+          `Job Seekers`, `Recently Promoted`), ids like `urn:li:memberBehavior:9`. Google has no
+          separate behavior catalog: its in-market and affinity segments come back from `interest`,
+          and X removed behavior targeting from its Ads API
         - `income`: the household-income tiers the platform can target (Meta, TikTok, Google).
           The id is the normalized tier (`top_5`, `top_10`, `top_10_25`, `top_25_50`) to pass as
           `TargetingSpec.incomeTier`, never a platform segment id. Meta's tiers are US-only

@@ -34,6 +34,7 @@ from google.agents.cli._project import root_agent_name as derive_root_agent_name
 
 from .copy_files import (
     DEFAULT_FRONTEND,
+    CopyOptions,
     copy_files,
     copy_flat_structure_agent_files,
     copy_frontend_files,
@@ -1175,8 +1176,7 @@ def process_template(
                 copy_files(
                     shared_base_path,
                     project_template,
-                    agent_name,
-                    overwrite=True,
+                    options=CopyOptions(overwrite=True),
                 )
                 logging.debug("1a. Copied shared base template from %s", shared_base_path)
 
@@ -1186,8 +1186,7 @@ def process_template(
                 copy_files(
                     language_base_path,
                     project_template,
-                    agent_name,
-                    overwrite=True,
+                    options=CopyOptions(overwrite=True),
                 )
                 logging.debug(
                     "1b. Copied %s base template from %s", language, language_base_path
@@ -1211,8 +1210,7 @@ def process_template(
                     copy_files(
                         shared_deployment_path,
                         project_template,
-                        agent_name=agent_name,
-                        overwrite=True,
+                        options=CopyOptions(overwrite=True),
                     )
                     logging.debug(
                         "2a. Copied shared deployment files from %s",
@@ -1227,8 +1225,7 @@ def process_template(
                     copy_files(
                         language_deployment_path,
                         project_template,
-                        agent_name=agent_name,
-                        overwrite=True,
+                        options=CopyOptions(overwrite=True),
                     )
                     logging.debug(
                         "2b. Copied %s deployment files from %s",
@@ -1295,8 +1292,7 @@ def process_template(
                     copy_files(
                         source_agent_folder,
                         target_agent_folder,
-                        agent_name,
-                        overwrite=True,
+                        options=CopyOptions(overwrite=True),
                     )
 
                 # For Java templates, also copy src/test if it exists
@@ -1310,8 +1306,7 @@ def process_template(
                         copy_files(
                             source_test_folder,
                             target_test_folder,
-                            agent_name,
-                            overwrite=True,
+                            options=CopyOptions(overwrite=True),
                         )
 
                 # Copy other folders (frontend, tests, notebooks, deployment)
@@ -1328,8 +1323,7 @@ def process_template(
                         copy_files(
                             agent_folder,
                             project_folder,
-                            agent_name,
-                            overwrite=True,
+                            options=CopyOptions(overwrite=True),
                         )
 
                 # 6c. Overlay any remaining top-level files/dirs the agent ships
@@ -1352,8 +1346,7 @@ def process_template(
                     copy_files(
                         item,
                         project_template / item.name,
-                        agent_name,
-                        overwrite=True,
+                        options=CopyOptions(overwrite=True),
                     )
 
             # Create cookiecutter.json in the template root
@@ -1486,18 +1479,19 @@ def process_template(
                         generated_project_dir,
                         agent_directory,
                         clone_root=template_repo_root,
-                        guidance_filename=agent_guidance_filename,
+                        options=CopyOptions(guidance_filename=agent_guidance_filename),
                     )
                 else:
                     # Standard structure: copy as-is
                     copy_files(
                         remote_template_path,
                         generated_project_dir,
-                        agent_name=agent_name,
-                        overwrite=True,
-                        skip_manifest=not overlay_is_project,
-                        guidance_filename=agent_guidance_filename,
                         clone_root=template_repo_root,
+                        options=CopyOptions(
+                            overwrite=True,
+                            skip_manifest=not overlay_is_project,
+                            guidance_filename=agent_guidance_filename,
+                        ),
                     )
                 logging.debug("Remote template files copied successfully")
 

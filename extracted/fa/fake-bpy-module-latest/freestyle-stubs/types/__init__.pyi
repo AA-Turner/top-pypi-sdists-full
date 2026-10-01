@@ -1333,7 +1333,7 @@ class StrokeVertexIterator:
     resides in the object access: an Interface0DIterator only allows
     access to an Interface0D while one might need to access the
     specialized StrokeVertex type. In this case, one should use a
-    StrokeVertexIterator. To call functions of the UnaryFuntion0D type,
+    StrokeVertexIterator. To call functions of the UnaryFunction0D type,
     a StrokeVertexIterator can be converted to an Interface0DIterator by
     by calling Interface0DIterator(it).
     """

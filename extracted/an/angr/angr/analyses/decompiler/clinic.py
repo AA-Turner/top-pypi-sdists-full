@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import enum
 import importlib
+import itertools
 import logging
 from collections import defaultdict, namedtuple
 from collections.abc import Iterable
@@ -31,6 +32,7 @@ from angr.ailment.expression import (
     Register as AILRegister,
 )
 from angr.analyses.analysis import Analysis, register_analysis
+from angr.analyses.calling_convention.fact_collector import FactCollector
 from angr.analyses.cfg.cfg_base import CFGBase
 from angr.analyses.decompiler.block_simplifier import BlockSimplifier, PeepholeOptimizationBundle
 from angr.analyses.decompiler.callsite_maker import CallSiteMaker
@@ -38,11 +40,13 @@ from angr.analyses.decompiler.optimization_pass_registry import name_to_pass, pa
 from angr.analyses.s_liveness import SLivenessAnalysis
 from angr.analyses.s_reaching_definitions import SReachingDefinitions
 from angr.analyses.s_reaching_definitions.s_rda_model import SRDAModel
-from angr.analyses.stack_pointer_tracker import OffsetVal, Register
+from angr.analyses.stack_pointer_tracker import OffsetVal, Register, StackPointerTracker
 from angr.analyses.typehoon import Typehoon
 from angr.analyses.typehoon.simple_solver import SimpleSolver
 from angr.block import Block as VEXBlock
 from angr.calling_conventions import (
+    CC,
+    SimCC,
     SimCCUsercall,
     SimComboArg,
     SimFunctionArgument,
@@ -50,10 +54,11 @@ from angr.calling_conventions import (
     SimRegArg,
     SimStackArg,
     SimStructArg,
+    is_stack_probe,
 )
 from angr.code_location import ExternalCodeLocation
 from angr.codenode import BlockNode, FuncNode
-from angr.errors import AngrDecompilationComplexityError, AngrDecompilationError
+from angr.errors import AngrDecompilationComplexityError, AngrDecompilationError, SimTranslationError
 from angr.knowledge_base import KnowledgeBase
 from angr.knowledge_plugins.cfg.memory_data import MemoryDataSort
 from angr.knowledge_plugins.functions import Function
@@ -349,6 +354,18 @@ def _is_function_entry_fallthrough_block(graph: networkx.DiGraph, function_addr:
     return True
 
 
+class _BinOpCounter(AILBlockViewer):
+    """Counts the binary operations in a block."""
+
+    def __init__(self):
+        super().__init__()
+        self.count = 0
+
+    def _handle_BinaryOp(self, expr_idx, expr, stmt_idx, stmt, block):
+        self.count += 1
+        super()._handle_BinaryOp(expr_idx, expr, stmt_idx, stmt, block)
+
+
 class Clinic(Analysis, Serializable):
     """
     A Clinic deals with AILments: it lifts a function to AIL and runs the decompiler's simplification pipeline on it.
@@ -367,6 +384,17 @@ class Clinic(Analysis, Serializable):
     """
 
     _ail_manager: ailment.Manager
+
+    #: lift a block with cross-insn-opt only when it contains at least this many bytes
+    CROSS_INSN_OPT_MIN_BLOCK_SIZE = 99
+    #: ...and only in functions with at least this many such blocks
+    CROSS_INSN_OPT_MIN_LARGE_BLOCK_COUNT = 400
+    #: ...and it has fewer BinOps than this in total
+    CROSS_INSN_OPT_MAX_BINOP_COUNT = 3
+    #: ...and only when the block contains this many consecutive repeating byte strides
+    CROSS_INSN_OPT_MIN_STRIDE_REPEATS = 30
+    #: longest byte stride when looking for repeating patterns
+    CROSS_INSN_OPT_MAX_STRIDE = 4
 
     def __init__(
         self,
@@ -471,6 +499,8 @@ class Clinic(Analysis, Serializable):
         self._rewrite_ites_to_diamond_max_cases = rewrite_ites_to_diamond_max_cases
         self.reaching_definitions: SRDAModel | None = None
         self._cache = cache
+        # instruction addresses of Windows Control-Flow-Guard check calls
+        self._guard_check_icall_ins_addrs: set[int] = set()
         self._mode = mode
         self._max_ail_statements = max_ail_statements
         self._max_type_constraints = max_type_constraints
@@ -483,11 +513,17 @@ class Clinic(Analysis, Serializable):
         # actual stack variables. these secondary stack variables can be safely eliminated if not used by anything.
         self.secondary_stackvars: set[int] = set()
         self._typehoon_cls = typehoon_cls
-        # Heuristic: if the function is larger than M, all blocks greater than N bytes will enable cross-instruction
-        # optimization in VEX. this heuristic is for higher decompilation speed.
-        self._cross_insn_opt_min_block_size = 99  # N
-        self._cross_insn_opt_min_large_block_count = 40  # M
+        # Heuristic: if the function has at least M large blocks (defined as larger than N bytes), we will
+        # lift these blocks with cross-insn-opt in VEX.
+        # Further, we restrict cross-insn-opt to blocks with fewer than K binops to limit decompilation quality
+        # regression.
+        self._cross_insn_opt_min_block_size = self.CROSS_INSN_OPT_MIN_BLOCK_SIZE  # N
+        self._cross_insn_opt_min_large_block_count = self.CROSS_INSN_OPT_MIN_LARGE_BLOCK_COUNT  # M
+        self._cross_insn_opt_max_binop_count = self.CROSS_INSN_OPT_MAX_BINOP_COUNT  # K
+        self._cross_insn_opt_min_stride_repeats = self.CROSS_INSN_OPT_MIN_STRIDE_REPEATS
         self._cross_insn_opt_for_large_blocks = False
+        # (block addr, block size) of all blocks lifted with cross-insn-opt=True
+        self._block_cross_insn_opt: set[tuple[int, int]] = set()
 
         self.notes = notes if notes is not None else {}
         self.static_vvars = static_vvars if static_vvars is not None else {}
@@ -1177,7 +1213,8 @@ class Clinic(Analysis, Serializable):
         )
 
     def _stage_post_callsite_simplifications(self) -> None:
-        pass
+        # the check calls have consumed their argument during callsite making; they can go now
+        self._ail_graph = self._remove_guard_check_icall_calls(self._ail_graph)
 
     def _stage_recover_variables(self) -> None:
         assert self.arg_list is not None and self.arg_vvars is not None and self.vvar_to_vvar is not None
@@ -1403,7 +1440,9 @@ class Clinic(Analysis, Serializable):
             ):
                 # tail jumps
                 target_func = self.kb.functions.get_by_addr(node.addr)
-            elif isinstance(node, FuncNode):
+            elif isinstance(node, FuncNode) and self.kb.functions.contains_addr(node.addr):
+                # removing a function does not rewrite its callers' transition graphs, so a FuncNode
+                # outlives the function it names
                 target_func = self.kb.functions.get_by_addr(node.addr)
             else:
                 # TODO: Enable call-site analysis for indirect calls
@@ -1563,8 +1602,8 @@ class Clinic(Analysis, Serializable):
         :return: None
         """
 
-        def _cross_insn_opt_callback(block_addr, block_size) -> bool:  # pylint: disable=unused-argument
-            return self._cross_insn_opt_for_large_blocks and block_size >= self._cross_insn_opt_min_block_size
+        def _cross_insn_opt_callback(block_addr, block_size) -> bool:
+            return self.block_lifted_with_cross_insn_opt(block_addr, block_size)
 
         regs = {self.project.arch.sp_offset}
         initial_reg_values = {
@@ -1581,18 +1620,171 @@ class Clinic(Analysis, Serializable):
         regs |= self._find_regs_compared_against_sp(self._func_graph)
         regs |= self._find_regs_saving_sp(self._func_graph)
 
-        spt = self.project.analyses.StackPointerTracker(
-            self.function,
-            regs,
-            fail_fast=self._fail_fast,
-            track_memory=self._sp_tracker_track_memory,
-            cross_insn_opt_callback=_cross_insn_opt_callback,
-            initial_reg_values=initial_reg_values,
-        )
+        def _run_spt():
+            return self.project.analyses[StackPointerTracker].prep(kb=self.kb, fail_fast=self._fail_fast)(
+                self.function,
+                regs,
+                track_memory=self._sp_tracker_track_memory,
+                cross_insn_opt_callback=_cross_insn_opt_callback,
+                initial_reg_values=initial_reg_values,
+            )
+
+        spt = _run_spt()
+        if not self._stack_balanced(spt):
+            spt = self._balance_stack_with_callee_cleanup(spt, _run_spt)
 
         if spt.inconsistent_for(self.project.arch.sp_offset):
             l.warning("Inconsistency found during stack pointer tracking. Decompilation results might be incorrect.")
         return spt
+
+    MAX_CALLEE_CLEANUP_SUBSET_CANDIDATES = 4
+
+    def _stack_balanced(self, spt) -> bool:
+        """
+        Whether the stack pointer is consistent at every endpoint and back at its entry value before every return.
+        """
+        sp_offset = self.project.arch.sp_offset
+        if spt.inconsistent_for(sp_offset):
+            return False
+        entry_sp = spt.offset_before(self.function.addr, sp_offset)
+        if entry_sp is None:
+            return False
+        for endpoint in self.function.endpoints_with_type["return"]:
+            block = self.project.factory.block(endpoint.addr, size=endpoint.size)
+            if not block.instruction_addrs or block.vex.jumpkind != "Ijk_Ret":
+                continue
+            if spt.offset_before(block.instruction_addrs[-1], sp_offset) != entry_sp:
+                return False
+        return True
+
+    def _balance_stack_with_callee_cleanup(self, spt, run_spt):
+        """
+        For call sites with unknown caller/callee cleanup configurations (especially with indirect calls), adjust
+        the caller/callee cleanup configuration to attempt to balance the stack.
+
+        Returns the StackPointerTracker instance once the stack is properly balanced or after giving up.
+        """
+        platform = self.project.simos.name if self.project.simos is not None else None
+        cc_classes = CC.get(self.project.arch.name, {}).get(platform, []) if platform is not None else []
+        if not any(cc_cls.CALLEE_CLEANUP for cc_cls in cc_classes):
+            return spt
+
+        callsite_protos = self.kb.callsite_prototypes
+        candidates: list[tuple[int, SimCC, SimTypeFunction, SimCC]] = []
+        for block in self.function.blocks:
+            if block.vex.jumpkind != "Ijk_Call" or callsite_protos.is_prototype_certain(block.addr) is not False:
+                continue
+            if any(
+                isinstance(dst, FuncNode) and not self._is_unresolvable_call_target(dst.addr)
+                for dst in self.function.transition_graph.successors(self.function.get_node(block.addr))
+            ):
+                # direct calls use the callee's calling convention
+                continue
+            cc = callsite_protos.get_cc(block.addr)
+            proto = callsite_protos.get_prototype(block.addr)
+            if cc is None or proto is None or cc.CALLEE_CLEANUP:
+                continue
+            if not any(isinstance(loc, SimStackArg) for loc in cc.arg_locs(proto)):
+                continue
+            cleanup_cc_cls = next(
+                (cc_cls for cc_cls in cc_classes if cc_cls.CALLEE_CLEANUP and issubclass(cc_cls, type(cc))), None
+            )
+            if cleanup_cc_cls is not None:
+                candidates.append((block.addr, cc, proto, cleanup_cc_cls(self.project.arch)))
+        if not candidates or not self._direct_callee_cleanups_known(spt):
+            # an imbalance may be due to a direct callee whose cleanup is unknown
+            return spt
+
+        if len(candidates) <= self.MAX_CALLEE_CLEANUP_SUBSET_CANDIDATES:
+            subsets_by_size = [list(itertools.combinations(candidates, size)) for size in range(1, len(candidates) + 1)]
+        else:
+            subsets_by_size = [[tuple(candidates)]]
+
+        def _balanced_spt(subset):
+            for addr, _, proto, cleanup_cc in subset:
+                callsite_protos.set_prototype(addr, cleanup_cc, proto)
+            new_spt = run_spt()
+            for addr, cc, proto, _ in subset:
+                callsite_protos.set_prototype(addr, cc, proto)
+            return new_spt if self._stack_balanced(new_spt) else None
+
+        for subsets in subsets_by_size:
+            solutions = [(subset, new_spt) for subset in subsets if (new_spt := _balanced_spt(subset)) is not None]
+            if len(solutions) > 1:
+                # ambiguous
+                break
+            if solutions:
+                subset, new_spt = solutions[0]
+                for addr, _, proto, cleanup_cc in subset:
+                    callsite_protos.set_prototype(addr, cleanup_cc, proto)
+                return new_spt
+        return spt
+
+    def _direct_callee_cleanups_known(self, spt: StackPointerTracker) -> bool:
+        """
+        Whether every returning direct callee pops a known number of bytes that matches what the stack pointer tracker
+        assumes at its call sites. Otherwise, a stack imbalance may be caused by a direct callee.
+        """
+        for node in self.function.transition_graph:
+            for _, dst, data in self.function.transition_graph.out_edges(node, data=True):
+                if (
+                    data.get("type") != "call"
+                    or not isinstance(dst, FuncNode)
+                    or self._is_unresolvable_call_target(dst.addr)
+                    or not self.kb.functions.contains_addr(dst.addr)
+                ):
+                    continue
+                callee = self.kb.functions.get_by_addr(dst.addr)
+                if (
+                    callee.returning is False
+                    or callee.is_simprocedure
+                    or callee.is_plt
+                    or callee.prototype_source >= PrototypeSource.SIMPROC
+                ):
+                    continue
+                extra_pop = self.project.analyses[FactCollector].prep(kb=self.kb)(callee).extra_pop
+                if extra_pop is None or extra_pop != spt.callee_cleanup_size_at(node):
+                    return False
+        return True
+
+    def _is_unresolvable_call_target(self, addr: int) -> bool:
+        return isinstance(self.project.hooked_by(addr), UnresolvableCallTarget)
+
+    def block_lifted_with_cross_insn_opt(self, block_addr: int, block_size: int) -> bool:
+        return (block_addr, block_size) in self._block_cross_insn_opt
+
+    def _block_is_filler_like(self, addr: int, size: int) -> bool:
+        """Whether the block's bytes repeat some stride at least ``CROSS_INSN_OPT_MIN_STRIDE_REPEATS`` times in
+        a row. Repeated one-instruction fillers are what cross-instruction folding pays off on."""
+        try:
+            data = self.project.loader.memory.load(addr, size)
+        except KeyError:
+            return False
+        return (
+            self.repeating_stride_run(data, self.CROSS_INSN_OPT_MAX_STRIDE) >= self._cross_insn_opt_min_stride_repeats
+        )
+
+    @staticmethod
+    def repeating_stride_run(data: bytes, max_stride: int) -> int:
+        """The longest run of consecutive repetitions of up to ``max_stride`` bytes in ``data``."""
+        n = len(data)
+        best = 1 if n else 0
+        for stride in range(1, min(max_stride, n // 2) + 1):
+            run = 1
+            for i in range(stride, n - stride + 1, stride):
+                if data[i : i + stride] == data[i - stride : i]:
+                    run += 1
+                    best = max(best, run)
+                else:
+                    run = 1
+        return best
+
+    @staticmethod
+    def binop_count(block: ailment.Block) -> int:
+        """The number of binary operations across all statements of ``block``."""
+        counter = _BinOpCounter()
+        counter.walk(block)
+        return counter.count
 
     @timethis
     def _convert_all(self):
@@ -1648,11 +1840,19 @@ class Clinic(Analysis, Serializable):
         if block_node.size == 0:
             return ailment.Block(block_node.addr, 0, statements=[])
 
-        cross_insn_opt = False
-        if self._cross_insn_opt_for_large_blocks and block_node.size >= self._cross_insn_opt_min_block_size:
-            cross_insn_opt = True
+        cross_insn_opt = (
+            self._cross_insn_opt_for_large_blocks
+            and block_node.size >= self._cross_insn_opt_min_block_size
+            and self._block_is_filler_like(block_node.addr, block_node.size)
+        )
         block = self.project.factory.block(block_node.addr, block_node.size, cross_insn_opt=cross_insn_opt)
         converted = self._convert_vex(block)
+        if cross_insn_opt and self.binop_count(converted) > self._cross_insn_opt_max_binop_count:
+            cross_insn_opt = False
+            block = self.project.factory.block(block_node.addr, block_node.size, cross_insn_opt=False)
+            converted = self._convert_vex(block)
+        if cross_insn_opt:
+            self._block_cross_insn_opt.add((block_node.addr, block_node.size))
 
         # architecture-specific setup
         if block.addr == self.function.addr and self.project.arch.name in {"X86", "AMD64"}:
@@ -1924,8 +2124,20 @@ class Clinic(Analysis, Serializable):
         """
         Fix the calling convention for special function calls.
         """
+        guard_check_slots = self._guard_check_icall_slots()
         for block in list(ail_graph.nodes()):
             last_stmt = block.statements[-1]
+            if (
+                guard_check_slots
+                and isinstance(last_stmt, ailment.Stmt.SideEffectStatement)
+                and isinstance(last_stmt.expr, ailment.Expr.Call)
+                and self._is_call_through_pointer_slot(block, last_stmt.tags["ins_addr"], guard_check_slots)
+            ):
+                # the Control-Flow-Guard check takes the target of the checked indirect call as its only argument
+                block.statements[-1] = self._make_single_reg_arg_call(last_stmt)
+                self._guard_check_icall_ins_addrs.add(last_stmt.tags["ins_addr"])
+                continue
+
             if (
                 isinstance(last_stmt, ailment.Stmt.SideEffectStatement)
                 and isinstance(last_stmt.expr, ailment.Expr.Call)
@@ -1939,36 +2151,44 @@ class Clinic(Analysis, Serializable):
                 continue
             target_func = self.kb.functions.get_by_addr(target)
             if target_func.name == "_security_check_cookie" and self.project.arch.name in {"X86", "AMD64"}:
-                arg = SimRegArg("ecx", 32) if self.project.arch.bits == 32 else SimRegArg("rcx", 64)
-                arg_offset, arg_bits = self.project.arch.registers[arg.reg_name]
-                arg_expr = ailment.Expr.Register(
-                    self._ail_manager.next_atom(),
-                    arg_offset,
-                    arg_bits * self.project.arch.byte_width,
-                    **last_stmt.tags,
-                )
-                IntCls = SimTypeInt if self.project.arch.bits == 32 else SimTypeLongLong
-                call_tags = {**last_stmt.tags, "is_prototype_guessed": False}
-                new_call = ailment.Expr.Call(
-                    self._ail_manager.next_atom(),
-                    last_stmt.expr.target.copy(),
-                    args=[arg_expr],
-                    **call_tags,
-                )
-                self.variable_map.set_calling_convention(new_call, SimCCUsercall(self.project.arch, [arg], []))
-                self.variable_map.set_prototype(
-                    new_call,
-                    SimTypeFunction([IntCls(signed=False)], SimTypeBottom(label="void")).with_arch(self.project.arch),
-                )
-                call_stmt = ailment.Stmt.SideEffectStatement(
-                    self._ail_manager.next_atom(),
-                    new_call,
-                    ret_expr=None,
-                    **last_stmt.tags,
-                )
-                block.statements[-1] = call_stmt
+                block.statements[-1] = self._make_single_reg_arg_call(last_stmt)
 
         return ail_graph
+
+    def _make_single_reg_arg_call(
+        self, last_stmt: ailment.Stmt.SideEffectStatement
+    ) -> ailment.Stmt.SideEffectStatement:
+        """
+        Rewrite an x86/AMD64 call into `void f(unsigned int)` taking its only argument in ecx/rcx.
+        """
+        assert isinstance(last_stmt.expr, ailment.Expr.Call)
+        arg = SimRegArg("ecx", 32) if self.project.arch.bits == 32 else SimRegArg("rcx", 64)
+        arg_offset, arg_bits = self.project.arch.registers[arg.reg_name]
+        arg_expr = ailment.Expr.Register(
+            self._ail_manager.next_atom(),
+            arg_offset,
+            arg_bits * self.project.arch.byte_width,
+            **last_stmt.tags,
+        )
+        IntCls = SimTypeInt if self.project.arch.bits == 32 else SimTypeLongLong
+        call_tags = {**last_stmt.tags, "is_prototype_guessed": False}
+        new_call = ailment.Expr.Call(
+            self._ail_manager.next_atom(),
+            last_stmt.expr.target.copy(),
+            args=[arg_expr],
+            **call_tags,
+        )
+        self.variable_map.set_calling_convention(new_call, SimCCUsercall(self.project.arch, [arg], []))
+        self.variable_map.set_prototype(
+            new_call,
+            SimTypeFunction([IntCls(signed=False)], SimTypeBottom(label="void")).with_arch(self.project.arch),
+        )
+        return ailment.Stmt.SideEffectStatement(
+            self._ail_manager.next_atom(),
+            new_call,
+            ret_expr=None,
+            **last_stmt.tags,
+        )
 
     def _apply_callsite_prototype_and_calling_convention(self, ail_graph: networkx.DiGraph) -> networkx.DiGraph:
         for block in ail_graph.nodes():
@@ -2819,7 +3039,9 @@ class Clinic(Analysis, Serializable):
         if arg_vvars is not None:
             for vvar, var in arg_vvars.values():
                 var_manager.record_variable(ExternalCodeLocation(), var, 0, atom=vvar)
-        var_manager.unify_variables(interference=liveness.interference_graph())
+        var_manager.unify_variables(
+            interference=liveness.interference_graph(vvar_ids=var_manager.same_offset_stack_vvarids())
+        )
         var_manager.assign_unified_variable_names(
             labels=self.kb.labels,
             arg_names=list(self.function.prototype.arg_names) if self.function.prototype else None,
@@ -3247,10 +3469,10 @@ class Clinic(Analysis, Serializable):
                 # the CFG instead
                 callsite_node = self._cfg.get_any_node(block.addr, anyaddr=True)
                 if callsite_node is None:
-                    break
+                    continue
                 callees = self._cfg.get_successors(callsite_node, jumpkind="Ijk_Call")
                 if len(callees) != 1:
-                    break
+                    continue
                 callee = callees[0].addr
                 if self.kb.functions.contains_addr(callee):
                     callee_func = self.kb.functions.get_by_addr(callee)
@@ -4280,31 +4502,122 @@ class Clinic(Analysis, Serializable):
                     if self.project.kb.functions.contains_addr(last_stmt.expr.target.value)
                     else None
                 )
-                if func is not None and (func.name == "__chkstk" or func.info.get("is_alloca_probe", False) is True):
+                if func is not None and is_stack_probe(func):
                     # get rid of this call
-                    node.statements = node.statements[:-1]
-                    if self.project.arch.call_pushes_ret and node.statements:
-                        last_stmt = node.statements[-1]
-                        succ = next(iter(ail_graph.successors(node)))
-                        if (
-                            isinstance(last_stmt, ailment.Stmt.Store)
-                            and isinstance(last_stmt.addr, ailment.Expr.StackBaseOffset)
-                            and isinstance(last_stmt.addr.offset, int)
-                            and last_stmt.addr.offset < 0
-                            and isinstance(last_stmt.data, ailment.Expr.Const)
-                            and last_stmt.data.value == succ.addr
-                        ) or (
-                            isinstance(last_stmt, ailment.Stmt.Assignment)
-                            and isinstance(last_stmt.dst, ailment.Expr.VirtualVariable)
-                            and last_stmt.dst.was_stack
-                            and last_stmt.dst.stack_offset < 0
-                            and isinstance(last_stmt.src, ailment.Expr.Const)
-                            and last_stmt.src.value == succ.addr
-                        ):
-                            # remove the statement that pushes the return address
-                            node.statements = node.statements[:-1]
+                    self._remove_trailing_call(ail_graph, node)
                     break
         return ail_graph
+
+    def _remove_trailing_call(self, ail_graph: networkx.DiGraph, node: ailment.Block) -> None:
+        """
+        Remove the call statement at the end of a block, together with the push of its return address.
+        """
+        node.statements = node.statements[:-1]
+        if self.project.arch.call_pushes_ret and node.statements:
+            last_stmt = node.statements[-1]
+            succ = next(iter(ail_graph.successors(node)))
+            if (
+                isinstance(last_stmt, ailment.Stmt.Store)
+                and isinstance(last_stmt.addr, ailment.Expr.StackBaseOffset)
+                and isinstance(last_stmt.addr.offset, int)
+                and last_stmt.addr.offset < 0
+                and isinstance(last_stmt.data, ailment.Expr.Const)
+                and last_stmt.data.value == succ.addr
+            ) or (
+                isinstance(last_stmt, ailment.Stmt.Assignment)
+                and isinstance(last_stmt.dst, ailment.Expr.VirtualVariable)
+                and last_stmt.dst.was_stack
+                and last_stmt.dst.stack_offset < 0
+                and isinstance(last_stmt.src, ailment.Expr.Const)
+                and last_stmt.src.value == succ.addr
+            ):
+                # remove the statement that pushes the return address
+                node.statements = node.statements[:-1]
+
+    def _guard_check_icall_slots(self) -> set[int]:
+        """
+        Addresses of the Windows Control-Flow-Guard check-function pointers (e.g., __guard_check_icall_fptr).
+        """
+        if self.project.arch.name not in {"AMD64", "X86"}:
+            return set()
+        obj = self.project.loader.find_object_containing(self.function.addr)
+        load_config = getattr(obj, "load_config", None)
+        if not load_config:
+            return set()
+        return {
+            v
+            for k in ("GuardCFCheckFunctionPointer", "GuardXFGCheckFunctionPointer")
+            if (v := load_config.get(k, None))
+        }
+
+    def _remove_guard_check_icall_calls(self, ail_graph: networkx.DiGraph) -> networkx.DiGraph:
+        """
+        Remove Windows Control-Flow-Guard check calls, together with their argument.
+
+        The check validates the target of the indirect call that follows it and either returns or terminates the
+        process, so it has no effect on the decompiled code. The check pointer statically points to a `ret` stub that
+        the linker may share with unrelated empty functions, so _fix_special_call_calling_conventions identifies the
+        checks by the pointer they go through instead of by their callee.
+        """
+        if not self._guard_check_icall_ins_addrs:
+            return ail_graph
+
+        for node in ail_graph:
+            if not node.statements or ail_graph.out_degree[node] != 1:
+                continue
+            last_stmt = node.statements[-1]
+            if (
+                isinstance(last_stmt, ailment.Stmt.SideEffectStatement)
+                and isinstance(last_stmt.expr, ailment.Expr.Call)
+                and last_stmt.tags.get("ins_addr", None) in self._guard_check_icall_ins_addrs
+            ):
+                self._remove_trailing_call(ail_graph, node)
+
+        return ail_graph
+
+    def _is_call_through_pointer_slot(self, node: ailment.Block, call_ins_addr: int, slots: set[int]) -> bool:
+        """
+        Check if the call instruction at `call_ins_addr` is `call [slot]`, or `call reg` where reg was last loaded
+        with `mov reg, [slot]` in the same block.
+        """
+
+        assert node.addr is not None and node.original_size is not None
+        try:
+            insns = self.project.factory.block(node.addr, size=node.original_size).capstone.insns
+        except SimTranslationError:
+            return False
+        idx = next((i for i, insn in enumerate(insns) if insn.address == call_ins_addr), None)
+        if idx is None or insns[idx].mnemonic != "call":
+            return False
+
+        def mem_operand_addr(insn, op) -> int | None:
+            if op.type != capstone.x86.X86_OP_MEM or op.mem.index != 0 or op.mem.segment != 0:
+                return None
+            if op.mem.base == capstone.x86.X86_REG_RIP:
+                return insn.address + insn.size + op.mem.disp
+            if op.mem.base == 0:
+                return op.mem.disp & ((1 << self.project.arch.bits) - 1)
+            return None
+
+        call_insn = insns[idx]
+        op = call_insn.operands[0]
+        if op.type == capstone.x86.X86_OP_MEM:
+            return mem_operand_addr(call_insn, op) in slots
+        if op.type != capstone.x86.X86_OP_REG:
+            return False
+        target_reg = op.reg
+        for insn in reversed(insns[:idx]):
+            _, regs_written = insn.insn.regs_access()
+            if target_reg not in regs_written:
+                continue
+            return (
+                insn.mnemonic == "mov"
+                and len(insn.operands) == 2
+                and insn.operands[0].type == capstone.x86.X86_OP_REG
+                and insn.operands[0].reg == target_reg
+                and mem_operand_addr(insn, insn.operands[1]) in slots
+            )
+        return False
 
     def _rewrite_alloca(self, ail_graph):
         # pylint:disable=too-many-boolean-expressions

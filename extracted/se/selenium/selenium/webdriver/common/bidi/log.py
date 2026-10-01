@@ -54,6 +54,11 @@ class GenericLogEntry:
     """GenericLogEntry."""
 
     type: str | None = None
+    level: Any | None = None
+    source: Any | None = None
+    text: Any | None = None
+    timestamp: Any | None = None
+    stack_trace: Any | None = None
 
 
 @dataclass

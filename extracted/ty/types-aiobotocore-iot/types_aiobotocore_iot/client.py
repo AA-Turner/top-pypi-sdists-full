@@ -703,8 +703,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[AttachSecurityProfileRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Associates a Device Defender security profile with a thing group or this
-        account.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/attach_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#attach_security_profile)
@@ -754,7 +754,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[CancelDetectMitigationActionsTaskRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Cancels a Device Defender ML Detect mitigation action.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/cancel_detect_mitigation_actions_task.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#cancel_detect_mitigation_actions_task)
@@ -862,8 +863,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[CreateCustomMetricRequestTypeDef]
     ) -> CreateCustomMetricResponseTypeDef:
         """
-        Use this API to define a Custom Metric published by your devices to Device
-        Defender.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/create_custom_metric.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#create_custom_metric)
@@ -873,8 +874,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[CreateDimensionRequestTypeDef]
     ) -> CreateDimensionResponseTypeDef:
         """
-        Create a dimension that you can use to limit the scope of a metric used in a
-        security profile for IoT Device Defender.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/create_dimension.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#create_dimension)
@@ -1056,7 +1057,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[CreateSecurityProfileRequestTypeDef]
     ) -> CreateSecurityProfileResponseTypeDef:
         """
-        Creates a Device Defender security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/create_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#create_security_profile)
@@ -1216,7 +1218,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteCustomMetricRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes a Device Defender detect custom metric.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/delete_custom_metric.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_custom_metric)
@@ -1226,7 +1229,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteDimensionRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Removes the specified dimension from your Amazon Web Services accounts.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/delete_dimension.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_dimension)
@@ -1402,7 +1406,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteSecurityProfileRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes a Device Defender security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/delete_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#delete_security_profile)
@@ -1589,7 +1594,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeCustomMetricRequestTypeDef]
     ) -> DescribeCustomMetricResponseTypeDef:
         """
-        Gets information about a Device Defender detect custom metric.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_custom_metric.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#describe_custom_metric)
@@ -1607,7 +1613,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeDetectMitigationActionsTaskRequestTypeDef]
     ) -> DescribeDetectMitigationActionsTaskResponseTypeDef:
         """
-        Gets information about a Device Defender ML Detect mitigation action.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_detect_mitigation_actions_task.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#describe_detect_mitigation_actions_task)
@@ -1617,8 +1624,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeDimensionRequestTypeDef]
     ) -> DescribeDimensionResponseTypeDef:
         """
-        Provides details about a dimension that is defined in your Amazon Web Services
-        accounts.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_dimension.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#describe_dimension)
@@ -1778,7 +1785,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeSecurityProfileRequestTypeDef]
     ) -> DescribeSecurityProfileResponseTypeDef:
         """
-        Gets information about a Device Defender security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/describe_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#describe_security_profile)
@@ -1858,8 +1866,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[DetachSecurityProfileRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Disassociates a Device Defender security profile from a thing group or from
-        this account.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/detach_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#detach_security_profile)
@@ -1910,7 +1918,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[GetBehaviorModelTrainingSummariesRequestTypeDef]
     ) -> GetBehaviorModelTrainingSummariesResponseTypeDef:
         """
-        Returns a Device Defender's ML Detect Security Profile training model's status.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/get_behavior_model_training_summaries.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#get_behavior_model_training_summaries)
@@ -2125,7 +2134,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListActiveViolationsRequestTypeDef]
     ) -> ListActiveViolationsResponseTypeDef:
         """
-        Lists the active violations for a given Device Defender security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_active_violations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_active_violations)
@@ -2277,7 +2287,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListCustomMetricsRequestTypeDef]
     ) -> ListCustomMetricsResponseTypeDef:
         """
-        Lists your Device Defender detect custom metrics.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_custom_metrics.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_custom_metrics)
@@ -2287,8 +2298,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListDetectMitigationActionsExecutionsRequestTypeDef]
     ) -> ListDetectMitigationActionsExecutionsResponseTypeDef:
         """
-        Lists mitigation actions executions for a Device Defender ML Detect Security
-        Profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_detect_mitigation_actions_executions.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_detect_mitigation_actions_executions)
@@ -2298,7 +2309,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListDetectMitigationActionsTasksRequestTypeDef]
     ) -> ListDetectMitigationActionsTasksResponseTypeDef:
         """
-        List of Device Defender ML Detect mitigation actions tasks.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_detect_mitigation_actions_tasks.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_detect_mitigation_actions_tasks)
@@ -2308,8 +2320,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListDimensionsRequestTypeDef]
     ) -> ListDimensionsResponseTypeDef:
         """
-        List the set of dimensions that are defined for your Amazon Web Services
-        accounts.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_dimensions.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_dimensions)
@@ -2580,7 +2592,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListSecurityProfilesRequestTypeDef]
     ) -> ListSecurityProfilesResponseTypeDef:
         """
-        Lists the Device Defender security profiles you've created.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_security_profiles.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_security_profiles)
@@ -2590,7 +2603,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListSecurityProfilesForTargetRequestTypeDef]
     ) -> ListSecurityProfilesForTargetResponseTypeDef:
         """
-        Lists the Device Defender security profiles attached to a target (thing group).
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_security_profiles_for_target.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_security_profiles_for_target)
@@ -2630,8 +2644,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListTargetsForSecurityProfileRequestTypeDef]
     ) -> ListTargetsForSecurityProfileResponseTypeDef:
         """
-        Lists the targets (thing groups) associated with a given Device Defender
-        security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_targets_for_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_targets_for_security_profile)
@@ -2771,8 +2785,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ListViolationEventsRequestTypeDef]
     ) -> ListViolationEventsResponseTypeDef:
         """
-        Lists the Device Defender security profile violations discovered during the
-        given time period.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/list_violation_events.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#list_violation_events)
@@ -2782,8 +2796,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[PutVerificationStateOnViolationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Set a verification state and provide a description of that verification state
-        on a violation (detect alarm).
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/put_verification_state_on_violation.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#put_verification_state_on_violation)
@@ -2946,7 +2960,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[StartDetectMitigationActionsTaskRequestTypeDef]
     ) -> StartDetectMitigationActionsTaskResponseTypeDef:
         """
-        Starts a Device Defender ML Detect mitigation actions task.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/start_detect_mitigation_actions_task.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#start_detect_mitigation_actions_task)
@@ -3114,7 +3129,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateCustomMetricRequestTypeDef]
     ) -> UpdateCustomMetricResponseTypeDef:
         """
-        Updates a Device Defender detect custom metric.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/update_custom_metric.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#update_custom_metric)
@@ -3124,7 +3140,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateDimensionRequestTypeDef]
     ) -> UpdateDimensionResponseTypeDef:
         """
-        Updates the definition for a dimension.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/update_dimension.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#update_dimension)
@@ -3273,7 +3290,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateSecurityProfileRequestTypeDef]
     ) -> UpdateSecurityProfileResponseTypeDef:
         """
-        Updates a Device Defender security profile.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/update_security_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#update_security_profile)
@@ -3341,7 +3359,8 @@ class IoTClient(AioBaseClient):
         self, **kwargs: Unpack[ValidateSecurityProfileBehaviorsRequestTypeDef]
     ) -> ValidateSecurityProfileBehaviorsResponseTypeDef:
         """
-        Validates a Device Defender security profile behaviors specification.
+        The IoT Device Defender detect feature will no longer be available to new
+        customers starting August 31, 2026.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot/client/validate_security_profile_behaviors.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/client/#validate_security_profile_behaviors)

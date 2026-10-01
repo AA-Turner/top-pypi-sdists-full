@@ -64,6 +64,8 @@ _SEAMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrx_ai._ext", ("_registry", "_configured")),
     ("matrx_ai.db._registry", ("_models", "_bases", "_instances", "_extras", "_configured")),
     ("matrx_ai.mandates", ("_MANDATE_RESOLVER",)),
+    ("matrx_ai.tools.candidate_containment", ("_BORROW_LOOKUP",)),
+    ("matrx_ai.mandate_taps", ("_DOOR_TAP", "_OBSERVER")),
     ("matrx_ai.graph_nodes.iteration_limit", ("_RESOLVER",)),
     ("matrx_ai.browser_handoff.seam", ("_LEDGER",)),
     ("matrx_ai.capabilities.registry", ("_REGISTRY",)),

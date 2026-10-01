@@ -107,6 +107,31 @@ async def mandate_start(
     config: AgentStartConfig | None = None,
 ) -> NodeResult[AiExecutionResult]:
     require_agent_host(_NODE_TYPE)
+    # MANDATE CANDIDATES — the host observes this real run: the step's inputs
+    # and config are copied HERE, before the body mutates them
+    # (``inputs.max_iterations``), and a candidate Holder may re-run them in the
+    # background. The tap never alters the step.
+    from matrx_ai.mandate_taps import tapped_door
+
+    return await tapped_door(
+        "workflow_step",
+        inputs.mandate_key,
+        lambda: {
+            "node_type": _NODE_TYPE,
+            "node_id": getattr(ctx, "node_id", None),
+            "run_id": getattr(ctx, "run_id", None),
+            "inputs": inputs.model_copy(),
+            "config": config.model_copy() if config is not None else None,
+        },
+        lambda: _mandate_start_body(ctx, inputs, config),
+    )
+
+
+async def _mandate_start_body(
+    ctx: NodeExecutionContext,
+    inputs: MandateStartInput,
+    config: AgentStartConfig | None,
+) -> NodeResult[AiExecutionResult]:
     node_id = getattr(ctx, "node_id", None) or "?"
     resolved = await resolve_step_agent_full(
         inputs,

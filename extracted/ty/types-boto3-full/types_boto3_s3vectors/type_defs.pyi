@@ -21,7 +21,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
-from .literals import DistanceMetricType, SseTypeType
+from .literals import DistanceMetricType, IndexModeType, SseTypeType
 
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
@@ -66,6 +66,7 @@ __all__ = (
     "MetadataConfigurationUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PutInputVectorTypeDef",
+    "PutVectorBucketDefaultIndexModeInputTypeDef",
     "PutVectorBucketPolicyInputTypeDef",
     "PutVectorsInputTypeDef",
     "QueryOutputVectorTypeDef",
@@ -75,6 +76,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "TagResourceInputTypeDef",
     "UntagResourceInputTypeDef",
+    "UpdateIndexModeInputTypeDef",
     "VectorBucketSummaryTypeDef",
     "VectorBucketTypeDef",
     "VectorDataOutputTypeDef",
@@ -184,6 +186,11 @@ class ListVectorsInputTypeDef(TypedDict):
 class MetadataConfigurationTypeDef(TypedDict):
     nonFilterableMetadataKeys: Sequence[str]
 
+class PutVectorBucketDefaultIndexModeInputTypeDef(TypedDict):
+    defaultIndexMode: IndexModeType
+    vectorBucketName: NotRequired[str]
+    vectorBucketArn: NotRequired[str]
+
 class PutVectorBucketPolicyInputTypeDef(TypedDict):
     policy: str
     vectorBucketName: NotRequired[str]
@@ -202,6 +209,12 @@ class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
 
+class UpdateIndexModeInputTypeDef(TypedDict):
+    indexMode: IndexModeType
+    vectorBucketName: NotRequired[str]
+    indexName: NotRequired[str]
+    indexArn: NotRequired[str]
+
 class VectorDataTypeDef(TypedDict):
     float32: NotRequired[Sequence[float]]
 
@@ -215,6 +228,7 @@ class VectorBucketTypeDef(TypedDict):
     vectorBucketArn: str
     creationTime: datetime
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    defaultIndexMode: NotRequired[IndexModeType]
 
 class CreateIndexOutputTypeDef(TypedDict):
     indexArn: str
@@ -257,6 +271,7 @@ class IndexTypeDef(TypedDict):
     distanceMetric: DistanceMetricType
     metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    indexMode: NotRequired[IndexModeType]
 
 class ListIndexesInputPaginateTypeDef(TypedDict):
     vectorBucketName: NotRequired[str]
@@ -337,6 +352,7 @@ QueryVectorsInputPaginateTypeDef = TypedDict(
         "indexName": NotRequired[str],
         "indexArn": NotRequired[str],
         "filter": NotRequired[Mapping[str, Any]],
+        "queryMode": NotRequired[IndexModeType],
         "returnMetadata": NotRequired[bool],
         "returnDistance": NotRequired[bool],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
@@ -351,6 +367,7 @@ QueryVectorsInputTypeDef = TypedDict(
         "indexName": NotRequired[str],
         "indexArn": NotRequired[str],
         "filter": NotRequired[Mapping[str, Any]],
+        "queryMode": NotRequired[IndexModeType],
         "returnMetadata": NotRequired[bool],
         "returnDistance": NotRequired[bool],
         "nextToken": NotRequired[str],

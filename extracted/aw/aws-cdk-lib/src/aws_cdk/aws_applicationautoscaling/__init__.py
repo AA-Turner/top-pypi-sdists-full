@@ -1182,7 +1182,7 @@ class BasicTargetTrackingScalingPolicyProps(BaseTargetTrackingProps):
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationautoscaling_f7c06c61.IScalableTargetRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationautoscaling_f7c06c61.IScalableTargetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnScalableTarget(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -1201,6 +1201,7 @@ class CfnScalableTarget(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_applicationautoscaling as appscaling
@@ -1231,7 +1232,11 @@ class CfnScalableTarget(
                 dynamic_scaling_in_suspended=False,
                 dynamic_scaling_out_suspended=False,
                 scheduled_scaling_suspended=False
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -1248,6 +1253,7 @@ class CfnScalableTarget(
         role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         scheduled_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalableTarget.ScheduledActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         suspended_state: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalableTarget.SuspendedStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ApplicationAutoScaling::ScalableTarget``.
 
@@ -1261,6 +1267,7 @@ class CfnScalableTarget(
         :param role_arn: Specify the Amazon Resource Name (ARN) of an Identity and Access Management (IAM) role that allows Application Auto Scaling to modify the scalable target on your behalf. This can be either an IAM service role that Application Auto Scaling can assume to make calls to other AWS resources on your behalf, or a service-linked role for the specified service. For more information, see `How Application Auto Scaling works with IAM <https://docs.aws.amazon.com/autoscaling/application/userguide/security_iam_service-with-iam.html>`_ in the *Application Auto Scaling User Guide* . To automatically create a service-linked role (recommended), specify the full ARN of the service-linked role in your stack template. To find the exact ARN of the service-linked role for your AWS or custom resource, see the `Service-linked roles <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-service-linked-roles.html>`_ topic in the *Application Auto Scaling User Guide* . Look for the ARN in the table at the bottom of the page.
         :param scheduled_actions: The scheduled actions for the scalable target. Duplicates aren't allowed.
         :param suspended_state: An embedded object that contains attributes and attribute values that are used to suspend and resume automatic scaling. Setting the value of an attribute to ``true`` suspends the specified scaling activities. Setting it to ``false`` (default) resumes the specified scaling activities. *Suspension Outcomes* - For ``DynamicScalingInSuspended`` , while a suspension is in effect, all scale-in activities that are triggered by a scaling policy are suspended. - For ``DynamicScalingOutSuspended`` , while a suspension is in effect, all scale-out activities that are triggered by a scaling policy are suspended. - For ``ScheduledScalingSuspended`` , while a suspension is in effect, all scaling activities that involve scheduled actions are suspended.
+        :param tags: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b7828d7eb81c45c73ed70f9ac7ffe26699d8745e54d9a892440a20af1276437)
@@ -1275,6 +1282,7 @@ class CfnScalableTarget(
             role_arn=role_arn,
             scheduled_actions=scheduled_actions,
             suspended_state=suspended_state,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1342,6 +1350,12 @@ class CfnScalableTarget(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1474,6 +1488,21 @@ class CfnScalableTarget(
             type_hints = cached_type_hints(_typecheckingstub__0bbb1dcd1d81de0e4c36de9ea045348b3724df3d549254eef9a20300325fc117)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "suspendedState", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2b87d6975a81ad4cd42710120832208525b33424481739f7b2435dda0299f252)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationautoscaling.CfnScalableTarget.ScalableTargetActionProperty",
@@ -1828,6 +1857,7 @@ class CfnScalableTarget(
         "role_arn": "roleArn",
         "scheduled_actions": "scheduledActions",
         "suspended_state": "suspendedState",
+        "tags": "tags",
     },
 )
 class CfnScalableTargetProps:
@@ -1842,6 +1872,7 @@ class CfnScalableTargetProps:
         role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         scheduled_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalableTarget.ScheduledActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         suspended_state: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnScalableTarget.SuspendedStateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnScalableTarget``.
 
@@ -1853,12 +1884,14 @@ class CfnScalableTargetProps:
         :param role_arn: Specify the Amazon Resource Name (ARN) of an Identity and Access Management (IAM) role that allows Application Auto Scaling to modify the scalable target on your behalf. This can be either an IAM service role that Application Auto Scaling can assume to make calls to other AWS resources on your behalf, or a service-linked role for the specified service. For more information, see `How Application Auto Scaling works with IAM <https://docs.aws.amazon.com/autoscaling/application/userguide/security_iam_service-with-iam.html>`_ in the *Application Auto Scaling User Guide* . To automatically create a service-linked role (recommended), specify the full ARN of the service-linked role in your stack template. To find the exact ARN of the service-linked role for your AWS or custom resource, see the `Service-linked roles <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-service-linked-roles.html>`_ topic in the *Application Auto Scaling User Guide* . Look for the ARN in the table at the bottom of the page.
         :param scheduled_actions: The scheduled actions for the scalable target. Duplicates aren't allowed.
         :param suspended_state: An embedded object that contains attributes and attribute values that are used to suspend and resume automatic scaling. Setting the value of an attribute to ``true`` suspends the specified scaling activities. Setting it to ``false`` (default) resumes the specified scaling activities. *Suspension Outcomes* - For ``DynamicScalingInSuspended`` , while a suspension is in effect, all scale-in activities that are triggered by a scaling policy are suspended. - For ``DynamicScalingOutSuspended`` , while a suspension is in effect, all scale-out activities that are triggered by a scaling policy are suspended. - For ``ScheduledScalingSuspended`` , while a suspension is in effect, all scaling activities that involve scheduled actions are suspended.
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationautoscaling-scalabletarget.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_applicationautoscaling as appscaling
@@ -1889,7 +1922,11 @@ class CfnScalableTargetProps:
                     dynamic_scaling_in_suspended=False,
                     dynamic_scaling_out_suspended=False,
                     scheduled_scaling_suspended=False
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -1902,6 +1939,7 @@ class CfnScalableTargetProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument scheduled_actions", value=scheduled_actions, expected_type=type_hints["scheduled_actions"])
             check_type(argname="argument suspended_state", value=suspended_state, expected_type=type_hints["suspended_state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "max_capacity": max_capacity,
             "min_capacity": min_capacity,
@@ -1915,6 +1953,8 @@ class CfnScalableTargetProps:
             self._values["scheduled_actions"] = scheduled_actions
         if suspended_state is not None:
             self._values["suspended_state"] = suspended_state
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def max_capacity(self) -> jsii.Number:
@@ -2068,6 +2108,14 @@ class CfnScalableTargetProps:
         '''
         result = self._values.get("suspended_state")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnScalableTarget.SuspendedStateProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationautoscaling-scalabletarget.html#cfn-applicationautoscaling-scalabletarget-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8080,6 +8128,7 @@ def _typecheckingstub__7b7828d7eb81c45c73ed70f9ac7ffe26699d8745e54d9a892440a20af
     role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     scheduled_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalableTarget.ScheduledActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     suspended_state: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalableTarget.SuspendedStateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8156,6 +8205,12 @@ def _typecheckingstub__0bbb1dcd1d81de0e4c36de9ea045348b3724df3d549254eef9a203003
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2b87d6975a81ad4cd42710120832208525b33424481739f7b2435dda0299f252(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__235dfc5c99fa3d515e24a56ba2af8e45cb7d6acefe812056f71abe1f48bd20ad(
     *,
     max_capacity: typing.Optional[jsii.Number] = None,
@@ -8195,6 +8250,7 @@ def _typecheckingstub__0aca5d6a38a10d55ae89247bf02288adc86be9fd694d2a88c8aaf7d40
     role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     scheduled_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalableTarget.ScheduledActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     suspended_state: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalableTarget.SuspendedStateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

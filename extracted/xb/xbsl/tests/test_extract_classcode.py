@@ -51,10 +51,12 @@ class _Pool:
         return struct.pack(">H", len(self.blobs) + 1) + b"".join(self.blobs)
 
 
-def _class_of(calls: list[tuple[str, list[str]]], extra_strings: list[str] = [],
+def _class_of(calls: list[tuple], extra_strings: list[str] = [],
               switch_between: bool = False) -> bytes:
     """A class whose single method pushes the strings of each call and makes it.
 
+    A call is (owner.name, the strings pushed for it) and, optionally, the descriptor of the
+    method; by default every string pushed is a string parameter of the call.
     `extra_strings` are interned in the pool without being pushed anywhere - the way a name
     that belongs to a parameter or to a neighbouring method sits in a real pool.
     `switch_between` puts a `tableswitch` between the calls: its operand is padded to a
@@ -77,13 +79,14 @@ def _class_of(calls: list[tuple[str, list[str]]], extra_strings: list[str] = [],
         return bytes(out)
 
     body = bytearray()
-    for index, (owner_and_name, pushed) in enumerate(calls):
+    for index, (owner_and_name, pushed, *given) in enumerate(calls):
         owner, name = owner_and_name.rsplit(".", 1)
+        descriptor = given[0] if given else "(" + "Ljava/lang/String;" * len(pushed) + ")V"
         for position, value in enumerate(pushed):
             if switch_between and index and position == 1:
                 body += tableswitch()                      # between the two spellings
             body += bytes([0x13]) + struct.pack(">H", pool.string(value))  # ldc_w
-        body += bytes([0xB8]) + struct.pack(">H", pool.method(owner, name))  # invokestatic
+        body += bytes([0xB8]) + struct.pack(">H", pool.method(owner, name, descriptor))
     body += bytes([0xB1])  # return
     code = struct.pack(">HHI", 8, 1, len(body)) + bytes(body) + struct.pack(">HH", 0, 0)
     this_class = pool.klass("Demo")
@@ -188,7 +191,8 @@ def _class_of_terms(entries: list[tuple[str, str, list[str]]], this: str = "Demo
         owner, name = owner_and_name.rsplit(".", 1)
         for value in pushed:
             body += bytes([0x13]) + struct.pack(">H", pool.string(value))  # ldc_w
-        body += bytes([0xB8]) + struct.pack(">H", pool.method(owner, name))  # invokestatic
+        descriptor = "(" + "Ljava/lang/String;" * len(pushed) + ")Lterm;"  # every string an argument
+        body += bytes([0xB8]) + struct.pack(">H", pool.method(owner, name, descriptor))
         body += bytes([0xB3]) + struct.pack(">H", _field(pool, "Demo", field))  # putstatic
     body += bytes([0xB1])  # return
     code = struct.pack(">HHI", 8, 1, len(body)) + bytes(body) + struct.pack(">HH", 0, 0)
@@ -544,4 +548,267 @@ def test_values_of_other_kinds_and_other_elements_are_stepped_over():
     assert classcode.annotation_values(blob) == [
         {JSON_PROPERTY: ["Version"]},
         {"Ldemo/Mark;": ["Name"]},
+    ]
+
+
+# --- the constants an enumeration builds -----------------------------------------------------
+
+
+LANGUAGES = "demo/lang/DemoLanguages"
+_TERM_OF = "(Ljava/lang/String;Ljava/lang/String;)Ldemo/utils/Term;"
+_LANGUAGE_INIT = ("(Ljava/lang/String;ILjava/lang/String;Ldemo/utils/Term;Ljava/lang/String;"
+                  "Ldemo/utils/Mode;)V")
+
+
+def _typed_field(pool: _Pool, owner: str, name: str, descriptor: str) -> int:
+    owner_index = pool.klass(owner)
+    nat = pool._add(bytes([12]) + struct.pack(">HH", pool.text(name), pool.text(descriptor)))
+    return pool._add(bytes([9]) + struct.pack(">HH", owner_index, nat))
+
+
+def _enumeration(constants: list[tuple[str, str, str, str, str | None]],
+                 stray: bool = False) -> bytes:
+    """An enumeration whose static initializer builds each constant the way the platform does.
+
+    A constant is (field, code, English, Russian, mode field or None): the object of the class
+    itself is reserved, the constant name, its ordinal, the code and the two names are pushed,
+    the term is built, an identifier is pushed and the mode read, the constructor is called and
+    the object stored into the field of the class's own type. `stray` puts first an object of
+    the class that is built and then stored into a field of ANOTHER type - no constant at all.
+    """
+    pool = _Pool()
+    code_name = pool.text("Code")
+    own_type = f"L{LANGUAGES};"
+    init = pool.method(LANGUAGES, "<init>", _LANGUAGE_INIT)
+    term = pool.method("demo/utils/Term", "term", _TERM_OF)
+    body = bytearray()
+    if stray:
+        body += bytes([0xBB]) + struct.pack(">H", pool.klass(LANGUAGES)) + bytes([0x59])
+        body += bytes([0xB7]) + struct.pack(">H", init)
+        body += bytes([0xB3]) + struct.pack(">H", _typed_field(
+            pool, LANGUAGES, "FALLBACK", "Ljava/lang/Object;"))
+    for ordinal, (field, code, english, russian, mode) in enumerate(constants):
+        body += bytes([0xBB]) + struct.pack(">H", pool.klass(LANGUAGES))    # new
+        body += bytes([0x59])                                                  # dup
+        body += bytes([0x13]) + struct.pack(">H", pool.string(field))        # the constant name
+        body += bytes([0x03 + ordinal])                                        # iconst_<ordinal>
+        for value in (code, english, russian):
+            body += bytes([0x13]) + struct.pack(">H", pool.string(value))    # ldc_w
+        body += bytes([0xB8]) + struct.pack(">H", term)                       # invokestatic
+        body += bytes([0x13]) + struct.pack(">H", pool.string("0f0e-" + code))  # an identifier
+        if mode:
+            body += bytes([0xB2]) + struct.pack(">H", _typed_field(           # getstatic
+                pool, "demo/utils/Mode", mode, "Ldemo/utils/Mode;"))
+        body += bytes([0xB7]) + struct.pack(">H", init)                       # invokespecial
+        body += bytes([0xB3]) + struct.pack(">H", _typed_field(                # putstatic
+            pool, LANGUAGES, field, own_type))
+    body += bytes([0xB1])  # return
+    code = struct.pack(">HHI", 8, 1, len(body)) + bytes(body) + struct.pack(">HH", 0, 0)
+    this_class = pool.klass(LANGUAGES)
+    super_class = pool.klass("java/lang/Enum")
+    method = struct.pack(">HHHH", 0, pool.text("<clinit>"), pool.text("()V"), 1)
+    method += struct.pack(">HI", code_name, len(code)) + code
+    return (
+        b"\xca\xfe\xba\xbe" + struct.pack(">HH", 0, 61)
+        + pool.rendered()
+        + struct.pack(">HHHH", 0, this_class, super_class, 0)
+        + struct.pack(">H", 0)
+        + struct.pack(">H", 1) + method
+        + struct.pack(">H", 0)
+    )
+
+
+#: Two languages of the enumeration a project is localized by. The modes are the test's own:
+#: what is read is the field a constant names, not the platform's numbers.
+DEMO_LANGUAGES = [
+    ("EN", "en", "English", "Английский", "CMODE_1_0"),
+    ("VIETNAMESE", "vi", "Vietnamese", "Вьетнамский", "CMODE_9_1"),
+]
+
+
+def test_each_constant_comes_with_what_built_it():
+    """The mode of a language is an argument of the constructor itself, and the reading says
+    which call took it."""
+    blob = _enumeration(DEMO_LANGUAGES)
+
+    assert classcode.declared_constants(blob) == [
+        classcode.DeclaredConstant(
+            "EN", ("EN", "en", "English", "Английский", "0f0e-en"),
+            (("English", "Английский"),), ("1.0",), ((LANGUAGES + ".<init>", "1.0"),)),
+        classcode.DeclaredConstant(
+            "VIETNAMESE", ("VIETNAMESE", "vi", "Vietnamese", "Вьетнамский", "0f0e-vi"),
+            (("Vietnamese", "Вьетнамский"),), ("9.1",), ((LANGUAGES + ".<init>", "9.1"),)),
+    ]
+
+
+def test_an_object_stored_into_a_field_of_another_type_is_no_constant():
+    """The class builds an object of itself and keeps it under a field of another type: that
+    is not how a constant is declared, and the reading must not start one there."""
+    blob = _enumeration(DEMO_LANGUAGES[:1], stray=True)
+
+    assert [constant.field for constant in classcode.declared_constants(blob)] == ["EN"]
+
+
+# --- an enumeration of values: the name of each constant, then the value in both spellings ---
+
+
+PRIORITIES = "demo/acme/TaskPriorityG5Enum"
+_INFO = "demo/acme/yaml/ItemInfo"
+_INFO_BUILDER = _INFO + "$Builder"
+
+
+def _value_enumeration(owner: str, constants: list[tuple[str, ...]], builder: bool = False,
+                       named: bool = True) -> bytes:
+    """An enumeration whose static initializer builds each constant from its values.
+
+    A constant is (field, string, string, ...): the object of the class itself is reserved, the
+    constant name and its ordinal are pushed, then the strings. By default they go to the
+    constructor as they are, an identifier made from the last one on the way - the shape of
+    `LOW("LOW", 0, "Low", <Russian>, UUID.fromString(<id>))`. With `builder` they go to a
+    builder of the item first, and the builder to the constructor - the shape of
+    `TOP("TOP", 0, info().named("Top", <Russian>))`; a mode field after the strings is read by
+    the builder too, as the mode the value is added in. A (call, mode field) item dates the value
+    by that call of the builder (`added`, `removedAfter`) - before the strings when it stands
+    before them, the shape of `info().added(<mode>).named(...)`, after them otherwise. The object
+    is stored into the field of the class's own type. Without `named` the constant name is not
+    pushed - a class that builds its instances the way an enumeration does, but is none.
+    """
+    pool = _Pool()
+    code_name = pool.text("Code")
+    own_type = f"L{owner};"
+    if builder:
+        init = pool.method(owner, "<init>", f"(Ljava/lang/String;IL{_INFO_BUILDER};)V")
+        info = pool.method(_INFO, "info", f"()L{_INFO_BUILDER};")
+        named = pool.method(_INFO_BUILDER, "named",
+                            f"(Ljava/lang/String;Ljava/lang/String;)L{_INFO_BUILDER};")
+        dating = {call: pool.method(_INFO_BUILDER, call, f"(Ldemo/utils/Mode;)L{_INFO_BUILDER};")
+                  for call in ("added", "removedAfter")}
+    else:
+        init = pool.method(owner, "<init>",
+                           "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/util/UUID;)V")
+        uuid = pool.method("java/util/UUID", "fromString", "(Ljava/lang/String;)Ljava/util/UUID;")
+
+    def dated(call: str, mode: str) -> bytes:
+        return (bytes([0xB2]) + struct.pack(">H", _typed_field(               # getstatic
+                    pool, "demo/utils/Mode", mode, "Ldemo/utils/Mode;"))
+                + bytes([0xB6]) + struct.pack(">H", dating[call]))           # invokevirtual
+
+    body = bytearray()
+    for ordinal, (field, *items) in enumerate(constants):
+        if builder and items and isinstance(items[-1], str) and items[-1].startswith("CMODE_"):
+            items[-1] = ("added", items[-1])
+        first = next((at for at, item in enumerate(items) if isinstance(item, str)), len(items))
+        before = [item for item in items[:first] if not isinstance(item, str)]
+        after = [item for item in items[first:] if not isinstance(item, str)]
+        strings = [item for item in items if isinstance(item, str)]
+        body += bytes([0xBB]) + struct.pack(">H", pool.klass(owner))       # new
+        body += bytes([0x59])                                                 # dup
+        if named:
+            body += bytes([0x13]) + struct.pack(">H", pool.string(field))   # the constant name
+        body += bytes([0x03 + ordinal])                                       # iconst_<ordinal>
+        if builder:
+            body += bytes([0xB8]) + struct.pack(">H", info)                  # invokestatic
+            for call, mode in before:
+                body += dated(call, mode)
+        for value in strings:
+            body += bytes([0x13]) + struct.pack(">H", pool.string(value))   # ldc_w
+        if builder:
+            body += bytes([0xB6]) + struct.pack(">H", named)                 # invokevirtual
+            for call, mode in after:
+                body += dated(call, mode)
+        else:
+            body += bytes([0xB8]) + struct.pack(">H", uuid)                  # invokestatic
+        body += bytes([0xB7]) + struct.pack(">H", init)                      # invokespecial
+        body += bytes([0xB3]) + struct.pack(">H", _typed_field(               # putstatic
+            pool, owner, field, own_type))
+    body += bytes([0xB1])  # return
+    code = struct.pack(">HHI", 8, 1, len(body)) + bytes(body) + struct.pack(">HH", 0, 0)
+    this_class = pool.klass(owner)
+    super_class = pool.klass("java/lang/Enum")
+    method = struct.pack(">HHHH", 0, pool.text("<clinit>"), pool.text("()V"), 1)
+    method += struct.pack(">HI", code_name, len(code)) + code
+    return (
+        b"\xca\xfe\xba\xbe" + struct.pack(">HH", 0, 61)
+        + pool.rendered()
+        + struct.pack(">HHHH", 0, this_class, super_class, 0)
+        + struct.pack(">H", 0)
+        + struct.pack(">H", 1) + method
+        + struct.pack(">H", 0)
+    )
+
+
+#: The priority of a task in the demo project, as a compiled enumeration would declare it.
+DEMO_PRIORITIES = [
+    ("LOW", "Low", "Низкая", "7420e42d-0000-4000-8000-000000000001"),
+    ("HIGH", "High", "Высокая", "7420e42d-0000-4000-8000-000000000002"),
+]
+
+
+def test_each_value_of_an_enumeration_is_built_with_its_name_first():
+    """The reading does not care how the strings reach the constructor: pushed as they are,
+    or through a builder of the item, they belong to the constant they are pushed for."""
+    plain = classcode.declared_constants(_value_enumeration(PRIORITIES, DEMO_PRIORITIES))
+    built = classcode.declared_constants(_value_enumeration(
+        "demo/acme/StepState", [("DONE", "Done", "Готово"), ("SKIPPED", "Skipped", "Пропущен",
+                                                               "CMODE_9_1")], builder=True))
+
+    assert [constant.strings for constant in plain] == [
+        ("LOW", "Low", "Низкая", "7420e42d-0000-4000-8000-000000000001"),
+        ("HIGH", "High", "Высокая", "7420e42d-0000-4000-8000-000000000002"),
+    ]
+    assert [(constant.field, constant.strings, constant.modes) for constant in built] == [
+        ("DONE", ("DONE", "Done", "Готово"), ()),
+        ("SKIPPED", ("SKIPPED", "Skipped", "Пропущен"), ("9.1",)),
+    ]
+
+
+def test_a_mode_goes_to_the_call_that_takes_it():
+    """A builder dates an item before its spellings or after them, and by two calls of opposite
+    meaning; the mode alone would not tell `added` from `removedAfter`, the call does."""
+    built = classcode.declared_constants(_value_enumeration("demo/acme/StepState", [
+        ("DONE", ("added", "CMODE_9_1"), "Done", "Готово"),
+        ("SKIPPED", "Skipped", "Пропущен", ("removedAfter", "CMODE_9_0")),
+        ("OPEN", "Open", "Открыт"),
+    ], builder=True))
+
+    assert [(constant.field, constant.mode_calls) for constant in built] == [
+        ("DONE", ((_INFO_BUILDER + ".added", "9.1"),)),
+        ("SKIPPED", ((_INFO_BUILDER + ".removedAfter", "9.0"),)),
+        ("OPEN", ()),
+    ]
+    assert [constant.strings for constant in built] == [
+        ("DONE", "Done", "Готово"), ("SKIPPED", "Skipped", "Пропущен"), ("OPEN", "Open", "Открыт"),
+    ]
+
+
+def test_a_call_takes_as_many_strings_as_it_has_string_parameters():
+    """The key of a map is pushed before the value built for it, and the call that builds the
+    value takes only its own two strings; an array of strings is no string parameter."""
+    blob = _class_of([
+        ("demo/acme/Periods.localization", ["DAY", "День", "Day"],
+         "(Ljava/lang/String;Ljava/lang/String;)Ljava/util/Map;"),
+        ("demo/acme/Periods.put", [], "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
+        ("demo/acme/Log.format", ["Шаг", "Step"], "(Ljava/lang/String;[Ljava/lang/String;I)V"),
+        ("demo/acme/Types.typeVariable", ["Item", "Элемент", "ItemType"]),
+    ])
+
+    assert classcode.string_arguments(blob) == [
+        ("demo/acme/Periods.localization", ("День", "Day")),
+        ("demo/acme/Periods.put", ()),
+        ("demo/acme/Log.format", ("Step",)),
+        ("demo/acme/Types.typeVariable", ("Item", "Элемент", "ItemType")),
+    ]
+
+
+def test_object_pair_constructor_reads_its_two_string_constants():
+    pair = "com/e1c/g5rt/utils/common/collections/Pair.<init>"
+    blob = _class_of([
+        (pair, ["Картинка", "Picture"], "(Ljava/lang/Object;Ljava/lang/Object;)V"),
+        ("demo/acme/Map.put", ["KEY"],
+         "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
+    ])
+
+    assert classcode.string_arguments(blob) == [
+        (pair, ("Картинка", "Picture")),
+        ("demo/acme/Map.put", ()),
     ]

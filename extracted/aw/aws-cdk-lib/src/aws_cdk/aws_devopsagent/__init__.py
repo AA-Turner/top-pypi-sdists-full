@@ -121,6 +121,9 @@ class CfnAgentSpace(
                     updated_at="updatedAt"
                 )
             ),
+            preferences=devopsagent.CfnAgentSpace.PreferencesProperty(
+                elevated_actions_enabled=False
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -138,6 +141,7 @@ class CfnAgentSpace(
         kms_key_arn: typing.Optional[builtins.str] = None,
         locale: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.PreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::AgentSpace``.
@@ -149,6 +153,7 @@ class CfnAgentSpace(
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param locale: The locale for the AgentSpace, which determines the language used in agent responses.
         :param operator_app: 
+        :param preferences: Preferences that configure behavior of this AgentSpace. This container fully owns the AgentSpace preferences: the properties supplied here replace the stored preferences in their entirety, and omitting the Preferences container reverts all preferences to their service defaults.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -161,6 +166,7 @@ class CfnAgentSpace(
             kms_key_arn=kms_key_arn,
             locale=locale,
             operator_app=operator_app,
+            preferences=preferences,
             tags=tags,
         )
 
@@ -430,6 +436,24 @@ class CfnAgentSpace(
             type_hints = cached_type_hints(_typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "operatorApp", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preferences")
+    def preferences(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.PreferencesProperty"]]:
+        '''Preferences that configure behavior of this AgentSpace.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.PreferencesProperty"]], jsii.get(self, "preferences"))
+
+    @preferences.setter
+    def preferences(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.PreferencesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__28f60dee6c3ff168bd5c538da6fb98484797d9660646d0e9358e1edc0a0bf59f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preferences", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -738,6 +762,67 @@ class CfnAgentSpace(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.PreferencesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"elevated_actions_enabled": "elevatedActionsEnabled"},
+    )
+    class PreferencesProperty:
+        def __init__(
+            self,
+            *,
+            elevated_actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Preferences that configure behavior of this AgentSpace.
+
+            This container fully owns the AgentSpace preferences: the properties supplied here replace the stored preferences in their entirety, and omitting the Preferences container reverts all preferences to their service defaults.
+
+            :param elevated_actions_enabled: Indicates whether elevated directed actions are permitted in this AgentSpace. Defaults to false when not set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-preferences.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                preferences_property = devopsagent.CfnAgentSpace.PreferencesProperty(
+                    elevated_actions_enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1ed54298895bc3225ee9288b589fd998ded9b920e8366dca2e30b5cf39fc0e2a)
+                check_type(argname="argument elevated_actions_enabled", value=elevated_actions_enabled, expected_type=type_hints["elevated_actions_enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if elevated_actions_enabled is not None:
+                self._values["elevated_actions_enabled"] = elevated_actions_enabled
+
+        @builtins.property
+        def elevated_actions_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether elevated directed actions are permitted in this AgentSpace.
+
+            Defaults to false when not set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-preferences.html#cfn-devopsagent-agentspace-preferences-elevatedactionsenabled
+            '''
+            result = self._values.get("elevated_actions_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreferencesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpaceProps",
@@ -748,6 +833,7 @@ class CfnAgentSpace(
         "kms_key_arn": "kmsKeyArn",
         "locale": "locale",
         "operator_app": "operatorApp",
+        "preferences": "preferences",
         "tags": "tags",
     },
 )
@@ -760,6 +846,7 @@ class CfnAgentSpaceProps:
         kms_key_arn: typing.Optional[builtins.str] = None,
         locale: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        preferences: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.PreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAgentSpace``.
@@ -769,6 +856,7 @@ class CfnAgentSpaceProps:
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param locale: The locale for the AgentSpace, which determines the language used in agent responses.
         :param operator_app: 
+        :param preferences: Preferences that configure behavior of this AgentSpace. This container fully owns the AgentSpace preferences: the properties supplied here replace the stored preferences in their entirety, and omitting the Preferences container reverts all preferences to their service defaults.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html
@@ -806,6 +894,9 @@ class CfnAgentSpaceProps:
                         updated_at="updatedAt"
                     )
                 ),
+                preferences=devopsagent.CfnAgentSpace.PreferencesProperty(
+                    elevated_actions_enabled=False
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -819,6 +910,7 @@ class CfnAgentSpaceProps:
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument locale", value=locale, expected_type=type_hints["locale"])
             check_type(argname="argument operator_app", value=operator_app, expected_type=type_hints["operator_app"])
+            check_type(argname="argument preferences", value=preferences, expected_type=type_hints["preferences"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -831,6 +923,8 @@ class CfnAgentSpaceProps:
             self._values["locale"] = locale
         if operator_app is not None:
             self._values["operator_app"] = operator_app
+        if preferences is not None:
+            self._values["preferences"] = preferences
         if tags is not None:
             self._values["tags"] = tags
 
@@ -880,6 +974,19 @@ class CfnAgentSpaceProps:
         '''
         result = self._values.get("operator_app")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.OperatorAppProperty"]], result)
+
+    @builtins.property
+    def preferences(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.PreferencesProperty"]]:
+        '''Preferences that configure behavior of this AgentSpace.
+
+        This container fully owns the AgentSpace preferences: the properties supplied here replace the stored preferences in their entirety, and omitting the Preferences container reverts all preferences to their service defaults.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-preferences
+        '''
+        result = self._values.get("preferences")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.PreferencesProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -6924,7 +7031,7 @@ class CfnService(
             :param service: AWS service name for SigV4 signing.
             :param custom_headers: Custom headers for the SigV4 MCP server.
             :param mcp_role_arn: IAM role ARN to assume for SigV4 signing. Optional - when omitted, credentials are resolved at runtime via a monitor account association.
-            :param role_arn: Deprecated - use McpRoleArn instead. IAM role ARN to assume for SigV4 signing
+            :param role_arn: Deprecated - use McpRoleArn instead. IAM role ARN to assume for SigV4 signing. Set to an empty string to remove a previously configured role and make the server role-less (cross-account).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html
             :exampleMetadata: fixture=_generated
@@ -7013,7 +7120,7 @@ class CfnService(
         def role_arn(self) -> typing.Optional[builtins.str]:
             '''Deprecated - use McpRoleArn instead.
 
-            IAM role ARN to assume for SigV4 signing
+            IAM role ARN to assume for SigV4 signing. Set to an empty string to remove a previously configured role and make the server role-less (cross-account).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-rolearn
             '''
@@ -10104,6 +10211,7 @@ def _typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc
     kms_key_arn: typing.Optional[builtins.str] = None,
     locale: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.PreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -10179,6 +10287,12 @@ def _typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__28f60dee6c3ff168bd5c538da6fb98484797d9660646d0e9358e1edc0a0bf59f(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAgentSpace.PreferencesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__86b6d290ea55548645e8a386c5c88e557975dfe7624596a7c926c0d9166190a3(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -10213,6 +10327,13 @@ def _typecheckingstub__163f48e2381f16154d3ed1a507d7fa1b64898c9ada42152eb65e4a5a8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ed54298895bc3225ee9288b589fd998ded9b920e8366dca2e30b5cf39fc0e2a(
+    *,
+    elevated_actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8cdb6d5f(
     *,
     name: builtins.str,
@@ -10220,6 +10341,7 @@ def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8
     kms_key_arn: typing.Optional[builtins.str] = None,
     locale: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preferences: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.PreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

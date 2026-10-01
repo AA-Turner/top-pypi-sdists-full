@@ -40,7 +40,9 @@ from .literals import (
     ClusteringFrequencyType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
+    CoinbaseCdpSecretType,
     ConfigurationBundleStatusType,
+    ConsentPortalStatusType,
     ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
@@ -64,6 +66,7 @@ from .literals import (
     GatewayStatusType,
     HarnessBedrockApiFormatType,
     HarnessEndpointStatusType,
+    HarnessHookFailureModeType,
     HarnessManagedMemoryStrategyTypeType,
     HarnessOpenAiApiFormatType,
     HarnessStatusType,
@@ -106,10 +109,12 @@ from .literals import (
     RegistryStatusType,
     ResourceTypeType,
     RestApiMethodType,
+    ResultDestinationType,
     SchemaTypeType,
     SecretSourceTypeType,
     ServerProtocolType,
     SigningAlgorithmType,
+    StaticQueryParameterConflictResolutionType,
     StatusType,
     TargetProtocolTypeType,
     TargetStatusType,
@@ -181,6 +186,7 @@ __all__ = (
     "CapacityReservationTargetTypeDef",
     "CategoricalScaleDefinitionTypeDef",
     "CedarPolicyTypeDef",
+    "CertificateConfigurationTypeDef",
     "CertificateLocationTypeDef",
     "CertificateTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
@@ -202,6 +208,7 @@ __all__ = (
     "CodeTypeDef",
     "CoinbaseCdpConfigurationInputTypeDef",
     "CoinbaseCdpConfigurationOutputTypeDef",
+    "CoinbaseCdpRotationTargetsTypeDef",
     "ComponentConfigurationOutputTypeDef",
     "ComponentConfigurationTypeDef",
     "ComponentConfigurationUnionTypeDef",
@@ -223,6 +230,11 @@ __all__ = (
     "ConnectorSourceTypeDef",
     "ConnectorTargetConfigurationOutputTypeDef",
     "ConnectorTargetConfigurationTypeDef",
+    "ConsentPortalIdpConfigOutputTypeDef",
+    "ConsentPortalIdpConfigTypeDef",
+    "ConsentPortalIdpConfigUnionTypeDef",
+    "ConsentPortalSourceTypeDef",
+    "ConsentPortalSummaryTypeDef",
     "ConsolidationConfigurationTypeDef",
     "ContainerConfigurationTypeDef",
     "ContentConfigurationTypeDef",
@@ -243,6 +255,8 @@ __all__ = (
     "CreateCodeInterpreterResponseTypeDef",
     "CreateConfigurationBundleRequestTypeDef",
     "CreateConfigurationBundleResponseTypeDef",
+    "CreateConsentPortalRequestTypeDef",
+    "CreateConsentPortalResponseTypeDef",
     "CreateDatasetRequestTypeDef",
     "CreateDatasetResponseTypeDef",
     "CreateDatasetVersionRequestTypeDef",
@@ -289,6 +303,7 @@ __all__ = (
     "CredentialProviderOutputTypeDef",
     "CredentialProviderTypeDef",
     "CredentialProviderUnionTypeDef",
+    "CredentialRotationConfigTypeDef",
     "CredentialsProviderConfigurationTypeDef",
     "CustomClaimValidationTypeOutputTypeDef",
     "CustomClaimValidationTypeTypeDef",
@@ -329,6 +344,7 @@ __all__ = (
     "DeleteCodeInterpreterResponseTypeDef",
     "DeleteConfigurationBundleRequestTypeDef",
     "DeleteConfigurationBundleResponseTypeDef",
+    "DeleteConsentPortalRequestTypeDef",
     "DeleteDatasetExamplesRequestTypeDef",
     "DeleteDatasetExamplesResponseTypeDef",
     "DeleteDatasetRequestTypeDef",
@@ -434,6 +450,8 @@ __all__ = (
     "GetConfigurationBundleResponseTypeDef",
     "GetConfigurationBundleVersionRequestTypeDef",
     "GetConfigurationBundleVersionResponseTypeDef",
+    "GetConsentPortalRequestTypeDef",
+    "GetConsentPortalResponseTypeDef",
     "GetDatasetRequestTypeDef",
     "GetDatasetResponseTypeDef",
     "GetEvaluatorRequestTypeDef",
@@ -494,6 +512,8 @@ __all__ = (
     "GithubOauth2ProviderConfigOutputTypeDef",
     "GoogleOauth2ProviderConfigInputTypeDef",
     "GoogleOauth2ProviderConfigOutputTypeDef",
+    "HarnessAfterInvocationHookTypeDef",
+    "HarnessAfterToolCallHookTypeDef",
     "HarnessAgentCoreBrowserConfigTypeDef",
     "HarnessAgentCoreCodeInterpreterConfigTypeDef",
     "HarnessAgentCoreGatewayConfigOutputTypeDef",
@@ -507,6 +527,8 @@ __all__ = (
     "HarnessAgentCoreRuntimeEnvironmentTypeDef",
     "HarnessBedrockModelConfigOutputTypeDef",
     "HarnessBedrockModelConfigTypeDef",
+    "HarnessBeforeInvocationHookTypeDef",
+    "HarnessBeforeToolCallHookTypeDef",
     "HarnessEndpointTypeDef",
     "HarnessEnvironmentArtifactTypeDef",
     "HarnessEnvironmentProviderRequestTypeDef",
@@ -516,6 +538,11 @@ __all__ = (
     "HarnessGatewayOutboundAuthUnionTypeDef",
     "HarnessGeminiModelConfigOutputTypeDef",
     "HarnessGeminiModelConfigTypeDef",
+    "HarnessHookEventBridgeTargetTypeDef",
+    "HarnessHookLambdaTargetTypeDef",
+    "HarnessHookSnsTargetTypeDef",
+    "HarnessHookTargetTypeDef",
+    "HarnessHookTypeDef",
     "HarnessInlineFunctionConfigOutputTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
     "HarnessInlineFunctionConfigUnionTypeDef",
@@ -646,6 +673,9 @@ __all__ = (
     "ListConfigurationBundlesRequestPaginateTypeDef",
     "ListConfigurationBundlesRequestTypeDef",
     "ListConfigurationBundlesResponseTypeDef",
+    "ListConsentPortalsRequestPaginateTypeDef",
+    "ListConsentPortalsRequestTypeDef",
+    "ListConsentPortalsResponseTypeDef",
     "ListDatasetExamplesRequestPaginateTypeDef",
     "ListDatasetExamplesRequestTypeDef",
     "ListDatasetExamplesResponseTypeDef",
@@ -812,6 +842,7 @@ __all__ = (
     "OpenResponsesEvaluatorModelConfigTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "PassthroughTargetConfigurationOutputTypeDef",
     "PassthroughTargetConfigurationTypeDef",
     "PaymentConnectorSummaryTypeDef",
     "PaymentCredentialProviderConfigurationTypeDef",
@@ -869,6 +900,8 @@ __all__ = (
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
     "RootVolumeConfigurationTypeDef",
+    "RotatePaymentConnectorCredentialsRequestTypeDef",
+    "RotatePaymentConnectorCredentialsResponseTypeDef",
     "RouteToTargetActionOutputTypeDef",
     "RouteToTargetActionTypeDef",
     "RouteToTargetActionUnionTypeDef",
@@ -877,6 +910,7 @@ __all__ = (
     "RuleUnionTypeDef",
     "RuntimeMetadataConfigurationTypeDef",
     "RuntimeTargetConfigurationTypeDef",
+    "S3CertificateConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
     "S3FilesConfigurationTypeDef",
@@ -889,6 +923,7 @@ __all__ = (
     "SchemaDefinitionTypeDef",
     "SecretReferenceTypeDef",
     "SecretTypeDef",
+    "SecretsManagerCertificateConfigurationTypeDef",
     "SecretsManagerLocationTypeDef",
     "SelfManagedConfigurationInputTypeDef",
     "SelfManagedConfigurationTypeDef",
@@ -913,6 +948,7 @@ __all__ = (
     "StartPolicyGenerationResponseTypeDef",
     "StaticOverrideTypeDef",
     "StaticRouteTypeDef",
+    "StickinessConfigurationOutputTypeDef",
     "StickinessConfigurationTypeDef",
     "StrategyConfigurationTypeDef",
     "StreamDeliveryResourceOutputTypeDef",
@@ -978,6 +1014,8 @@ __all__ = (
     "UpdateCapacityProviderOutputTypeDef",
     "UpdateConfigurationBundleRequestTypeDef",
     "UpdateConfigurationBundleResponseTypeDef",
+    "UpdateConsentPortalRequestTypeDef",
+    "UpdateConsentPortalResponseTypeDef",
     "UpdateDatasetExamplesRequestTypeDef",
     "UpdateDatasetExamplesResponseTypeDef",
     "UpdateDatasetRequestTypeDef",
@@ -1276,6 +1314,15 @@ class CedarPolicyTypeDef(TypedDict):
     statement: str
 
 
+class S3CertificateConfigurationTypeDef(TypedDict):
+    uri: str
+    bucketOwnerAccountId: NotRequired[str]
+
+
+class SecretsManagerCertificateConfigurationTypeDef(TypedDict):
+    secretArn: str
+
+
 class SecretsManagerLocationTypeDef(TypedDict):
     secretArn: str
 
@@ -1286,17 +1333,21 @@ class ClaimMatchValueTypeTypeDef(TypedDict):
 
 
 class CloudWatchLogsInputConfigOutputTypeDef(TypedDict):
-    logGroupNames: list[str]
     serviceNames: list[str]
+    logGroupNames: NotRequired[list[str]]
+    logGroupNamePrefixes: NotRequired[list[str]]
 
 
 class CloudWatchLogsInputConfigTypeDef(TypedDict):
-    logGroupNames: Sequence[str]
     serviceNames: Sequence[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    logGroupNamePrefixes: NotRequired[Sequence[str]]
 
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
-    logGroupName: str
+    logGroupName: NotRequired[str]
+    metricsNamespace: NotRequired[str]
+    resultDestination: NotRequired[ResultDestinationType]
 
 
 class ClusteringConfigOutputTypeDef(TypedDict):
@@ -1330,6 +1381,10 @@ class S3LocationTypeDef(TypedDict):
 
 class SecretTypeDef(TypedDict):
     secretArn: str
+
+
+class CoinbaseCdpRotationTargetsTypeDef(TypedDict):
+    secrets: Sequence[CoinbaseCdpSecretType]
 
 
 class ComponentConfigurationOutputTypeDef(TypedDict):
@@ -1373,6 +1428,25 @@ class ConnectorSourceTypeDef(TypedDict):
     version: NotRequired[str]
 
 
+class ConsentPortalIdpConfigOutputTypeDef(TypedDict):
+    credentialProviderArn: str
+    scopes: list[str]
+    audience: NotRequired[str]
+
+
+class ConsentPortalIdpConfigTypeDef(TypedDict):
+    credentialProviderArn: str
+    scopes: Sequence[str]
+    audience: NotRequired[str]
+
+
+ConsentPortalSourceTypeDef = TypedDict(
+    "ConsentPortalSourceTypeDef",
+    {
+        "identifier": str,
+        "type": Literal["agentcore-gateway"],
+    },
+)
 ContentConfigurationTypeDef = TypedDict(
     "ContentConfigurationTypeDef",
     {
@@ -1674,6 +1748,10 @@ class DeleteConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
 
 
+class DeleteConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
+
+
 class DeleteDatasetExamplesRequestTypeDef(TypedDict):
     datasetId: str
     exampleIds: Sequence[str]
@@ -1934,6 +2012,10 @@ class GetConfigurationBundleVersionRequestTypeDef(TypedDict):
     versionId: str
 
 
+class GetConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
+
+
 class GetDatasetRequestTypeDef(TypedDict):
     datasetId: str
     datasetVersion: NotRequired[str]
@@ -2114,6 +2196,20 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     additionalParams: NotRequired[Mapping[str, Any]]
 
 
+class HarnessHookEventBridgeTargetTypeDef(TypedDict):
+    arn: str
+
+
+class HarnessHookLambdaTargetTypeDef(TypedDict):
+    arn: str
+    timeoutSeconds: NotRequired[int]
+    failureMode: NotRequired[HarnessHookFailureModeType]
+
+
+class HarnessHookSnsTargetTypeDef(TypedDict):
+    arn: str
+
+
 class HarnessInlineFunctionConfigOutputTypeDef(TypedDict):
     description: str
     inputSchema: dict[str, Any]
@@ -2161,6 +2257,7 @@ class HarnessManagedMemoryConfigurationTypeDef(TypedDict):
 class HarnessOpenAiModelConfigOutputTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -2171,6 +2268,7 @@ class HarnessOpenAiModelConfigOutputTypeDef(TypedDict):
 class HarnessOpenAiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -2372,6 +2470,11 @@ class ListConfigurationBundlesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListConsentPortalsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListDatasetExamplesRequestTypeDef(TypedDict):
     datasetId: str
     datasetVersion: NotRequired[str]
@@ -2485,6 +2588,7 @@ PaymentConnectorSummaryTypeDef = TypedDict(
         "type": PaymentConnectorTypeType,
         "status": PaymentConnectorStatusType,
         "lastUpdatedAt": datetime,
+        "provisionMode": NotRequired[PaymentConnectorProvisionModeType],
     },
 )
 
@@ -2769,9 +2873,16 @@ class ReasoningConfigurationTypeDef(TypedDict):
     effort: NotRequired[str]
 
 
+class StickinessConfigurationOutputTypeDef(TypedDict):
+    identifier: str
+    timeout: NotRequired[int]
+    compositeIdentifier: NotRequired[list[str]]
+
+
 class StickinessConfigurationTypeDef(TypedDict):
     identifier: str
     timeout: NotRequired[int]
+    compositeIdentifier: NotRequired[Sequence[str]]
 
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
@@ -3144,6 +3255,7 @@ class DeleteCodeInterpreterResponseTypeDef(TypedDict):
 
 
 class DeleteConfigurationBundleResponseTypeDef(TypedDict):
+    bundleArn: str
     bundleId: str
     status: ConfigurationBundleStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3363,6 +3475,14 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class PutResourcePolicyResponseTypeDef(TypedDict):
     policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RotatePaymentConnectorCredentialsResponseTypeDef(TypedDict):
+    paymentConnectorId: str
+    paymentManagerId: str
+    lastUpdatedAt: datetime
+    status: PaymentConnectorStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3719,6 +3839,11 @@ class CapacityReservationSpecificationTypeDef(TypedDict):
     capacityReservationTarget: NotRequired[CapacityReservationTargetTypeDef]
 
 
+class CertificateConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3CertificateConfigurationTypeDef]
+    secretsManager: NotRequired[SecretsManagerCertificateConfigurationTypeDef]
+
+
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
 
@@ -3818,6 +3943,10 @@ class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CredentialRotationConfigTypeDef(TypedDict):
+    coinbaseCDP: NotRequired[CoinbaseCdpRotationTargetsTypeDef]
+
+
 ComponentConfigurationUnionTypeDef = Union[
     ComponentConfigurationTypeDef, ComponentConfigurationOutputTypeDef
 ]
@@ -3857,6 +3986,71 @@ class ConnectorConfigurationTypeDef(TypedDict):
     description: NotRequired[str]
     parameterValues: NotRequired[Mapping[str, Any]]
     parameterOverrides: NotRequired[Sequence[ConnectorParameterOverrideTypeDef]]
+
+
+ConsentPortalIdpConfigUnionTypeDef = Union[
+    ConsentPortalIdpConfigTypeDef, ConsentPortalIdpConfigOutputTypeDef
+]
+
+
+class ConsentPortalSummaryTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    name: str
+    status: ConsentPortalStatusType
+    updatedAt: datetime
+    description: NotRequired[str]
+    portalUrl: NotRequired[str]
+
+
+class CreateConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateConsentPortalResponseTypeDef(TypedDict):
+    sources: list[ConsentPortalSourceTypeDef]
+    consentPortalArn: str
+    consentPortalId: str
+    createdAt: datetime
+    description: str
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigOutputTypeDef
+    name: str
+    portalUrl: str
+    status: ConsentPortalStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class KinesisResourceOutputTypeDef(TypedDict):
@@ -4224,6 +4418,14 @@ class HarnessAgentCoreMemoryConfigurationTypeDef(TypedDict):
     retrievalConfig: NotRequired[Mapping[str, HarnessAgentCoreMemoryRetrievalConfigTypeDef]]
 
 
+HarnessHookTargetTypeDef = TypedDict(
+    "HarnessHookTargetTypeDef",
+    {
+        "lambda": NotRequired[HarnessHookLambdaTargetTypeDef],
+        "sns": NotRequired[HarnessHookSnsTargetTypeDef],
+        "eventBridge": NotRequired[HarnessHookEventBridgeTargetTypeDef],
+    },
+)
 HarnessInlineFunctionConfigUnionTypeDef = Union[
     HarnessInlineFunctionConfigTypeDef, HarnessInlineFunctionConfigOutputTypeDef
 ]
@@ -4392,6 +4594,10 @@ ListCodeInterpretersRequestPaginateTypeDef = TypedDict(
 
 
 class ListConfigurationBundlesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListConsentPortalsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -4617,6 +4823,7 @@ class MCPGatewayConfigurationOutputTypeDef(TypedDict):
     searchType: NotRequired[Literal["SEMANTIC"]]
     sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
     streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
+    disableMcpListToolsPagination: NotRequired[bool]
 
 
 class MCPGatewayConfigurationTypeDef(TypedDict):
@@ -4625,6 +4832,7 @@ class MCPGatewayConfigurationTypeDef(TypedDict):
     searchType: NotRequired[Literal["SEMANTIC"]]
     sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
     streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
+    disableMcpListToolsPagination: NotRequired[bool]
 
 
 ManagedVpcResourceUnionTypeDef = Union[ManagedVpcResourceTypeDef, ManagedVpcResourceOutputTypeDef]
@@ -4923,6 +5131,13 @@ class PaymentProviderConfigurationOutputTypeDef(TypedDict):
     stripePrivyConfiguration: NotRequired[StripePrivyConfigurationOutputTypeDef]
 
 
+class RotatePaymentConnectorCredentialsRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    paymentConnectorId: str
+    credentialsToRotate: CredentialRotationConfigTypeDef
+    clientToken: NotRequired[str]
+
+
 class CreateConfigurationBundleRequestTypeDef(TypedDict):
     bundleName: str
     components: Mapping[str, ComponentConfigurationUnionTypeDef]
@@ -4937,13 +5152,13 @@ class CreateConfigurationBundleRequestTypeDef(TypedDict):
 
 class UpdateConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
+    parentVersionIds: Sequence[str]
+    commitMessage: str
     clientToken: NotRequired[str]
     bundleName: NotRequired[str]
     description: NotRequired[str]
     components: NotRequired[Mapping[str, ComponentConfigurationUnionTypeDef]]
-    parentVersionIds: NotRequired[Sequence[str]]
     branchName: NotRequired[str]
-    commitMessage: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]
     kmsKeyArn: NotRequired[str]
 
@@ -4965,6 +5180,28 @@ class ConnectorTargetConfigurationTypeDef(TypedDict):
     source: ConnectorSourceTypeDef
     enabled: NotRequired[Sequence[str]]
     configurations: NotRequired[Sequence[ConnectorConfigurationTypeDef]]
+
+
+class CreateConsentPortalRequestTypeDef(TypedDict):
+    executionRoleArn: str
+    idpConfig: ConsentPortalIdpConfigUnionTypeDef
+    name: str
+    sources: Sequence[ConsentPortalSourceTypeDef]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateConsentPortalRequestTypeDef(TypedDict):
+    consentPortalIdentifier: str
+    executionRoleArn: NotRequired[str]
+    idpConfig: NotRequired[ConsentPortalIdpConfigUnionTypeDef]
+    description: NotRequired[str]
+
+
+class ListConsentPortalsResponseTypeDef(TypedDict):
+    consentPortals: list[ConsentPortalSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class StreamDeliveryResourceOutputTypeDef(TypedDict):
@@ -5060,11 +5297,13 @@ GetPaymentConnectorResponseTypeDef = TypedDict(
         "name": str,
         "description": str,
         "type": PaymentConnectorTypeType,
+        "provisionMode": PaymentConnectorProvisionModeType,
         "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "status": PaymentConnectorStatusType,
         "authorizationUrl": str,
+        "credentialsUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5195,6 +5434,28 @@ class HarnessMemoryConfigurationOutputTypeDef(TypedDict):
 HarnessAgentCoreMemoryConfigurationUnionTypeDef = Union[
     HarnessAgentCoreMemoryConfigurationTypeDef, HarnessAgentCoreMemoryConfigurationOutputTypeDef
 ]
+
+
+class HarnessAfterInvocationHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+
+class HarnessAfterToolCallHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+
+class HarnessBeforeInvocationHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+
+class HarnessBeforeToolCallHookTypeDef(TypedDict):
+    name: str
+    target: HarnessHookTargetTypeDef
+
+
 HarnessModelConfigurationUnionTypeDef = Union[
     HarnessModelConfigurationTypeDef, HarnessModelConfigurationOutputTypeDef
 ]
@@ -5583,11 +5844,22 @@ class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedAgentSkillsDescriptorFieldsTypeDef]
 
 
+class PassthroughTargetConfigurationOutputTypeDef(TypedDict):
+    endpoint: str
+    protocolType: PassthroughProtocolTypeType
+    schema: NotRequired[HttpApiSchemaConfigurationTypeDef]
+    stickinessConfiguration: NotRequired[StickinessConfigurationOutputTypeDef]
+    staticQueryParameters: NotRequired[dict[str, str]]
+    staticQueryParameterConflictResolution: NotRequired[StaticQueryParameterConflictResolutionType]
+
+
 class PassthroughTargetConfigurationTypeDef(TypedDict):
     endpoint: str
     protocolType: PassthroughProtocolTypeType
     schema: NotRequired[HttpApiSchemaConfigurationTypeDef]
     stickinessConfiguration: NotRequired[StickinessConfigurationTypeDef]
+    staticQueryParameters: NotRequired[Mapping[str, str]]
+    staticQueryParameterConflictResolution: NotRequired[StaticQueryParameterConflictResolutionType]
 
 
 class RuntimeTargetConfigurationTypeDef(TypedDict):
@@ -5796,6 +6068,13 @@ class HarnessMemoryConfigurationTypeDef(TypedDict):
     disabled: NotRequired[Mapping[str, Any]]
 
 
+class HarnessHookTypeDef(TypedDict):
+    beforeInvocation: NotRequired[HarnessBeforeInvocationHookTypeDef]
+    afterInvocation: NotRequired[HarnessAfterInvocationHookTypeDef]
+    beforeToolCall: NotRequired[HarnessBeforeToolCallHookTypeDef]
+    afterToolCall: NotRequired[HarnessAfterToolCallHookTypeDef]
+
+
 HarnessSkillUnionTypeDef = Union[HarnessSkillTypeDef, HarnessSkillOutputTypeDef]
 
 
@@ -5976,7 +6255,7 @@ OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
 
 class HttpTargetConfigurationOutputTypeDef(TypedDict):
     agentcoreRuntime: NotRequired[RuntimeTargetConfigurationTypeDef]
-    passthrough: NotRequired[PassthroughTargetConfigurationTypeDef]
+    passthrough: NotRequired[PassthroughTargetConfigurationOutputTypeDef]
     connector: NotRequired[HttpConnectorTargetConfigurationOutputTypeDef]
 
 
@@ -6049,6 +6328,7 @@ class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
     insights: NotRequired[Sequence[InsightTypeDef]]
     clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -6061,6 +6341,7 @@ class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
     insights: NotRequired[Sequence[InsightTypeDef]]
     clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
+    outputConfig: NotRequired[OutputConfigTypeDef]
     evaluationExecutionRoleArn: NotRequired[str]
     executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
 
@@ -6378,6 +6659,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     metadataConfiguration: RuntimeMetadataConfigurationTypeDef
     filesystemConfigurations: list[FilesystemConfigurationTypeDef]
     capacityProviderConfiguration: CapacityProviderConfigurationTypeDef
+    platformVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6459,6 +6741,7 @@ class HarnessTypeDef(TypedDict):
     environmentVariables: NotRequired[dict[str, str]]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationOutputTypeDef]
     memory: NotRequired[HarnessMemoryConfigurationOutputTypeDef]
+    hooks: NotRequired[list[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]
@@ -6745,6 +7028,7 @@ class CreateGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6765,6 +7049,7 @@ class GatewayTargetTypeDef(TypedDict):
     privateEndpointManagedResources: NotRequired[list[ManagedResourceDetailsTypeDef]]
     authorizationData: NotRequired[AuthorizationDataTypeDef]
     protocolType: NotRequired[TargetProtocolTypeType]
+    certificateConfigurations: NotRequired[list[CertificateConfigurationTypeDef]]
 
 
 class GetGatewayTargetResponseTypeDef(TypedDict):
@@ -6784,6 +7069,7 @@ class GetGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6804,6 +7090,7 @@ class UpdateGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6885,6 +7172,7 @@ class CreateGatewayTargetRequestTypeDef(TypedDict):
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
 
 
 class UpdateGatewayTargetRequestTypeDef(TypedDict):
@@ -6898,6 +7186,7 @@ class UpdateGatewayTargetRequestTypeDef(TypedDict):
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
 
 
 class CustomReflectionConfigurationTypeDef(TypedDict):
@@ -7010,6 +7299,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
+    platformVersion: NotRequired[str]
 
 
 class CreateGatewayRequestTypeDef(TypedDict):
@@ -7062,6 +7352,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
+    platformVersion: NotRequired[str]
     clientToken: NotRequired[str]
 
 
@@ -7111,6 +7402,7 @@ class CreateHarnessRequestTypeDef(TypedDict):
     allowedTools: NotRequired[Sequence[str]]
     memory: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
     truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    hooks: NotRequired[Sequence[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]
@@ -7170,6 +7462,7 @@ class UpdateHarnessRequestTypeDef(TypedDict):
     allowedTools: NotRequired[Sequence[str]]
     memory: NotRequired[UpdatedHarnessMemoryConfigurationTypeDef]
     truncation: NotRequired[HarnessTruncationConfigurationTypeDef]
+    hooks: NotRequired[Sequence[HarnessHookTypeDef]]
     maxIterations: NotRequired[int]
     maxTokens: NotRequired[int]
     timeoutSeconds: NotRequired[int]

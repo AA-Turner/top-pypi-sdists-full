@@ -1,4 +1,4 @@
-import { aT as fetchLocalCliApi, r as reactExports, j as jsxRuntimeExports, B as HiMiniSparkles, s as HiMiniCheckCircle, aU as HiMiniNoSymbol, al as HiMiniLockClosed, P as HiMiniExclamationTriangle, aV as useResolvedApprovalGate, ar as HiMiniArrowPath, w as HiMiniShieldCheck, aW as HiMiniInformationCircle, at as isApprovalProofSubmitDisabled, C as HiMiniXMark, as as ApprovalProofFieldInputs, au as buildApprovalProofCredentials, aX as GenIcon, Q as HiMiniBolt, aY as HiMiniGlobeAlt, aZ as HiMiniCube, K as HiMiniCloud, a_ as HiMiniServerStack, b as HiMiniCommandLine, a$ as HiMiniFolder, b0 as FaWindows, b1 as FaAws, c as HiMiniChevronRight, I as HiMiniChevronDown, b2 as approvalProofRecentlySatisfied, b3 as isBulkApproveGateReady, b4 as HiMiniArrowLeft, b5 as HiMiniPlus, ae as HiMiniClipboardDocumentCheck, af as HiMiniClipboard, b6 as guardAwareHref, an as HiMiniAdjustmentsHorizontal, b7 as HiMiniCheck, aN as HiMiniMagnifyingGlass, b8 as startGuardCloudConnect, b9 as HiMiniArrowTopRightOnSquare, aM as WorkspacePageHeader, ba as fetchExtensionControlApi } from "../guard-dashboard.js";
+import { aT as fetchLocalCliApi, r as reactExports, j as jsxRuntimeExports, B as HiMiniSparkles, s as HiMiniCheckCircle, aU as HiMiniNoSymbol, al as HiMiniLockClosed, P as HiMiniExclamationTriangle, aV as useResolvedApprovalGate, ar as HiMiniArrowPath, w as HiMiniShieldCheck, aW as HiMiniInformationCircle, at as isApprovalProofSubmitDisabled, C as HiMiniXMark, as as ApprovalProofFieldInputs, au as buildApprovalProofCredentials, aX as GenIcon, Q as HiMiniBolt, aY as HiMiniGlobeAlt, aZ as HiMiniCube, K as HiMiniCloud, a_ as HiMiniServerStack, b as HiMiniCommandLine, a$ as HiMiniFolder, b0 as FaWindows, b1 as FaAws, c as HiMiniChevronRight, I as HiMiniChevronDown, b2 as approvalProofRecentlySatisfied, b3 as isBulkApproveGateReady, b4 as HiMiniArrowLeft, b5 as HiMiniPlus, ae as HiMiniClipboardDocumentCheck, af as HiMiniClipboard, b6 as guardAwareHref, aN as HiMiniMagnifyingGlass, an as HiMiniAdjustmentsHorizontal, b7 as HiMiniCheck, b8 as startGuardCloudConnect, b9 as HiMiniArrowTopRightOnSquare, aM as WorkspacePageHeader, ba as fetchExtensionControlApi } from "../guard-dashboard.js";
 import { E as ExtensionControlApiError, p as previewExtensionMutation, a as applyExtensionMutation, f as fetchExtensionCatalog, b as fetchEffectiveExtensionControls, c as fetchExtensionControlHistory, d as acknowledgeDegradedExtensionControlAuthority, r as recoverExtensionControlAuthority } from "./extension-controls-api.js";
 import { A as ApprovalProofModal } from "./approval-proof-modal.js";
 import { u as useConfirmDialog } from "./confirm-dialog.js";
@@ -487,15 +487,17 @@ class LocalCliApiError extends Error {
     this.code = code;
   }
 }
+function customExtensionNeedsReview(item) {
+  return item.stale || item.state === "unset" || item.mcp_catalog?.stale || item.mcp_catalog?.complete === false || Boolean(item.mcp_catalog?.changes?.added.length) || Boolean(item.mcp_catalog?.changes?.changed.length);
+}
 function connectorWorkspaceItems(items, query = "") {
   const needle = query.trim().toLowerCase();
-  const attention = (item) => item.stale || item.state === "unset" || item.mcp_catalog?.stale || item.mcp_catalog?.complete === false || Boolean(item.mcp_catalog?.changes?.added.length) || Boolean(item.mcp_catalog?.changes?.changed.length);
   return items.filter((item) => item.state !== "unset" || item.surface === "mcp" && item.suggestable).filter((item) => !needle || [
     item.name,
     item.source_label,
     item.surface,
     ...item.commands.flatMap((command) => [command.name, command.usage, command.description])
-  ].some((value) => value?.toLowerCase().includes(needle))).sort((a, b) => Number(attention(b)) - Number(attention(a)) || (Date.parse(b.last_seen_at ?? "") || 0) - (Date.parse(a.last_seen_at ?? "") || 0) || a.name.localeCompare(b.name) || a.cli_id.localeCompare(b.cli_id));
+  ].some((value) => value?.toLowerCase().includes(needle))).sort((a, b) => Number(customExtensionNeedsReview(b)) - Number(customExtensionNeedsReview(a)) || (Date.parse(b.last_seen_at ?? "") || 0) - (Date.parse(a.last_seen_at ?? "") || 0) || a.name.localeCompare(b.name) || a.cli_id.localeCompare(b.cli_id));
 }
 function suggestedCustomExtensions(items) {
   return items.filter((item) => item.state === "unset" && item.suggestable);
@@ -731,6 +733,18 @@ async function waitForMcpDiscoveryJob(cliId, initialJob, signal) {
         switch (job.error) {
           case "mcp_refresh_unavailable":
             message = "Guard cannot list this connection directly. Refresh it in its host app.";
+            break;
+          case "mcp_launch_failed":
+            message = "Guard could not launch this MCP server. Check its configured executable and dependencies in the host app. Known tools and choices were kept.";
+            break;
+          case "mcp_transport_failed":
+            message = "Guard could not communicate with this MCP server. Check its executable, dependencies, and server logs in the host app. Known tools and choices were kept.";
+            break;
+          case "mcp_initialize_failed":
+            message = "The MCP server did not complete initialization. Check that it starts in the host app and uses stdio MCP. Known tools and choices were kept.";
+            break;
+          case "mcp_protocol_unsupported":
+            message = "This server uses an MCP protocol version Guard does not support. Check the server and Guard versions. Known tools and choices were kept.";
             break;
           case "catalog_revision_conflict":
             message = "A newer discovery finished first. Reload the inventory.";
@@ -3858,6 +3872,29 @@ function connectionReviewMessage(state) {
   if (state === "unset") return "Saved connection permissions will be removed. Future calls return to Guard policy.";
   return "Unknown and future tools still require review. These choices do not verify the provider account.";
 }
+const isSetupDigest = (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+function parseRecentMcpSetups(value) {
+  if (!Array.isArray(value) || value.length > 32) throw new Error("Could not verify recent setup history. Retry history.");
+  const handles = /* @__PURE__ */ new Set();
+  return value.map((entry) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry) || !isSetupDigest(entry.rollback_handle) || !isSetupDigest(entry.selection_digest) || handles.has(entry.rollback_handle) || typeof entry.setup_name !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(entry.setup_name) || !["remote", "package"].includes(entry.kind) || typeof entry.registry_name !== "string" || entry.registry_name.length > 256 || typeof entry.version !== "string" || entry.version.length > 80) {
+      throw new Error("Could not verify recent setup history. Retry history.");
+    }
+    handles.add(entry.rollback_handle);
+    if (entry.rollback_available !== void 0 && typeof entry.rollback_available !== "boolean") {
+      throw new Error("Could not verify recent setup history. Retry history.");
+    }
+    return {
+      rollback_handle: entry.rollback_handle,
+      setup_name: entry.setup_name,
+      kind: entry.kind,
+      registry_name: entry.registry_name,
+      version: entry.version,
+      selection_digest: entry.selection_digest,
+      ...entry.rollback_available === void 0 ? {} : { rollback_available: entry.rollback_available }
+    };
+  });
+}
 const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 async function registrySearch(query, signal) {
   const response = await fetchLocalCliApi("/v1/local-clis/registry-search", {
@@ -3911,14 +3948,94 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
   const controller = reactExports.useRef(null);
   const operation = reactExports.useRef(null);
   const interactionGeneration = reactExports.useRef(0);
+  const historyGeneration = reactExports.useRef(0);
+  const historyController = reactExports.useRef(null);
+  const [recent, setRecent] = reactExports.useState([]);
+  const [historyError, setHistoryError] = reactExports.useState(null);
+  const [historyBusy, setHistoryBusy] = reactExports.useState(false);
+  const returnFocus = reactExports.useRef(null);
   const [candidate, setCandidate] = reactExports.useState(null);
   const [configured, setConfigured] = reactExports.useState(null);
   const [password, setPassword] = reactExports.useState("");
   const [totp, setTotp] = reactExports.useState("");
-  reactExports.useEffect(() => () => controller.current?.abort(), []);
+  reactExports.useEffect(() => () => {
+    controller.current?.abort();
+    historyController.current?.abort();
+  }, []);
+  async function loadRecent() {
+    historyController.current?.abort();
+    const next = new AbortController();
+    historyController.current = next;
+    const generation = ++historyGeneration.current;
+    setHistoryBusy(true);
+    setHistoryError(null);
+    try {
+      const response = await fetchLocalCliApi("/v1/local-clis/registry-setup", {
+        method: "POST",
+        signal: next.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: "recent" })
+      });
+      const body = await response.json();
+      if (!response.ok || !object(body)) throw new Error("Recent setup history is unavailable. Retry history.");
+      const setups = parseRecentMcpSetups(body.setups);
+      if (!next.signal.aborted && historyGeneration.current === generation) setRecent(setups);
+    } catch (caught) {
+      if (!next.signal.aborted && historyGeneration.current === generation) {
+        setHistoryError(caught instanceof Error ? caught.message : "Recent setup history is unavailable. Retry history.");
+      }
+    } finally {
+      if (historyGeneration.current === generation) setHistoryBusy(false);
+    }
+  }
+  function invalidateHistory() {
+    historyGeneration.current += 1;
+    historyController.current?.abort();
+    setHistoryBusy(false);
+  }
+  async function previewUndo(setup, button) {
+    if (operation.current) return;
+    returnFocus.current = button;
+    const generation = ++interactionGeneration.current;
+    operation.current = "rollback-preview";
+    const next = new AbortController();
+    controller.current = next;
+    setBusy(true);
+    setError(null);
+    setCandidate(null);
+    setConfigured(null);
+    setPassword("");
+    setTotp("");
+    try {
+      const response = await fetchLocalCliApi("/v1/local-clis/registry-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: "rollback-preview", rollback_handle: setup.rollback_handle }),
+        signal: next.signal
+      });
+      const body = await response.json();
+      if (next.signal.aborted || interactionGeneration.current !== generation) return;
+      if (!response.ok) {
+        if (object(body) && (body.error === "codex_config_changed" || body.code === "codex_config_changed")) void loadRecent();
+        throw new Error(object(body) && typeof body.message === "string" ? body.message : "Could not review removal. Review this connection in Codex.");
+      }
+      if (!object(body) || body.host !== "codex" || body.rollback_handle !== setup.rollback_handle || body.setup_name !== setup.setup_name || body.selection_digest !== setup.selection_digest || body.registry_name !== setup.registry_name || body.version !== setup.version || body.kind !== setup.kind || body.permissions_granted !== false || body.host_change_applied !== false || (body.kind === "remote" ? typeof body.endpoint !== "string" || body.endpoint.length > 2048 : typeof body.command !== "string" || body.command.length > 4096 || !Array.isArray(body.arguments) || body.arguments.length > 18 || !body.arguments.every((arg) => typeof arg === "string" && arg.length <= 160) || typeof body.package_identifier !== "string" || typeof body.package_version !== "string" || body.verified_package !== false)) throw new Error("Could not verify removal. Review this connection in Codex.");
+      if (interactionGeneration.current === generation) setCandidate(body);
+    } catch (caught) {
+      if (!next.signal.aborted && interactionGeneration.current === generation) {
+        setError(caught instanceof Error ? caught.message : "Could not review removal.");
+      }
+    } finally {
+      if (controller.current === next && interactionGeneration.current === generation) {
+        controller.current = null;
+        operation.current = null;
+        setBusy(false);
+      }
+    }
+  }
   async function search() {
     if (query.trim().length < 2 || busy || operation.current) return;
-    interactionGeneration.current += 1;
+    const generation = ++interactionGeneration.current;
     operation.current = "search";
     const next = new AbortController();
     controller.current = next;
@@ -3936,19 +4053,25 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
     } catch (caught) {
       if (!next.signal.aborted) setError(caught instanceof Error ? caught.message : "Registry unavailable.");
     } finally {
-      operation.current = null;
-      if (controller.current === next) controller.current = null;
-      if (!next.signal.aborted) setBusy(false);
+      if (controller.current === next && interactionGeneration.current === generation) {
+        controller.current = null;
+        operation.current = null;
+        setBusy(false);
+      }
     }
   }
   async function preview(entry, target) {
     if (operation.current) return;
-    interactionGeneration.current += 1;
+    const generation = ++interactionGeneration.current;
     operation.current = "preview";
+    const next = new AbortController();
+    controller.current = next;
     setBusy(true);
     setError(null);
     setCandidate(null);
     setConfigured(null);
+    setPassword("");
+    setTotp("");
     const setupName = entry.name.split("/").at(-1)?.toLowerCase().replace(/[^a-z0-9_-]/g, "-") ?? "mcp-server";
     try {
       const response = await fetchLocalCliApi("/v1/local-clis/registry-setup", {
@@ -3964,7 +4087,8 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
             package_identifier: target.packageOption.identifier,
             package_version: target.packageOption.version
           }
-        })
+        }),
+        signal: next.signal
       });
       const body = await response.json();
       if (!response.ok) throw new Error(object(body) && typeof body.message === "string" ? body.message : "Could not review setup.");
@@ -3972,12 +4096,17 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
       if ("endpoint" in target) {
         if (body.endpoint !== target.endpoint || body.kind !== "remote") throw new Error("Invalid Codex endpoint preview");
       } else if (body.kind !== "package" || body.package_identifier !== target.packageOption.identifier || body.package_version !== target.packageOption.version || typeof body.command !== "string" || !Array.isArray(body.arguments) || !body.arguments.every((argument) => typeof argument === "string") || body.verified_package !== false) throw new Error("Invalid Codex package preview");
-      setCandidate(body);
+      if (!next.signal.aborted && interactionGeneration.current === generation) setCandidate(body);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not review setup.");
+      if (!next.signal.aborted && interactionGeneration.current === generation) {
+        setError(caught instanceof Error ? caught.message : "Could not review setup.");
+      }
     } finally {
-      operation.current = null;
-      setBusy(false);
+      if (controller.current === next && interactionGeneration.current === generation) {
+        controller.current = null;
+        operation.current = null;
+        setBusy(false);
+      }
     }
   }
   async function apply() {
@@ -3999,7 +4128,8 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          operation: "apply",
+          operation: candidate.rollback_handle ? "rollback" : "apply",
+          ...candidate.rollback_handle ? { rollback_handle: candidate.rollback_handle } : {},
           registry_name: candidate.registry_name,
           version: candidate.version,
           setup_name: candidate.setup_name,
@@ -4015,30 +4145,77 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
         })
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(object(body) && typeof body.message === "string" ? body.message : "Codex setup did not finish.");
-      if (!object(body) || body.host !== "codex" || body.setup_name !== candidate.setup_name || body.kind !== (candidate.kind === "package" ? "package" : "remote") || body.host_change_applied !== true || body.permissions_granted !== false) throw new Error("Codex setup outcome is uncertain.");
-      setConfigured({ name: candidate.setup_name, kind: candidate.kind === "package" ? "package" : "remote" });
+      if (!response.ok) {
+        if (candidate.rollback_handle && object(body) && (body.error === "codex_config_changed" || body.code === "codex_config_changed")) setCandidate(null);
+        throw new Error(object(body) && typeof body.message === "string" ? body.message : "Codex setup did not finish.");
+      }
+      if (!object(body) || body.host !== "codex" || body.setup_name !== candidate.setup_name || body.kind !== (candidate.kind === "package" ? "package" : "remote") || body.host_change_applied !== true || body.permissions_granted !== false || (candidate.rollback_handle ? body.setup_rolled_back !== true : !isSetupDigest(body.rollback_handle))) {
+        throw new Error("Codex setup outcome is uncertain. Check recent setup history and review this connection in Codex before retrying.");
+      }
+      invalidateHistory();
+      if (candidate.rollback_handle) setRecent((previous) => previous.filter((setup) => setup.rollback_handle !== candidate.rollback_handle));
+      else setRecent((previous) => [{
+        rollback_handle: body.rollback_handle,
+        setup_name: candidate.setup_name,
+        kind: candidate.kind,
+        registry_name: candidate.registry_name,
+        version: candidate.version,
+        selection_digest: candidate.selection_digest
+      }, ...previous].slice(0, 32));
+      void loadRecent();
+      setConfigured({ name: candidate.setup_name, kind: candidate.kind, removed: Boolean(candidate.rollback_handle) });
       setCandidate(null);
       setPassword("");
       setTotp("");
       void Promise.resolve().then(onConfigured).then((outcome) => {
-        if (outcome === "partial" && interactionGeneration.current === generation) setError("Codex was configured, but Guard could not fully rescan host connections. Existing connections remain visible. Retry discovery in Extensions.");
+        if (outcome === "partial" && interactionGeneration.current === generation) setError("Codex configuration changed, but Guard could not fully rescan host connections. Existing connections remain visible. Retry discovery in Extensions.");
       }).catch(() => {
-        if (interactionGeneration.current === generation) setError("Codex was configured, but Guard could not fully rescan host connections. Retry discovery in Extensions.");
+        if (interactionGeneration.current === generation) setError("Codex configuration changed, but Guard could not fully rescan host connections. Retry discovery in Extensions.");
       });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Codex setup did not finish.");
+      setPassword("");
+      setTotp("");
+      void loadRecent();
+      setError(caught instanceof Error ? caught.message : "Codex setup did not finish. Review this connection in Codex before retrying.");
     } finally {
       operation.current = null;
       setBusy(false);
     }
   }
+  const setupStatus = reactExports.useMemo(() => {
+    if (!configured) return null;
+    const change = configured.removed ? "removed from" : "added to";
+    let text = `${configured.name} was ${change} Codex. Restart Codex to load this configuration change.`;
+    if (!configured.removed) {
+      text += " Complete any provider-owned sign-in there.";
+      if (configured.kind === "package") text += " Codex may download and run the pinned package on first use.";
+      text += " Review each tool in Extensions after Codex loads it.";
+    }
+    return `${text} No tool permission was granted.`;
+  }, [configured]);
+  const setupReviewText = reactExports.useMemo(() => {
+    if (!candidate || candidate.rollback_handle) return null;
+    if (candidate.kind === "package") {
+      return "This changes Codex configuration. Codex may download and execute this package on first use. It does not authenticate an account or allow tools in Guard.";
+    }
+    return "This changes Codex configuration. It does not download a package, authenticate an account, activate this session, or allow tools in Guard.";
+  }, [candidate]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("details", { className: "mt-6 rounded-2xl border border-slate-200 bg-white p-4", onToggle: (event) => {
     setOpen(event.currentTarget.open);
     onOpenChange(event.currentTarget.open);
-    if (!event.currentTarget.open && operation.current === "search") {
-      controller.current?.abort();
-      setBusy(false);
+    if (event.currentTarget.open) void loadRecent();
+    else {
+      invalidateHistory();
+      if (operation.current !== "apply") {
+        controller.current?.abort();
+        controller.current = null;
+        operation.current = null;
+        setBusy(false);
+        interactionGeneration.current += 1;
+        setCandidate(null);
+        setPassword("");
+        setTotp("");
+      }
     }
   }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("summary", { className: "min-h-11 cursor-pointer py-3 font-semibold text-brand-dark", children: "Find an MCP server in the public registry" }),
@@ -4081,18 +4258,13 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
       busy ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-3 text-sm text-brand-dark/75", children: {
         search: "Searching public listings…",
         preview: "Checking the exact registry listing…",
-        apply: "Adding the reviewed connection to Codex…"
+        "rollback-preview": "Checking the saved setup…",
+        apply: candidate?.rollback_handle ? "Removing the reviewed connection from Codex…" : "Adding the reviewed connection to Codex…"
       }[operation.current ?? "apply"] }) : null,
       error ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "alert", className: "mt-3 text-sm text-red-700", children: error }) : null,
-      configured ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { role: "status", className: "mt-3 text-sm text-brand-dark", children: [
-        configured.name,
-        " was added to Codex. Restart Codex and complete any provider-owned sign-in there.",
-        configured.kind === "package" ? " Codex may download and run the pinned package on first use." : null,
-        " ",
-        "Review each tool in Extensions after Codex loads it. No tool permission was granted."
-      ] }) : null,
+      setupStatus ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-3 text-sm text-brand-dark", children: setupStatus }) : null,
       candidate ? /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { "aria-label": "Review Codex MCP setup", className: "mt-4 rounded-xl border border-slate-200 p-4 text-sm text-brand-dark", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold", children: "Review Codex connection" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold", children: candidate.rollback_handle ? "Review removal from Codex" : "Review Codex connection" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-2", children: [
           candidate.registry_name,
           " · version ",
@@ -4112,15 +4284,13 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
           /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 break-all font-mono text-xs", children: [
             "Launch: ",
             [candidate.command, ...candidate.arguments].map((part) => JSON.stringify(part)).join(" ")
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2", children: "This changes Codex configuration. Codex may download and execute this package on first use. It does not authenticate an account or allow tools in Guard." })
-        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 break-all", children: [
-            "HTTPS endpoint: ",
-            candidate.endpoint
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2", children: "This changes Codex configuration. It does not download a package, authenticate an account, activate this session, or allow tools in Guard." })
-        ] }),
+          ] })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1 break-all", children: [
+          "HTTPS endpoint: ",
+          candidate.endpoint
+        ] }) }),
+        setupReviewText ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2", children: setupReviewText }) : null,
+        candidate.rollback_handle ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2", children: "Remove only the connection added by this setup. If Codex configuration has changed since then, Guard leaves it unchanged so you can review it in Codex. Removing setup does not revoke provider access or erase Guard tool choices." }) : null,
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 max-w-sm", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
           ApprovalProofFieldInputs,
           {
@@ -4131,7 +4301,7 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
             onApprovalTotpCodeChange: (event) => setTotp(event.target.value.replace(/\D/g, "").slice(0, 6))
           }
         ) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 flex flex-wrap gap-3", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -4145,7 +4315,7 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
                 void apply();
               },
               className: "min-h-11 rounded-xl bg-brand-blue px-4 font-semibold text-white disabled:opacity-50",
-              children: "Add to Codex"
+              children: candidate.rollback_handle ? "Remove from Codex" : "Add to Codex"
             }
           ),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -4157,6 +4327,7 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
                 setCandidate(null);
                 setPassword("");
                 setTotp("");
+                returnFocus.current?.focus();
               },
               className: "min-h-11 rounded-xl border border-slate-300 px-4 font-semibold",
               children: "Cancel"
@@ -4164,6 +4335,58 @@ function McpRegistrySearch({ items, approvalGate, onOpenChange, onConfigured }) 
           )
         ] })
       ] }) : null,
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { "aria-label": "Recent MCP setup", className: "mt-4 border-t border-slate-200 pt-4 text-sm text-brand-dark", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-semibold", children: "Recent setup" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-brand-dark/75", children: "Undo is available for up to an hour while this Guard runtime stays open. For older or changed connections, review configuration in Codex." }),
+        historyBusy ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-2", children: "Loading recent setup…" }) : null,
+        historyError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "alert", className: "text-red-700", children: historyError }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              disabled: historyBusy || busy,
+              onClick: () => {
+                void loadRecent();
+              },
+              className: "mt-2 min-h-11 rounded-xl border border-slate-300 px-4 font-semibold",
+              children: "Retry history"
+            }
+          )
+        ] }) : null,
+        !historyBusy && !historyError && !recent.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-brand-dark/75", children: "No setup available to undo in this runtime." }) : null,
+        recent.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "mt-2 divide-y divide-slate-200", children: recent.map((setup) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "li",
+          {
+            className: "flex flex-wrap items-center justify-between gap-3 py-3",
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "break-all font-semibold", children: setup.setup_name }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "break-all text-brand-dark/75", children: [
+                  setup.registry_name,
+                  " · ",
+                  setup.version
+                ] }),
+                setup.rollback_available === false ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-brand-dark/75", children: "Configuration changed. Review this connection in Codex." }) : null
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  disabled: busy || setup.rollback_available === false,
+                  onClick: (event) => {
+                    void previewUndo(setup, event.currentTarget);
+                  },
+                  "aria-label": `Undo setup for ${setup.setup_name}`,
+                  className: "min-h-11 rounded-xl border border-slate-300 px-4 font-semibold disabled:opacity-50",
+                  children: "Undo setup"
+                }
+              )
+            ]
+          },
+          setup.rollback_handle
+        )) }) : null
+      ] }),
       entries?.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-brand-dark/75", children: "No listing on this search page. Try another name." }) : null,
       moreAvailable && entries ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-brand-dark/75", children: "More listings match. Refine the name to find a specific server; this page is not the complete registry." }) : null,
       entries ? /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "mt-4 divide-y divide-slate-200", children: entries.map((entry) => {
@@ -4728,96 +4951,11 @@ function useLocalCliCatalog() {
   }, [data, discovering, load]);
   return { data, error, discoveryNotice, load, discover, discovering, catalogReady };
 }
-function CustomExtensionsSection(props) {
-  const [search, setSearch] = reactExports.useState("");
-  const [page, setPage] = reactExports.useState(0);
-  const added = connectorWorkspaceItems(props.items, search);
-  const currentPage = Math.min(page, Math.max(0, Math.ceil(added.length / 25) - 1));
-  const visible = added.slice(currentPage * 25, (currentPage + 1) * 25);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mt-10", "aria-labelledby": "custom-extensions-heading", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { id: "custom-extensions-heading", className: "text-xl font-semibold tracking-tight text-brand-dark", children: "Custom extensions" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "Detected connectors and your own tools. Inspect a connection to choose its permissions." })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onAdd, className: "inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-brand-blue", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniPlus, { className: "size-4", "aria-hidden": "true" }),
-        "Add custom extension"
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "mt-4 block max-w-xl text-sm font-semibold text-brand-dark", children: [
-      "Find a connector or custom tool",
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
-        {
-          type: "search",
-          value: search,
-          onChange: (event) => {
-            setSearch(event.target.value);
-            setPage(0);
-          },
-          placeholder: "Name, host, or tool identifier",
-          className: "mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal"
-        }
-      )
-    ] }),
-    added.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-sm leading-6 text-brand-dark/75", children: search ? "No connections match this search." : "No connectors found yet. Add a connection or refresh its inventory in your host app." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4", children: visible.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(CustomExtensionRow, { item, onOpen: props.onOpen }, item.cli_id)) }),
-    added.length > 25 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("nav", { "aria-label": "Custom extension pages", className: "mt-4 flex flex-wrap items-center gap-3", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          disabled: currentPage === 0,
-          onClick: () => setPage(currentPage - 1),
-          className: "min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold disabled:opacity-50",
-          children: "Previous"
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-sm text-brand-dark/75", children: [
-        "Page ",
-        currentPage + 1,
-        " of ",
-        Math.ceil(added.length / 25)
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          disabled: (currentPage + 1) * 25 >= added.length,
-          onClick: () => setPage(currentPage + 1),
-          className: "min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold disabled:opacity-50",
-          children: "Next"
-        }
-      )
-    ] }) : null
-  ] });
-}
 function AddCustomExtensionButton(props) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onClick, className: "inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-brand-dark", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniPlus, { className: "size-4", "aria-hidden": "true" }),
     "Add custom extension"
   ] });
-}
-function CustomExtensionRow(props) {
-  const cliId = props.item.cli_id;
-  const onOpen = props.onOpen;
-  const handleOpen = reactExports.useCallback(() => {
-    onOpen(cliId);
-  }, [cliId, onOpen]);
-  const continuity = continuityCopy(props.item);
-  const catalog = mcpCatalogCopy(props.item);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    ProtectionModuleRow,
-    {
-      extensionId: props.item.cli_id,
-      name: props.item.name,
-      description: customExtensionRowDescription(props.item, catalog?.title ?? null),
-      behavior: continuity ? `${continuity.title}. ${continuity.description}` : customExtensionStateLabel(props.item),
-      custom: true,
-      executables: [props.item.name],
-      onOpen: handleOpen
-    }
-  );
 }
 function LocalCliDetail(props) {
   const { resolvedApprovalGate, resolveApprovalGate, refreshApprovalGate } = useResolvedApprovalGate(null);
@@ -5807,6 +5945,161 @@ function SkillPreflightPreview({ plan }) {
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2", children: "This is a preview of current evidence. Preparing grants nothing; every runtime call still checks its permissions." })
   ] });
 }
+const CUSTOM_EXTENSION_PREVIEW_COUNT = 8;
+const CUSTOM_EXTENSION_RENDER_LIMIT = 100;
+function CustomExtensionRow(props) {
+  const cliId = props.item.cli_id;
+  const onOpen = props.onOpen;
+  const handleOpen = reactExports.useCallback(() => {
+    onOpen(cliId);
+  }, [cliId, onOpen]);
+  const continuity = continuityCopy(props.item);
+  const catalog = mcpCatalogCopy(props.item);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    ProtectionModuleRow,
+    {
+      extensionId: props.item.cli_id,
+      name: props.item.name,
+      description: customExtensionRowDescription(props.item, catalog?.title ?? null),
+      behavior: continuity ? `${continuity.title}. ${continuity.description}` : customExtensionStateLabel(props.item),
+      custom: true,
+      executables: [props.item.name],
+      onOpen: handleOpen
+    }
+  );
+}
+function CustomExtensionEmptyState(props) {
+  let title = "No custom extensions yet.";
+  let detail = "Add a tool you run yourself, or connect an MCP server. Guard also detects connectors from your host apps automatically.";
+  if (props.search) {
+    title = "No custom extensions match this search.";
+    detail = "No connectors or custom tools match this search.";
+  }
+  if (props.filteredOut) {
+    title = "No custom extensions match these filters.";
+    detail = "Remove a filter or start over to see all custom extensions again.";
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "mt-4 rounded-2xl border border-[rgba(63,65,116,0.12)] bg-white px-4 py-6",
+      "data-testid": props.filteredOut ? "custom-extensions-filter-empty" : "custom-extensions-empty",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-brand-dark", children: title }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 max-w-xl text-sm leading-6 text-brand-dark/70", children: detail }),
+        props.filteredOut ? props.onClearFilters ? /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onClearFilters, className: "guard-extensions-chip mt-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" }),
+          "Clear filters"
+        ] }) : null : props.search ? /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onClearSearch, className: "guard-extensions-chip mt-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" }),
+          "Clear search"
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onAdd, className: "mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-brand-dark", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniPlus, { className: "size-4", "aria-hidden": "true" }),
+            "Add custom extension"
+          ] }),
+          props.discovering ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-3 text-sm text-brand-dark/75", children: "Checking host configuration for connectors…" }) : null
+        ] })
+      ]
+    }
+  );
+}
+function CustomExtensionsSection(props) {
+  const [search, setSearch] = reactExports.useState("");
+  const [showAll, setShowAll] = reactExports.useState(false);
+  const all = connectorWorkspaceItems(props.items);
+  const added = search ? connectorWorkspaceItems(props.items, search) : all;
+  const searchable = all.length > CUSTOM_EXTENSION_PREVIEW_COUNT || search !== "";
+  const filteredOut = props.filteredOut === true && search === "";
+  const needsReview = added.filter(customExtensionNeedsReview);
+  const reviewed = added.filter((item) => !customExtensionNeedsReview(item));
+  const grouped = needsReview.length > 0 && reviewed.length > 0;
+  const expandedLimit = showAll ? CUSTOM_EXTENSION_RENDER_LIMIT : CUSTOM_EXTENSION_PREVIEW_COUNT;
+  const visible = added.length > expandedLimit ? added.slice(0, expandedLimit) : added;
+  const visibleNeedsReview = grouped ? visible.filter(customExtensionNeedsReview) : visible;
+  const visibleReviewed = grouped ? visible.filter((item) => !customExtensionNeedsReview(item)) : [];
+  const unit = added.length === 1 ? "extension" : "extensions";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mt-10", "aria-labelledby": "custom-extensions-heading", "data-testid": "custom-extensions-section", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { id: "custom-extensions-heading", className: "text-xl font-semibold tracking-tight text-brand-dark", children: "Custom extensions" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "Connectors Guard detected in your apps, plus tools you add yourself. Open one to choose its permissions." })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3", children: [
+        searchable ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative min-w-0 flex-1 sm:flex-none", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "relative block", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Search custom extensions" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniMagnifyingGlass, { className: "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-dark/55", "aria-hidden": "true" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "search",
+              value: search,
+              onChange: (event) => {
+                setSearch(event.target.value);
+                setShowAll(false);
+              },
+              placeholder: "Search connectors",
+              className: "min-h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm font-normal text-brand-dark sm:w-64"
+            }
+          )
+        ] }) }) : null,
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: props.onAdd, className: "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-brand-blue", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniPlus, { className: "size-4", "aria-hidden": "true" }),
+          "Add custom extension"
+        ] })
+      ] })
+    ] }),
+    added.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      CustomExtensionEmptyState,
+      {
+        search,
+        filteredOut,
+        discovering: props.discovering,
+        onAdd: props.onAdd,
+        onClearFilters: props.onClearFilters,
+        onClearSearch: () => setSearch("")
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4", children: [
+      grouped && visibleNeedsReview.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs font-semibold text-brand-dark/55", children: [
+        "Needs review · ",
+        needsReview.length
+      ] }) : null,
+      visibleNeedsReview.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(CustomExtensionRow, { item, onOpen: props.onOpen }, item.cli_id)),
+      grouped && visibleReviewed.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-6 text-xs font-semibold text-brand-dark/55", children: [
+        "Reviewed · ",
+        reviewed.length
+      ] }) : null,
+      visibleReviewed.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsx(CustomExtensionRow, { item, onOpen: props.onOpen }, item.cli_id)),
+      added.length > visible.length ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 flex flex-wrap items-center gap-3", children: [
+        showAll ? null : /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setShowAll(true),
+            className: "min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-brand-dark",
+            children: added.length > CUSTOM_EXTENSION_RENDER_LIMIT ? `Show first ${CUSTOM_EXTENSION_RENDER_LIMIT}` : `Show all ${added.length} ${unit}`
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm text-brand-dark/70", children: [
+          "Showing ",
+          visible.length,
+          " of ",
+          added.length,
+          ". Search to narrow the list."
+        ] })
+      ] }) : null,
+      showAll && added.length > CUSTOM_EXTENSION_PREVIEW_COUNT ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => setShowAll(false),
+          className: "mt-4 min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-brand-dark",
+          children: "Show fewer"
+        }
+      ) : null
+    ] })
+  ] });
+}
 const PROTECTION_CATEGORIES = [
   { id: "source-control", label: "Source control", description: "Protect repository history, branches, and source-control operations.", searchAliases: ["git", "github", "repository", "source"] },
   { id: "packages", label: "Packages and dependencies", description: "Protect dependency installs, package managers, and supply-chain changes.", searchAliases: ["npm", "pnpm", "yarn", "pip", "package", "dependency"] },
@@ -6029,13 +6322,40 @@ function AreaFilterOption(props) {
     }
   );
 }
+function CatalogFilterTrigger(props) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      type: "button",
+      ref: props.buttonRef,
+      "aria-expanded": props.open,
+      "aria-controls": props.panelId,
+      title: "Filters (press f)",
+      onClick: props.onToggle,
+      className: "inline-flex min-h-11 items-center gap-2 rounded-xl border border-[rgba(63,65,116,0.18)] bg-white px-3.5 text-sm font-semibold text-brand-dark shadow-sm transition-colors hover:border-brand-blue hover:text-brand-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue aria-expanded:border-brand-blue aria-expanded:text-brand-blue motion-reduce:transition-none",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniAdjustmentsHorizontal, { className: "size-4", "aria-hidden": "true" }),
+        "Filters",
+        props.activeCount > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "grid min-w-5 place-items-center rounded-full bg-brand-blue px-1 text-[0.6875rem] font-semibold leading-5 text-white tabular-nums", children: props.activeCount }) : null,
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          HiMiniChevronDown,
+          {
+            className: `size-4 transition-transform duration-200 motion-reduce:transition-none ${props.open ? "rotate-180" : ""}`,
+            "aria-hidden": "true"
+          }
+        )
+      ]
+    }
+  );
+}
 function CatalogFilterBar(props) {
-  const [panelOpen, setPanelOpen] = reactExports.useState(false);
-  const panelId = reactExports.useId();
-  const triggerRef = reactExports.useRef(null);
   const areas = reactExports.useMemo(() => populatedCatalogAreaOptions(props.catalog), [props.catalog]);
   const filtering = catalogFiltersActive(props.filters);
   const activeCount = props.filters.trusts.length + props.filters.kinds.length + props.filters.areas.length;
+  const visibleCount = reactExports.useMemo(
+    () => filterCatalogExtensions(props.catalog, props.filters).length,
+    [props.catalog, props.filters]
+  );
   const handleToggleTrust = reactExports.useCallback((value) => {
     props.onChange({
       ...props.filters,
@@ -6056,38 +6376,10 @@ function CatalogFilterBar(props) {
   }, [props]);
   const handleClear = reactExports.useCallback(() => {
     props.onChange(EMPTY_CATALOG_FILTERS);
+    props.onAfterClear?.();
   }, [props]);
-  const handleKeyDown = reactExports.useCallback((event) => {
-    if (event.key !== "Escape" || !panelOpen) return;
-    event.stopPropagation();
-    setPanelOpen(false);
-    triggerRef.current?.focus();
-  }, [panelOpen]);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 scroll-mt-28", "data-testid": "catalog-filters", onKeyDown: handleKeyDown, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "button",
-        {
-          type: "button",
-          ref: triggerRef,
-          "aria-expanded": panelOpen,
-          "aria-controls": panelId,
-          onClick: () => setPanelOpen((open) => !open),
-          className: "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[rgba(63,65,116,0.18)] bg-white px-3 text-xs font-semibold text-brand-dark shadow-sm transition-colors hover:border-brand-blue hover:text-brand-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue aria-expanded:border-brand-blue aria-expanded:text-brand-blue motion-reduce:transition-none",
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniAdjustmentsHorizontal, { className: "size-4", "aria-hidden": "true" }),
-            "Filters",
-            activeCount > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "grid min-w-5 place-items-center rounded-full bg-brand-blue px-1 text-[0.6875rem] font-semibold leading-5 text-white tabular-nums", children: activeCount }) : null,
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              HiMiniChevronDown,
-              {
-                className: `size-4 transition-transform duration-200 motion-reduce:transition-none ${panelOpen ? "rotate-180" : ""}`,
-                "aria-hidden": "true"
-              }
-            )
-          ]
-        }
-      ),
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    filtering ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex flex-wrap items-center gap-2", "data-testid": "catalog-filter-tokens", children: [
       props.filters.trusts.map((trust) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         ActiveFilterToken,
         {
@@ -6118,50 +6410,63 @@ function CatalogFilterBar(props) {
           `area-${areaId}`
         );
       }),
-      filtering ? /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", className: "guard-extensions-chip", onClick: handleClear, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", className: "guard-extensions-chip", onClick: handleClear, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" }),
         "Clear filters"
-      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "hidden text-xs text-brand-dark/70 sm:inline", children: "Narrow by trust, kind, or area." })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ] })
+    ] }) : null,
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "div",
       {
-        id: panelId,
-        hidden: !panelOpen,
-        className: "mt-3 rounded-2xl border border-[rgba(63,65,116,0.12)] bg-white p-4 shadow-sm sm:p-5",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,12rem)_minmax(0,1fr)]", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Trust", children: CATALOG_TRUST_FILTERS.map((trust) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            TrustFilterOption,
-            {
-              value: trust,
-              count: catalogFilterChipCount(props.catalog, props.filters, { trusts: [trust] }),
-              pressed: props.filters.trusts.includes(trust),
-              onToggle: handleToggleTrust
-            },
-            trust
-          )) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Kind", children: CATALOG_KIND_FILTERS.map((kind) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            KindFilterOption,
-            {
-              value: kind,
-              count: catalogFilterChipCount(props.catalog, props.filters, { kinds: [kind] }),
-              pressed: props.filters.kinds.includes(kind),
-              onToggle: handleToggleKind
-            },
-            kind
-          )) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Area", className: "sm:col-span-2 lg:col-span-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-x-6 gap-y-1.5 sm:grid-cols-2", children: areas.map((area) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-            AreaFilterOption,
-            {
-              value: area.id,
-              label: area.label,
-              count: catalogFilterChipCount(props.catalog, props.filters, { areas: [area.id] }),
-              pressed: props.filters.areas.includes(area.id),
-              onToggle: handleToggleArea
-            },
-            area.id
-          )) }) })
-        ] })
+        id: props.panelId,
+        hidden: !props.open,
+        "data-testid": "catalog-filter-panel",
+        className: "mt-2 max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[rgba(63,65,116,0.12)] bg-white p-4 shadow-[0_12px_32px_rgba(63,65,116,0.16)] sm:absolute sm:inset-x-0 sm:top-full sm:z-30 sm:mt-2 sm:p-5",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-[minmax(0,14rem)_minmax(0,12rem)_minmax(0,1fr)]", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Trust", children: CATALOG_TRUST_FILTERS.map((trust) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              TrustFilterOption,
+              {
+                value: trust,
+                count: catalogFilterChipCount(props.catalog, props.filters, { trusts: [trust] }),
+                pressed: props.filters.trusts.includes(trust),
+                onToggle: handleToggleTrust
+              },
+              trust
+            )) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Kind", children: CATALOG_KIND_FILTERS.map((kind) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              KindFilterOption,
+              {
+                value: kind,
+                count: catalogFilterChipCount(props.catalog, props.filters, { kinds: [kind] }),
+                pressed: props.filters.kinds.includes(kind),
+                onToggle: handleToggleKind
+              },
+              kind
+            )) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CatalogFilterGroup, { legend: "Area", className: "sm:col-span-2 lg:col-span-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid gap-x-6 gap-y-1.5 sm:grid-cols-2", children: areas.map((area) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              AreaFilterOption,
+              {
+                value: area.id,
+                label: area.label,
+                count: catalogFilterChipCount(props.catalog, props.filters, { areas: [area.id] }),
+                pressed: props.filters.areas.includes(area.id),
+                onToggle: handleToggleArea
+              },
+              area.id
+            )) }) })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(63,65,116,0.12)] pt-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-brand-dark/65", "data-testid": "catalog-filter-count", children: catalogFilterCountCopy(visibleCount, props.catalog.length, filtering) }),
+            filtering ? /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", className: "guard-extensions-chip", onClick: handleClear, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" }),
+              "Clear all ",
+              activeCount,
+              " ",
+              activeCount === 1 ? "filter" : "filters"
+            ] }) : null
+          ] })
+        ]
       }
     )
   ] });
@@ -6304,37 +6609,43 @@ function PatternSearchConsole(props) {
   ).length;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { "aria-labelledby": "pattern-search-heading", className: "mt-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { id: "pattern-search-heading", className: "sr-only", children: "Search command patterns" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "relative block", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Search command patterns" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniMagnifyingGlass, { className: "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-dark/55", "aria-hidden": "true" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "input",
-        {
-          ref: inputRef,
-          type: "text",
-          role: "searchbox",
-          enterKeyHint: "search",
-          value: query,
-          onFocus: () => setFocused(true),
-          onChange: (event) => setQuery(event.target.value.slice(0, 160)),
-          placeholder: 'Search any command Guard watches — "squash", "git push --force", "kubectl"…',
-          "aria-describedby": "pattern-search-hint",
-          className: "min-h-12 w-full rounded-2xl border border-[rgba(63,65,116,0.14)] bg-white/85 py-2.5 pl-9 pr-10 text-sm text-brand-dark shadow-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-blue-100"
-        }
-      ),
-      showResults ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: () => {
-            setQuery("");
-            inputRef.current?.focus();
-          },
-          "aria-label": "Clear search",
-          className: "absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-brand-dark/55 hover:bg-[rgba(63,65,116,0.06)] hover:text-brand-dark",
-          children: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" })
-        }
-      ) : null
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "relative block min-w-0 flex-1 sm:min-w-60", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Search command patterns" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniMagnifyingGlass, { className: "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-dark/55", "aria-hidden": "true" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              ref: inputRef,
+              type: "text",
+              role: "searchbox",
+              enterKeyHint: "search",
+              value: query,
+              onFocus: () => setFocused(true),
+              onChange: (event) => setQuery(event.target.value.slice(0, 160)),
+              placeholder: 'Search any command Guard watches — "squash", "git push --force", "kubectl"…',
+              "aria-describedby": "pattern-search-hint",
+              className: "min-h-11 w-full rounded-xl border border-[rgba(63,65,116,0.14)] bg-white/85 py-2.5 pl-9 pr-10 text-sm text-brand-dark shadow-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-blue-100"
+            }
+          ),
+          showResults ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                setQuery("");
+                inputRef.current?.focus();
+              },
+              "aria-label": "Clear search",
+              className: "absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-brand-dark/55 hover:bg-[rgba(63,65,116,0.06)] hover:text-brand-dark",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniXMark, { className: "size-4", "aria-hidden": "true" })
+            }
+          ) : null
+        ] }),
+        props.toolbarSlot ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 flex-wrap items-center gap-2", children: props.toolbarSlot }) : null
+      ] }),
+      props.subtoolbarSlot
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { id: "pattern-search-hint", className: `mt-2 text-xs text-brand-dark/60 ${focused || showResults ? "" : "sr-only"}`, children: "Matches patterns across every tool. Press / to focus search from anywhere on this page." }),
     props.actionSlot ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3", children: props.actionSlot }) : null,
@@ -6729,6 +7040,15 @@ function CatalogExtensionRow(props) {
     }
   );
 }
+function ConnectorDiscoveryControl(props) {
+  if (props.discovering) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "px-1 text-xs text-brand-dark/60", children: "Checking host configuration for connectors…" });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+    props.error ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "max-w-56 truncate text-xs text-brand-dark/60", title: props.error, children: props.error }) : null,
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "guard-extensions-chip", onClick: props.onRetry, children: props.error ? "Check for connectors again" : "Check host connections" })
+  ] });
+}
 function CatalogFilterEmpty(props) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 rounded-2xl border border-[rgba(63,65,116,0.12)] bg-white px-4 py-6", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-brand-dark", children: "No extensions match these filters." }),
@@ -6763,6 +7083,10 @@ function ExtensionsOverview(props) {
     };
   }, [props.active, discoveryAttempt]);
   const [filters, setFilters] = reactExports.useState(EMPTY_CATALOG_FILTERS);
+  const [filterPanelOpen, setFilterPanelOpen] = reactExports.useState(false);
+  const filterPanelId = reactExports.useId();
+  const filterTriggerRef = reactExports.useRef(null);
+  const filterToolbarRef = reactExports.useRef(null);
   reactExports.useEffect(() => {
     setFilters((current) => {
       const next = pruneCatalogFilters(current, props.catalogExtensions);
@@ -6770,6 +7094,39 @@ function ExtensionsOverview(props) {
       return next;
     });
   }, [props.catalogExtensions]);
+  reactExports.useEffect(() => {
+    if (!filterPanelOpen) return;
+    const onPointerDown = (event) => {
+      if (filterToolbarRef.current?.contains(event.target)) return;
+      setFilterPanelOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      setFilterPanelOpen(false);
+      filterTriggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filterPanelOpen]);
+  reactExports.useEffect(() => {
+    if (!props.active) return;
+    const onKeyDown = (event) => {
+      if (event.key !== "f" || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      const target = event.target;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      event.preventDefault();
+      setFilterPanelOpen(true);
+      filterTriggerRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [props.active]);
   const searching = query.trim().length > 0;
   const filtering = catalogFiltersActive(filters);
   const visibleCatalog = reactExports.useMemo(
@@ -6779,10 +7136,11 @@ function ExtensionsOverview(props) {
   const handleClearFilters = reactExports.useCallback(() => {
     setFilters(EMPTY_CATALOG_FILTERS);
   }, []);
-  const addedCustomItems = connectorWorkspaceItems(props.localCliItems).filter(
+  const allCustomItems = connectorWorkspaceItems(props.localCliItems);
+  const addedCustomItems = allCustomItems.filter(
     (item) => customItemMatchesFilters(item, filters)
   );
-  const addedCustomCount = addedCustomItems.length;
+  const customItemsFilteredOut = filtering && allCustomItems.length > 0 && addedCustomItems.length === 0;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { hidden: !props.active, inert: !props.active || void 0, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       WorkspacePageHeader,
@@ -6806,48 +7164,69 @@ function ExtensionsOverview(props) {
     props.localCliError ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(InlineError, { message: props.localCliError }) }) : null,
     props.localCliNotice ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-4 rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-3 text-sm text-brand-dark", children: props.localCliNotice }) : null,
     /* @__PURE__ */ jsxRuntimeExports.jsx(
-      PatternSearchConsole,
+      "div",
       {
-        catalog: visibleCatalog,
-        effective: props.effective,
-        active: props.active,
-        query,
-        onQueryChange: setQuery,
-        onRefresh: props.onRefresh,
-        onOpenExtension: props.onOpenExtension,
-        actionSlot: searching ? /* @__PURE__ */ jsxRuntimeExports.jsx(AddCustomExtensionButton, { onClick: props.onAddCustom }) : null
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      CatalogFilterBar,
-      {
-        catalog: props.catalogExtensions,
-        filters,
-        onChange: setFilters
+        ref: filterToolbarRef,
+        "data-testid": "catalog-filters",
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          PatternSearchConsole,
+          {
+            catalog: visibleCatalog,
+            effective: props.effective,
+            active: props.active,
+            query,
+            onQueryChange: setQuery,
+            onRefresh: props.onRefresh,
+            onOpenExtension: props.onOpenExtension,
+            actionSlot: searching ? /* @__PURE__ */ jsxRuntimeExports.jsx(AddCustomExtensionButton, { onClick: props.onAddCustom }) : null,
+            toolbarSlot: /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                CatalogFilterTrigger,
+                {
+                  open: filterPanelOpen,
+                  activeCount: filters.trusts.length + filters.kinds.length + filters.areas.length,
+                  panelId: filterPanelId,
+                  buttonRef: filterTriggerRef,
+                  onToggle: () => setFilterPanelOpen((open) => !open)
+                }
+              ),
+              props.active ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                ConnectorDiscoveryControl,
+                {
+                  discovering,
+                  error: discoveryError,
+                  onRetry: () => setDiscoveryAttempt((attempt) => attempt + 1)
+                }
+              ) : null
+            ] }),
+            subtoolbarSlot: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              CatalogFilterBar,
+              {
+                catalog: props.catalogExtensions,
+                filters,
+                onChange: setFilters,
+                open: filterPanelOpen,
+                onOpenChange: setFilterPanelOpen,
+                panelId: filterPanelId,
+                onAfterClear: () => filterTriggerRef.current?.focus()
+              }
+            )
+          }
+        )
       }
     ),
     searching ? null : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4", role: "status", children: [
-        discovering ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-brand-dark/75", children: "Checking host configuration for connectors…" }) : null,
-        discoveryError ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-brand-dark/75", children: discoveryError }) : null,
-        !discovering ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: () => setDiscoveryAttempt((attempt) => attempt + 1),
-            className: "mt-2 min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-brand-dark",
-            children: discoveryError ? "Check for connectors again" : "Check host connections"
-          }
-        ) : null
-      ] }),
-      addedCustomCount ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
         CustomExtensionsSection,
         {
           items: addedCustomItems,
           onOpen: props.onOpenLocalCli,
-          onAdd: props.onAddCustom
+          onAdd: props.onAddCustom,
+          discovering,
+          filteredOut: customItemsFilteredOut,
+          onClearFilters: handleClearFilters
         }
-      ) : null,
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsx(LocalSkillsWorkspace, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "mt-10", "aria-labelledby": "all-tools-heading", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between", children: [
@@ -6855,10 +7234,7 @@ function ExtensionsOverview(props) {
             /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { id: "all-tools-heading", className: "text-xl font-semibold tracking-tight text-brand-dark", children: "All tools" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: filtering ? "Built-in tools that match the selected trust, kind, and area filters." : "Every built-in tool Guard can watch on this device. Open one to adjust its command patterns." })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3", children: [
-            addedCustomCount ? null : /* @__PURE__ */ jsxRuntimeExports.jsx(AddCustomExtensionButton, { onClick: props.onAddCustom }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-brand-dark/70", "data-testid": "catalog-tool-count", "aria-live": "polite", children: catalogFilterCountCopy(visibleCatalog.length, props.catalogExtensions.length, filtering) })
-          ] })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap items-center gap-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-brand-dark/70", "data-testid": "catalog-tool-count", "aria-live": "polite", children: catalogFilterCountCopy(visibleCatalog.length, props.catalogExtensions.length, filtering) }) })
         ] }),
         visibleCatalog.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4", children: visibleCatalog.map((extension) => /* @__PURE__ */ jsxRuntimeExports.jsx(
           CatalogExtensionRow,

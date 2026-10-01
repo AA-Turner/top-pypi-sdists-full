@@ -15,7 +15,6 @@
 import logging
 import re
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -101,13 +100,10 @@ def check_github_scopes(cicd_runner: str) -> None:
             missing_scopes = [scope for scope in required_scopes if scope not in scopes]
 
             if missing_scopes:
-                console.print(
-                    f"❌ Missing required GitHub scopes: {', '.join(missing_scopes)}",
-                    style="bold red",
-                )
-                console.print("To fix this: gh auth login --scopes repo,workflow")
                 raise click.ClickException(
-                    "GitHub CLI authentication lacks required scopes"
+                    "GitHub CLI authentication lacks required scopes: "
+                    f"{', '.join(missing_scopes)}\n"
+                    "To fix this: gh auth login --scopes repo,workflow"
                 )
 
         elif cicd_runner == "google_cloud_build":
@@ -115,13 +111,10 @@ def check_github_scopes(cicd_runner: str) -> None:
             missing_scopes = [scope for scope in required_scopes if scope not in scopes]
 
             if missing_scopes:
-                console.print(
-                    f"❌ Missing required GitHub scopes: {', '.join(missing_scopes)}",
-                    style="bold red",
-                )
-                console.print("To fix this: gh auth login --scopes repo")
                 raise click.ClickException(
-                    "GitHub CLI authentication lacks required scopes"
+                    "GitHub CLI authentication lacks required scopes: "
+                    f"{', '.join(missing_scopes)}\n"
+                    "To fix this: gh auth login --scopes repo"
                 )
 
         console.print("✅ GitHub CLI scopes verified")
@@ -131,12 +124,13 @@ def check_github_scopes(cicd_runner: str) -> None:
 
 
 def prompt_gh_cli_installation() -> None:
-    """Display instructions for installing GitHub CLI and exit."""
-    console.print("\n❌ GitHub CLI not found", style="bold red")
-    console.print("This command requires the GitHub CLI (gh) to be installed.")
-    console.print("\nPlease install GitHub CLI from: https://cli.github.com/")
-    console.print("\nAfter installation, run this command again.")
-    sys.exit(1)
+    """Raise an error with instructions for installing GitHub CLI."""
+    raise click.ClickException(
+        "GitHub CLI not found.\n"
+        "This command requires the GitHub CLI (gh) to be installed.\n"
+        "Please install GitHub CLI from: https://cli.github.com/\n"
+        "After installation, run this command again."
+    )
 
 
 def setup_git_repository(config: ProjectConfig) -> str:
@@ -176,7 +170,6 @@ def setup_git_repository(config: ProjectConfig) -> str:
             )
             console.print(f"✅ Added git remote: {remote_url}")
         except subprocess.CalledProcessError as e:
-            console.print(f"❌ Failed to add git remote: {e}", style="bold red")
             raise click.ClickException(f"Failed to add git remote: {e}") from e
 
     console.print(
@@ -395,11 +388,9 @@ def create_or_update_secret(secret_id: str, secret_value: str, project_id: str) 
                 )
                 console.print("✅ Updated existing GitHub PAT secret")
             except subprocess.CalledProcessError as e:
-                console.print(
-                    f"❌ Failed to update GitHub PAT secret: {e!s}",
-                    style="bold red",
-                )
-                raise
+                raise click.ClickException(
+                    f"Failed to update GitHub PAT secret: {e!s}"
+                ) from e
         else:
             try:
                 run_command(
@@ -417,11 +408,9 @@ def create_or_update_secret(secret_id: str, secret_value: str, project_id: str) 
                 )
                 console.print("✅ Created new GitHub PAT secret")
             except subprocess.CalledProcessError as e:
-                console.print(
-                    f"❌ Failed to create GitHub PAT secret: {e!s}",
-                    style="bold red",
-                )
-                raise
+                raise click.ClickException(
+                    f"Failed to create GitHub PAT secret: {e!s}"
+                ) from e
 
 
 @click.command()
@@ -569,19 +558,13 @@ def setup_cicd(
 
     # Check if Terraform structure exists (prototype projects may lack it)
     if not (tf_dir / "variables.tf").exists():
-        console.print(
-            "\n❌ Terraform configuration not found in deployment/terraform/cicd/",
-            style="bold red",
-        )
-        console.print(
+        raise click.ClickException(
+            "Terraform configuration not found in deployment/terraform/cicd/\n"
             "This project appears to have been created without full deployment "
-            "configuration (e.g., in prototype mode)."
+            "configuration (e.g., in prototype mode).\n"
+            "To add deployment and CI/CD configuration, run:\n"
+            "  agents-cli scaffold enhance"
         )
-        console.print(
-            "\nTo add deployment and CI/CD configuration, run:\n"
-            "  [cyan]agents-cli scaffold enhance[/]\n"
-        )
-        raise SystemExit(1)
 
     # Auto-detect CI/CD runner based on Terraform files (moved earlier)
     if cicd_runner is None:
@@ -699,9 +682,12 @@ def setup_cicd(
                     True  # Connection created by gcloud, Terraform will reference it
                 )
                 console.print("✅ GitHub connection created successfully")
-            except Exception as e:
-                console.print(f"❌ Failed to create GitHub connection: {e}", style="red")
+            except click.ClickException:
                 raise
+            except Exception as e:
+                raise click.ClickException(
+                    f"Failed to create GitHub connection: {e}"
+                ) from e
 
         else:
             # Programmatic mode: require both --github-pat or $GH_TOKEN/$GITHUB_TOKEN and --github-app-installation-id

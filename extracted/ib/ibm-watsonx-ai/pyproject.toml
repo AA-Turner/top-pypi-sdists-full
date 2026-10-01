@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.7.2"
+version = "1.8.0"
 requires-python = ">=3.11,<3.15"
 authors = [
   {name = "IBM"}
@@ -335,7 +335,7 @@ license-files = []
 
 
 [tool.setuptools.packages.find]
-exclude = ["tests.*", "tests"]
+include = ["ibm_watsonx_ai*"]
 
 
 [tool.pytest.ini_options]

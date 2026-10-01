@@ -772,7 +772,10 @@ class CfnManagedNotificationAccountContactAssociation(
         
         cfn_managed_notification_account_contact_association = notifications.CfnManagedNotificationAccountContactAssociation(self, "MyCfnManagedNotificationAccountContactAssociation",
             contact_identifier="contactIdentifier",
-            managed_notification_configuration_arn="managedNotificationConfigurationArn"
+            managed_notification_configuration_arn="managedNotificationConfigurationArn",
+        
+            # the properties below are optional
+            is_sensitive_events_subscribed=False
         )
     '''
 
@@ -783,6 +786,7 @@ class CfnManagedNotificationAccountContactAssociation(
         *,
         contact_identifier: builtins.str,
         managed_notification_configuration_arn: builtins.str,
+        is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Notifications::ManagedNotificationAccountContactAssociation``.
 
@@ -790,6 +794,7 @@ class CfnManagedNotificationAccountContactAssociation(
         :param id: Construct identifier for this resource (unique in its scope).
         :param contact_identifier: The unique identifier of the notification contact associated with the AWS account. For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
+        :param is_sensitive_events_subscribed: Whether the account contact association is subscribed to sensitive events. Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96181d9832ab883e4a967003ef3b840ed10f8d410e4b8ceaf721368c4c5a02c5)
@@ -798,6 +803,7 @@ class CfnManagedNotificationAccountContactAssociation(
         props = CfnManagedNotificationAccountContactAssociationProps(
             contact_identifier=contact_identifier,
             managed_notification_configuration_arn=managed_notification_configuration_arn,
+            is_sensitive_events_subscribed=is_sensitive_events_subscribed,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -891,6 +897,24 @@ class CfnManagedNotificationAccountContactAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="isSensitiveEventsSubscribed")
+    def is_sensitive_events_subscribed(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the account contact association is subscribed to sensitive events.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isSensitiveEventsSubscribed"))
+
+    @is_sensitive_events_subscribed.setter
+    def is_sensitive_events_subscribed(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee619cf3824466bc57f4ebcf38300b9771789b18b932d454ffca0db3917138b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "isSensitiveEventsSubscribed", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAccountContactAssociationProps",
@@ -898,6 +922,7 @@ class CfnManagedNotificationAccountContactAssociation(
     name_mapping={
         "contact_identifier": "contactIdentifier",
         "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
+        "is_sensitive_events_subscribed": "isSensitiveEventsSubscribed",
     },
 )
 class CfnManagedNotificationAccountContactAssociationProps:
@@ -906,11 +931,13 @@ class CfnManagedNotificationAccountContactAssociationProps:
         *,
         contact_identifier: builtins.str,
         managed_notification_configuration_arn: builtins.str,
+        is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnManagedNotificationAccountContactAssociation``.
 
         :param contact_identifier: The unique identifier of the notification contact associated with the AWS account. For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
+        :param is_sensitive_events_subscribed: Whether the account contact association is subscribed to sensitive events. Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html
         :exampleMetadata: fixture=_generated
@@ -923,17 +950,23 @@ class CfnManagedNotificationAccountContactAssociationProps:
             
             cfn_managed_notification_account_contact_association_props = notifications.CfnManagedNotificationAccountContactAssociationProps(
                 contact_identifier="contactIdentifier",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
+                managed_notification_configuration_arn="managedNotificationConfigurationArn",
+            
+                # the properties below are optional
+                is_sensitive_events_subscribed=False
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc)
             check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
+            check_type(argname="argument is_sensitive_events_subscribed", value=is_sensitive_events_subscribed, expected_type=type_hints["is_sensitive_events_subscribed"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "contact_identifier": contact_identifier,
             "managed_notification_configuration_arn": managed_notification_configuration_arn,
         }
+        if is_sensitive_events_subscribed is not None:
+            self._values["is_sensitive_events_subscribed"] = is_sensitive_events_subscribed
 
     @builtins.property
     def contact_identifier(self) -> builtins.str:
@@ -956,6 +989,19 @@ class CfnManagedNotificationAccountContactAssociationProps:
         result = self._values.get("managed_notification_configuration_arn")
         assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def is_sensitive_events_subscribed(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the account contact association is subscribed to sensitive events.
+
+        Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html#cfn-notifications-managednotificationaccountcontactassociation-issensitiveeventssubscribed
+        '''
+        result = self._values.get("is_sensitive_events_subscribed")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -991,7 +1037,10 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         
         cfn_managed_notification_additional_channel_association = notifications.CfnManagedNotificationAdditionalChannelAssociation(self, "MyCfnManagedNotificationAdditionalChannelAssociation",
             channel_arn="channelArn",
-            managed_notification_configuration_arn="managedNotificationConfigurationArn"
+            managed_notification_configuration_arn="managedNotificationConfigurationArn",
+        
+            # the properties below are optional
+            is_sensitive_events_subscribed=False
         )
     '''
 
@@ -1002,6 +1051,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         *,
         channel_arn: builtins.str,
         managed_notification_configuration_arn: builtins.str,
+        is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Notifications::ManagedNotificationAdditionalChannelAssociation``.
 
@@ -1009,6 +1059,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         :param id: Construct identifier for this resource (unique in its scope).
         :param channel_arn: The ARN of the ``Channel`` .
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
+        :param is_sensitive_events_subscribed: Whether the channel association is subscribed to sensitive events. Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ca734986c83660130935052d366897b8c8be9a3097eeb3e4d8a8e55d157be14)
@@ -1017,6 +1068,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         props = CfnManagedNotificationAdditionalChannelAssociationProps(
             channel_arn=channel_arn,
             managed_notification_configuration_arn=managed_notification_configuration_arn,
+            is_sensitive_events_subscribed=is_sensitive_events_subscribed,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1110,6 +1162,24 @@ class CfnManagedNotificationAdditionalChannelAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="isSensitiveEventsSubscribed")
+    def is_sensitive_events_subscribed(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the channel association is subscribed to sensitive events.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "isSensitiveEventsSubscribed"))
+
+    @is_sensitive_events_subscribed.setter
+    def is_sensitive_events_subscribed(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c80a4b912e2944476ad01a34f249cb0031f8bf7534a60bbb4f88828e574c6799)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "isSensitiveEventsSubscribed", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAdditionalChannelAssociationProps",
@@ -1117,6 +1187,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
     name_mapping={
         "channel_arn": "channelArn",
         "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
+        "is_sensitive_events_subscribed": "isSensitiveEventsSubscribed",
     },
 )
 class CfnManagedNotificationAdditionalChannelAssociationProps:
@@ -1125,11 +1196,13 @@ class CfnManagedNotificationAdditionalChannelAssociationProps:
         *,
         channel_arn: builtins.str,
         managed_notification_configuration_arn: builtins.str,
+        is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnManagedNotificationAdditionalChannelAssociation``.
 
         :param channel_arn: The ARN of the ``Channel`` .
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
+        :param is_sensitive_events_subscribed: Whether the channel association is subscribed to sensitive events. Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html
         :exampleMetadata: fixture=_generated
@@ -1142,17 +1215,23 @@ class CfnManagedNotificationAdditionalChannelAssociationProps:
             
             cfn_managed_notification_additional_channel_association_props = notifications.CfnManagedNotificationAdditionalChannelAssociationProps(
                 channel_arn="channelArn",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
+                managed_notification_configuration_arn="managedNotificationConfigurationArn",
+            
+                # the properties below are optional
+                is_sensitive_events_subscribed=False
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
+            check_type(argname="argument is_sensitive_events_subscribed", value=is_sensitive_events_subscribed, expected_type=type_hints["is_sensitive_events_subscribed"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_arn": channel_arn,
             "managed_notification_configuration_arn": managed_notification_configuration_arn,
         }
+        if is_sensitive_events_subscribed is not None:
+            self._values["is_sensitive_events_subscribed"] = is_sensitive_events_subscribed
 
     @builtins.property
     def channel_arn(self) -> builtins.str:
@@ -1173,6 +1252,19 @@ class CfnManagedNotificationAdditionalChannelAssociationProps:
         result = self._values.get("managed_notification_configuration_arn")
         assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def is_sensitive_events_subscribed(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether the channel association is subscribed to sensitive events.
+
+        Access to sensitive events is gated by the SubscribeSensitiveEvents virtual IAM action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html#cfn-notifications-managednotificationadditionalchannelassociation-issensitiveeventssubscribed
+        '''
+        result = self._values.get("is_sensitive_events_subscribed")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2173,6 +2265,7 @@ def _typecheckingstub__96181d9832ab883e4a967003ef3b840ed10f8d410e4b8ceaf721368c4
     *,
     contact_identifier: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+    is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2207,10 +2300,17 @@ def _typecheckingstub__723689b4f7e0ee73e180c6e8b0a172092e4905133e6f8e7994d8a793b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ee619cf3824466bc57f4ebcf38300b9771789b18b932d454ffca0db3917138b2(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc(
     *,
     contact_identifier: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+    is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2221,6 +2321,7 @@ def _typecheckingstub__1ca734986c83660130935052d366897b8c8be9a3097eeb3e4d8a8e55d
     *,
     channel_arn: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+    is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2255,10 +2356,17 @@ def _typecheckingstub__3420dbc2928b8b5bd017053f781f8eb1c6893c1b43a27f7854a5dbeb6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c80a4b912e2944476ad01a34f249cb0031f8bf7534a60bbb4f88828e574c6799(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9(
     *,
     channel_arn: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+    is_sensitive_events_subscribed: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

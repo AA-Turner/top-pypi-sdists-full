@@ -1559,6 +1559,190 @@ class CfnDNSSECProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IDelegationSetRef)
+class CfnDelegationSet(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnDelegationSet",
+):
+    '''Resource Type definition for AWS::Route53::DelegationSet.
+
+    Creates a reusable delegation set (a group of four name servers) that can be associated with multiple hosted zones.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-delegationset.html
+    :cloudformationResource: AWS::Route53::DelegationSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_delegation_set = route53.CfnDelegationSet(self, "MyCfnDelegationSet")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Route53::DelegationSet``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd9eda83bf0927ae7ba74ff38b93da2e994a5ff675b8e67530b315ff4737bb66)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDelegationSetProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDelegationSet")
+    @builtins.classmethod
+    def arn_for_delegation_set(
+        cls,
+        resource: "_aws_route53_af70581a.IDelegationSetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6adfb8428293f4ff8e6af15a99de07be538ee568f518d73c87f85e02e08d3b69)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDelegationSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnDelegationSet")
+    @builtins.classmethod
+    def is_cfn_delegation_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDelegationSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8eec25b6f1737061a9cf823a509d5c701b80e1c2ee9c26274b090cfa3aa911e1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDelegationSet", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f4fa53bf9127f9e24e3a75edd606418604237af4c787b171ebd3d090a4f9db1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1095859915469666b4789f6347f7bef540c4f90f61222e859eec938a6855d032)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the delegation set.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCallerReference")
+    def attr_caller_reference(self) -> builtins.str:
+        '''A unique string that identifies the request and allows retrying failed CreateReusableDelegationSet requests without risk of executing the operation twice.
+
+        :cloudformationAttribute: CallerReference
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCallerReference"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID that Amazon Route 53 assigns to a reusable delegation set.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNameServers")
+    def attr_name_servers(self) -> typing.List[builtins.str]:
+        '''A list of the authoritative name servers for the delegation set.
+
+        :cloudformationAttribute: NameServers
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrNameServers"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="delegationSetRef")
+    def delegation_set_ref(self) -> "_aws_route53_af70581a.DelegationSetReference":
+        '''A reference to a DelegationSet resource.'''
+        return typing.cast("_aws_route53_af70581a.DelegationSetReference", jsii.get(self, "delegationSetRef"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnDelegationSetProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnDelegationSetProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnDelegationSet``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-delegationset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_delegation_set_props = route53.CfnDelegationSetProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDelegationSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IHealthCheckRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnHealthCheck(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3625,6 +3809,252 @@ class CfnKeySigningKeyProps:
 
     def __repr__(self) -> str:
         return "CfnKeySigningKeyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IQueryLoggingConfigRef)
+class CfnQueryLoggingConfig(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnQueryLoggingConfig",
+):
+    '''Resource Type definition for AWS::Route53::QueryLoggingConfig.
+
+    Creates a configuration for DNS query logging, which publishes query logs for a public hosted zone to an Amazon CloudWatch Logs log group.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-queryloggingconfig.html
+    :cloudformationResource: AWS::Route53::QueryLoggingConfig
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_query_logging_config = route53.CfnQueryLoggingConfig(self, "MyCfnQueryLoggingConfig",
+            cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+            hosted_zone_id="hostedZoneId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cloud_watch_logs_log_group_arn: builtins.str,
+        hosted_zone_id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Route53::QueryLoggingConfig``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cloud_watch_logs_log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch Logs log group in us-east-1 that Amazon Route 53 publishes query logs to.
+        :param hosted_zone_id: The ID of the public hosted zone that Amazon Route 53 logs queries for.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dcb832dd657056afb6fb630a0a6860018639336a12222ea559d89b703f3aa995)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQueryLoggingConfigProps(
+            cloud_watch_logs_log_group_arn=cloud_watch_logs_log_group_arn,
+            hosted_zone_id=hosted_zone_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForQueryLoggingConfig")
+    @builtins.classmethod
+    def arn_for_query_logging_config(
+        cls,
+        resource: "_aws_route53_af70581a.IQueryLoggingConfigRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa1888eb4aee26ffcdbec4a272f8be751724866eecc3b6f1e34d8af62e72c9f8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForQueryLoggingConfig", [resource]))
+
+    @jsii.member(jsii_name="isCfnQueryLoggingConfig")
+    @builtins.classmethod
+    def is_cfn_query_logging_config(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnQueryLoggingConfig.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8ba4a16aa7c0a61db02b429c9d407c01b4903d8710bc009054e7a0fe99325eeb)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueryLoggingConfig", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__22a565ccbaabdc264ca27df08c732b209517b61fab40f4c086fe3572a4002300)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__faac9a78cb9d7a78efeb802f63aec58ca84ee28006f27b4e623c7599c23a0f18)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the query logging configuration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID that Amazon Route 53 assigns to the configuration for DNS query logging.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queryLoggingConfigRef")
+    def query_logging_config_ref(
+        self,
+    ) -> "_aws_route53_af70581a.QueryLoggingConfigReference":
+        '''A reference to a QueryLoggingConfig resource.'''
+        return typing.cast("_aws_route53_af70581a.QueryLoggingConfigReference", jsii.get(self, "queryLoggingConfigRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudWatchLogsLogGroupArn")
+    def cloud_watch_logs_log_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the CloudWatch Logs log group in us-east-1 that Amazon Route 53 publishes query logs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "cloudWatchLogsLogGroupArn"))
+
+    @cloud_watch_logs_log_group_arn.setter
+    def cloud_watch_logs_log_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2386866dfda33acf8a875b71c48fbfff99519c1978c7886dd46946d322d65432)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cloudWatchLogsLogGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZoneId")
+    def hosted_zone_id(self) -> builtins.str:
+        '''The ID of the public hosted zone that Amazon Route 53 logs queries for.'''
+        return typing.cast(builtins.str, jsii.get(self, "hostedZoneId"))
+
+    @hosted_zone_id.setter
+    def hosted_zone_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ecfcd75a623c718e49e11cce2d1e80482a5051318ddc72cc5f5acaa071d4a970)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnQueryLoggingConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cloud_watch_logs_log_group_arn": "cloudWatchLogsLogGroupArn",
+        "hosted_zone_id": "hostedZoneId",
+    },
+)
+class CfnQueryLoggingConfigProps:
+    def __init__(
+        self,
+        *,
+        cloud_watch_logs_log_group_arn: builtins.str,
+        hosted_zone_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnQueryLoggingConfig``.
+
+        :param cloud_watch_logs_log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch Logs log group in us-east-1 that Amazon Route 53 publishes query logs to.
+        :param hosted_zone_id: The ID of the public hosted zone that Amazon Route 53 logs queries for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-queryloggingconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_query_logging_config_props = route53.CfnQueryLoggingConfigProps(
+                cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+                hosted_zone_id="hostedZoneId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7fbcea67c1c0fc1e29a7f53f0f0460432bfd095d3a99eae754dd7b31effd1d60)
+            check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
+            check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_watch_logs_log_group_arn": cloud_watch_logs_log_group_arn,
+            "hosted_zone_id": hosted_zone_id,
+        }
+
+    @builtins.property
+    def cloud_watch_logs_log_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the CloudWatch Logs log group in us-east-1 that Amazon Route 53 publishes query logs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-queryloggingconfig.html#cfn-route53-queryloggingconfig-cloudwatchlogsloggrouparn
+        '''
+        result = self._values.get("cloud_watch_logs_log_group_arn")
+        assert result is not None, "Required property 'cloud_watch_logs_log_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def hosted_zone_id(self) -> builtins.str:
+        '''The ID of the public hosted zone that Amazon Route 53 logs queries for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-queryloggingconfig.html#cfn-route53-queryloggingconfig-hostedzoneid
+        '''
+        result = self._values.get("hosted_zone_id")
+        assert result is not None, "Required property 'hosted_zone_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQueryLoggingConfigProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6417,6 +6847,670 @@ class CfnRecordSetProps:
 
     def __repr__(self) -> str:
         return "CfnRecordSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.ITrafficPolicyRef)
+class CfnTrafficPolicy(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnTrafficPolicy",
+):
+    '''Resource Type definition for AWS::Route53::TrafficPolicy.
+
+    Creates a Route 53 traffic policy, a JSON document that describes how Route 53 responds to DNS queries for a domain name.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicy.html
+    :cloudformationResource: AWS::Route53::TrafficPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_traffic_policy = route53.CfnTrafficPolicy(self, "MyCfnTrafficPolicy",
+            document="document",
+            name="name",
+        
+            # the properties below are optional
+            comment="comment"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        document: builtins.str,
+        name: builtins.str,
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Route53::TrafficPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param document: The definition of the traffic policy in JSON format.
+        :param name: The name of the traffic policy.
+        :param comment: Any comments to include about the traffic policy.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__346e3e468b96765c96adfbeb9807ea8e6da91d749b075b7f59624d5f9298a160)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrafficPolicyProps(document=document, name=name, comment=comment)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTrafficPolicy")
+    @builtins.classmethod
+    def arn_for_traffic_policy(
+        cls,
+        resource: "_aws_route53_af70581a.ITrafficPolicyRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3faf4b3b6b91eb3b71e0e57ced59978c4de94a3511a2ca249ebd3b8552c3dd0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrafficPolicy", [resource]))
+
+    @jsii.member(jsii_name="isCfnTrafficPolicy")
+    @builtins.classmethod
+    def is_cfn_traffic_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTrafficPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18ac5ca4b761bf20b536163c76b94be22618140c8ffa190ab43cf710b0b32d18)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrafficPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba7c36d2f6706afbb6eeb095f44848c21cfe3d507a596e0cae464cd71b69abce)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e719fd303c5f064f50f5153edaa866f50e85f27472a93a1af112045299b13c5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the traffic policy.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID that Amazon Route 53 assigned to the traffic policy when it was created.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The DNS type of the resource record sets that Amazon Route 53 creates when the traffic policy is used to create a traffic policy instance.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> jsii.Number:
+        '''The version number that Amazon Route 53 assigned to the traffic policy.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficPolicyRef")
+    def traffic_policy_ref(self) -> "_aws_route53_af70581a.TrafficPolicyReference":
+        '''A reference to a TrafficPolicy resource.'''
+        return typing.cast("_aws_route53_af70581a.TrafficPolicyReference", jsii.get(self, "trafficPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="document")
+    def document(self) -> builtins.str:
+        '''The definition of the traffic policy in JSON format.'''
+        return typing.cast(builtins.str, jsii.get(self, "document"))
+
+    @document.setter
+    def document(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee13947e0a466abca45500ebb62154582f2ab0a35f6dad4e70112b29905bfc3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "document", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the traffic policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__509bafd31b9c4f2a1963300229fea1e9402b486e4738f3ea00f02346c661cfe1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="comment")
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''Any comments to include about the traffic policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "comment"))
+
+    @comment.setter
+    def comment(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__191b2d85ad82d1e5e8be3034d0cab6e57b350ea879eec123b1fbb2cf42f98a51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.ITrafficPolicyInstanceRef)
+class CfnTrafficPolicyInstance(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnTrafficPolicyInstance",
+):
+    '''Resource Type definition for AWS::Route53::TrafficPolicyInstance.
+
+    Applies a version of a Route 53 traffic policy to a DNS name in a public hosted zone, and Route 53 creates and owns the resource record sets that answer queries for that name.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html
+    :cloudformationResource: AWS::Route53::TrafficPolicyInstance
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_traffic_policy_instance = route53.CfnTrafficPolicyInstance(self, "MyCfnTrafficPolicyInstance",
+            hosted_zone_id="hostedZoneId",
+            name="name",
+            traffic_policy_id="trafficPolicyId",
+            traffic_policy_version=123,
+            ttl=123
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        hosted_zone_id: builtins.str,
+        name: builtins.str,
+        traffic_policy_id: builtins.str,
+        traffic_policy_version: jsii.Number,
+        ttl: jsii.Number,
+    ) -> None:
+        '''Create a new ``AWS::Route53::TrafficPolicyInstance``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param hosted_zone_id: The ID of the hosted zone that Amazon Route 53 creates the resource record sets in. The bare ID as Route 53 returns it, without a /hostedzone/ prefix.
+        :param name: The domain name, or subdomain name, for which Amazon Route 53 answers DNS queries by using the resource record sets it creates for this traffic policy instance. Must be lower-case and end with a trailing dot, which is the form Route 53 returns: Route 53 normalizes DNS names, so admitting another form would neither round-trip through Read nor guarantee that a change to this property changes the resource's identity.
+        :param traffic_policy_id: The ID of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone. Lower-case, as Route 53 returns it.
+        :param traffic_policy_version: The version of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.
+        :param ttl: The TTL that Amazon Route 53 assigns to all of the resource record sets that it creates in the specified hosted zone.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__542ef462cfae94f35c2c3d39ed14c084734525c587b362eaa1763d6d00bca24c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrafficPolicyInstanceProps(
+            hosted_zone_id=hosted_zone_id,
+            name=name,
+            traffic_policy_id=traffic_policy_id,
+            traffic_policy_version=traffic_policy_version,
+            ttl=ttl,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTrafficPolicyInstance")
+    @builtins.classmethod
+    def arn_for_traffic_policy_instance(
+        cls,
+        resource: "_aws_route53_af70581a.ITrafficPolicyInstanceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ceab5fc6fbc8f66a1daae5a406b7dc34b426207afc9b023b7d89687a0a5ffb89)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrafficPolicyInstance", [resource]))
+
+    @jsii.member(jsii_name="isCfnTrafficPolicyInstance")
+    @builtins.classmethod
+    def is_cfn_traffic_policy_instance(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTrafficPolicyInstance.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__441c5a191e0b44154c077e22888b2783b34080d8fbe682a9d52dfceae143696a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrafficPolicyInstance", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b77a1bde31ba8b3f92f83b473b79645d8d7bf9352691243132041cb2f8c2f825)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6b6d0cd19228b1f1fd9ff58119a3e1c36960cff0c54a8f5f8f1768ffe8197ae)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the traffic policy instance.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID that Amazon Route 53 assigned to the traffic policy instance when it was created.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the traffic policy instance.
+
+        A steady-state instance is Applied.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrafficPolicyType")
+    def attr_traffic_policy_type(self) -> builtins.str:
+        '''The DNS type that Amazon Route 53 assigned to all of the resource record sets that it created for this traffic policy instance.
+
+        Route 53 derives it from the referenced traffic policy.
+
+        :cloudformationAttribute: TrafficPolicyType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTrafficPolicyType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficPolicyInstanceRef")
+    def traffic_policy_instance_ref(
+        self,
+    ) -> "_aws_route53_af70581a.TrafficPolicyInstanceReference":
+        '''A reference to a TrafficPolicyInstance resource.'''
+        return typing.cast("_aws_route53_af70581a.TrafficPolicyInstanceReference", jsii.get(self, "trafficPolicyInstanceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZoneId")
+    def hosted_zone_id(self) -> builtins.str:
+        '''The ID of the hosted zone that Amazon Route 53 creates the resource record sets in.'''
+        return typing.cast(builtins.str, jsii.get(self, "hostedZoneId"))
+
+    @hosted_zone_id.setter
+    def hosted_zone_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8024f32008528eb0d0b2c2ae3afd40556136bc41fc3136a64529d228d03bd7f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The domain name, or subdomain name, for which Amazon Route 53 answers DNS queries by using the resource record sets it creates for this traffic policy instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40dcf02fedf1d489f4aba6d518e6863f3abd0186541cff1ef36ccdcbfba01a10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficPolicyId")
+    def traffic_policy_id(self) -> builtins.str:
+        '''The ID of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.'''
+        return typing.cast(builtins.str, jsii.get(self, "trafficPolicyId"))
+
+    @traffic_policy_id.setter
+    def traffic_policy_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13fc3d25844c138335987197ac01fe559302d226fafd9839008b3bda9787bbf6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trafficPolicyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficPolicyVersion")
+    def traffic_policy_version(self) -> jsii.Number:
+        '''The version of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.'''
+        return typing.cast(jsii.Number, jsii.get(self, "trafficPolicyVersion"))
+
+    @traffic_policy_version.setter
+    def traffic_policy_version(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__97c705249e0bb3159a4647ae15f972e705541990243dc77c4942243df751d041)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trafficPolicyVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ttl")
+    def ttl(self) -> jsii.Number:
+        '''The TTL that Amazon Route 53 assigns to all of the resource record sets that it creates in the specified hosted zone.'''
+        return typing.cast(jsii.Number, jsii.get(self, "ttl"))
+
+    @ttl.setter
+    def ttl(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40b78a55417652cad922bbf8069692477a691e40d96bf9c26be1960bed85b9b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ttl", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnTrafficPolicyInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "hosted_zone_id": "hostedZoneId",
+        "name": "name",
+        "traffic_policy_id": "trafficPolicyId",
+        "traffic_policy_version": "trafficPolicyVersion",
+        "ttl": "ttl",
+    },
+)
+class CfnTrafficPolicyInstanceProps:
+    def __init__(
+        self,
+        *,
+        hosted_zone_id: builtins.str,
+        name: builtins.str,
+        traffic_policy_id: builtins.str,
+        traffic_policy_version: jsii.Number,
+        ttl: jsii.Number,
+    ) -> None:
+        '''Properties for defining a ``CfnTrafficPolicyInstance``.
+
+        :param hosted_zone_id: The ID of the hosted zone that Amazon Route 53 creates the resource record sets in. The bare ID as Route 53 returns it, without a /hostedzone/ prefix.
+        :param name: The domain name, or subdomain name, for which Amazon Route 53 answers DNS queries by using the resource record sets it creates for this traffic policy instance. Must be lower-case and end with a trailing dot, which is the form Route 53 returns: Route 53 normalizes DNS names, so admitting another form would neither round-trip through Read nor guarantee that a change to this property changes the resource's identity.
+        :param traffic_policy_id: The ID of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone. Lower-case, as Route 53 returns it.
+        :param traffic_policy_version: The version of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.
+        :param ttl: The TTL that Amazon Route 53 assigns to all of the resource record sets that it creates in the specified hosted zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_traffic_policy_instance_props = route53.CfnTrafficPolicyInstanceProps(
+                hosted_zone_id="hostedZoneId",
+                name="name",
+                traffic_policy_id="trafficPolicyId",
+                traffic_policy_version=123,
+                ttl=123
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4fe3f41e498a48971f5a90feebd0812c851ca7a2a0dc6d339ccbd99ac85b7ca)
+            check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
+            check_type(argname="argument traffic_policy_version", value=traffic_policy_version, expected_type=type_hints["traffic_policy_version"])
+            check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hosted_zone_id": hosted_zone_id,
+            "name": name,
+            "traffic_policy_id": traffic_policy_id,
+            "traffic_policy_version": traffic_policy_version,
+            "ttl": ttl,
+        }
+
+    @builtins.property
+    def hosted_zone_id(self) -> builtins.str:
+        '''The ID of the hosted zone that Amazon Route 53 creates the resource record sets in.
+
+        The bare ID as Route 53 returns it, without a /hostedzone/ prefix.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html#cfn-route53-trafficpolicyinstance-hostedzoneid
+        '''
+        result = self._values.get("hosted_zone_id")
+        assert result is not None, "Required property 'hosted_zone_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The domain name, or subdomain name, for which Amazon Route 53 answers DNS queries by using the resource record sets it creates for this traffic policy instance.
+
+        Must be lower-case and end with a trailing dot, which is the form Route 53 returns: Route 53 normalizes DNS names, so admitting another form would neither round-trip through Read nor guarantee that a change to this property changes the resource's identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html#cfn-route53-trafficpolicyinstance-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def traffic_policy_id(self) -> builtins.str:
+        '''The ID of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.
+
+        Lower-case, as Route 53 returns it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html#cfn-route53-trafficpolicyinstance-trafficpolicyid
+        '''
+        result = self._values.get("traffic_policy_id")
+        assert result is not None, "Required property 'traffic_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def traffic_policy_version(self) -> jsii.Number:
+        '''The version of the traffic policy that Amazon Route 53 uses to create resource record sets in the specified hosted zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html#cfn-route53-trafficpolicyinstance-trafficpolicyversion
+        '''
+        result = self._values.get("traffic_policy_version")
+        assert result is not None, "Required property 'traffic_policy_version' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def ttl(self) -> jsii.Number:
+        '''The TTL that Amazon Route 53 assigns to all of the resource record sets that it creates in the specified hosted zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicyinstance.html#cfn-route53-trafficpolicyinstance-ttl
+        '''
+        result = self._values.get("ttl")
+        assert result is not None, "Required property 'ttl' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrafficPolicyInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnTrafficPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"document": "document", "name": "name", "comment": "comment"},
+)
+class CfnTrafficPolicyProps:
+    def __init__(
+        self,
+        *,
+        document: builtins.str,
+        name: builtins.str,
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrafficPolicy``.
+
+        :param document: The definition of the traffic policy in JSON format.
+        :param name: The name of the traffic policy.
+        :param comment: Any comments to include about the traffic policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_traffic_policy_props = route53.CfnTrafficPolicyProps(
+                document="document",
+                name="name",
+            
+                # the properties below are optional
+                comment="comment"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b6823abfcf691554ddf6a3cd992347af20189aa7a810b4cb3140799cdbeea5c)
+            check_type(argname="argument document", value=document, expected_type=type_hints["document"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "document": document,
+            "name": name,
+        }
+        if comment is not None:
+            self._values["comment"] = comment
+
+    @builtins.property
+    def document(self) -> builtins.str:
+        '''The definition of the traffic policy in JSON format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicy.html#cfn-route53-trafficpolicy-document
+        '''
+        result = self._values.get("document")
+        assert result is not None, "Required property 'document' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the traffic policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicy.html#cfn-route53-trafficpolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''Any comments to include about the traffic policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-trafficpolicy.html#cfn-route53-trafficpolicy-comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrafficPolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -17656,16 +18750,24 @@ __all__ = [
     "CfnCidrCollectionProps",
     "CfnDNSSEC",
     "CfnDNSSECProps",
+    "CfnDelegationSet",
+    "CfnDelegationSetProps",
     "CfnHealthCheck",
     "CfnHealthCheckProps",
     "CfnHostedZone",
     "CfnHostedZoneProps",
     "CfnKeySigningKey",
     "CfnKeySigningKeyProps",
+    "CfnQueryLoggingConfig",
+    "CfnQueryLoggingConfigProps",
     "CfnRecordSet",
     "CfnRecordSetGroup",
     "CfnRecordSetGroupProps",
     "CfnRecordSetProps",
+    "CfnTrafficPolicy",
+    "CfnTrafficPolicyInstance",
+    "CfnTrafficPolicyInstanceProps",
+    "CfnTrafficPolicyProps",
     "CidrRoutingConfig",
     "CidrRoutingConfigProps",
     "CnameRecord",
@@ -17869,6 +18971,37 @@ def _typecheckingstub__49aa879587d46704e9e1a930ff6b1127ca5bcd3a356f6eb50d8324ca6
 def _typecheckingstub__2167da58835c803c2916942ed2ea650abb900936cf0014848489e6c72545f5ed(
     *,
     hosted_zone_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd9eda83bf0927ae7ba74ff38b93da2e994a5ff675b8e67530b315ff4737bb66(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6adfb8428293f4ff8e6af15a99de07be538ee568f518d73c87f85e02e08d3b69(
+    resource: _aws_route53_af70581a.IDelegationSetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eec25b6f1737061a9cf823a509d5c701b80e1c2ee9c26274b090cfa3aa911e1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f4fa53bf9127f9e24e3a75edd606418604237af4c787b171ebd3d090a4f9db1(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1095859915469666b4789f6347f7bef540c4f90f61222e859eec938a6855d032(
+    props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18149,6 +19282,60 @@ def _typecheckingstub__34f881609091b0893ac028adbb4be46f434c735b3d01e67b1aefcf17b
     key_management_service_arn: builtins.str,
     name: builtins.str,
     status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcb832dd657056afb6fb630a0a6860018639336a12222ea559d89b703f3aa995(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cloud_watch_logs_log_group_arn: builtins.str,
+    hosted_zone_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa1888eb4aee26ffcdbec4a272f8be751724866eecc3b6f1e34d8af62e72c9f8(
+    resource: _aws_route53_af70581a.IQueryLoggingConfigRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ba4a16aa7c0a61db02b429c9d407c01b4903d8710bc009054e7a0fe99325eeb(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22a565ccbaabdc264ca27df08c732b209517b61fab40f4c086fe3572a4002300(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__faac9a78cb9d7a78efeb802f63aec58ca84ee28006f27b4e623c7599c23a0f18(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2386866dfda33acf8a875b71c48fbfff99519c1978c7886dd46946d322d65432(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecfcd75a623c718e49e11cce2d1e80482a5051318ddc72cc5f5acaa071d4a970(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fbcea67c1c0fc1e29a7f53f0f0460432bfd095d3a99eae754dd7b31effd1d60(
+    *,
+    cloud_watch_logs_log_group_arn: builtins.str,
+    hosted_zone_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18465,6 +19652,146 @@ def _typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf489
     set_identifier: typing.Optional[builtins.str] = None,
     ttl: typing.Optional[builtins.str] = None,
     weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__346e3e468b96765c96adfbeb9807ea8e6da91d749b075b7f59624d5f9298a160(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    document: builtins.str,
+    name: builtins.str,
+    comment: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3faf4b3b6b91eb3b71e0e57ced59978c4de94a3511a2ca249ebd3b8552c3dd0(
+    resource: _aws_route53_af70581a.ITrafficPolicyRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18ac5ca4b761bf20b536163c76b94be22618140c8ffa190ab43cf710b0b32d18(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba7c36d2f6706afbb6eeb095f44848c21cfe3d507a596e0cae464cd71b69abce(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e719fd303c5f064f50f5153edaa866f50e85f27472a93a1af112045299b13c5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee13947e0a466abca45500ebb62154582f2ab0a35f6dad4e70112b29905bfc3d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__509bafd31b9c4f2a1963300229fea1e9402b486e4738f3ea00f02346c661cfe1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__191b2d85ad82d1e5e8be3034d0cab6e57b350ea879eec123b1fbb2cf42f98a51(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__542ef462cfae94f35c2c3d39ed14c084734525c587b362eaa1763d6d00bca24c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    hosted_zone_id: builtins.str,
+    name: builtins.str,
+    traffic_policy_id: builtins.str,
+    traffic_policy_version: jsii.Number,
+    ttl: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceab5fc6fbc8f66a1daae5a406b7dc34b426207afc9b023b7d89687a0a5ffb89(
+    resource: _aws_route53_af70581a.ITrafficPolicyInstanceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__441c5a191e0b44154c077e22888b2783b34080d8fbe682a9d52dfceae143696a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b77a1bde31ba8b3f92f83b473b79645d8d7bf9352691243132041cb2f8c2f825(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6b6d0cd19228b1f1fd9ff58119a3e1c36960cff0c54a8f5f8f1768ffe8197ae(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8024f32008528eb0d0b2c2ae3afd40556136bc41fc3136a64529d228d03bd7f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40dcf02fedf1d489f4aba6d518e6863f3abd0186541cff1ef36ccdcbfba01a10(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13fc3d25844c138335987197ac01fe559302d226fafd9839008b3bda9787bbf6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97c705249e0bb3159a4647ae15f972e705541990243dc77c4942243df751d041(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40b78a55417652cad922bbf8069692477a691e40d96bf9c26be1960bed85b9b9(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4fe3f41e498a48971f5a90feebd0812c851ca7a2a0dc6d339ccbd99ac85b7ca(
+    *,
+    hosted_zone_id: builtins.str,
+    name: builtins.str,
+    traffic_policy_id: builtins.str,
+    traffic_policy_version: jsii.Number,
+    ttl: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b6823abfcf691554ddf6a3cd992347af20189aa7a810b4cb3140799cdbeea5c(
+    *,
+    document: builtins.str,
+    name: builtins.str,
+    comment: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

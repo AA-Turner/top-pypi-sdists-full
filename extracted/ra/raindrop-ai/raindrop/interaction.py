@@ -16,6 +16,7 @@ from uuid import uuid4
 from dataclasses import dataclass
 
 from .models import Attachment, PartialTrackAIEvent
+from .prompt_tools import ToolsInput
 from . import analytics as _core
 from opentelemetry import context as context_api
 
@@ -53,6 +54,7 @@ class Interaction:
         "_state",
         "_bound_ctx",
         "_tool_events_frame",
+        "_tools_frame",
         "_app_git_properties",
         "_app_git_snapshot",
         "_app_git_overrides",
@@ -96,6 +98,9 @@ class Interaction:
         # reused worker thread keeps its context, so an opt-in left bound would
         # let a later turn that launched nothing become an event.
         self._tool_events_frame = None
+        # The ``tools=`` override frame, if any; ``set_tools()`` replaces it
+        # and finish() removes it with the other frames.
+        self._tools_frame = None
         # Frozen when begin() starts. Explicit canonical properties can update
         # this operation-local copy, but later background discovery cannot.
         self._app_git_properties = dict(app_git_properties or {})
@@ -200,6 +205,27 @@ class Interaction:
             ),
         )
 
+    def set_tools(self, tools: ToolsInput) -> None:
+        """Set (or replace) the tool list recorded on this interaction's model spans.
+
+        Companion to ``begin(tools=...)``: model spans started after this call
+        carry ``tools`` as ``ai.prompt.tools`` instead of what the
+        instrumentation captured; ``[]`` records that the model had no tools.
+        Subject to the ``TRACELOOP_TRACE_CONTENT`` content gate. A no-op once
+        ``finish()`` has run: the override dies with the interaction.
+        """
+        if self._disabled or self._finish_called:
+            return
+        try:
+            self._analytics._rd_tracing.unbind_span_attributes(self._tools_frame)
+            self._tools_frame = self._analytics._rd_tracing.bind_prompt_tools(
+                tools, owner=self
+            )
+        except Exception:
+            self._analytics.logger.debug(
+                "[raindrop] set_tools() ignored error", exc_info=True
+            )
+
     def finish(self, *, output: str | None = None, **extra: Any) -> None:
         """Mark the interaction complete.
 
@@ -294,6 +320,8 @@ class Interaction:
                 self._app_git_frame
             )
             self._app_git_frame = None
+            self._analytics._rd_tracing.unbind_span_attributes(self._tools_frame)
+            self._tools_frame = None
 
     def _coalesce_finish_payload(
         self, ai_data: Dict[str, Any], passthrough: Dict[str, Any]

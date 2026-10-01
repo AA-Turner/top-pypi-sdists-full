@@ -13,6 +13,9 @@ classifiers = [
 dynamic = ["version", "description", "license", "authors", "readme"]
 dependencies = ["requests", "typing_extensions"]
 
+[project.optional-dependencies]
+typed = ["protobuf>=6.33.6"]
+
 [project.urls]
 homepage = "https://statsig.com"
 documentation = "https://docs.statsig.com/server-core/python-core"

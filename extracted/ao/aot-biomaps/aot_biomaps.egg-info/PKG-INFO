@@ -1,22 +1,22 @@
 Metadata-Version: 2.4
 Name: aot-biomaps
-Version: 2.9.955
+Version: 2.9.960
 Summary: Acousto-Optic Tomography Reconstruction Library
 Home-page: https://github.com/LucasDuclos/AcoustoOpticTomography
 Author: Lucas Duclos
 Author-email: lucas.duclos@universite-paris-saclay.fr
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: numpy==1.26.4
-Requires-Dist: scipy==1.13.1
-Requires-Dist: tqdm==4.60.0
-Requires-Dist: matplotlib==3.9.2
-Requires-Dist: numba==0.61.2
-Requires-Dist: scikit-image==0.24.0
+Requires-Dist: numpy<2.3.0,>=1.22.2
+Requires-Dist: scipy>=1.15.0
+Requires-Dist: tqdm>=4.60.0
+Requires-Dist: matplotlib>=3.10.0
+Requires-Dist: numba>=0.61.2
+Requires-Dist: scikit-image>=0.24.0
 Requires-Dist: cupy-cuda12x>=12.0.0
-Requires-Dist: k-wave-python==0.3.5
+Requires-Dist: k-wave-python>=0.6.2
 Provides-Extra: acoustic
-Requires-Dist: k-wave-python==0.3.5; extra == "acoustic"
+Requires-Dist: k-wave-python>=0.6.2; extra == "acoustic"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

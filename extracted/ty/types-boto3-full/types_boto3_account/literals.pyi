@@ -28,6 +28,7 @@ __all__ = (
     "AwsAccountStateType",
     "ListRegionsPaginatorName",
     "PaginatorName",
+    "PhoneNumberVerificationStatusType",
     "PrimaryEmailUpdateStatusType",
     "RegionOptStatusType",
     "ResourceServiceName",
@@ -38,6 +39,7 @@ AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"
 AlternateContactTypeType = Literal["BILLING", "OPERATIONS", "SECURITY"]
 AwsAccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"]
 ListRegionsPaginatorName = Literal["list_regions"]
+PhoneNumberVerificationStatusType = Literal["NOT_SUPPORTED", "PENDING", "UNVERIFIED", "VERIFIED"]
 PrimaryEmailUpdateStatusType = Literal["ACCEPTED", "COMPLETED", "FAILED", "PENDING"]
 RegionOptStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLED_BY_DEFAULT", "ENABLING"]
 AccountServiceName = Literal["account"]

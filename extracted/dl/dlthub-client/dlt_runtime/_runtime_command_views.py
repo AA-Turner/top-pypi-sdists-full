@@ -1,6 +1,7 @@
 # Python internals
 import getpass
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Optional, Sequence, Union
 
@@ -16,7 +17,6 @@ from dlt._workspace.deployment.exceptions import (
     JobRefNotFound,
 )
 from dlt._workspace.deployment.typing import TJobRef
-from dlt.common.time import ensure_datetime
 from tabulate import tabulate
 
 # Current package
@@ -48,13 +48,13 @@ from dlt_runtime.typing import (
     TriggerSkipInfo,
     WorkspaceInfo,
 )
-from dlthub_sdk._gen.api.models import DataplaneInfo, RunStatus
-from dlthub_sdk._gen.api.types import Unset
-from dlthub_sdk._gen.dataplane_api.models import (
-    ScopeVariablesResponse,
-    SecretPublicVariable,
-    VariableChangeResult,
-    VariableChangeResultStatus,
+from dlthub_sdk import (
+    Dataplane,
+    JobRunStatus,
+    Sync,
+    VariableChange,
+    VariableChangeStatus,
+    VariableScope,
 )
 
 # dltHub brand lavender (#AAA8D4, web --dlt-lightest-purple) as a chip bg with
@@ -125,22 +125,15 @@ def _format_active_run_duration(elapsed: float, max_run_time_seconds: float) -> 
 # Row keys (from API model `to_dict()`) that `_humanize_row` reformats.
 _DATETIME_ROW_KEYS = frozenset(
     {
-        "date_added",
-        "date_updated",
-        "time_started",
-        "time_ended",
-        "next_scheduled_run",
+        "created_at",
+        "started_at",
+        "ended_at",
+        "next_run_at",
         "updated_at",
     }
 )
-_DURATION_ROW_KEYS = frozenset({"duration"})
-
-# Run statuses that mean the run has reached an end state (no further log output).
-TERMINAL_RUN_STATUSES = frozenset(
-    {RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED, RunStatus.SKIPPED}
-)
-# Subset that indicates the run did not succeed; callers may exit non-zero.
-FAILED_RUN_STATUSES = frozenset({RunStatus.FAILED, RunStatus.CANCELLED})
+_DURATION_ROW_KEYS = frozenset({"duration_seconds"})
+_SEQUENCE_ROW_KEYS = frozenset({"profiles"})
 
 
 def _format_iso_or_value(value: Any) -> str:
@@ -168,19 +161,11 @@ def _format_duration_value(value: Any) -> str:
 
 
 def _humanize_row(row: dict[str, Any]) -> dict[str, Any]:
-    """Reformat known datetime/duration keys in a `model.to_dict()` row for tabulate."""
+    """Reformat known keys in a `model.to_dict()` row for tabulate."""
     out = dict(row)
-    # Live duration: in-progress run (started, no end) → now - started.
-    if "duration" in out and not out.get("duration") and out.get("time_started"):
-        try:
-            started = ensure_datetime(out["time_started"])
-            ended = out.get("time_ended")
-            ended_dt = ensure_datetime(ended) if ended else None
-            if ended_dt is None:
-                now = datetime.now(started.tzinfo) if started.tzinfo else datetime.now()
-                out["duration"] = (now - started).total_seconds()
-        except (TypeError, ValueError):
-            pass
+    for key in _SEQUENCE_ROW_KEYS:
+        if isinstance(out.get(key), (list, tuple)):
+            out[key] = ",".join(out[key])
     for key in _DATETIME_ROW_KEYS:
         if key in out:
             out[key] = _format_iso_or_value(out[key])
@@ -190,15 +175,23 @@ def _humanize_row(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+#: Columns a view computes rather than reads off the model: `job_name` and
+#: `display_name` from the job definition, `entry_point` from its module/function
+#: pair, `profile` from the scope a variable was found in, and `type` from
+#: whether that variable is a secret.
+DERIVED_COLUMNS = frozenset(
+    {"job_name", "display_name", "entry_point", "profile", "type"}
+)
+
 DEPLOYMENT_HEADERS = {
     "version": fmt.bold("Version #"),
-    "date_added": fmt.bold("Created at"),
+    "created_at": fmt.bold("Created at"),
     "file_count": fmt.bold("File count"),
     "content_hash": fmt.bold("Content hash"),
 }
 CONFIGURATION_HEADERS = {
     "version": fmt.bold("Version #"),
-    "date_added": fmt.bold("Created at"),
+    "created_at": fmt.bold("Created at"),
     "file_count": fmt.bold("File count"),
     "content_hash": fmt.bold("Content hash"),
     "profiles": fmt.bold("Profiles"),
@@ -214,8 +207,8 @@ JOB_HEADERS = {
     "name": fmt.bold("Job name"),
     "version": fmt.bold("Version #"),
     "entry_point": fmt.bold("Entry point"),
-    "script_type": fmt.bold("Type"),
-    "date_added": fmt.bold("Created at"),
+    "job_type": fmt.bold("Type"),
+    "created_at": fmt.bold("Created at"),
     "default_trigger": fmt.bold("Default trigger"),
 }
 # Single-record detail view; rendered vertically as key:value rows.
@@ -225,11 +218,11 @@ JOB_INFO_HEADERS = {
     "display_name": fmt.bold("Display name"),
     "version": fmt.bold("Version #"),
     "entry_point": fmt.bold("Entry point"),
-    "script_type": fmt.bold("Type"),
-    "date_added": fmt.bold("Created at"),
+    "job_type": fmt.bold("Type"),
+    "created_at": fmt.bold("Created at"),
     "default_trigger": fmt.bold("Default trigger"),
-    "next_scheduled_run": fmt.bold("Next run"),
-    "script_url": fmt.bold("Script URL"),
+    "next_run_at": fmt.bold("Next run"),
+    "interactive_url": fmt.bold("Script URL"),
 }
 JOB_RUN_HEADERS = {
     "job_name": fmt.bold("Job name"),
@@ -237,9 +230,9 @@ JOB_RUN_HEADERS = {
     "status": fmt.bold("Status"),
     "trigger": fmt.bold("Trigger"),
     "profile": fmt.bold("Profile"),
-    "time_started": fmt.bold("Started at"),
-    "time_ended": fmt.bold("Ended at"),
-    "duration": fmt.bold("Duration"),
+    "started_at": fmt.bold("Started at"),
+    "ended_at": fmt.bold("Ended at"),
+    "duration_seconds": fmt.bold("Duration"),
 }
 # Single-record detail; rendered vertically. Adds interval window + run id.
 JOB_RUN_INFO_HEADERS = {
@@ -293,16 +286,21 @@ def _preprocess_run_output(
     all_job_refs: Optional[Sequence[str]] = None,
 ) -> dict[str, Any]:
     result = _humanize_row(_extract_keys(run, headers))
-    jd = run["script"]["job_definition"]
-    result["job_name"] = format_job_selector(jd["job_ref"], all_job_refs)
+    result["job_name"] = format_job_selector(run["job_ref"], all_job_refs)
     if "status" in result and result["status"]:
-        result["status"] = format_run_status(RunStatus(result["status"]))
-    # Active run: server leaves `duration` null; show "<elapsed> of <max>" instead of blank.
-    if "duration" in headers and not run.get("time_ended"):
-        elapsed = _compute_active_elapsed(run.get("time_started"))
-        max_rts = run["script_version"]["max_run_time_seconds"]
-        if elapsed is not None and max_rts:
-            result["duration"] = _format_active_run_duration(elapsed, float(max_rts))
+        result["status"] = format_run_status(JobRunStatus(result["status"]))
+    # Active run: server leaves the duration null. Show the elapsed time, against
+    # the budget when there is one — matching `_print_job_run_info`, which would
+    # otherwise disagree with this column on a run with no timeout.
+    if "duration_seconds" in headers and not run.get("ended_at"):
+        elapsed = _compute_active_elapsed(run.get("started_at"))
+        max_rts = run.get("timeout_seconds")
+        if elapsed is not None:
+            result["duration_seconds"] = (
+                _format_active_run_duration(elapsed, float(max_rts))
+                if max_rts
+                else _format_duration_seconds(elapsed)
+            )
     return {key: result[key] for key in headers.keys() if key in result}
 
 
@@ -546,7 +544,7 @@ def _prompt_workspace_selection(
     return _resolve_picker_choice(groups, int(choice))
 
 
-def _prompt_region_selection(regions: list[DataplaneInfo]) -> str:
+def _prompt_region_selection(regions: Sequence[Dataplane[Sync]]) -> str:
     """Interactive menu for organization region selection.
 
     Returns the chosen plane's ``id``; the choice is permanent.
@@ -819,16 +817,10 @@ def _print_workspaces(workspaces: list[Any], current_ws_id: Optional[str]) -> No
 def _print_job_run_info(run: Any) -> None:
     """Display a single run's info as vertical key:value rows."""
 
-    # Read straight off the typed model — API responses are strongly typed,
-    # so datetimes arrive as datetimes (no ISO-string round-trip needed).
-    def _opt(attr: str) -> Any:
-        v = getattr(run, attr, None)
-        return None if isinstance(v, Unset) else v
-
-    started = _opt("time_started")
-    ended = _opt("time_ended")
-    duration = _opt("duration")
-    max_rts = run.script_version.max_run_time_seconds
+    started = run.started_at
+    ended = run.ended_at
+    duration = run.duration_seconds
+    max_rts = run.timeout_seconds
     # Live duration for in-progress runs.
     if duration is None and started is not None and ended is None:
         now = datetime.now(started.tzinfo) if started.tzinfo else datetime.now()
@@ -852,15 +844,15 @@ def _print_job_run_info(run: Any) -> None:
         elif remaining < max_rts * 0.25:
             time_to_timeout = fmt.style(time_to_timeout, fg="yellow")
 
-    interval_start = _opt("interval_start")
-    interval_end = _opt("interval_end")
+    interval_start = run.interval_start
+    interval_end = run.interval_end
     values: dict[str, str] = {
         "id": str(run.id),
         "number": str(run.number),
-        "job_name": format_job_selector(run.script.job_definition.job_ref),
+        "job_name": format_job_selector(run.job_ref),
         "status": format_run_status(run.status),
         "trigger": str(run.trigger),
-        "profile": _opt("profile") or "",
+        "profile": run.profile or "",
         "time_started": _format_datetime(started) if started else "",
         "time_ended": _format_datetime(ended) if ended else "",
         "duration": duration_str,
@@ -896,17 +888,17 @@ def _print_runs(runs: list[Any], *, running_only: bool = False) -> None:
     )
 
 
-_STATUS_STYLE: dict[RunStatus, dict[str, Any]] = {
-    RunStatus.COMPLETED: {"fg": "green"},
-    RunStatus.FAILED: {"fg": "red"},
-    RunStatus.CANCELLED: {"fg": "yellow"},
-    RunStatus.SKIPPED: {"fg": "yellow"},
-    RunStatus.RUNNING: {"fg": "white", "bold": True},
+_STATUS_STYLE: dict[JobRunStatus, dict[str, Any]] = {
+    JobRunStatus.COMPLETED: {"fg": "green"},
+    JobRunStatus.FAILED: {"fg": "red"},
+    JobRunStatus.CANCELLED: {"fg": "yellow"},
+    JobRunStatus.SKIPPED: {"fg": "yellow"},
+    JobRunStatus.RUNNING: {"fg": "white", "bold": True},
 }
 
 
 def format_run_status(status: Any) -> str:
-    """Stringify and color a RunStatus using the shared status palette."""
+    """Stringify and color a JobRunStatus using the shared status palette."""
     text = status.value if hasattr(status, "value") else str(status)
     style = _STATUS_STYLE.get(status)
     return fmt.style(text, **style) if style else text
@@ -916,17 +908,13 @@ def _print_run_final_status(run: Any) -> None:
     """One-liner shown after the follow-logs loop exits."""
 
     status = run.status
-    verb = (
-        "finished with status" if status in TERMINAL_RUN_STATUSES else "current status"
-    )
+    verb = "finished with status" if run.finished else "current status"
     status_text = status.value if hasattr(status, "value") else str(status)
     extras: list[str] = []
-    duration = getattr(run, "duration", None)
-    if duration is not None and not isinstance(duration, Unset):
-        extras.append(f"duration: {_format_duration_value(duration)}")
+    if run.duration_seconds is not None:
+        extras.append(f"duration: {_format_duration_value(run.duration_seconds)}")
     suffix = f" ({', '.join(extras)})" if extras else ""
-    script_name = getattr(getattr(run, "script", None), "name", None) or "?"
-    label = f"Run # {run.number} of job {script_name}"
+    label = f"Run # {run.number} of job {run.job_ref}"
     line = f"{label} {verb}: {fmt.bold(status_text)}{suffix}"
     style = _STATUS_STYLE.get(status)
     if style:
@@ -1000,7 +988,7 @@ def _preprocess_job_output(
 ) -> dict[str, Any]:
     """Extract job fields for display, including entry_point from job_definition."""
     result = _humanize_row(_extract_keys(job, headers))
-    jd = job["job_definition"]
+    jd = job["definition"]
     name = format_job_selector(jd["job_ref"], all_job_refs)
     # Tag inline so the listing flags these states the way the web UI does.
     if job.get("archived"):
@@ -1016,8 +1004,8 @@ def _preprocess_job_output(
         result["display_name"] = expose.get("display_name") or ""
     # The scheduler keeps advancing next_scheduled_run while paused, so showing the
     # timestamp would promise a run that cannot happen.
-    if "next_scheduled_run" in headers and job.get("paused"):
-        result["next_scheduled_run"] = fmt.warning_style(JOB_PAUSED_LIST_TAG)
+    if "next_run_at" in headers and job.get("paused"):
+        result["next_run_at"] = fmt.warning_style(JOB_PAUSED_LIST_TAG)
     ep = jd["entry_point"]
     result["entry_point"] = (
         f"{ep['module']}::{ep['function']}" if ep["function"] else ep["module"]
@@ -1052,8 +1040,7 @@ def _print_job_info(job: Any) -> None:
             tablefmt="plain",
         )
     )
-    archived = getattr(job, "archived", False)
-    if not isinstance(archived, Unset) and archived:
+    if job.archived:
         fmt.secho("This job is archived", fg="red")
 
 
@@ -1075,9 +1062,9 @@ def _script_label_with_trigger(
     script: Any, all_job_refs: Optional[Sequence[str]] = None
 ) -> str:
     """Job selector plus '(trigger: ...)' suffix when default_trigger is set."""
-    label = format_job_selector(script.job_definition.job_ref, all_job_refs)
-    trigger = getattr(script, "default_trigger", None)
-    if isinstance(trigger, Unset) or not trigger:
+    label = format_job_selector(script.job_ref, all_job_refs)
+    trigger = script.default_trigger
+    if not trigger:
         return label
     return f"{label} (trigger: {trigger})"
 
@@ -1098,11 +1085,11 @@ def _print_deploy_result(
     # All scripts in this reconciliation form the selector scope for shortening.
     all_scripts = [
         *result.added,
-        *(u.script for u in result.updated),
+        *result.updated,
         *result.archived,
         *result.unchanged,
     ]
-    all_refs = [s.job_definition.job_ref for s in all_scripts]
+    all_refs = [s.job_ref for s in all_scripts]
 
     if result.added:
         fmt.echo("")
@@ -1114,16 +1101,14 @@ def _print_deploy_result(
         fmt.echo("")
         fmt.echo("Updated jobs:")
         for u in result.updated:
-            fmt.secho(
-                f"  ~ {_script_label_with_trigger(u.script, all_refs)}", fg="blue"
-            )
+            fmt.secho(f"  ~ {_script_label_with_trigger(u, all_refs)}", fg="blue")
 
     if result.archived:
         fmt.echo("")
         fmt.echo("Archived jobs:")
         for s in result.archived:
             fmt.secho(
-                f"  - {format_job_selector(s.job_definition.job_ref, all_refs)}",
+                f"  - {format_job_selector(s.job_ref, all_refs)}",
                 fg="red",
             )
 
@@ -1133,7 +1118,7 @@ def _print_deploy_result(
         for s in result.unchanged:
             fmt.echo(
                 fmt.style(
-                    f"    {format_job_selector(s.job_definition.job_ref, all_refs)}",
+                    f"    {format_job_selector(s.job_ref, all_refs)}",
                     dim=True,
                 )
             )
@@ -1208,20 +1193,22 @@ def _print_trigger_skip(info: TriggerSkipInfo, *, terse: bool = False) -> None:
 _SECRET_PLACEHOLDER = "********"
 
 
-def _variable_rows(scopes: list[ScopeVariablesResponse]) -> list[dict[str, Any]]:
+def _variable_rows(scopes: Sequence[VariableScope]) -> list[dict[str, Any]]:
     """Flatten every scope into rows, turning the scope itself into a column."""
     rows: list[dict[str, Any]] = []
     for scope in scopes:
         for variable in scope.variables:
-            row = _extract_keys(variable.to_dict(), VARIABLE_HEADERS)
+            row = _extract_keys(asdict(variable), VARIABLE_HEADERS)
             row["profile"] = scope.profile or ""
-            if isinstance(variable, SecretPublicVariable):
+            # The platform withholds a secret's value, so `type` is what says so.
+            row["type"] = "secret" if variable.secret else "plain"
+            if variable.secret:
                 row["value"] = _SECRET_PLACEHOLDER
             rows.append(_humanize_row(row))
     return rows
 
 
-def _print_variables(scopes: list[ScopeVariablesResponse]) -> None:
+def _print_variables(scopes: Sequence[VariableScope]) -> None:
     rows = _variable_rows(scopes)
     if not rows:
         fmt.echo("No variables set.")
@@ -1230,12 +1217,12 @@ def _print_variables(scopes: list[ScopeVariablesResponse]) -> None:
 
 
 def _print_variable_change(
-    results: list[VariableChangeResult], *, scope_label: str
+    results: Sequence[VariableChange], *, scope_label: str
 ) -> None:
     for result in results:
-        if result.status is VariableChangeResultStatus.NOT_FOUND:
+        if result.status is VariableChangeStatus.NOT_FOUND:
             fmt.warning(f"{result.name} not found in {scope_label}")
-        elif result.status is VariableChangeResultStatus.REMOVED:
+        elif result.status is VariableChangeStatus.REMOVED:
             fmt.echo(f"Removed {fmt.bold(result.name)} from {scope_label}")
         else:
             fmt.echo(f"Set {fmt.bold(result.name)} in {scope_label}")

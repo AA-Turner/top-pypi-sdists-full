@@ -44,9 +44,22 @@ FILE_CATEGORIES = {
         "{agent_directory}/**/*.ts",
     ],
     "config_files": [  # Never overwritten
-        "deployment/vars/*.tfvars",
+        "deployment/**/*.tfvars",
         ".env",
         "*.env",
+    ],
+    "user_content": [  # Owned by the user, not the template
+        "tests/eval/datasets/*.json",
+        "tests/eval/eval_config.yaml",
+        "tests/eval/*.py",
+        "tests/unit/**",
+        "tests/integration/**",
+        "deployment_metadata.json",
+        ".gitignore",
+        "**/README.md",
+        "GEMINI.md",
+        "AGENTS.md",
+        "CLAUDE.md",
     ],
     "dependencies": [  # Special merge handling
         # ACLI config
@@ -68,6 +81,8 @@ FILE_CATEGORIES = {
 
 # Preserve type literals for type-safe reason matching
 PreserveType = Literal["acli_unchanged", "already_current", "unchanged_both", None]
+
+DependencyStatus = Literal["updated", "added", "removed", "kept", "unchanged"]
 
 
 @dataclass
@@ -100,14 +115,15 @@ class DependencyResolution:
       - "updated": a template-managed dependency whose spec the template changed.
       - "removed": a template-managed dependency the new template dropped.
       - "unchanged": a template-managed dependency the template left as-is.
-      - "kept": a dependency *the user* added, preserved untouched.
+      - "kept": a dependency *the user* added, preserved untouched. In union mode
+        (``--force``), also one the new template dropped.
     "kept" and "unchanged" both leave the written value the same, but differ in
-    ownership: "kept" is the user's own dependency, "unchanged" is the template's.
+    ownership: "kept" is not managed by the new template, "unchanged" is.
     They are also displayed differently ("kept" is surfaced, "unchanged" hidden).
     """
 
     name: str
-    status: Literal["updated", "added", "removed", "kept", "unchanged"]
+    status: DependencyStatus
     old_version: str | None = None
     new_version: str | None = None
 
@@ -149,7 +165,7 @@ def _matches_any_pattern(path: str, patterns: list[str]) -> bool:
 
 
 def categorize_file(path: str, agent_directory: str = "app") -> str:
-    """Return category: agent_code, config_files, dependencies, or scaffolding."""
+    """Return the FILE_CATEGORIES key that matches path, or "scaffolding"."""
     for category, patterns in FILE_CATEGORIES.items():
         expanded = _expand_patterns(patterns, agent_directory)
         if _matches_any_pattern(path, expanded):
@@ -347,12 +363,10 @@ def three_way_compare(
 
 
 def collect_all_files(
-    project_dir: pathlib.Path,
-    old_template_dir: pathlib.Path,
-    new_template_dir: pathlib.Path,
+    base_dirs: list[pathlib.Path],
     exclude_patterns: list[str] | None = None,
 ) -> set[str]:
-    """Collect all unique relative file paths from all three directories."""
+    """Collect all unique relative file paths across the given directories."""
     if exclude_patterns is None:
         exclude_patterns = [
             ".git/**",
@@ -369,7 +383,7 @@ def collect_all_files(
 
     all_files: set[str] = set()
 
-    for base_dir in [project_dir, old_template_dir, new_template_dir]:
+    for base_dir in base_dirs:
         if not base_dir.exists():
             continue
         for file_path in base_dir.rglob("*"):
@@ -687,11 +701,48 @@ def write_go_dependencies(
         return False
 
 
+def union_python_dependencies(
+    current_project: pathlib.Path,
+    new_template_project: pathlib.Path,
+) -> list[DependencyResolution]:
+    """Union-merge pyproject.toml deps with the new template.
+
+    With no old template, the deps the new template still ships act as the old
+    template, so nothing is removed and every other dep is kept.
+    """
+    current = _load_dependencies_from_pyproject(current_project / "pyproject.toml")
+    new = _load_dependencies_from_pyproject(new_template_project / "pyproject.toml")
+    old = {name: spec for name, spec in current.items() if name in new}
+    return _resolve_dependencies(current, old, new)
+
+
+def union_go_dependencies(
+    current_project: pathlib.Path,
+    new_template_project: pathlib.Path,
+) -> list[DependencyResolution]:
+    """Union-merge go.mod requirements with the new template.
+
+    See union_python_dependencies for how the old template is derived.
+    """
+    current = _load_dependencies_from_go_mod(current_project / "go.mod")
+    new = _load_dependencies_from_go_mod(new_template_project / "go.mod")
+    old = {name: spec for name, spec in current.items() if name in new}
+    return _resolve_dependencies(current, old, new)
+
+
 # Per-language dependency handlers; both take a project directory. None = not
 # supported for that language yet.
 MERGE_DEPENDENCY_HANDLERS: dict[str, Callable | None] = {
     "python": merge_python_dependencies,
     "go": merge_go_dependencies,
+    "java": None,
+    "typescript": None,
+}
+
+# Used by --force.
+UNION_DEPENDENCY_HANDLERS: dict[str, Callable | None] = {
+    "python": union_python_dependencies,
+    "go": union_go_dependencies,
     "java": None,
     "typescript": None,
 }
@@ -1020,7 +1071,7 @@ def compare_all_files(
     agent_directory: str = "app",
 ) -> list[FileCompareResult]:
     """Compare all files using 3-way comparison."""
-    all_files = collect_all_files(project_dir, old_template_dir, new_template_dir)
+    all_files = collect_all_files([project_dir, old_template_dir, new_template_dir])
 
     results = []
     for relative_path in sorted(all_files):

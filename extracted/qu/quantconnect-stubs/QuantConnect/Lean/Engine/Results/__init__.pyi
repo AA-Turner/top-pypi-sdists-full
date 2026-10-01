@@ -1346,6 +1346,16 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         ...
 
     @property
+    def initial_result_store_delay(self) -> datetime.timedelta:
+        """
+        The delay after the handler starts before the first result is stored, which also runs the first in-run analysis
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
     def final_statistics(self) -> System.Collections.Generic.Dictionary[str, str]:
         """A dictionary containing summary statistics"""
         ...

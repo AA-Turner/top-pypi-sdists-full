@@ -6,18 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from matrx_ai import _ext
 from matrx_ai.db import _guest_registry_impl as guest_registry
-
-
-@pytest.fixture(autouse=True)
-def _guest_mint_ceiling_bound(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The host binds the auth.guest_identity ceiling; these tests stay under it."""
-
-    async def reader() -> tuple[int, int]:
-        return 30, 60
-
-    monkeypatch.setitem(_ext._registry, "guest_mint_limit_reader", reader)
 
 
 class _GuestManager:
@@ -56,9 +45,6 @@ class _FirstVisitRaceManager:
             return []
         return [SimpleNamespace(id="winner-row", auth_user_id=self.winner_auth_user_id)]
 
-    async def count(self, **_: object) -> int:
-        return 0
-
     async def update_where(self, filters: dict[str, object], **_: object) -> SimpleNamespace:
         # The winner's row already holds an identity: the claim matches nothing.
         return SimpleNamespace(rows_affected=0, updated_rows=[])
@@ -77,25 +63,10 @@ async def test_existing_guest_uses_generated_manager_filter(monkeypatch: pytest.
 
     assert resolved == auth_user_id
     assert manager.filter_calls == ["browser-fingerprint"]
-    assert manager.updates[0][0] == "guest-row"
-    assert manager.updates[0][1]["total_executions"] == 3
-    assert manager.updates[0][1]["first_execution_at"] is not None
-    assert manager.updates[0][1]["last_execution_at"] is not None
-
-
-@pytest.mark.asyncio
-async def test_existing_guest_preserves_original_first_execution(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    auth_user_id = "1f8d19c8-fdb8-49f1-b658-3cdab32d0c6e"
-    manager = _GuestManager(auth_user_id)
-    first_execution = "2026-08-01T12:00:00+00:00"
-    manager.row.first_execution_at = first_execution
-    monkeypatch.setattr(guest_registry, "_gm", manager)
-
-    await guest_registry.resolve_guest_uuid("browser-fingerprint")
-
-    assert manager.updates[0][1]["first_execution_at"] == first_execution
+    # Resolving is not executing: no counter, no execution timestamp, no write.
+    # Break caught: every fingerprinted request (reads included) bumping
+    # total_executions, so the count measured traffic, not executions.
+    assert manager.updates == []
 
 
 @pytest.mark.asyncio
@@ -144,9 +115,6 @@ class _RecordingGuestManager:
             return self.reread
         return self.rows
 
-    async def count(self, **_: object) -> int:
-        return 0
-
     async def update_where(self, filters: dict[str, object], **updates: object) -> SimpleNamespace:
         # The atomic claim: this double's rows are unclaimed, so it wins.
         self.updates.append((str(filters["id"]), updates))
@@ -185,9 +153,10 @@ async def test_first_visit_persists_the_minted_identity_for_the_fingerprint(
             "auth_user_id": MINTED,
             "ip_address": "203.0.113.9",
             "user_agent": "UA/1",
-            "total_executions": 1,
+            "metadata": manager.created[0]["metadata"],
         }
     ]
+    assert "total_executions" not in manager.created[0]
 
 
 @pytest.mark.asyncio
@@ -210,7 +179,7 @@ async def test_existing_row_without_identity_is_backfilled_with_the_minted_user(
     row_id, updates = manager.updates[0]
     assert row_id == "guest-row"
     assert updates.get("auth_user_id") == MINTED
-    assert updates.get("total_executions") == 5
+    assert "total_executions" not in updates
 
 
 @pytest.mark.asyncio
@@ -296,7 +265,7 @@ async def test_expired_block_resolves_like_an_unblocked_guest(
     resolved = await guest_registry.resolve_guest_uuid("browser-fingerprint")
 
     assert resolved == auth_user_id
-    assert manager.updates[0][1]["total_executions"] == 8
+    assert manager.updates == []
 
 
 @pytest.mark.asyncio
@@ -337,3 +306,74 @@ async def test_gotrue_signup_without_a_user_id_never_becomes_an_identity(
 
     assert seen == ["https://db.invalid/auth/v1/signup"]
     assert manager.created == []
+
+
+# --- Mint-time traffic stamp (2026-09-30) ------------------------------------
+# Bots are STAMPED, never refused: our own agents run guest flows in headless
+# Chrome. The stamp is how anonymous-account junk is measured and swept.
+
+
+@pytest.mark.parametrize(
+    "user_agent,kind,family",
+    [
+        ("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/141.0 Safari/537.36", "browser", "chrome"),
+        ("Mozilla/5.0 (X11) AppleWebKit/537.36 HeadlessChrome/141.0 Safari/537.36", "bot", "headlesschrome"),
+        ("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/141.0 Safari/537.36 Claude/1.0", "bot", "claude"),
+        ("Mozilla/5.0 (compatible; Googlebot/2.1)", "bot", "googlebot"),
+        ("curl/8.7.1", "bot", "curl"),
+        ("Mozilla/5.0 (iPhone) Version/18.0 Mobile Safari/604.1", "browser", "safari"),
+        (None, "bot", "unknown"),
+    ],
+)
+def test_user_agent_classification(user_agent: str | None, kind: str, family: str) -> None:
+    assert guest_registry.classify_guest_user_agent(user_agent) == (kind, family)
+
+
+@pytest.mark.asyncio
+async def test_first_visit_mint_stamps_traffic_kind_and_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = _RecordingGuestManager([])
+    monkeypatch.setattr(guest_registry, "_gm", manager)
+    monkeypatch.setattr(guest_registry, "_create_anon_auth_user", AsyncMock(return_value=MINTED))
+
+    await guest_registry.resolve_guest_uuid(
+        "browser-fingerprint",
+        user_agent="Mozilla/5.0 HeadlessChrome/141.0",
+        minted_route="POST /ai/agents/x",
+    )
+
+    stamp = manager.created[0]["metadata"]
+    assert stamp["traffic_kind"] == "bot"
+    assert stamp["ua_family"] == "headlesschrome"
+    assert stamp["minted_route"] == "POST /ai/agents/x"
+    assert stamp["minted_at"]
+
+
+@pytest.mark.asyncio
+async def test_backfill_mint_merges_the_stamp_into_existing_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Break caught: overwriting metadata — the acquisition first-touch keys
+    # written before the mint would be lost.
+    row = SimpleNamespace(
+        id="guest-row", auth_user_id=None, is_blocked=False, metadata={"acquisition": {"utm": "x"}}
+    )
+    manager = _RecordingGuestManager([row])
+    monkeypatch.setattr(guest_registry, "_gm", manager)
+    monkeypatch.setattr(guest_registry, "_create_anon_auth_user", AsyncMock(return_value=MINTED))
+
+    await guest_registry.resolve_guest_uuid(
+        "browser-fingerprint", user_agent="Mozilla/5.0 Chrome/141.0", minted_route="POST /chat"
+    )
+
+    metadata = manager.updates[0][1]["metadata"]
+    assert metadata["acquisition"] == {"utm": "x"}
+    assert metadata["traffic_kind"] == "browser"
+    assert metadata["minted_route"] == "POST /chat"
+
+
+@pytest.mark.asyncio
+async def test_resolving_a_known_guest_writes_no_stamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = _GuestManager("1f8d19c8-fdb8-49f1-b658-3cdab32d0c6e")
+    monkeypatch.setattr(guest_registry, "_gm", manager)
+    await guest_registry.resolve_guest_uuid("browser-fingerprint", minted_route="GET /x")
+    assert manager.updates == []

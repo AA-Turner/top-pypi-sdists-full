@@ -20,6 +20,7 @@ type, which the panel renders as plain text editors.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from functools import lru_cache
 
 from xbsl import dataset, terms
@@ -121,7 +122,7 @@ def _reset() -> None:
     """Drop the derived tables when the data root or version changes (dataset hook)."""
     for cached in (_data, _class_properties, properties, properties_of_class, _bases, allowed_keys,
                    _english_keys, _common_english, english_name, _english_kinds,
-                   dispatched_classes, key_aliases):
+                   dispatched_classes, key_aliases, languages):
         cached.cache_clear()
 
 
@@ -210,6 +211,136 @@ def enum_values(name: str) -> tuple[str, ...]:
     """Values of a metamodel enumeration, or () when unknown."""
     data = _data()
     return tuple((data.get("enums") or {}).get(name, ())) if data else ()
+
+
+def has_value_records() -> bool:
+    """True when the data records the values of its enumerations (`enum_items`); data extracted
+    before the section existed records none of them."""
+    data = _data()
+    return bool(data and data.get("enum_items"))
+
+
+def _value_record(name: str, value: str) -> dict:
+    """The record of one enumeration value (`enum_items` of the data), {} when there is none.
+
+    Data extracted before the section existed has no records at all: every reader then answers
+    as if the value had no English spelling and no limit of modes.
+    """
+    data = _data()
+    records = (data.get("enum_items") or {}).get(name) if data else None
+    record = records.get(value) if isinstance(records, dict) else None
+    return record if isinstance(record, dict) else {}
+
+
+def enum_value_english(name: str, value: str) -> str | None:
+    """The English spelling of a value the way ITS enumeration spells it, or None.
+
+    Per enumeration on purpose: the same Russian word is `Normal` for the importance of a
+    command and `Usual` for the importance of a favorite, and a flat table cannot hold it.
+    """
+    english = _value_record(name, value).get("en")
+    return english if isinstance(english, str) and english else None
+
+
+def enum_value_modes(name: str, value: str) -> tuple[str | None, str | None]:
+    """(the mode the value appeared in, the last mode that has it) - None where unlimited."""
+    record = _value_record(name, value)
+    since, until = record.get("since"), record.get("until")
+    return (str(since) if since else None, str(until) if until else None)
+
+
+def enum_value_available(name: str, value: str, mode: tuple[int, ...] | None) -> bool:
+    """Whether a project of this compatibility mode may write the value.
+
+    The platform holds the mode of the project against the modes of the value: a value appears
+    in one mode and may be taken off after another. An unknown mode limits nothing, and neither
+    does a value, or a mode of it, the data cannot read.
+    """
+    if mode is None:
+        return True
+    first, last = enum_value_modes(name, value)
+    since = _mode_key(first) if first else None
+    until = _mode_key(last) if last else None
+    return (since is None or mode >= since) and (until is None or mode <= until)
+
+
+@dataclass(frozen=True)
+class Language:
+    """A language a project may be localized into, as the platform declares it.
+
+    `code` is the ISO 639 code: the platform finds the language of a translation by the name
+    of the folder the translation lies in, compared with the code regardless of case.
+    `since` is the compatibility mode the language appeared in; None - every mode has it.
+    """
+
+    russian: str
+    english: str
+    code: str
+    since: str | None = None
+
+
+#: What stands in for the language table when the data has none - a clone without data, or
+#: data extracted before the table existed: the two languages every compatibility mode has.
+#: The toolkit is built around exactly these two (the translator turns one into the other),
+#: so without the table it works as it always did; every other language comes from the data.
+_BASE_LANGUAGES = (
+    Language("Английский", "English", "en"),
+    Language("Русский", "Russian", "ru"),
+)
+
+
+@lru_cache(maxsize=1)
+def languages() -> tuple[Language, ...]:
+    """The languages a project may be localized into, in the order the platform declares them.
+
+    Read from the `languages` section the extractor takes out of the platform's own
+    enumeration; see _BASE_LANGUAGES for data without that section.
+    """
+    data = _data()
+    rows = data.get("languages") if data else None
+    found = tuple(
+        Language(str(row["ru"]), str(row["en"]), str(row["code"]),
+                 str(row["since"]) if row.get("since") else None)
+        for row in rows or ()
+        if isinstance(row, dict) and row.get("ru") and row.get("en") and row.get("code")
+    )
+    return found or _BASE_LANGUAGES
+
+
+def language_named(value: str) -> Language | None:
+    """The language a value names, or None: its Russian or English name or its code.
+
+    Any letter case and surrounding quotes are forgiven - a descriptor spells the name in the
+    language of the project, a caller may say `english`, a folder is named `Vi` or `vi`, and
+    the platform itself compares the code without regard to case.
+    """
+    key = value.strip().strip("'\"").casefold()
+    if not key:
+        return None
+    for language in languages():
+        if key in (language.russian.casefold(), language.english.casefold(),
+                   language.code.casefold()):
+            return language
+    return None
+
+
+def _mode_key(mode: str) -> tuple[int, ...] | None:
+    """`9.0` -> (9, 0); None for a value that is not a mode."""
+    parts = mode.strip().strip("'\"").split(".")
+    return tuple(int(part) for part in parts) if all(part.isdigit() for part in parts) else None
+
+
+def language_available(language: Language, mode: str | None) -> bool:
+    """Whether a project of this compatibility mode may list the language.
+
+    The platform holds the mode of the project against the one the language appeared in. A
+    project that names no mode is not limited - the platform then goes by its newest mode -
+    and neither is a language, or a mode, the data cannot read.
+    """
+    if not mode or not language.since:
+        return True
+    have, need = _mode_key(mode), _mode_key(language.since)
+    return have is None or need is None or have >= need
 
 
 def has_class(name: str) -> bool:

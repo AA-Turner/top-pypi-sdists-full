@@ -1754,6 +1754,7 @@ class DeliveryDestinationTypeDef(TypedDict):
     deliveryDestinationType: NotRequired[DeliveryDestinationTypeType]
     outputFormat: NotRequired[OutputFormatType]
     deliveryDestinationConfiguration: NotRequired[DeliveryDestinationConfigurationTypeDef]
+    roleArn: NotRequired[str]
     tags: NotRequired[dict[str, str]]
 
 class PutDeliveryDestinationRequestTypeDef(TypedDict):
@@ -1761,6 +1762,7 @@ class PutDeliveryDestinationRequestTypeDef(TypedDict):
     outputFormat: NotRequired[OutputFormatType]
     deliveryDestinationConfiguration: NotRequired[DeliveryDestinationConfigurationTypeDef]
     deliveryDestinationType: NotRequired[DeliveryDestinationTypeType]
+    roleArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 class DescribeDeliverySourcesResponseTypeDef(TypedDict):

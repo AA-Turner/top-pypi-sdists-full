@@ -344,6 +344,7 @@ class ListGraphsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class ListImportTasksInputTypeDef(TypedDict):
+    graphIdentifier: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -806,6 +807,7 @@ class ListGraphsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListImportTasksInputPaginateTypeDef(TypedDict):
+    graphIdentifier: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPrivateGraphEndpointsInputPaginateTypeDef(TypedDict):

@@ -112,6 +112,7 @@ __all__ = (
     "TargetInstanceTypeRightSizingMethodType",
     "TargetNetworkTopologyType",
     "VolumeTypeType",
+    "VpcProvisioningStrategyType",
     "WaveHealthStatusType",
     "WaveProgressStatusType",
 )
@@ -332,6 +333,7 @@ TargetDeploymentType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 TargetInstanceTypeRightSizingMethodType = Literal["BASIC", "NONE"]
 TargetNetworkTopologyType = Literal["HUB_AND_SPOKE", "ISOLATED_VPC"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
+VpcProvisioningStrategyType = Literal["CREATE_NEW", "USE_EXISTING"]
 WaveHealthStatusType = Literal["ERROR", "HEALTHY", "LAGGING"]
 WaveProgressStatusType = Literal["COMPLETED", "IN_PROGRESS", "NOT_STARTED"]
 MgnServiceName = Literal["mgn"]
@@ -415,6 +417,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -489,6 +492,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -517,6 +521,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -611,6 +616,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

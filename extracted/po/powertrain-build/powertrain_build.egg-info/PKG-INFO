@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: powertrain-build
-Version: 1.17.0
+Version: 1.18.0
 Summary: A Continuous Integration (CI) build system testing all configurations where a Simulink model is used.
 Home-page: https://opendev.org/volvocars/powertrain-build
 Download-URL: https://pypi.org/project/powertrain-build/

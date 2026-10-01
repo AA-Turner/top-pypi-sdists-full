@@ -34,7 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dynamic = []
-version = "1.2.7"
+version = "2.0.0"
 
 [project.license]
 text = "MIT"
@@ -48,7 +48,7 @@ render = [
     "numpy>=1.26",
     "pandas>=2.0",
     "markdown-it-py>=3.0",
-    "pymdown-extensions>=9.2",
+    "pymdown-extensions>=10.21.2",
 ]
 validation = [
     "jsonschema[format]>=4.22",
@@ -64,9 +64,7 @@ bst = "bidsschematools.__main__:cli"
 Homepage = "https://github.com/bids-standard/bids-specification"
 
 [dependency-groups]
-dev = [
-    "ruff>=0.15.6",
-]
+dev = []
 tests = [
     "bidsschematools[all]",
     "check-jsonschema>=0.36.2",
@@ -118,7 +116,7 @@ exclude_also = [
 ]
 
 [tool.bumpversion]
-current_version = "1.2.7"
+current_version = "2.0.0"
 parse = "(?x)\n    (?P<major>[0-9]+)\n    \\.(?P<minor>[0-9]+)\n    \\.(?P<patch>[0-9]+)\n    (?:-(?P<pre_label>dev))?\n"
 serialize = [
     "{major}.{minor}.{patch}-{pre_label}",

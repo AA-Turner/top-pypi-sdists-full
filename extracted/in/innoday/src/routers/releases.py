@@ -35,6 +35,7 @@ from src.middleware.rbac import (
     resolve_project_ref,
 )
 from src.services.project_timeline_writer import add_timeline_entry
+from src.services.release_board_sync import sync_project_releases
 from src.services.release_pipeline import promote_backlog_in
 from src.services.release_planning import (
     RevertBlocked,
@@ -599,6 +600,9 @@ async def create_release(
     )
 
     session.commit()
+    # InnoDay owns the release setup: tell the board now rather than at the
+    # next board sync. Best-effort; never fails this write.
+    await sync_project_releases(session, release.project_id)
     session.refresh(release)
     return _release_to_response(release, session)
 
@@ -1023,6 +1027,9 @@ async def update_release(
         )
 
     session.commit()
+    # InnoDay owns the release setup: tell the board now rather than at the
+    # next board sync. Best-effort; never fails this write.
+    await sync_project_releases(session, release.project_id)
     session.refresh(release)
     return _release_to_response(release, session)
 
@@ -1191,6 +1198,7 @@ async def delete_release(
                 session.add(row)
 
     session.commit()
+    await sync_project_releases(session, release.project_id)
 
     return RevertResponse(
         version=release.version,

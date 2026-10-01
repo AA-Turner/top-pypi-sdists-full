@@ -88,6 +88,27 @@ class PrintParametersOrientation(str, Enum):
     LANDSCAPE = "landscape"
 
 
+@register("browsingContext.BaseInfo")
+@dataclass(frozen=True)
+class BaseInfo(Record):
+    """browsingContext.BaseInfo.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextbaseinfo
+    """
+
+    children: list[Info] | None = field(
+        metadata=meta("children", required=True, nullable=True, ref="browsingContext.Info", is_list=True),
+    )
+    client_window: str = field(metadata=meta("clientWindow", required=True, primitive="str"))
+    context: str = field(metadata=meta("context", required=True, primitive="str"))
+    original_opener: str | None = field(
+        metadata=meta("originalOpener", required=True, nullable=True, primitive="str"),
+    )
+    url: str = field(metadata=meta("url", required=True, primitive="str"))
+    user_context: str = field(metadata=meta("userContext", required=True, primitive="str"))
+    parent: str | None | UnsetType = field(default=UNSET, metadata=meta("parent", nullable=True, primitive="str"))
+
+
 @register("browsingContext.Info")
 @dataclass(frozen=True)
 class Info(Record):
@@ -589,6 +610,7 @@ class StartScreencastParameters(Record):
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
+    destination_folder: str | UnsetType = field(default=UNSET, metadata=meta("destinationFolder", primitive="str"))
     mime_type: str | UnsetType = field(default=UNSET, metadata=meta("mimeType", primitive="str"))
     video: MediaTrackConstraints | UnsetType = field(
         default=UNSET,
@@ -721,6 +743,31 @@ class UserPromptOpenedParameters(Record):
     default_value: str | UnsetType = field(default=UNSET, metadata=meta("defaultValue", primitive="str"))
 
 
+@register("browsingContext.ContextCreatedParameters")
+@dataclass(frozen=True)
+class ContextCreatedParameters(Record):
+    """browsingContext.ContextCreatedParameters.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextcontextcreatedparameters
+    """
+
+    children: list[Info] | None = field(
+        metadata=meta("children", required=True, nullable=True, ref="browsingContext.Info", is_list=True),
+    )
+    client_window: str = field(metadata=meta("clientWindow", required=True, primitive="str"))
+    context: str = field(metadata=meta("context", required=True, primitive="str"))
+    original_opener: str | None = field(
+        metadata=meta("originalOpener", required=True, nullable=True, primitive="str"),
+    )
+    url: str = field(metadata=meta("url", required=True, primitive="str"))
+    user_context: str = field(metadata=meta("userContext", required=True, primitive="str"))
+    parent: str | None | UnsetType = field(default=UNSET, metadata=meta("parent", nullable=True, primitive="str"))
+    has_planned_navigation: bool | UnsetType = field(
+        default=UNSET,
+        metadata=meta("hasPlannedNavigation", primitive="bool"),
+    )
+
+
 @register("browsingContext.DownloadEndParams_CanceledParams")
 @dataclass(frozen=True)
 class DownloadEndParamsCanceledParams(Record):
@@ -843,7 +890,7 @@ class BrowsingContext(Domain):
         "user_prompt_opened": "browsingContext.userPromptOpened",
     }
     EVENT_TYPES = {
-        "browsingContext.contextCreated": "browsingContext.Info",
+        "browsingContext.contextCreated": "browsingContext.ContextCreatedParameters",
         "browsingContext.contextDestroyed": "browsingContext.Info",
         "browsingContext.domContentLoaded": "browsingContext.NavigationInfo",
         "browsingContext.downloadEnd": "browsingContext.DownloadEndParams",
@@ -1040,6 +1087,7 @@ class BrowsingContext(Domain):
     def start_screencast(
         self,
         context: str,
+        destination_folder: str | UnsetType = UNSET,
         mime_type: str | UnsetType = UNSET,
         video: MediaTrackConstraints | UnsetType = UNSET,
         audio: bool | UnsetType = UNSET,
@@ -1048,7 +1096,13 @@ class BrowsingContext(Domain):
 
         See https://w3c.github.io/webdriver-bidi/#command-browsingContext-startScreencast
         """
-        params = StartScreencastParameters(context=context, mime_type=mime_type, video=video, audio=audio)
+        params = StartScreencastParameters(
+            context=context,
+            destination_folder=destination_folder,
+            mime_type=mime_type,
+            video=video,
+            audio=audio,
+        )
         return self._execute("browsingContext.startScreencast", params=params, result=StartScreencastResult)
 
     def stop_screencast(self, screencast: str) -> StopScreencastResult:

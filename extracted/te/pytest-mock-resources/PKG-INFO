@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pytest-mock-resources
-Version: 2.13.0
+Version: 2.14.0
 Summary: A pytest plugin for easily instantiating reproducible mock resources.
 Keywords: pytest,sqlalchemy,docker,fixture,mock
 Author: Omar Khan, Dan Cardin, Gabriel Michael, Prateek Pisat

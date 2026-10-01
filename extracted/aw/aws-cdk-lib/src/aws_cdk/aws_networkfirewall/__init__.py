@@ -69,6 +69,563 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IContainerAssociationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnContainerAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networkfirewall.CfnContainerAssociation",
+):
+    '''Resource type definition for AWS::NetworkFirewall::ContainerAssociation.
+
+    A container association monitors container lifecycle events in your Amazon ECS or Amazon EKS clusters and resolves running container addresses for use in Network Firewall rules.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html
+    :cloudformationResource: AWS::NetworkFirewall::ContainerAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networkfirewall as networkfirewall
+        
+        cfn_container_association = networkfirewall.CfnContainerAssociation(self, "MyCfnContainerAssociation",
+            container_association_name="containerAssociationName",
+            container_monitoring_configurations=[networkfirewall.CfnContainerAssociation.ContainerMonitoringConfigurationProperty(
+                cluster_arn="clusterArn",
+        
+                # the properties below are optional
+                attribute_filters=[networkfirewall.CfnContainerAssociation.ContainerAttributeProperty(
+                    key="key",
+                    value="value"
+                )]
+            )],
+            type="type",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        container_association_name: builtins.str,
+        container_monitoring_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerAssociation.ContainerMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::NetworkFirewall::ContainerAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param container_association_name: The descriptive name of the container association. You can't change the name of a container association after you create it.
+        :param container_monitoring_configurations: The monitoring configurations for the container association. Each configuration specifies an Amazon ECS or Amazon EKS cluster to monitor and optional attribute filters to narrow which containers are tracked.
+        :param type: The type of containers to monitor. You can't change the container type after creation.
+        :param description: A description of the container association.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d171018733b7e3158d0d8519f5de52587663b5023b89ff7352826e848733adb6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContainerAssociationProps(
+            container_association_name=container_association_name,
+            container_monitoring_configurations=container_monitoring_configurations,
+            type=type,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContainerAssociation")
+    @builtins.classmethod
+    def arn_for_container_association(
+        cls,
+        resource: "_aws_networkfirewall_65100754.IContainerAssociationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19196f330bee229eee91bad5b9fcc2d94803ede9c22b5e47070f9b0b271b4297)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContainerAssociation", [resource]))
+
+    @jsii.member(jsii_name="isCfnContainerAssociation")
+    @builtins.classmethod
+    def is_cfn_container_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContainerAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55e362ed77f3731cf5fd22d1412e7af7b45a9303cd43be7299f864065888dd31)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContainerAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d431c902587079c028fad19e6b10cbab54fa44c3bda7b78eb5c5f83d34a932ed)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15ba37b0a41354fd1ccc7c201d2631902aeee74a226fc4f175f01df474b789f9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContainerAssociationArn")
+    def attr_container_association_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the container association.
+
+        :cloudformationAttribute: ContainerAssociationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContainerAssociationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResolvedCidrCount")
+    def attr_resolved_cidr_count(self) -> jsii.Number:
+        '''The number of CIDR blocks resolved from the monitored containers.
+
+        :cloudformationAttribute: ResolvedCidrCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrResolvedCidrCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the container association.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerAssociationRef")
+    def container_association_ref(
+        self,
+    ) -> "_aws_networkfirewall_65100754.ContainerAssociationReference":
+        '''A reference to a ContainerAssociation resource.'''
+        return typing.cast("_aws_networkfirewall_65100754.ContainerAssociationReference", jsii.get(self, "containerAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerAssociationName")
+    def container_association_name(self) -> builtins.str:
+        '''The descriptive name of the container association.'''
+        return typing.cast(builtins.str, jsii.get(self, "containerAssociationName"))
+
+    @container_association_name.setter
+    def container_association_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f14d0ab332f7d962b974a87ba2bd5349e7e98d6e9071f8352b37812df365781c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "containerAssociationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="containerMonitoringConfigurations")
+    def container_monitoring_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerMonitoringConfigurationProperty"]]]:
+        '''The monitoring configurations for the container association.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerMonitoringConfigurationProperty"]]], jsii.get(self, "containerMonitoringConfigurations"))
+
+    @container_monitoring_configurations.setter
+    def container_monitoring_configurations(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerMonitoringConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40e905229157d1c9a2586d78defc6b47ce020f853be5d4f9c9315e7b1610f0d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "containerMonitoringConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of containers to monitor.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cde559ef3eb30892f4a25d40b83b73312772328ec67aeea60466c654e358e38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the container association.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__abca25cd059f19a9a6845c79edeff57728d326e23692f65ea5f53dc55218c0ee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__222ac4c401141d1a2e951a55f2d9cc05e1291cacdcdea3b8389789168e34c022)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnContainerAssociation.ContainerAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class ContainerAttributeProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''A key-value filter pair used in container association monitoring configurations to narrow which containers are tracked.
+
+            :param key: The attribute key to filter on.
+            :param value: The attribute value to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containerattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                container_attribute_property = networkfirewall.CfnContainerAssociation.ContainerAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__84ab7e17f27da5fa7e056fb887d10e54a1c8dc50c50e950edc9af0b95a9dd372)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The attribute key to filter on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containerattribute.html#cfn-networkfirewall-containerassociation-containerattribute-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The attribute value to match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containerattribute.html#cfn-networkfirewall-containerassociation-containerattribute-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContainerAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnContainerAssociation.ContainerMonitoringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cluster_arn": "clusterArn",
+            "attribute_filters": "attributeFilters",
+        },
+    )
+    class ContainerMonitoringConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            cluster_arn: builtins.str,
+            attribute_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerAssociation.ContainerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Contains the monitoring configuration for a single cluster in a container association.
+
+            Specifies the cluster ARN and optional attribute filters to narrow which containers are tracked.
+
+            :param cluster_arn: The ARN of the Amazon ECS or Amazon EKS cluster to monitor. The cluster must be in the same Region and account as the container association.
+            :param attribute_filters: Key-value pairs that filter which containers are tracked. For Amazon EKS, you can filter by namespace and Kubernetes labels. For Amazon ECS, you can filter by container instance attributes (EC2 launch type only).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containermonitoringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                container_monitoring_configuration_property = networkfirewall.CfnContainerAssociation.ContainerMonitoringConfigurationProperty(
+                    cluster_arn="clusterArn",
+                
+                    # the properties below are optional
+                    attribute_filters=[networkfirewall.CfnContainerAssociation.ContainerAttributeProperty(
+                        key="key",
+                        value="value"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b48382fc41ca42535bb22a7975c7fb51873347aadafb86b62d0b0189f699f12c)
+                check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+                check_type(argname="argument attribute_filters", value=attribute_filters, expected_type=type_hints["attribute_filters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cluster_arn": cluster_arn,
+            }
+            if attribute_filters is not None:
+                self._values["attribute_filters"] = attribute_filters
+
+        @builtins.property
+        def cluster_arn(self) -> builtins.str:
+            '''The ARN of the Amazon ECS or Amazon EKS cluster to monitor.
+
+            The cluster must be in the same Region and account as the container association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containermonitoringconfiguration.html#cfn-networkfirewall-containerassociation-containermonitoringconfiguration-clusterarn
+            '''
+            result = self._values.get("cluster_arn")
+            assert result is not None, "Required property 'cluster_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def attribute_filters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerAttributeProperty"]]]]:
+            '''Key-value pairs that filter which containers are tracked.
+
+            For Amazon EKS, you can filter by namespace and Kubernetes labels. For Amazon ECS, you can filter by container instance attributes (EC2 launch type only).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-containerassociation-containermonitoringconfiguration.html#cfn-networkfirewall-containerassociation-containermonitoringconfiguration-attributefilters
+            '''
+            result = self._values.get("attribute_filters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerAttributeProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContainerMonitoringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networkfirewall.CfnContainerAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_association_name": "containerAssociationName",
+        "container_monitoring_configurations": "containerMonitoringConfigurations",
+        "type": "type",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnContainerAssociationProps:
+    def __init__(
+        self,
+        *,
+        container_association_name: builtins.str,
+        container_monitoring_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerAssociation.ContainerMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContainerAssociation``.
+
+        :param container_association_name: The descriptive name of the container association. You can't change the name of a container association after you create it.
+        :param container_monitoring_configurations: The monitoring configurations for the container association. Each configuration specifies an Amazon ECS or Amazon EKS cluster to monitor and optional attribute filters to narrow which containers are tracked.
+        :param type: The type of containers to monitor. You can't change the container type after creation.
+        :param description: A description of the container association.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networkfirewall as networkfirewall
+            
+            cfn_container_association_props = networkfirewall.CfnContainerAssociationProps(
+                container_association_name="containerAssociationName",
+                container_monitoring_configurations=[networkfirewall.CfnContainerAssociation.ContainerMonitoringConfigurationProperty(
+                    cluster_arn="clusterArn",
+            
+                    # the properties below are optional
+                    attribute_filters=[networkfirewall.CfnContainerAssociation.ContainerAttributeProperty(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6d1cf32b0800d71376dc5d7e170469d629a16ef5d14af758200da2a9eb30a00)
+            check_type(argname="argument container_association_name", value=container_association_name, expected_type=type_hints["container_association_name"])
+            check_type(argname="argument container_monitoring_configurations", value=container_monitoring_configurations, expected_type=type_hints["container_monitoring_configurations"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_association_name": container_association_name,
+            "container_monitoring_configurations": container_monitoring_configurations,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def container_association_name(self) -> builtins.str:
+        '''The descriptive name of the container association.
+
+        You can't change the name of a container association after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html#cfn-networkfirewall-containerassociation-containerassociationname
+        '''
+        result = self._values.get("container_association_name")
+        assert result is not None, "Required property 'container_association_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def container_monitoring_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerMonitoringConfigurationProperty"]]]:
+        '''The monitoring configurations for the container association.
+
+        Each configuration specifies an Amazon ECS or Amazon EKS cluster to monitor and optional attribute filters to narrow which containers are tracked.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html#cfn-networkfirewall-containerassociation-containermonitoringconfigurations
+        '''
+        result = self._values.get("container_monitoring_configurations")
+        assert result is not None, "Required property 'container_monitoring_configurations' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContainerAssociation.ContainerMonitoringConfigurationProperty"]]], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of containers to monitor.
+
+        You can't change the container type after creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html#cfn-networkfirewall-containerassociation-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the container association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html#cfn-networkfirewall-containerassociation-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-containerassociation.html#cfn-networkfirewall-containerassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContainerAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkfirewall_65100754.IFirewallRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFirewall(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7513,6 +8070,8 @@ class CfnVpcEndpointAssociationProps:
 
 
 __all__ = [
+    "CfnContainerAssociation",
+    "CfnContainerAssociationProps",
     "CfnFirewall",
     "CfnFirewallPolicy",
     "CfnFirewallPolicyProps",
@@ -7528,6 +8087,100 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__d171018733b7e3158d0d8519f5de52587663b5023b89ff7352826e848733adb6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    container_association_name: builtins.str,
+    container_monitoring_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerAssociation.ContainerMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19196f330bee229eee91bad5b9fcc2d94803ede9c22b5e47070f9b0b271b4297(
+    resource: _aws_networkfirewall_65100754.IContainerAssociationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55e362ed77f3731cf5fd22d1412e7af7b45a9303cd43be7299f864065888dd31(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d431c902587079c028fad19e6b10cbab54fa44c3bda7b78eb5c5f83d34a932ed(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15ba37b0a41354fd1ccc7c201d2631902aeee74a226fc4f175f01df474b789f9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f14d0ab332f7d962b974a87ba2bd5349e7e98d6e9071f8352b37812df365781c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40e905229157d1c9a2586d78defc6b47ce020f853be5d4f9c9315e7b1610f0d2(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnContainerAssociation.ContainerMonitoringConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cde559ef3eb30892f4a25d40b83b73312772328ec67aeea60466c654e358e38(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abca25cd059f19a9a6845c79edeff57728d326e23692f65ea5f53dc55218c0ee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__222ac4c401141d1a2e951a55f2d9cc05e1291cacdcdea3b8389789168e34c022(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84ab7e17f27da5fa7e056fb887d10e54a1c8dc50c50e950edc9af0b95a9dd372(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b48382fc41ca42535bb22a7975c7fb51873347aadafb86b62d0b0189f699f12c(
+    *,
+    cluster_arn: builtins.str,
+    attribute_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerAssociation.ContainerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6d1cf32b0800d71376dc5d7e170469d629a16ef5d14af758200da2a9eb30a00(
+    *,
+    container_association_name: builtins.str,
+    container_monitoring_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerAssociation.ContainerMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b38d4d56(
     scope: _constructs_77d1e7e8.Construct,

@@ -18,13 +18,7 @@ config:
   airmux-control-plane:management-key-secret-id: airmux-dataplane-management-key
   airmux-control-plane:preview-database-url-secret-id: airmux-preview-database-url
   airmux-control-plane:preview-management-key-secret-id: airmux-preview-dataplane-management-key
-  # Provider vendor keys, sourced cross-project from the agent-plane project
-  # (its stack must grant secretAccessor to the airmux runtime SAs; BOOTSTRAP §5).
-  # Cloud Run resolves cross-project secrets by project number only
-  # (84854744111 = airbyte-agent-plane-dev).
-  airmux-control-plane:provider-key-secrets:
-    OPENAI_API_KEY: projects/84854744111/secrets/agent-plane-default-openai-api-key
-    ANTHROPIC_API_KEY: projects/84854744111/secrets/agent-plane-default-anthropic-api-key
-  # Optional: cross-project handoff of the prod management key into the
-  # agent-plane project (requires secretVersionAdder there; see BOOTSTRAP §7).
-  # airmux-control-plane:agent-plane-management-key-secret: projects/airbyte-agent-plane-dev/secrets/agent-plane-default-airmux-management-key
+
+  # Cross-project handoff of the prod management key into the agent-plane
+  # project (its stack grants the ops deployer secretVersionManager; BOOTSTRAP §7).
+  airmux-control-plane:agent-plane-management-key-secret: projects/airbyte-agent-plane-dev/secrets/agent-plane-default-airmux-management-key

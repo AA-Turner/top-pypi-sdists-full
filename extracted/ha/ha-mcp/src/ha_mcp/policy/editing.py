@@ -38,9 +38,9 @@ class PolicyCaller(NamedTuple):
 def _clear_remember_cache(server: Any | None) -> None:
     """Clear the approval remember-cache after a rule change.
 
-    Called only when the rules actually changed, so a missing queue is
-    worth a WARNING: the rules the operator just wrote are not what the
-    engine (wherever it runs) is still remembering.
+    Called only when the rules or ``rule_effect`` actually changed, so a
+    missing queue is worth a WARNING: the gates the operator just wrote are
+    not what the engine (wherever it runs) is still remembering.
     """
     queue = getattr(server, "approval_queue", None)
     if queue is None:
@@ -101,9 +101,8 @@ async def set_policy(
                 suggestions=[f"Call {caller.get_call} for the shape"],
             )
         )
-    # ``rules`` defaults to [] on the model and Policy ignores unknown keys,
-    # so an omitted (or misspelled) key would validate and silently delete
-    # every approval gate. Demand it explicitly instead.
+    # ``rules`` defaults to [] on the model, so an omitted key would validate
+    # and silently delete every approval gate. Demand it explicitly instead.
     if "rules" not in policy:
         raise_tool_error(
             create_error_response(
@@ -164,7 +163,41 @@ def _pre_save_warnings(
             f"This write removed {len(removed)} existing rule(s), covering: "
             f"{names}. Resend them if that was not intended."
         )
-    if not new_policy.rules:
+    if current.event_decisions_enabled and not new_policy.event_decisions_enabled:
+        # Whole-document replacement makes an omitted field indistinguishable
+        # from a deliberate false, and a document copied from an example that
+        # predates the field carries neither. Closing a channel the user opened
+        # is not something the caller should have to diff the response to spot.
+        warnings.append(
+            "This write switched off deciding approvals from Home Assistant "
+            "events (event_decisions_enabled). Omitting the field has the "
+            "same effect as sending false, so resend the document with "
+            '"event_decisions_enabled": true if that was not intended. The '
+            "stored PIN is untouched either way."
+        )
+    if new_policy.rule_effect == "allow":
+        # In an allow list an added rule is the loosening direction.
+        added = [rule for rule in new_policy.rules if rule not in current.rules]
+        if added:
+            names = ", ".join(sorted({rule.tool_name for rule in added}))
+            warnings.append(
+                f"This write added {len(added)} approving rule(s), covering: "
+                f"{names}. Calls they match now run without approval."
+            )
+    if current.rule_effect != new_policy.rule_effect:
+        warnings.append(
+            f"This write switched rule_effect from '{current.rule_effect}' to "
+            f"'{new_policy.rule_effect}': every rule now "
+            + (
+                "approves the calls it matches, and every other call requires approval."
+                if new_policy.rule_effect == "allow"
+                else "requires approval for the calls it matches, and every "
+                "other call runs without approval."
+            )
+        )
+    # An empty require-approval list gates nothing, so its enforcement state
+    # is moot; an empty allow list gates every call and still needs it.
+    if not new_policy.rules and new_policy.rule_effect == "require_approval":
         return warnings
     policies_enabled = get_global_settings().enable_tool_security_policies
     if not policies_enabled:
@@ -201,6 +234,8 @@ def _commit_policy(
     ``asyncio.to_thread`` from :func:`set_policy`).
     """
     from ..utils.data_paths import get_data_dir
+    from .decision_pin import is_pin_set
+    from .model import ALLOW_LIST_OMITTED_MESSAGE, drops_allow_list, gates_differ
     from .persistence import load_policy, save_policy
 
     data_dir = get_data_dir()
@@ -212,6 +247,33 @@ def _commit_policy(
                 ErrorCode.CONFIG_INVALID,
                 f"existing tool_policy.json is invalid: {exc}",
                 suggestions=["Inspect or delete the file, then retry"],
+            )
+        )
+    if drops_allow_list(new_policy, current):
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.VALIDATION_MISSING_PARAMETER,
+                ALLOW_LIST_OMITTED_MESSAGE,
+                suggestions=[f"Call {caller.get_call} and resend the edited document"],
+            )
+        )
+    if new_policy.event_decisions_enabled and not is_pin_set(data_dir):
+        # No MCP tool takes the PIN as a parameter, returns it, or writes
+        # the file it lives in: the component's deny floor blocks that
+        # basename on read, write and delete and keeps it out of a
+        # directory listing, whatever extra file paths an operator
+        # configures. It is the one thing in this feature
+        # meant to come from the person rather than from the agent — which
+        # is a statement about this server's surface, not a guarantee about
+        # every path to the disk an operator may open by other means.
+        # Enabling the toggle without a PIN would produce a policy the
+        # listener refuses to act on anyway.
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                "event_decisions_enabled is true but no approval PIN is "
+                "stored. The PIN can only be set by a person, on the Tool "
+                "Security Policies tab of the settings UI.",
             )
         )
     if expected is not None and expected != current.version:
@@ -230,7 +292,7 @@ def _commit_policy(
     warnings = _pre_save_warnings(new_policy, current, expected, server)
     # Rebase onto the on-disk version so save_policy bumps to current+1.
     save_policy(data_dir, new_policy.model_copy(update={"version": current.version}))
-    if rules_changed:
+    if gates_differ(current, new_policy):
         # The write has landed. Nothing after this point may turn a committed
         # save into a failure the caller would retry.
         try:

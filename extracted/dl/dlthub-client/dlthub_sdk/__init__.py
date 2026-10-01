@@ -89,8 +89,10 @@ from dlthub_sdk.domain.workspaces import (
 from dlthub_sdk.errors import (
     ApiError,
     BadRequest,
+    ClientUpdate,
     Conflict,
     ConnectionFailed,
+    DataplaneTokenRejected,
     DlthubError,
     FieldError,
     InvalidResponse,
@@ -104,6 +106,7 @@ from dlthub_sdk.errors import (
     UnboundEntity,
     WaitTimeout,
 )
+from dlthub_sdk.version import __version__ as __version__
 
 
 def connect(
@@ -209,12 +212,14 @@ __all__ = [
     "Caller",
     "CancelReport",
     "CancelledRun",
+    "ClientUpdate",
     "Configuration",
     "Configurations",
     "Conflict",
     "ConnectionFailed",
     "Credentials",
     "Dataplane",
+    "DataplaneTokenRejected",
     "Dataplanes",
     "DatasetActivity",
     "DeployManifest",

@@ -57,12 +57,14 @@ from .type_defs import (
     ListVectorBucketsOutputTypeDef,
     ListVectorsInputTypeDef,
     ListVectorsOutputTypeDef,
+    PutVectorBucketDefaultIndexModeInputTypeDef,
     PutVectorBucketPolicyInputTypeDef,
     PutVectorsInputTypeDef,
     QueryVectorsInputTypeDef,
     QueryVectorsOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateIndexModeInputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -251,6 +253,16 @@ class S3VectorsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#list_vectors)
         """
 
+    def put_vector_bucket_default_index_mode(
+        self, **kwargs: Unpack[PutVectorBucketDefaultIndexModeInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the default index mode for a vector bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/put_vector_bucket_default_index_mode.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#put_vector_bucket_default_index_mode)
+        """
+
     def put_vector_bucket_policy(
         self, **kwargs: Unpack[PutVectorBucketPolicyInputTypeDef]
     ) -> dict[str, Any]:
@@ -295,6 +307,14 @@ class S3VectorsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#untag_resource)
+        """
+
+    def update_index_mode(self, **kwargs: Unpack[UpdateIndexModeInputTypeDef]) -> dict[str, Any]:
+        """
+        Updates the mode for an existing vector index.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/update_index_mode.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#update_index_mode)
         """
 
     @overload  # type: ignore[override]

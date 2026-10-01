@@ -507,3 +507,35 @@ async def test_an_org_override_changes_the_crawl_for_that_org_only(local_network
         (org_a, "u-1", site_id),
         (org_b, "u-1", site_id),
     ]
+
+
+@pytest.mark.asyncio
+async def test_progress_counts_a_page_as_downloaded_the_moment_its_response_lands(
+    local_network,
+) -> None:
+    """2026-09-14: the header read "0 fetched" for two minutes while pages were
+    landing, because `pages_fetched` only counts a page once its capture is
+    persisted (screenshots + storage). Heartbeats must carry the responses
+    received (`pages_downloaded`) so a live count can move with the fetches."""
+
+    from matrx_scraper.events import CrawlProgressEvent
+
+    async def slow_capture(_request: object) -> None:
+        await asyncio.sleep(2.5)
+        return None
+
+    routes: dict[str, Any] = {"/": page("Home", ["/a", "/b"]), "/a": page("A", []), "/b": page("B", [])}
+    async with LocalSite(routes) as site:
+        local_network(site.origin)
+        sink = Sink()
+        crawler = crawler_for(site, sink, concurrency=1, progress_every_seconds=1.0)
+        crawler.body_persister = slow_capture
+        await asyncio.wait_for(crawler.run(), timeout=60)
+
+    mid_capture = [
+        e for e in sink.of(CrawlProgressEvent) if e.pages_downloaded > e.pages_fetched
+    ]
+    assert mid_capture, "no heartbeat reported a downloaded page still being captured"
+    assert mid_capture[0].pages_fetched == 0 and mid_capture[0].pages_downloaded >= 1
+    completed = sink.of(CrawlCompletedEvent)[-1]
+    assert completed.pages_downloaded == completed.pages_fetched == 3

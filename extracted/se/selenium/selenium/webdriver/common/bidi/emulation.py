@@ -182,6 +182,15 @@ class SetScrollbarTypeOverrideParameters:
 
 
 @dataclass
+class SetTextLayoutModeOverrideParameters:
+    """SetTextLayoutModeOverrideParameters."""
+
+    text_layout_mode: Any | None = None
+    contexts: list[Any] = field(default_factory=list)
+    user_contexts: list[Any] = field(default_factory=list)
+
+
+@dataclass
 class SetTimezoneOverrideParameters:
     """SetTimezoneOverrideParameters."""
 
@@ -313,6 +322,26 @@ class Emulation:
         }
         params = {k: v for k, v in params.items() if v is not None}
         cmd = command_builder("emulation.setScrollbarTypeOverride", params)
+        result = self._conn.execute(cmd)
+        return result
+
+    def set_text_layout_mode_override(
+        self,
+        text_layout_mode: Any | None = None,
+        contexts: list[Any] | None = None,
+        user_contexts: list[Any] | None = None,
+    ):
+        """Execute emulation.setTextLayoutModeOverride"""
+        if text_layout_mode is None:
+            raise TypeError("set_text_layout_mode_override() missing required argument: 'text_layout_mode'")
+
+        params = {
+            "textLayoutMode": text_layout_mode,
+            "contexts": contexts,
+            "userContexts": user_contexts,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
+        cmd = command_builder("emulation.setTextLayoutModeOverride", params)
         result = self._conn.execute(cmd)
         return result
 

@@ -7,4 +7,5 @@ control_plane:
   console_url: ${env:AIRMUX_CONSOLE_URL}
   public_signup: false
   secrets:
-    kind: env
+    kind: insecure_database
+    url: ${env:DATABASE_URL}

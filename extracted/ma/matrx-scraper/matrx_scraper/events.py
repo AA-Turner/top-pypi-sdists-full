@@ -307,7 +307,11 @@ class CrawlPageFailedEvent(_BaseCrawlEvent):
 class CrawlProgressEvent(_BaseCrawlEvent):
     event_type: Literal["crawl_progress"] = "crawl_progress"
     pages_discovered: int
+    #: Pages fully captured (snapshot + screenshots persisted).
     pages_fetched: int
+    #: Pages whose HTTP response has arrived — the live "fetched" count. Leads
+    #: `pages_fetched` by however long capture persistence takes.
+    pages_downloaded: int = 0
     pages_failed: int
     pages_in_flight: int
     queue_depth: int
@@ -362,6 +366,7 @@ class CrawlCompletedEvent(_BaseCrawlEvent):
     event_type: Literal["crawl_completed"] = "crawl_completed"
     pages_discovered: int = 0
     pages_fetched: int
+    pages_downloaded: int = 0
     pages_failed: int
     issues_count: int
     duration_ms: int

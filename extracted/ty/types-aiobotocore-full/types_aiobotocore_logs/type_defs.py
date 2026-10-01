@@ -1199,6 +1199,7 @@ class QueryStatisticsTypeDef(TypedDict):
     bytesScanned: NotRequired[float]
     estimatedBytesSkipped: NotRequired[float]
     logGroupsScanned: NotRequired[float]
+    resultCount: NotRequired[float]
 
 
 class ResultFieldTypeDef(TypedDict):
@@ -1993,6 +1994,7 @@ class DeliveryDestinationTypeDef(TypedDict):
     deliveryDestinationType: NotRequired[DeliveryDestinationTypeType]
     outputFormat: NotRequired[OutputFormatType]
     deliveryDestinationConfiguration: NotRequired[DeliveryDestinationConfigurationTypeDef]
+    roleArn: NotRequired[str]
     tags: NotRequired[dict[str, str]]
 
 
@@ -2001,6 +2003,7 @@ class PutDeliveryDestinationRequestTypeDef(TypedDict):
     outputFormat: NotRequired[OutputFormatType]
     deliveryDestinationConfiguration: NotRequired[DeliveryDestinationConfigurationTypeDef]
     deliveryDestinationType: NotRequired[DeliveryDestinationTypeType]
+    roleArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 

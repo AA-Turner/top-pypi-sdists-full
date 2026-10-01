@@ -964,6 +964,7 @@ class CreateRemoteAccessSessionConfigurationTypeDef(TypedDict):
     billingMethod: NotRequired[BillingMethodType]
     vpceConfigurationArns: NotRequired[Sequence[str]]
     deviceProxy: NotRequired[DeviceProxyTypeDef]
+    parameters: NotRequired[Mapping[str, str]]
 
 class CreateUploadResultTypeDef(TypedDict):
     upload: UploadTypeDef

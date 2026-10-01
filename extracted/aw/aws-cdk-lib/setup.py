@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.271.0",
+    "version": "2.272.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -155,6 +155,7 @@ kwargs = json.loads(
         "aws_cdk.aws_events",
         "aws_cdk.aws_events_targets",
         "aws_cdk.aws_eventschemas",
+        "aws_cdk.aws_eventsv2",
         "aws_cdk.aws_evidently",
         "aws_cdk.aws_evs",
         "aws_cdk.aws_finspace",
@@ -173,6 +174,7 @@ kwargs = json.loads(
         "aws_cdk.aws_greengrassv2",
         "aws_cdk.aws_groundstation",
         "aws_cdk.aws_guardduty",
+        "aws_cdk.aws_healthagent",
         "aws_cdk.aws_healthimaging",
         "aws_cdk.aws_healthlake",
         "aws_cdk.aws_iam",
@@ -241,6 +243,7 @@ kwargs = json.loads(
         "aws_cdk.aws_networkfirewall",
         "aws_cdk.aws_networkflowmonitor",
         "aws_cdk.aws_networkmanager",
+        "aws_cdk.aws_networkmonitor",
         "aws_cdk.aws_nimblestudio",
         "aws_cdk.aws_notifications",
         "aws_cdk.aws_notificationscontacts",
@@ -482,6 +485,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_entityresolution",
         "aws_cdk.interfaces.aws_events",
         "aws_cdk.interfaces.aws_eventschemas",
+        "aws_cdk.interfaces.aws_eventsv2",
         "aws_cdk.interfaces.aws_evidently",
         "aws_cdk.interfaces.aws_evs",
         "aws_cdk.interfaces.aws_finspace",
@@ -499,6 +503,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_greengrassv2",
         "aws_cdk.interfaces.aws_groundstation",
         "aws_cdk.interfaces.aws_guardduty",
+        "aws_cdk.interfaces.aws_healthagent",
         "aws_cdk.interfaces.aws_healthimaging",
         "aws_cdk.interfaces.aws_healthlake",
         "aws_cdk.interfaces.aws_iam",
@@ -563,6 +568,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_networkfirewall",
         "aws_cdk.interfaces.aws_networkflowmonitor",
         "aws_cdk.interfaces.aws_networkmanager",
+        "aws_cdk.interfaces.aws_networkmonitor",
         "aws_cdk.interfaces.aws_nimblestudio",
         "aws_cdk.interfaces.aws_notifications",
         "aws_cdk.interfaces.aws_notificationscontacts",
@@ -585,6 +591,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_pcaconnectorscep",
         "aws_cdk.interfaces.aws_pcs",
         "aws_cdk.interfaces.aws_personalize",
+        "aws_cdk.interfaces.aws_pi",
         "aws_cdk.interfaces.aws_pinpoint",
         "aws_cdk.interfaces.aws_pinpointemail",
         "aws_cdk.interfaces.aws_pipes",
@@ -681,7 +688,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.271.0.jsii.tgz"
+            "aws-cdk-lib@2.272.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

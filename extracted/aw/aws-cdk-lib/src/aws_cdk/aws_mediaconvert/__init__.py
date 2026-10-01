@@ -272,14 +272,6 @@ class CfnJobTemplate(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrName")
     def attr_name(self) -> builtins.str:
         '''The name of the job template, such as ``Streaming stack DASH`` .
@@ -1333,7 +1325,7 @@ class CfnQueue(
         :param id: Construct identifier for this resource (unique in its scope).
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
         :param description: Optional. A description of the queue that you are creating.
-        :param maximum_concurrent_feeds: 
+        :param maximum_concurrent_feeds: Specify the maximum number of Elemental Inference feeds MediaConvert can process concurrently.
         :param name: The name of the queue that you are creating.
         :param pricing_plan: When you use CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
         :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
@@ -1463,14 +1455,6 @@ class CfnQueue(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrName")
     def attr_name(self) -> builtins.str:
         '''The name of the queue, such as ``Queue 2`` .
@@ -1543,6 +1527,7 @@ class CfnQueue(
     @builtins.property
     @jsii.member(jsii_name="maximumConcurrentFeeds")
     def maximum_concurrent_feeds(self) -> typing.Optional[jsii.Number]:
+        '''Specify the maximum number of Elemental Inference feeds MediaConvert can process concurrently.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumConcurrentFeeds"))
 
     @maximum_concurrent_feeds.setter
@@ -1621,7 +1606,7 @@ class CfnQueueProps:
 
         :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
         :param description: Optional. A description of the queue that you are creating.
-        :param maximum_concurrent_feeds: 
+        :param maximum_concurrent_feeds: Specify the maximum number of Elemental Inference feeds MediaConvert can process concurrently.
         :param name: The name of the queue that you are creating.
         :param pricing_plan: When you use CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
         :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
@@ -1697,7 +1682,8 @@ class CfnQueueProps:
 
     @builtins.property
     def maximum_concurrent_feeds(self) -> typing.Optional[jsii.Number]:
-        '''
+        '''Specify the maximum number of Elemental Inference feeds MediaConvert can process concurrently.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-maximumconcurrentfeeds
         '''
         result = self._values.get("maximum_concurrent_feeds")

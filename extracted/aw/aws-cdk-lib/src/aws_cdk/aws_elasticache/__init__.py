@@ -1720,7 +1720,7 @@ class CfnCacheClusterProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IGlobalReplicationGroupRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IGlobalReplicationGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnGlobalReplicationGroup(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -1738,6 +1738,7 @@ class CfnGlobalReplicationGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_elasticache as elasticache
@@ -1765,6 +1766,10 @@ class CfnGlobalReplicationGroup(
                     node_group_id="nodeGroupId",
                     preferred_availability_zones=["preferredAvailabilityZones"]
                 )]
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
             )]
         )
     '''
@@ -1784,6 +1789,7 @@ class CfnGlobalReplicationGroup(
         global_replication_group_description: typing.Optional[builtins.str] = None,
         global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
         regional_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElastiCache::GlobalReplicationGroup``.
 
@@ -1799,6 +1805,7 @@ class CfnGlobalReplicationGroup(
         :param global_replication_group_description: The optional description of the Global datastore.
         :param global_replication_group_id_suffix: The suffix name of a Global Datastore. The suffix guarantees uniqueness of the Global Datastore name across multiple regions.
         :param regional_configurations: The Regions that comprise the Global Datastore.
+        :param tags: An array of key-value pairs to apply to this Global Datastore.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e779ebe3be)
@@ -1815,6 +1822,7 @@ class CfnGlobalReplicationGroup(
             global_replication_group_description=global_replication_group_description,
             global_replication_group_id_suffix=global_replication_group_id_suffix,
             regional_configurations=regional_configurations,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1832,6 +1840,27 @@ class CfnGlobalReplicationGroup(
             type_hints = cached_type_hints(_typecheckingstub__0106bf96c7e277c536b122f1c2c319b78235bf49c80c0f7e57a46e74e8286d90)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGlobalReplicationGroup", [resource]))
+
+    @jsii.member(jsii_name="fromGlobalReplicationGroupArn")
+    @builtins.classmethod
+    def from_global_replication_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_elasticache_452416cc.IGlobalReplicationGroupRef":
+        '''Creates a new IGlobalReplicationGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9e8bf4d5f0789012a4ad1e666890321027532b245bf569af84e1dc5cabdcdd5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_elasticache_452416cc.IGlobalReplicationGroupRef", jsii.sinvoke(cls, "fromGlobalReplicationGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromGlobalReplicationGroupId")
     @builtins.classmethod
@@ -1897,6 +1926,15 @@ class CfnGlobalReplicationGroup(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN (Amazon Resource Name) of the Global Datastore.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrGlobalReplicationGroupId")
     def attr_global_replication_group_id(self) -> builtins.str:
         '''The ID used to associate a secondary cluster to the Global Replication Group.
@@ -1915,6 +1953,12 @@ class CfnGlobalReplicationGroup(
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2084,6 +2128,22 @@ class CfnGlobalReplicationGroup(
             type_hints = cached_type_hints(_typecheckingstub__efeee031dd310c05cefd1733ccdb9d7b436fc018669200525c6f11542ae97dac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regionalConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this Global Datastore.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__372fc68d0044c667b670d5a3a81afdd09732b7e1d9711ce8d48107acc9291ecf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticache.CfnGlobalReplicationGroup.GlobalReplicationGroupMemberProperty",
@@ -2360,6 +2420,7 @@ class CfnGlobalReplicationGroup(
         "global_replication_group_description": "globalReplicationGroupDescription",
         "global_replication_group_id_suffix": "globalReplicationGroupIdSuffix",
         "regional_configurations": "regionalConfigurations",
+        "tags": "tags",
     },
 )
 class CfnGlobalReplicationGroupProps:
@@ -2376,6 +2437,7 @@ class CfnGlobalReplicationGroupProps:
         global_replication_group_description: typing.Optional[builtins.str] = None,
         global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
         regional_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalReplicationGroup.RegionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalReplicationGroup``.
 
@@ -2389,12 +2451,14 @@ class CfnGlobalReplicationGroupProps:
         :param global_replication_group_description: The optional description of the Global datastore.
         :param global_replication_group_id_suffix: The suffix name of a Global Datastore. The suffix guarantees uniqueness of the Global Datastore name across multiple regions.
         :param regional_configurations: The Regions that comprise the Global Datastore.
+        :param tags: An array of key-value pairs to apply to this Global Datastore.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-globalreplicationgroup.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_elasticache as elasticache
@@ -2422,6 +2486,10 @@ class CfnGlobalReplicationGroupProps:
                         node_group_id="nodeGroupId",
                         preferred_availability_zones=["preferredAvailabilityZones"]
                     )]
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
                 )]
             )
         '''
@@ -2437,6 +2505,7 @@ class CfnGlobalReplicationGroupProps:
             check_type(argname="argument global_replication_group_description", value=global_replication_group_description, expected_type=type_hints["global_replication_group_description"])
             check_type(argname="argument global_replication_group_id_suffix", value=global_replication_group_id_suffix, expected_type=type_hints["global_replication_group_id_suffix"])
             check_type(argname="argument regional_configurations", value=regional_configurations, expected_type=type_hints["regional_configurations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "members": members,
         }
@@ -2458,6 +2527,8 @@ class CfnGlobalReplicationGroupProps:
             self._values["global_replication_group_id_suffix"] = global_replication_group_id_suffix
         if regional_configurations is not None:
             self._values["regional_configurations"] = regional_configurations
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def members(
@@ -2563,6 +2634,15 @@ class CfnGlobalReplicationGroupProps:
         '''
         result = self._values.get("regional_configurations")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalReplicationGroup.RegionalConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this Global Datastore.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-globalreplicationgroup.html#cfn-elasticache-globalreplicationgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9377,12 +9457,21 @@ def _typecheckingstub__7b347e00f869706c90d3dc918dc3fb240c81a3a2e15ca55cb3a114e77
     global_replication_group_description: typing.Optional[builtins.str] = None,
     global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
     regional_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0106bf96c7e277c536b122f1c2c319b78235bf49c80c0f7e57a46e74e8286d90(
     resource: _aws_elasticache_452416cc.IGlobalReplicationGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9e8bf4d5f0789012a4ad1e666890321027532b245bf569af84e1dc5cabdcdd5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9473,6 +9562,12 @@ def _typecheckingstub__efeee031dd310c05cefd1733ccdb9d7b436fc018669200525c6f11542
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__372fc68d0044c667b670d5a3a81afdd09732b7e1d9711ce8d48107acc9291ecf(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d920057dfab2caaf1f89662c7570bd431d43559ca99a0846f6d46dae7369f9eb(
     *,
     replication_group_id: typing.Optional[builtins.str] = None,
@@ -9511,6 +9606,7 @@ def _typecheckingstub__265dda90953e13518f66b5357e00050b92a09e4dfb295f7b765b5b5d5
     global_replication_group_description: typing.Optional[builtins.str] = None,
     global_replication_group_id_suffix: typing.Optional[builtins.str] = None,
     regional_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalReplicationGroup.RegionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

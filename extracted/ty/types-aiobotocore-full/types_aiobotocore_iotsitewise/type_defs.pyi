@@ -90,6 +90,7 @@ from .literals import (
     ScalarTypeType,
     SearchStatusType,
     SearchTypeType,
+    StorageClassType,
     StorageTypeType,
     TargetResourceTypeType,
     TimeOrderingType,
@@ -382,6 +383,7 @@ __all__ = (
     "EnrichmentJobConfigurationTypeDef",
     "EnrichmentJobSummaryTypeDef",
     "EnrichmentTrimSettingsTypeDef",
+    "EphemeralStorageConfigurationTypeDef",
     "ErrorDetailsTypeDef",
     "ErrorReportLocationTypeDef",
     "EventDetectionTypeDef",
@@ -575,6 +577,11 @@ __all__ = (
     "MetricUnionTypeDef",
     "MetricWindowTypeDef",
     "MonitorErrorDetailsTypeDef",
+    "MountOverridesOutputTypeDef",
+    "MountOverridesTypeDef",
+    "MountOverridesUnionTypeDef",
+    "MountSourceTypeDef",
+    "MountTypeDef",
     "MultiLayerStorageTypeDef",
     "PaginatorConfigTypeDef",
     "PipelineExecutionStateDetailsTypeDef",
@@ -621,6 +628,7 @@ __all__ = (
     "RetentionPeriodTypeDef",
     "RowPaginatorTypeDef",
     "RowTypeDef",
+    "S3AccessPointSourceTypeDef",
     "SearchFiltersTypeDef",
     "SearchResultTypeDef",
     "SearchSummaryTypeDef",
@@ -978,23 +986,9 @@ class ConflictingOperationExceptionTypeDef(TypedDict):
     resourceId: str
     resourceArn: str
 
-class ContainerTaskConfigurationOutputTypeDef(TypedDict):
-    ecrUri: str
-    taskExecutionRole: str
-    processingType: ProcessingTypeType
-    processingUnit: ProcessingUnitType
-    command: NotRequired[list[str]]
-    timeoutSeconds: NotRequired[int]
-    environmentVariables: NotRequired[dict[str, str]]
-
-class ContainerTaskConfigurationTypeDef(TypedDict):
-    ecrUri: str
-    taskExecutionRole: str
-    processingType: ProcessingTypeType
-    processingUnit: ProcessingUnitType
-    command: NotRequired[Sequence[str]]
-    timeoutSeconds: NotRequired[int]
-    environmentVariables: NotRequired[Mapping[str, str]]
+class EphemeralStorageConfigurationTypeDef(TypedDict):
+    storageClass: StorageClassType
+    storageSizeInGiB: int
 
 class CreateApplicationRequestTypeDef(TypedDict):
     idcInstanceArn: str
@@ -1761,6 +1755,10 @@ class MonitorErrorDetailsTypeDef(TypedDict):
     code: NotRequired[MonitorErrorCodeType]
     message: NotRequired[str]
 
+class S3AccessPointSourceTypeDef(TypedDict):
+    accessPointArn: str
+    prefix: NotRequired[str]
+
 PortalResourceTypeDef = TypedDict(
     "PortalResourceTypeDef",
     {
@@ -2391,12 +2389,6 @@ class ConfigurationStatusTypeDef(TypedDict):
     state: ConfigurationStateType
     error: NotRequired[ConfigurationErrorDetailsTypeDef]
 
-class TaskConfigurationOutputTypeDef(TypedDict):
-    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationOutputTypeDef]
-
-class TaskConfigurationTypeDef(TypedDict):
-    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationTypeDef]
-
 class CreateWorkspaceRequestTypeDef(TypedDict):
     workspaceName: str
     encryptionConfiguration: WorkspaceEncryptionConfigurationTypeDef
@@ -2872,6 +2864,9 @@ class PortalStatusTypeDef(TypedDict):
     state: PortalStateType
     error: NotRequired[MonitorErrorDetailsTypeDef]
 
+class MountSourceTypeDef(TypedDict):
+    s3AccessPoint: NotRequired[S3AccessPointSourceTypeDef]
+
 PortalTypeEntryUnionTypeDef = Union[PortalTypeEntryTypeDef, PortalTypeEntryOutputTypeDef]
 
 class ResourceTypeDef(TypedDict):
@@ -3121,8 +3116,6 @@ class PutDefaultEncryptionConfigurationResponseTypeDef(TypedDict):
     configurationStatus: ConfigurationStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-TaskConfigurationUnionTypeDef = Union[TaskConfigurationTypeDef, TaskConfigurationOutputTypeDef]
-
 class FileOutputTypeDef(TypedDict):
     bucket: str
     key: str
@@ -3216,13 +3209,6 @@ class DatasetStatusTypeDef(TypedDict):
     state: DatasetStateType
     error: NotRequired[ErrorDetailsTypeDef]
 
-class StartPipelineExecutionRequestTypeDef(TypedDict):
-    workspaceName: str
-    pipelineName: str
-    executionEnvironmentVariableOverrides: NotRequired[ExecutionEnvironmentVariablesUnionTypeDef]
-    executionPriority: NotRequired[int]
-    clientToken: NotRequired[str]
-
 class MeasurementTypeDef(TypedDict):
     processingConfig: NotRequired[MeasurementProcessingConfigTypeDef]
 
@@ -3311,6 +3297,12 @@ PortalSummaryTypeDef = TypedDict(
 class UpdatePortalResponseTypeDef(TypedDict):
     portalStatus: PortalStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class MountTypeDef(TypedDict):
+    name: str
+    relativePath: str
+    source: MountSourceTypeDef
+    storageType: Literal["SHARED_STORAGE"]
 
 class CreatePortalRequestTypeDef(TypedDict):
     portalName: str
@@ -3401,18 +3393,6 @@ class DescribePipelineResponseTypeDef(TypedDict):
     version: str
     environmentVariables: dict[str, str]
     computations: list[ComputeNodeOutputTypeDef]
-    status: ResourceStatusTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeTaskResponseTypeDef(TypedDict):
-    workspaceName: str
-    taskName: str
-    description: str
-    taskArn: str
-    version: str
-    taskConfiguration: TaskConfigurationOutputTypeDef
     status: ResourceStatusTypeDef
     createdAt: datetime
     updatedAt: datetime
@@ -3555,17 +3535,6 @@ class UpdatePortalRequestTypeDef(TypedDict):
     portalType: NotRequired[PortalTypeType]
     portalTypeConfiguration: NotRequired[Mapping[str, PortalTypeEntryUnionTypeDef]]
 
-class ComputeNodeExecutionDetailsTypeDef(TypedDict):
-    computeNodeName: str
-    taskName: str
-    taskArn: str
-    taskVersion: str
-    dependsOn: list[str]
-    status: ComputeNodeExecutionStatusTypeDef
-    startTime: NotRequired[datetime]
-    endTime: NotRequired[datetime]
-    executionEnvironmentVariables: NotRequired[dict[str, str]]
-
 class PipelineExecutionSummaryTypeDef(TypedDict):
     pipelineExecutionId: str
     pipelineVersion: str
@@ -3573,20 +3542,6 @@ class PipelineExecutionSummaryTypeDef(TypedDict):
     executionPriority: NotRequired[int]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
-
-class CreateTaskRequestTypeDef(TypedDict):
-    workspaceName: str
-    taskName: str
-    taskConfiguration: TaskConfigurationUnionTypeDef
-    description: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
-
-class UpdateTaskRequestTypeDef(TypedDict):
-    workspaceName: str
-    taskName: str
-    description: NotRequired[str]
-    taskConfiguration: NotRequired[TaskConfigurationUnionTypeDef]
 
 class DescribeBulkImportJobResponseTypeDef(TypedDict):
     jobId: str
@@ -3863,6 +3818,46 @@ class ListPortalsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ComputeNodeExecutionDetailsTypeDef(TypedDict):
+    computeNodeName: str
+    taskName: str
+    taskArn: str
+    taskVersion: str
+    dependsOn: list[str]
+    status: ComputeNodeExecutionStatusTypeDef
+    startTime: NotRequired[datetime]
+    endTime: NotRequired[datetime]
+    executionEnvironmentVariables: NotRequired[dict[str, str]]
+    executionMounts: NotRequired[list[MountTypeDef]]
+
+class ContainerTaskConfigurationOutputTypeDef(TypedDict):
+    ecrUri: str
+    taskExecutionRole: str
+    processingType: ProcessingTypeType
+    processingUnit: ProcessingUnitType
+    ephemeralStorageConfiguration: NotRequired[EphemeralStorageConfigurationTypeDef]
+    command: NotRequired[list[str]]
+    timeoutSeconds: NotRequired[int]
+    environmentVariables: NotRequired[dict[str, str]]
+    mounts: NotRequired[list[MountTypeDef]]
+
+class ContainerTaskConfigurationTypeDef(TypedDict):
+    ecrUri: str
+    taskExecutionRole: str
+    processingType: ProcessingTypeType
+    processingUnit: ProcessingUnitType
+    ephemeralStorageConfiguration: NotRequired[EphemeralStorageConfigurationTypeDef]
+    command: NotRequired[Sequence[str]]
+    timeoutSeconds: NotRequired[int]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    mounts: NotRequired[Sequence[MountTypeDef]]
+
+class MountOverridesOutputTypeDef(TypedDict):
+    computeNodes: dict[str, list[MountTypeDef]]
+
+class MountOverridesTypeDef(TypedDict):
+    computeNodes: Mapping[str, Sequence[MountTypeDef]]
+
 class ListAccessPoliciesResponseTypeDef(TypedDict):
     accessPolicySummaries: list[AccessPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3959,20 +3954,6 @@ DescribeDatasetExportJobResponseTypeDef = TypedDict(
 )
 ProcessingInputUnionTypeDef = Union[ProcessingInputTypeDef, ProcessingInputOutputTypeDef]
 
-class DescribePipelineExecutionResponseTypeDef(TypedDict):
-    pipelineExecutionId: str
-    pipelineName: str
-    workspaceName: str
-    pipelineVersion: str
-    status: PipelineExecutionStatusTypeDef
-    startTime: datetime
-    endTime: datetime
-    requestEnvironmentVariables: ExecutionEnvironmentVariablesOutputTypeDef
-    executionPriority: int
-    computeNodeExecutionDetails: list[ComputeNodeExecutionDetailsTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListPipelineExecutionsResponseTypeDef(TypedDict):
     pipelineExecutionSummaries: list[PipelineExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4017,6 +3998,29 @@ class ListDatasetsResponseTypeDef(TypedDict):
 class CitationTypeDef(TypedDict):
     reference: NotRequired[ReferenceTypeDef]
     content: NotRequired[ContentTypeDef]
+
+class TaskConfigurationOutputTypeDef(TypedDict):
+    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationOutputTypeDef]
+
+class TaskConfigurationTypeDef(TypedDict):
+    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationTypeDef]
+
+class DescribePipelineExecutionResponseTypeDef(TypedDict):
+    pipelineExecutionId: str
+    pipelineName: str
+    workspaceName: str
+    pipelineVersion: str
+    status: PipelineExecutionStatusTypeDef
+    startTime: datetime
+    endTime: datetime
+    requestEnvironmentVariables: ExecutionEnvironmentVariablesOutputTypeDef
+    requestMountOverrides: MountOverridesOutputTypeDef
+    executionPriority: int
+    computeNodeExecutionDetails: list[ComputeNodeExecutionDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+MountOverridesUnionTypeDef = Union[MountOverridesTypeDef, MountOverridesOutputTypeDef]
 
 class BatchGetAssetPropertyValueHistoryResponseTypeDef(TypedDict):
     errorEntries: list[BatchGetAssetPropertyValueHistoryErrorEntryTypeDef]
@@ -4106,6 +4110,28 @@ class InvocationOutputTypeDef(TypedDict):
     message: NotRequired[str]
     citations: NotRequired[list[CitationTypeDef]]
 
+class DescribeTaskResponseTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    description: str
+    taskArn: str
+    version: str
+    taskConfiguration: TaskConfigurationOutputTypeDef
+    status: ResourceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+TaskConfigurationUnionTypeDef = Union[TaskConfigurationTypeDef, TaskConfigurationOutputTypeDef]
+
+class StartPipelineExecutionRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    executionEnvironmentVariableOverrides: NotRequired[ExecutionEnvironmentVariablesUnionTypeDef]
+    executionMountOverrides: NotRequired[MountOverridesUnionTypeDef]
+    executionPriority: NotRequired[int]
+    clientToken: NotRequired[str]
+
 AssetModelCompositeModelOutputTypeDef = TypedDict(
     "AssetModelCompositeModelOutputTypeDef",
     {
@@ -4171,6 +4197,20 @@ class ResponseStreamTypeDef(TypedDict):
     limitExceededException: NotRequired[LimitExceededExceptionTypeDef]
     resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
     throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+
+class CreateTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    taskConfiguration: TaskConfigurationUnionTypeDef
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+class UpdateTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    description: NotRequired[str]
+    taskConfiguration: NotRequired[TaskConfigurationUnionTypeDef]
 
 class DescribeAssetModelResponseTypeDef(TypedDict):
     assetModelId: str

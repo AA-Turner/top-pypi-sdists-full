@@ -31,6 +31,11 @@ class SshAccessResponseOut(UniversalBaseModel):
     SSH access token used for authentication
     """
 
+    token_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Id of the minted token in `list_ssh_access_tokens`; pass it to `revoke_ssh_access_token` to revoke it without the raw token.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

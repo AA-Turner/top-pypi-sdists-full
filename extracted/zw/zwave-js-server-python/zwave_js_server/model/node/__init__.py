@@ -58,6 +58,7 @@ from ..value import (
     _get_value_id_str_from_dict,
 )
 from .data_model import NodeDataType
+from .endpoint_group import EndpointGroup
 from .event_model import NODE_EVENT_MODEL_MAP
 from .firmware import (
     NodeFirmwareUpdateCapabilities,
@@ -84,7 +85,7 @@ if TYPE_CHECKING:
 # pylint: disable=too-many-lines
 _LOGGER = logging.getLogger(__package__)
 
-DEFAULT_NODE_STATISTICS = NodeStatisticsDataType(  # pylint: disable=invalid-name
+DEFAULT_NODE_STATISTICS = NodeStatisticsDataType(
     commandsTX=0,
     commandsRX=0,
     commandsDroppedTX=0,
@@ -125,6 +126,7 @@ class Node(EventBase):
         self._last_seen: datetime | None = None
         self.values: dict[str, ConfigurationValue | Value] = {}
         self.endpoints: dict[int, Endpoint] = {}
+        self._endpoint_groups: dict[int, EndpointGroup] = {}
         self.status_event = asyncio.Event()
         self.update(data)
 
@@ -424,6 +426,18 @@ class Node(EventBase):
             return Protocols(self.data["protocol"])
         return None
 
+    @property
+    def endpoint_groups(self) -> dict[int, EndpointGroup]:
+        """Return the endpoint groups defined in the device config file."""
+        return self._endpoint_groups
+
+    def get_endpoint_group(self, endpoint_index: int) -> EndpointGroup | None:
+        """Return the endpoint group containing the given endpoint."""
+        for group in self._endpoint_groups.values():
+            if endpoint_index in group.endpoint_indices:
+                return group
+        return None
+
     def _update_endpoints(self, endpoints: list[EndpointDataType]) -> None:
         """Update the endpoints data."""
         new_endpoints_data = {endpoint["index"]: endpoint for endpoint in endpoints}
@@ -497,6 +511,11 @@ class Node(EventBase):
             object.__setattr__(self._statistics, "last_seen", self.last_seen)
             self._statistics.data["lastSeen"] = self.last_seen.isoformat()
 
+        self._endpoint_groups = {
+            group["id"]: EndpointGroup(self, group)
+            for group in self.data.get("endpointGroups", [])
+        }
+
         self._update_values(self.data.pop("values"))
         self._update_endpoints(self.data.pop("endpoints"))
 
@@ -569,6 +588,37 @@ class Node(EventBase):
         await self.client.async_send_command_no_wait(message, **kwargs)
         return None
 
+    def _parse_value_id_str(self, value_id: str) -> dict[str, Any] | None:
+        """Parse a value ID string for a node into a valueId dict."""
+        parts = value_id.split("-")
+        if len(parts) < 4:
+            return None
+        try:
+            node_id = int(parts[0])
+            command_class = int(parts[1])
+            endpoint = int(parts[2])
+        except ValueError:
+            return None
+
+        if node_id != self.node_id:
+            return None
+
+        property_: int | str = int(parts[3]) if parts[3].isdigit() else parts[3]
+        data: dict[str, Any] = {
+            "commandClass": command_class,
+            "endpoint": endpoint,
+            "property": property_,
+        }
+        if len(parts) == 5:
+            data["propertyKey"] = int(parts[4]) if parts[4].isdigit() else parts[4]
+        elif len(parts) > 5:
+            property_key = "-".join(parts[4:])
+            data["propertyKey"] = (
+                int(property_key) if property_key.isdigit() else property_key
+            )
+
+        return data
+
     async def async_set_value(
         self,
         val: Value | str,
@@ -577,33 +627,44 @@ class Node(EventBase):
         wait_for_result: bool | None = None,
     ) -> SetValueResult | None:
         """Send setValue command to Node for given value (or value_id)."""
-        # a value may be specified as value_id or the value itself
-        if not isinstance(val, Value):
-            if val not in self.values:
-                raise NotFoundError(f"Value {val} not found on node {self}")
-            val = self.values[val]
+        cmd_args: dict[str, Any] = {"value": new_value}
 
-        if val.metadata.writeable is False:
-            raise UnwriteableValue
+        if isinstance(val, Value) or val in self.values:
+            value = val if isinstance(val, Value) else self.values[val]
+            if value.metadata.writeable is False:
+                raise UnwriteableValue
 
-        cmd_args = {
-            "valueId": _get_value_id_dict_from_value_data(val.data),
-            "value": new_value,
-        }
-        if options:
-            option = next(
-                (
-                    option
-                    for option in options
-                    if option not in val.metadata.value_change_options
-                ),
-                None,
-            )
-            if option is not None:
-                raise NotFoundError(
-                    f"Option {option} not found on value {val} on node {self}"
+            if options:
+                option = next(
+                    (
+                        option
+                        for option in options
+                        if option not in value.metadata.value_change_options
+                    ),
+                    None,
                 )
-            cmd_args["options"] = options
+                if option is not None:
+                    raise NotFoundError(
+                        f"Option {option} not found on value {value} on node {self}"
+                    )
+                cmd_args["options"] = options
+
+            cmd_args["valueId"] = _get_value_id_dict_from_value_data(value.data)
+        else:
+            # All actuator devices support Basic CC (0x20), but node-zwave-js intentionally
+            # hides Basic CC values from node.values when higher-level command classes
+            # (such as Binary Switch or Multilevel Switch) exist. We exempt Basic CC from
+            # the node.values presence check so targetValue can still be set directly.
+            value_id_dict = self._parse_value_id_str(val)
+            if (
+                value_id_dict is None
+                or value_id_dict["commandClass"] != CommandClass.BASIC
+            ):
+                raise NotFoundError(f"Value {val} not found on node {self}")
+
+            cmd_args["valueId"] = value_id_dict
+            if options:
+                cmd_args["options"] = options
 
         # the value object needs to be send to the server
         result = await self.async_send_command(

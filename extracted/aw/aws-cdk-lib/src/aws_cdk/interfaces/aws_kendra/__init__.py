@@ -196,6 +196,55 @@ class FaqReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_kendra.FeaturedResultsSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"featured_results_set_arn": "featuredResultsSetArn"},
+)
+class FeaturedResultsSetReference:
+    def __init__(self, *, featured_results_set_arn: builtins.str) -> None:
+        '''A reference to a FeaturedResultsSet resource.
+
+        :param featured_results_set_arn: The Arn of the FeaturedResultsSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_kendra as interfaces_kendra
+            
+            featured_results_set_reference = interfaces_kendra.FeaturedResultsSetReference(
+                featured_results_set_arn="featuredResultsSetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__844fb35ab5ca11cfbfd20a9f155c511e8ac35d01cab5565a72a15ac933f7fd8a)
+            check_type(argname="argument featured_results_set_arn", value=featured_results_set_arn, expected_type=type_hints["featured_results_set_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "featured_results_set_arn": featured_results_set_arn,
+        }
+
+    @builtins.property
+    def featured_results_set_arn(self) -> builtins.str:
+        '''The Arn of the FeaturedResultsSet resource.'''
+        result = self._values.get("featured_results_set_arn")
+        assert result is not None, "Required property 'featured_results_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FeaturedResultsSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IDataSourceRef")
 class IDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -284,6 +333,51 @@ class _IFaqRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IFaqRef).__jsii_proxy_class__ = lambda : _IFaqRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IFeaturedResultsSetRef")
+class IFeaturedResultsSetRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FeaturedResultsSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="featuredResultsSetRef")
+    def featured_results_set_ref(self) -> "FeaturedResultsSetReference":
+        '''(experimental) A reference to a FeaturedResultsSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFeaturedResultsSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FeaturedResultsSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_kendra.IFeaturedResultsSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="featuredResultsSetRef")
+    def featured_results_set_ref(self) -> "FeaturedResultsSetReference":
+        '''(experimental) A reference to a FeaturedResultsSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FeaturedResultsSetReference", jsii.get(self, "featuredResultsSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFeaturedResultsSetRef).__jsii_proxy_class__ = lambda : _IFeaturedResultsSetRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kendra.IIndexRef")
@@ -584,8 +678,10 @@ class ThesaurusReference:
 __all__ = [
     "DataSourceReference",
     "FaqReference",
+    "FeaturedResultsSetReference",
     "IDataSourceRef",
     "IFaqRef",
+    "IFeaturedResultsSetRef",
     "IIndexRef",
     "IQuerySuggestionsBlockListRef",
     "IThesaurusRef",
@@ -614,6 +710,13 @@ def _typecheckingstub__7625e62231fe84325a87668fc4fd70f592af31757a95bd7b6a6104139
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__844fb35ab5ca11cfbfd20a9f155c511e8ac35d01cab5565a72a15ac933f7fd8a(
+    *,
+    featured_results_set_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__90cd6d290fb63a85515086873543ef20c61d2faa02b3955c1c27c28708e952c4(
     *,
     index_arn: builtins.str,
@@ -636,5 +739,5 @@ def _typecheckingstub__87761e4ee89c383eafe612f2a14a47629565230e0e54cc12c5e7dea61
     """Type checking stubs"""
     pass
 
-for cls in [IDataSourceRef, IFaqRef, IIndexRef, IQuerySuggestionsBlockListRef, IThesaurusRef]:
+for cls in [IDataSourceRef, IFaqRef, IFeaturedResultsSetRef, IIndexRef, IQuerySuggestionsBlockListRef, IThesaurusRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

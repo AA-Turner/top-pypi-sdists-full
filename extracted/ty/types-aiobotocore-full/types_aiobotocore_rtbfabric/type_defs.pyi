@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     CertificateAssociationStatusType,
+    ClientRoutingPolicyType,
     ConnectivityTypeType,
     FilterTypeType,
     GatewayTypeType,
@@ -518,6 +519,7 @@ class UpdateRequesterGatewayResponseTypeDef(TypedDict):
 class UpdateResponderGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: ResponderGatewayStatusType
+    clientRoutingPolicy: ClientRoutingPolicyType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ActionTypeDef(TypedDict):
@@ -544,6 +546,7 @@ class CreateResponderGatewayResponseTypeDef(TypedDict):
     status: ResponderGatewayStatusType
     listenerConfig: ListenerConfigOutputTypeDef
     externalInboundEndpoint: str
+    clientRoutingPolicy: ClientRoutingPolicyType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FilterOutputTypeDef(TypedDict):
@@ -746,6 +749,7 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     linksRequestedCount: int
     gatewayType: GatewayTypeType
     externalInboundEndpoint: str
+    clientRoutingPolicy: ClientRoutingPolicyType
     ResponseMetadata: ResponseMetadataTypeDef
 
 ManagedEndpointConfigurationUnionTypeDef = Union[
@@ -815,6 +819,7 @@ class CreateResponderGatewayRequestTypeDef(TypedDict):
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     gatewayType: NotRequired[GatewayTypeType]
+    clientRoutingPolicy: NotRequired[ClientRoutingPolicyType]
 
 class UpdateResponderGatewayRequestTypeDef(TypedDict):
     port: int
@@ -826,6 +831,7 @@ class UpdateResponderGatewayRequestTypeDef(TypedDict):
     trustStoreConfiguration: NotRequired[TrustStoreConfigurationUnionTypeDef]
     managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationUnionTypeDef]
     description: NotRequired[str]
+    clientRoutingPolicy: NotRequired[ClientRoutingPolicyType]
 
 class ModuleConfigurationOutputTypeDef(TypedDict):
     name: str

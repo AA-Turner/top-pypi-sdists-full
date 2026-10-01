@@ -36,6 +36,9 @@ pub struct StatsigOptions {
     pub disable_country_lookup: Option<bool>,
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
     pub log_event_connection_reuse: Option<bool>,
+    /// Prefer HTTP/2 for shared HTTP requests while permitting HTTP/1.1. Enabled by default.
+    /// False restores the existing transport, including HTTPS ALPN negotiation.
+    pub prefer_http2: Option<bool>,
 
     pub enable_id_lists: Option<bool>,
     pub enable_dcs_deltas: Option<bool>,
@@ -426,6 +429,12 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn prefer_http2(mut self, prefer_http2: Option<bool>) -> Self {
+        self.inner.prefer_http2 = prefer_http2;
+        self
+    }
+
+    #[must_use]
     pub fn use_third_party_ua_parser(mut self, use_third_party_ua_parser: Option<bool>) -> Self {
         self.inner.use_third_party_ua_parser = use_third_party_ua_parser;
         self
@@ -561,6 +570,7 @@ impl Serialize for StatsigOptions {
         );
         serialize_if_not_none!(state, "global_custom_fields", &self.global_custom_fields);
         serialize_if_not_none!(state, "experimental_flags", &self.experimental_flags);
+        serialize_if_not_none!(state, "prefer_http2", &self.prefer_http2);
 
         state.end()
     }

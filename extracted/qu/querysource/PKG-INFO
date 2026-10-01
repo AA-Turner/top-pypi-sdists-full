@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: querysource
-Version: 5.1.4
+Version: 5.1.5
 Summary: Aiohttp web service for querying several databases easily
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: BSD-3-Clause
@@ -109,12 +109,24 @@ Provides-Extra: vectors
 Requires-Dist: gensim>=4.4.0; extra == "vectors"
 Provides-Extra: geo
 Requires-Dist: timezonefinder; extra == "geo"
+Provides-Extra: onedrive
+Requires-Dist: msgraph-sdk>=1.0; extra == "onedrive"
+Requires-Dist: azure-identity>=1.0; extra == "onedrive"
+Requires-Dist: httpx>=0.24; extra == "onedrive"
 Provides-Extra: sharepoint
 Requires-Dist: msgraph-sdk>=1.0; extra == "sharepoint"
 Requires-Dist: azure-identity>=1.0; extra == "sharepoint"
 Requires-Dist: httpx>=0.24; extra == "sharepoint"
 Provides-Extra: s3
-Requires-Dist: aioboto3>=12.0; extra == "s3"
+Requires-Dist: aioboto3>=15; extra == "s3"
+Requires-Dist: s3fs>=2026.9; extra == "s3"
+Provides-Extra: parquet
+Requires-Dist: pyarrow>=25; extra == "parquet"
+Requires-Dist: fsspec>=2026.7; extra == "parquet"
+Provides-Extra: gcs
+Requires-Dist: gcsfs>=2026.8; extra == "gcs"
+Provides-Extra: parquet-all
+Requires-Dist: querysource[gcs,parquet,s3]; extra == "parquet-all"
 Provides-Extra: dev
 Requires-Dist: pytest>=5.4.0; extra == "dev"
 Requires-Dist: coverage; extra == "dev"

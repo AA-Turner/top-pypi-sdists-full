@@ -122,6 +122,7 @@ __all__ = (
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
+    "NotifyOnStateType",
     "OAuth2GrantTypeType",
     "OpenLineageRunStateType",
     "OverallDeploymentStatusType",
@@ -401,6 +402,9 @@ NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
 ]
 NotificationTypeType = Literal["EVENT", "TASK"]
+NotifyOnStateType = Literal[
+    "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
+]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
 OpenLineageRunStateType = Literal["ABORT", "COMPLETE", "FAIL", "OTHER", "RUNNING", "START"]
 OverallDeploymentStatusType = Literal[

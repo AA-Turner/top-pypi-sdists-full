@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sahi
-Version: 0.12.7
+Version: 0.12.8
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: Homepage, https://github.com/obss/sahi
 Project-URL: Source, https://github.com/obss/sahi
@@ -52,6 +52,7 @@ Requires-Dist: yolov5<8.0.0,>=6.0.0; extra == 'all'
 Provides-Extra: ci
 Requires-Dist: fiftyone; extra == 'ci'
 Requires-Dist: inference>=0.51.5; (python_version >= '3.12' and python_version < '3.14') and extra == 'ci'
+Requires-Dist: libreyolo; (python_version >= '3.10') and extra == 'ci'
 Requires-Dist: onnx; (python_version >= '3.10') and extra == 'ci'
 Requires-Dist: onnxruntime; (python_version >= '3.10' and python_version < '3.14') and extra == 'ci'
 Requires-Dist: onnxruntime>=1.23.2; (python_version >= '3.14') and extra == 'ci'

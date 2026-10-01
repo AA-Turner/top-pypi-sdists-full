@@ -57,6 +57,29 @@ def test_build_verify_change_response_filters_to_ai_findings(tmp_path):
     assert finding["suggested_fix"]
 
 
+def test_build_verify_change_response_includes_only_selected_quality_rules(tmp_path):
+    app = tmp_path / "app.py"
+    app.write_text("def f():\n    return 1\n", encoding="utf-8")
+    result = {
+        "quality": [
+            {"rule_id": "SKY-C304", "file": str(app), "line": 1, "message": "Long"},
+            {"rule_id": "SKY-Q301", "file": str(app), "line": 2, "message": "Complex"},
+        ]
+    }
+
+    default = build_verify_change_response(result, project_root=tmp_path)
+    selected = build_verify_change_response(
+        result,
+        project_root=tmp_path,
+        include_quality_rule_ids=frozenset({"SKY-C304"}),
+    )
+
+    assert default["findings"] == []
+    assert [f["rule_id"] for f in selected["findings"]] == ["SKY-C304"]
+    assert selected["findings"][0]["category"] == "quality"
+    assert selected["summary"] == "1 issue found: 1 quality"
+
+
 def test_build_verify_change_response_marks_unproven_references_incomplete(tmp_path):
     result = {
         "analysis_summary": {
@@ -801,6 +824,31 @@ def test_verify_change_path_is_incomplete_for_unresolved_typescript_dependency(
     check = payload["coverage"]["checks"][0]
     assert check["outcome"] == "incomplete"
     assert check["reasons"] == [{"code": "external_or_unresolved_module", "count": 1}]
+
+
+def test_verify_change_path_passes_with_declared_typescript_dependencies(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "package.json").write_text(
+        json.dumps({"dependencies": {"commander": "^14.0.0"}}),
+        encoding="utf-8",
+    )
+    (repo / "app.ts").write_text(
+        'import { Command } from "commander";\nimport { readFile } from "node:fs";\n',
+        encoding="utf-8",
+    )
+
+    payload = verify_change_path(repo)
+
+    assert payload["status"] == "pass"
+    assert payload["findings"] == []
+    assert payload["summary"] == (
+        "No AI-code issues found; 2 external references outside local API proof"
+    )
+    check = payload["coverage"]["checks"][0]
+    assert check["outcome"] == "pass"
+    assert check["references"] == 0
+    assert check["out_of_scope_references"] == 2
 
 
 def test_verify_change_file_uses_declared_monorepo_root(tmp_path):

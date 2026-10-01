@@ -83,7 +83,7 @@ class CfnConnectAttachment(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_networkmanager as networkmanager
@@ -98,14 +98,6 @@ class CfnConnectAttachment(
         
             # the properties below are optional
             network_function_group_name="networkFunctionGroupName",
-            proposed_network_function_group_change=networkmanager.CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                attachment_policy_rule_number=123,
-                network_function_group_name="networkFunctionGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            ),
             proposed_segment_change=networkmanager.CfnConnectAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
                 segment_name="segmentName",
@@ -132,7 +124,6 @@ class CfnConnectAttachment(
         options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ConnectAttachmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         transport_attachment_id: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -146,7 +137,6 @@ class CfnConnectAttachment(
         :param options: Options for connecting an attachment.
         :param transport_attachment_id: The ID of the transport attachment.
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the Connect attachment.
@@ -161,7 +151,6 @@ class CfnConnectAttachment(
             options=options,
             transport_attachment_id=transport_attachment_id,
             network_function_group_name=network_function_group_name,
-            proposed_network_function_group_change=proposed_network_function_group_change,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
             tags=tags,
@@ -464,24 +453,6 @@ class CfnConnectAttachment(
         jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="proposedNetworkFunctionGroupChange")
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty"]], jsii.get(self, "proposedNetworkFunctionGroupChange"))
-
-    @proposed_network_function_group_change.setter
-    def proposed_network_function_group_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__dccb28b989acb4e3a5c49a170fa11260f391700e664729657f932025736d838b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedNetworkFunctionGroupChange", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
     def proposed_segment_change(
         self,
@@ -777,7 +748,6 @@ class CfnConnectAttachment(
         "options": "options",
         "transport_attachment_id": "transportAttachmentId",
         "network_function_group_name": "networkFunctionGroupName",
-        "proposed_network_function_group_change": "proposedNetworkFunctionGroupChange",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
@@ -792,7 +762,6 @@ class CfnConnectAttachmentProps:
         options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ConnectAttachmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
         transport_attachment_id: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -804,7 +773,6 @@ class CfnConnectAttachmentProps:
         :param options: Options for connecting an attachment.
         :param transport_attachment_id: The ID of the transport attachment.
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the Connect attachment.
@@ -814,7 +782,7 @@ class CfnConnectAttachmentProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_networkmanager as networkmanager
@@ -829,14 +797,6 @@ class CfnConnectAttachmentProps:
             
                 # the properties below are optional
                 network_function_group_name="networkFunctionGroupName",
-                proposed_network_function_group_change=networkmanager.CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                    attachment_policy_rule_number=123,
-                    network_function_group_name="networkFunctionGroupName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
                 proposed_segment_change=networkmanager.CfnConnectAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
                     segment_name="segmentName",
@@ -859,7 +819,6 @@ class CfnConnectAttachmentProps:
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument transport_attachment_id", value=transport_attachment_id, expected_type=type_hints["transport_attachment_id"])
             check_type(argname="argument network_function_group_name", value=network_function_group_name, expected_type=type_hints["network_function_group_name"])
-            check_type(argname="argument proposed_network_function_group_change", value=proposed_network_function_group_change, expected_type=type_hints["proposed_network_function_group_change"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -871,8 +830,6 @@ class CfnConnectAttachmentProps:
         }
         if network_function_group_name is not None:
             self._values["network_function_group_name"] = network_function_group_name
-        if proposed_network_function_group_change is not None:
-            self._values["proposed_network_function_group_change"] = proposed_network_function_group_change
         if proposed_segment_change is not None:
             self._values["proposed_segment_change"] = proposed_segment_change
         if routing_policy_label is not None:
@@ -930,17 +887,6 @@ class CfnConnectAttachmentProps:
         '''
         result = self._values.get("network_function_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connectattachment.html#cfn-networkmanager-connectattachment-proposednetworkfunctiongroupchange
-        '''
-        result = self._values.get("proposed_network_function_group_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty"]], result)
 
     @builtins.property
     def proposed_segment_change(
@@ -1820,6 +1766,454 @@ class CfnConnectPeerProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkmanager_440bf644.IConnectionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnConnection(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnConnection",
+):
+    '''Resource Type definition for AWS::NetworkManager::Connection.
+
+    Describes a connection between two devices in a global network.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html
+    :cloudformationResource: AWS::NetworkManager::Connection
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networkmanager as networkmanager
+        
+        cfn_connection = networkmanager.CfnConnection(self, "MyCfnConnection",
+            connected_device_id="connectedDeviceId",
+            device_id="deviceId",
+            global_network_id="globalNetworkId",
+        
+            # the properties below are optional
+            connected_link_id="connectedLinkId",
+            description="description",
+            link_id="linkId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        connected_device_id: builtins.str,
+        device_id: builtins.str,
+        global_network_id: builtins.str,
+        connected_link_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        link_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::NetworkManager::Connection``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param connected_device_id: The ID of the second device in the connection.
+        :param device_id: The ID of the first device in the connection.
+        :param global_network_id: The ID of the global network that the connection belongs to.
+        :param connected_link_id: The ID of the link for the second device.
+        :param description: The description of the connection.
+        :param link_id: The ID of the link for the first device.
+        :param tags: The tags for the connection.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3e03d2db8b8dfa77bf6a67324259dca7d041292b7ea1ae5efc21570dd836db2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConnectionProps(
+            connected_device_id=connected_device_id,
+            device_id=device_id,
+            global_network_id=global_network_id,
+            connected_link_id=connected_link_id,
+            description=description,
+            link_id=link_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForConnection")
+    @builtins.classmethod
+    def arn_for_connection(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IConnectionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__840a21308b85c1078d2182a6a5baf1aa8f5f2cf9a57d22c7d304ff01701a640f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnection", [resource]))
+
+    @jsii.member(jsii_name="isCfnConnection")
+    @builtins.classmethod
+    def is_cfn_connection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConnection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__965db23a33ed423e3d1f7b9d7df0f8e1069c79438d61783e7118594b47c0998a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnection", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a834857c5391417e981465b6f9c53f7e4d0dfc50a9f30c58941469bb29f534e8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__12bf654e4c962ce34e753f23aa3c63c20d759b94762bac73c1151acd0ccc87d4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectionArn")
+    def attr_connection_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the connection.
+
+        :cloudformationAttribute: ConnectionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectionId")
+    def attr_connection_id(self) -> builtins.str:
+        '''The ID of the connection.
+
+        :cloudformationAttribute: ConnectionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time that the connection was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the connection.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> "_aws_networkmanager_440bf644.ConnectionReference":
+        '''A reference to a Connection resource.'''
+        return typing.cast("_aws_networkmanager_440bf644.ConnectionReference", jsii.get(self, "connectionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectedDeviceId")
+    def connected_device_id(self) -> builtins.str:
+        '''The ID of the second device in the connection.'''
+        return typing.cast(builtins.str, jsii.get(self, "connectedDeviceId"))
+
+    @connected_device_id.setter
+    def connected_device_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b71ca018c85f43415d7bbe2196e3cfac264e57d00597d082ef9b0d19ea5da60)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectedDeviceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceId")
+    def device_id(self) -> builtins.str:
+        '''The ID of the first device in the connection.'''
+        return typing.cast(builtins.str, jsii.get(self, "deviceId"))
+
+    @device_id.setter
+    def device_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98e0a424efb703f56af672acf53a28c685664e6bfef713e44828a8452c1d8e80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deviceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalNetworkId")
+    def global_network_id(self) -> builtins.str:
+        '''The ID of the global network that the connection belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "globalNetworkId"))
+
+    @global_network_id.setter
+    def global_network_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__908c949553ae292d4ec49b5339723fd0c93b72bf29f100205e5b9166a5fa52f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectedLinkId")
+    def connected_link_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the link for the second device.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectedLinkId"))
+
+    @connected_link_id.setter
+    def connected_link_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1ae295e7362f496d9b9505cb86874da43d52ebf64f143d0e6a5d5a9967066637)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectedLinkId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__514315a6082c56180e13e0f131c0125374aa5fc9635f97e62cf75d727f00b050)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="linkId")
+    def link_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the link for the first device.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "linkId"))
+
+    @link_id.setter
+    def link_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c068936ef77e1946f6bc95d3d6b03c6db37198a708413cbb2e4bc219b3f4490a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the connection.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba61a2dfdd10c752272e5ed0e884692812d1e963bf89a0dbf271b9d120f292ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connected_device_id": "connectedDeviceId",
+        "device_id": "deviceId",
+        "global_network_id": "globalNetworkId",
+        "connected_link_id": "connectedLinkId",
+        "description": "description",
+        "link_id": "linkId",
+        "tags": "tags",
+    },
+)
+class CfnConnectionProps:
+    def __init__(
+        self,
+        *,
+        connected_device_id: builtins.str,
+        device_id: builtins.str,
+        global_network_id: builtins.str,
+        connected_link_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        link_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnection``.
+
+        :param connected_device_id: The ID of the second device in the connection.
+        :param device_id: The ID of the first device in the connection.
+        :param global_network_id: The ID of the global network that the connection belongs to.
+        :param connected_link_id: The ID of the link for the second device.
+        :param description: The description of the connection.
+        :param link_id: The ID of the link for the first device.
+        :param tags: The tags for the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networkmanager as networkmanager
+            
+            cfn_connection_props = networkmanager.CfnConnectionProps(
+                connected_device_id="connectedDeviceId",
+                device_id="deviceId",
+                global_network_id="globalNetworkId",
+            
+                # the properties below are optional
+                connected_link_id="connectedLinkId",
+                description="description",
+                link_id="linkId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c392c12b34c3f5b99604557705242f1df42d7add96cd683fc32e81ded9a534e)
+            check_type(argname="argument connected_device_id", value=connected_device_id, expected_type=type_hints["connected_device_id"])
+            check_type(argname="argument device_id", value=device_id, expected_type=type_hints["device_id"])
+            check_type(argname="argument global_network_id", value=global_network_id, expected_type=type_hints["global_network_id"])
+            check_type(argname="argument connected_link_id", value=connected_link_id, expected_type=type_hints["connected_link_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument link_id", value=link_id, expected_type=type_hints["link_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connected_device_id": connected_device_id,
+            "device_id": device_id,
+            "global_network_id": global_network_id,
+        }
+        if connected_link_id is not None:
+            self._values["connected_link_id"] = connected_link_id
+        if description is not None:
+            self._values["description"] = description
+        if link_id is not None:
+            self._values["link_id"] = link_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def connected_device_id(self) -> builtins.str:
+        '''The ID of the second device in the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-connecteddeviceid
+        '''
+        result = self._values.get("connected_device_id")
+        assert result is not None, "Required property 'connected_device_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def device_id(self) -> builtins.str:
+        '''The ID of the first device in the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-deviceid
+        '''
+        result = self._values.get("device_id")
+        assert result is not None, "Required property 'device_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def global_network_id(self) -> builtins.str:
+        '''The ID of the global network that the connection belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-globalnetworkid
+        '''
+        result = self._values.get("global_network_id")
+        assert result is not None, "Required property 'global_network_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connected_link_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the link for the second device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-connectedlinkid
+        '''
+        result = self._values.get("connected_link_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def link_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the link for the first device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-linkid
+        '''
+        result = self._values.get("link_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-connection.html#cfn-networkmanager-connection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkmanager_440bf644.ICoreNetworkRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnCoreNetwork(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1899,48 +2293,6 @@ class CfnCoreNetwork(
             type_hints = cached_type_hints(_typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCoreNetwork", [resource]))
-
-    @jsii.member(jsii_name="fromCoreNetworkArn")
-    @builtins.classmethod
-    def from_core_network_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
-        '''Creates a new ICoreNetworkRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromCoreNetworkId")
-    @builtins.classmethod
-    def from_core_network_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        core_network_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
-        '''Creates a new ICoreNetworkRef from a coreNetworkId.
-
-        :param scope: -
-        :param id: -
-        :param core_network_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
-        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkId", [scope, id, core_network_id]))
 
     @jsii.member(jsii_name="isCfnCoreNetwork")
     @builtins.classmethod
@@ -3891,7 +4243,7 @@ class CfnDirectConnectGatewayAttachment(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_networkmanager as networkmanager
@@ -3902,22 +4254,6 @@ class CfnDirectConnectGatewayAttachment(
             edge_locations=["edgeLocations"],
         
             # the properties below are optional
-            proposed_network_function_group_change=networkmanager.CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                attachment_policy_rule_number=123,
-                network_function_group_name="networkFunctionGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            ),
-            proposed_segment_change=networkmanager.CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty(
-                attachment_policy_rule_number=123,
-                segment_name="segmentName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            ),
             routing_policy_label="routingPolicyLabel",
             tags=[CfnTag(
                 key="key",
@@ -3934,8 +4270,6 @@ class CfnDirectConnectGatewayAttachment(
         core_network_id: builtins.str,
         direct_connect_gateway_arn: builtins.str,
         edge_locations: typing.Sequence[builtins.str],
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -3946,8 +4280,6 @@ class CfnDirectConnectGatewayAttachment(
         :param core_network_id: The ID of a core network for the Direct Connect Gateway attachment.
         :param direct_connect_gateway_arn: The Direct Connect gateway attachment ARN.
         :param edge_locations: The Regions where the edges are located.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
-        :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: Tags for the attachment.
         '''
@@ -3959,8 +4291,6 @@ class CfnDirectConnectGatewayAttachment(
             core_network_id=core_network_id,
             direct_connect_gateway_arn=direct_connect_gateway_arn,
             edge_locations=edge_locations,
-            proposed_network_function_group_change=proposed_network_function_group_change,
-            proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
             tags=tags,
         )
@@ -4201,42 +4531,6 @@ class CfnDirectConnectGatewayAttachment(
         jsii.set(self, "edgeLocations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="proposedNetworkFunctionGroupChange")
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty"]], jsii.get(self, "proposedNetworkFunctionGroupChange"))
-
-    @proposed_network_function_group_change.setter
-    def proposed_network_function_group_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ec85f59086760e06e9ae4dbd12ecc07bd7f9ee7b4a7823f72f703e0cd8157e33)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedNetworkFunctionGroupChange", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="proposedSegmentChange")
-    def proposed_segment_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty"]]:
-        '''Describes a proposed segment change.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty"]], jsii.get(self, "proposedSegmentChange"))
-
-    @proposed_segment_change.setter
-    def proposed_segment_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__be5e8f3ecd60a5b91f7f8e09e58a12ffa30f696d82764034038748dbeac9b413)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedSegmentChange", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
     def routing_policy_label(self) -> typing.Optional[builtins.str]:
         '''Routing policy label.'''
@@ -4461,8 +4755,6 @@ class CfnDirectConnectGatewayAttachment(
         "core_network_id": "coreNetworkId",
         "direct_connect_gateway_arn": "directConnectGatewayArn",
         "edge_locations": "edgeLocations",
-        "proposed_network_function_group_change": "proposedNetworkFunctionGroupChange",
-        "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
     },
@@ -4474,8 +4766,6 @@ class CfnDirectConnectGatewayAttachmentProps:
         core_network_id: builtins.str,
         direct_connect_gateway_arn: builtins.str,
         edge_locations: typing.Sequence[builtins.str],
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4484,8 +4774,6 @@ class CfnDirectConnectGatewayAttachmentProps:
         :param core_network_id: The ID of a core network for the Direct Connect Gateway attachment.
         :param direct_connect_gateway_arn: The Direct Connect gateway attachment ARN.
         :param edge_locations: The Regions where the edges are located.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
-        :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: Tags for the attachment.
 
@@ -4494,7 +4782,7 @@ class CfnDirectConnectGatewayAttachmentProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_networkmanager as networkmanager
@@ -4505,22 +4793,6 @@ class CfnDirectConnectGatewayAttachmentProps:
                 edge_locations=["edgeLocations"],
             
                 # the properties below are optional
-                proposed_network_function_group_change=networkmanager.CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                    attachment_policy_rule_number=123,
-                    network_function_group_name="networkFunctionGroupName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                proposed_segment_change=networkmanager.CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty(
-                    attachment_policy_rule_number=123,
-                    segment_name="segmentName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
                 routing_policy_label="routingPolicyLabel",
                 tags=[CfnTag(
                     key="key",
@@ -4533,8 +4805,6 @@ class CfnDirectConnectGatewayAttachmentProps:
             check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
             check_type(argname="argument direct_connect_gateway_arn", value=direct_connect_gateway_arn, expected_type=type_hints["direct_connect_gateway_arn"])
             check_type(argname="argument edge_locations", value=edge_locations, expected_type=type_hints["edge_locations"])
-            check_type(argname="argument proposed_network_function_group_change", value=proposed_network_function_group_change, expected_type=type_hints["proposed_network_function_group_change"])
-            check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4542,10 +4812,6 @@ class CfnDirectConnectGatewayAttachmentProps:
             "direct_connect_gateway_arn": direct_connect_gateway_arn,
             "edge_locations": edge_locations,
         }
-        if proposed_network_function_group_change is not None:
-            self._values["proposed_network_function_group_change"] = proposed_network_function_group_change
-        if proposed_segment_change is not None:
-            self._values["proposed_segment_change"] = proposed_segment_change
         if routing_policy_label is not None:
             self._values["routing_policy_label"] = routing_policy_label
         if tags is not None:
@@ -4580,30 +4846,6 @@ class CfnDirectConnectGatewayAttachmentProps:
         result = self._values.get("edge_locations")
         assert result is not None, "Required property 'edge_locations' is missing"
         return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-directconnectgatewayattachment.html#cfn-networkmanager-directconnectgatewayattachment-proposednetworkfunctiongroupchange
-        '''
-        result = self._values.get("proposed_network_function_group_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty"]], result)
-
-    @builtins.property
-    def proposed_segment_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty"]]:
-        '''Describes a proposed segment change.
-
-        In some cases, the segment change must first be evaluated and accepted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-directconnectgatewayattachment.html#cfn-networkmanager-directconnectgatewayattachment-proposedsegmentchange
-        '''
-        result = self._values.get("proposed_segment_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty"]], result)
 
     @builtins.property
     def routing_policy_label(self) -> typing.Optional[builtins.str]:
@@ -6268,7 +6510,7 @@ class CfnSiteToSiteVpnAttachment(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_networkmanager as networkmanager
@@ -6279,14 +6521,6 @@ class CfnSiteToSiteVpnAttachment(
         
             # the properties below are optional
             network_function_group_name="networkFunctionGroupName",
-            proposed_network_function_group_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                attachment_policy_rule_number=123,
-                network_function_group_name="networkFunctionGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            ),
             proposed_segment_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
                 segment_name="segmentName",
@@ -6311,7 +6545,6 @@ class CfnSiteToSiteVpnAttachment(
         core_network_id: builtins.str,
         vpn_connection_arn: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6323,7 +6556,6 @@ class CfnSiteToSiteVpnAttachment(
         :param core_network_id: The ID of a core network where you're creating a site-to-site VPN attachment.
         :param vpn_connection_arn: The ARN of the site-to-site VPN attachment.
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the Site-to-Site VPN attachment.
@@ -6336,7 +6568,6 @@ class CfnSiteToSiteVpnAttachment(
             core_network_id=core_network_id,
             vpn_connection_arn=vpn_connection_arn,
             network_function_group_name=network_function_group_name,
-            proposed_network_function_group_change=proposed_network_function_group_change,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
             tags=tags,
@@ -6582,24 +6813,6 @@ class CfnSiteToSiteVpnAttachment(
         jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="proposedNetworkFunctionGroupChange")
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty"]], jsii.get(self, "proposedNetworkFunctionGroupChange"))
-
-    @proposed_network_function_group_change.setter
-    def proposed_network_function_group_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fda1f6990ec62bde86bfdd46eb9343b25a9a804f96d66541c547ad4e5436a63c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedNetworkFunctionGroupChange", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
     def proposed_segment_change(
         self,
@@ -6842,7 +7055,6 @@ class CfnSiteToSiteVpnAttachment(
         "core_network_id": "coreNetworkId",
         "vpn_connection_arn": "vpnConnectionArn",
         "network_function_group_name": "networkFunctionGroupName",
-        "proposed_network_function_group_change": "proposedNetworkFunctionGroupChange",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
@@ -6855,7 +7067,6 @@ class CfnSiteToSiteVpnAttachmentProps:
         core_network_id: builtins.str,
         vpn_connection_arn: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6865,7 +7076,6 @@ class CfnSiteToSiteVpnAttachmentProps:
         :param core_network_id: The ID of a core network where you're creating a site-to-site VPN attachment.
         :param vpn_connection_arn: The ARN of the site-to-site VPN attachment.
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the Site-to-Site VPN attachment.
@@ -6875,7 +7085,7 @@ class CfnSiteToSiteVpnAttachmentProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_networkmanager as networkmanager
@@ -6886,14 +7096,6 @@ class CfnSiteToSiteVpnAttachmentProps:
             
                 # the properties below are optional
                 network_function_group_name="networkFunctionGroupName",
-                proposed_network_function_group_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                    attachment_policy_rule_number=123,
-                    network_function_group_name="networkFunctionGroupName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
                 proposed_segment_change=networkmanager.CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
                     segment_name="segmentName",
@@ -6914,7 +7116,6 @@ class CfnSiteToSiteVpnAttachmentProps:
             check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
             check_type(argname="argument vpn_connection_arn", value=vpn_connection_arn, expected_type=type_hints["vpn_connection_arn"])
             check_type(argname="argument network_function_group_name", value=network_function_group_name, expected_type=type_hints["network_function_group_name"])
-            check_type(argname="argument proposed_network_function_group_change", value=proposed_network_function_group_change, expected_type=type_hints["proposed_network_function_group_change"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -6924,8 +7125,6 @@ class CfnSiteToSiteVpnAttachmentProps:
         }
         if network_function_group_name is not None:
             self._values["network_function_group_name"] = network_function_group_name
-        if proposed_network_function_group_change is not None:
-            self._values["proposed_network_function_group_change"] = proposed_network_function_group_change
         if proposed_segment_change is not None:
             self._values["proposed_segment_change"] = proposed_segment_change
         if routing_policy_label is not None:
@@ -6961,17 +7160,6 @@ class CfnSiteToSiteVpnAttachmentProps:
         '''
         result = self._values.get("network_function_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-sitetositevpnattachment.html#cfn-networkmanager-sitetositevpnattachment-proposednetworkfunctiongroupchange
-        '''
-        result = self._values.get("proposed_network_function_group_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty"]], result)
 
     @builtins.property
     def proposed_segment_change(
@@ -7606,7 +7794,7 @@ class CfnTransitGatewayRouteTableAttachment(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_networkmanager as networkmanager
@@ -7617,14 +7805,6 @@ class CfnTransitGatewayRouteTableAttachment(
         
             # the properties below are optional
             network_function_group_name="networkFunctionGroupName",
-            proposed_network_function_group_change=networkmanager.CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                attachment_policy_rule_number=123,
-                network_function_group_name="networkFunctionGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            ),
             proposed_segment_change=networkmanager.CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
                 segment_name="segmentName",
@@ -7649,7 +7829,6 @@ class CfnTransitGatewayRouteTableAttachment(
         peering_id: builtins.str,
         transit_gateway_route_table_arn: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7661,7 +7840,6 @@ class CfnTransitGatewayRouteTableAttachment(
         :param peering_id: The ID of the transit gateway peering.
         :param transit_gateway_route_table_arn: The ARN of the transit gateway attachment route table. For example, ``"TransitGatewayRouteTableArn": "arn:aws:ec2:us-west-2:123456789012:transit-gateway-route-table/tgw-rtb-9876543210123456"`` .
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: This property is read-only. Values can't be assigned to it.
         :param routing_policy_label: Routing policy label.
         :param tags: The list of key-value pairs associated with the transit gateway route table attachment.
@@ -7674,7 +7852,6 @@ class CfnTransitGatewayRouteTableAttachment(
             peering_id=peering_id,
             transit_gateway_route_table_arn=transit_gateway_route_table_arn,
             network_function_group_name=network_function_group_name,
-            proposed_network_function_group_change=proposed_network_function_group_change,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
             tags=tags,
@@ -7932,24 +8109,6 @@ class CfnTransitGatewayRouteTableAttachment(
         jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="proposedNetworkFunctionGroupChange")
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty"]], jsii.get(self, "proposedNetworkFunctionGroupChange"))
-
-    @proposed_network_function_group_change.setter
-    def proposed_network_function_group_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e1942ea07c2f6a897771725cd1b40a57144f128a31474ed07c0924ecc5d40c70)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedNetworkFunctionGroupChange", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
     def proposed_segment_change(
         self,
@@ -8192,7 +8351,6 @@ class CfnTransitGatewayRouteTableAttachment(
         "peering_id": "peeringId",
         "transit_gateway_route_table_arn": "transitGatewayRouteTableArn",
         "network_function_group_name": "networkFunctionGroupName",
-        "proposed_network_function_group_change": "proposedNetworkFunctionGroupChange",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
@@ -8205,7 +8363,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
         peering_id: builtins.str,
         transit_gateway_route_table_arn: builtins.str,
         network_function_group_name: typing.Optional[builtins.str] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8215,7 +8372,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
         :param peering_id: The ID of the transit gateway peering.
         :param transit_gateway_route_table_arn: The ARN of the transit gateway attachment route table. For example, ``"TransitGatewayRouteTableArn": "arn:aws:ec2:us-west-2:123456789012:transit-gateway-route-table/tgw-rtb-9876543210123456"`` .
         :param network_function_group_name: The name of the network function group.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: This property is read-only. Values can't be assigned to it.
         :param routing_policy_label: Routing policy label.
         :param tags: The list of key-value pairs associated with the transit gateway route table attachment.
@@ -8225,7 +8381,7 @@ class CfnTransitGatewayRouteTableAttachmentProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_networkmanager as networkmanager
@@ -8236,14 +8392,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
             
                 # the properties below are optional
                 network_function_group_name="networkFunctionGroupName",
-                proposed_network_function_group_change=networkmanager.CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                    attachment_policy_rule_number=123,
-                    network_function_group_name="networkFunctionGroupName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
                 proposed_segment_change=networkmanager.CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
                     segment_name="segmentName",
@@ -8264,7 +8412,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
             check_type(argname="argument peering_id", value=peering_id, expected_type=type_hints["peering_id"])
             check_type(argname="argument transit_gateway_route_table_arn", value=transit_gateway_route_table_arn, expected_type=type_hints["transit_gateway_route_table_arn"])
             check_type(argname="argument network_function_group_name", value=network_function_group_name, expected_type=type_hints["network_function_group_name"])
-            check_type(argname="argument proposed_network_function_group_change", value=proposed_network_function_group_change, expected_type=type_hints["proposed_network_function_group_change"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -8274,8 +8421,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
         }
         if network_function_group_name is not None:
             self._values["network_function_group_name"] = network_function_group_name
-        if proposed_network_function_group_change is not None:
-            self._values["proposed_network_function_group_change"] = proposed_network_function_group_change
         if proposed_segment_change is not None:
             self._values["proposed_segment_change"] = proposed_segment_change
         if routing_policy_label is not None:
@@ -8313,17 +8458,6 @@ class CfnTransitGatewayRouteTableAttachmentProps:
         '''
         result = self._values.get("network_function_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-transitgatewayroutetableattachment.html#cfn-networkmanager-transitgatewayroutetableattachment-proposednetworkfunctiongroupchange
-        '''
-        result = self._values.get("proposed_network_function_group_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty"]], result)
 
     @builtins.property
     def proposed_segment_change(
@@ -8382,7 +8516,7 @@ class CfnVpcAttachment(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_networkmanager as networkmanager
@@ -8398,14 +8532,6 @@ class CfnVpcAttachment(
                 dns_support=False,
                 ipv6_support=False,
                 security_group_referencing_support=False
-            ),
-            proposed_network_function_group_change=networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                attachment_policy_rule_number=123,
-                network_function_group_name="networkFunctionGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
             ),
             proposed_segment_change=networkmanager.CfnVpcAttachment.ProposedSegmentChangeProperty(
                 attachment_policy_rule_number=123,
@@ -8432,7 +8558,6 @@ class CfnVpcAttachment(
         subnet_arns: typing.Sequence[builtins.str],
         vpc_arn: builtins.str,
         options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8445,7 +8570,6 @@ class CfnVpcAttachment(
         :param subnet_arns: The subnet ARNs.
         :param vpc_arn: The ARN of the VPC attachment.
         :param options: Options for creating the VPC attachment.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the VPC attachment.
@@ -8459,7 +8583,6 @@ class CfnVpcAttachment(
             subnet_arns=subnet_arns,
             vpc_arn=vpc_arn,
             options=options,
-            proposed_network_function_group_change=proposed_network_function_group_change,
             proposed_segment_change=proposed_segment_change,
             routing_policy_label=routing_policy_label,
             tags=tags,
@@ -8765,24 +8888,6 @@ class CfnVpcAttachment(
             type_hints = cached_type_hints(_typecheckingstub__4df78b42bf8dafd3f4ef447404aa6d3bb210d4de6d8c8238c7b7509fee4e6dc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "options", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="proposedNetworkFunctionGroupChange")
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty"]], jsii.get(self, "proposedNetworkFunctionGroupChange"))
-
-    @proposed_network_function_group_change.setter
-    def proposed_network_function_group_change(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9ecfa692459a1851872b78a5726026ca20a26f54a8ce67b1b36f91411f690eba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedNetworkFunctionGroupChange", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
@@ -9153,7 +9258,6 @@ class CfnVpcAttachment(
         "subnet_arns": "subnetArns",
         "vpc_arn": "vpcArn",
         "options": "options",
-        "proposed_network_function_group_change": "proposedNetworkFunctionGroupChange",
         "proposed_segment_change": "proposedSegmentChange",
         "routing_policy_label": "routingPolicyLabel",
         "tags": "tags",
@@ -9167,7 +9271,6 @@ class CfnVpcAttachmentProps:
         subnet_arns: typing.Sequence[builtins.str],
         vpc_arn: builtins.str,
         options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.VpcOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        proposed_network_function_group_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         proposed_segment_change: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVpcAttachment.ProposedSegmentChangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         routing_policy_label: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9178,7 +9281,6 @@ class CfnVpcAttachmentProps:
         :param subnet_arns: The subnet ARNs.
         :param vpc_arn: The ARN of the VPC attachment.
         :param options: Options for creating the VPC attachment.
-        :param proposed_network_function_group_change: Describes proposed changes to a network function group.
         :param proposed_segment_change: Describes a proposed segment change. In some cases, the segment change must first be evaluated and accepted.
         :param routing_policy_label: Routing policy label.
         :param tags: The tags associated with the VPC attachment.
@@ -9188,7 +9290,7 @@ class CfnVpcAttachmentProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_networkmanager as networkmanager
@@ -9204,14 +9306,6 @@ class CfnVpcAttachmentProps:
                     dns_support=False,
                     ipv6_support=False,
                     security_group_referencing_support=False
-                ),
-                proposed_network_function_group_change=networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty(
-                    attachment_policy_rule_number=123,
-                    network_function_group_name="networkFunctionGroupName",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
                 ),
                 proposed_segment_change=networkmanager.CfnVpcAttachment.ProposedSegmentChangeProperty(
                     attachment_policy_rule_number=123,
@@ -9234,7 +9328,6 @@ class CfnVpcAttachmentProps:
             check_type(argname="argument subnet_arns", value=subnet_arns, expected_type=type_hints["subnet_arns"])
             check_type(argname="argument vpc_arn", value=vpc_arn, expected_type=type_hints["vpc_arn"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
-            check_type(argname="argument proposed_network_function_group_change", value=proposed_network_function_group_change, expected_type=type_hints["proposed_network_function_group_change"])
             check_type(argname="argument proposed_segment_change", value=proposed_segment_change, expected_type=type_hints["proposed_segment_change"])
             check_type(argname="argument routing_policy_label", value=routing_policy_label, expected_type=type_hints["routing_policy_label"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -9245,8 +9338,6 @@ class CfnVpcAttachmentProps:
         }
         if options is not None:
             self._values["options"] = options
-        if proposed_network_function_group_change is not None:
-            self._values["proposed_network_function_group_change"] = proposed_network_function_group_change
         if proposed_segment_change is not None:
             self._values["proposed_segment_change"] = proposed_segment_change
         if routing_policy_label is not None:
@@ -9296,17 +9387,6 @@ class CfnVpcAttachmentProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.VpcOptionsProperty"]], result)
 
     @builtins.property
-    def proposed_network_function_group_change(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty"]]:
-        '''Describes proposed changes to a network function group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-vpcattachment.html#cfn-networkmanager-vpcattachment-proposednetworkfunctiongroupchange
-        '''
-        result = self._values.get("proposed_network_function_group_change")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty"]], result)
-
-    @builtins.property
     def proposed_segment_change(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVpcAttachment.ProposedSegmentChangeProperty"]]:
@@ -9354,6 +9434,8 @@ __all__ = [
     "CfnConnectAttachmentProps",
     "CfnConnectPeer",
     "CfnConnectPeerProps",
+    "CfnConnection",
+    "CfnConnectionProps",
     "CfnCoreNetwork",
     "CfnCoreNetworkPrefixListAssociation",
     "CfnCoreNetworkPrefixListAssociationProps",
@@ -9395,7 +9477,6 @@ def _typecheckingstub__d7415843def493b65c590878e3897c27e4c459f5d736fb5ee9738e5a1
     options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ConnectAttachmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     transport_attachment_id: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9465,12 +9546,6 @@ def _typecheckingstub__1d4be38811824cef16f7576db94e35d0ea6676c13c9d2aadb66c5f50e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dccb28b989acb4e3a5c49a170fa11260f391700e664729657f932025736d838b(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__84b1c89b7abda3eee8505aae6dbce09c5893b6a4187a20a6c43a4204cea40ffd(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectAttachment.ProposedSegmentChangeProperty]],
 ) -> None:
@@ -9521,7 +9596,6 @@ def _typecheckingstub__7b62006d4f48143066c9708819150b6dc03f2315028ddb6bd7d7d8ecb
     options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ConnectAttachmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     transport_attachment_id: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9659,6 +9733,100 @@ def _typecheckingstub__0c4bd06b5a27f2d168dc63dd01d3d754fafe1dd8ea823eede0c4909db
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a3e03d2db8b8dfa77bf6a67324259dca7d041292b7ea1ae5efc21570dd836db2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    connected_device_id: builtins.str,
+    device_id: builtins.str,
+    global_network_id: builtins.str,
+    connected_link_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    link_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__840a21308b85c1078d2182a6a5baf1aa8f5f2cf9a57d22c7d304ff01701a640f(
+    resource: _aws_networkmanager_440bf644.IConnectionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__965db23a33ed423e3d1f7b9d7df0f8e1069c79438d61783e7118594b47c0998a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a834857c5391417e981465b6f9c53f7e4d0dfc50a9f30c58941469bb29f534e8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12bf654e4c962ce34e753f23aa3c63c20d759b94762bac73c1151acd0ccc87d4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b71ca018c85f43415d7bbe2196e3cfac264e57d00597d082ef9b0d19ea5da60(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98e0a424efb703f56af672acf53a28c685664e6bfef713e44828a8452c1d8e80(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__908c949553ae292d4ec49b5339723fd0c93b72bf29f100205e5b9166a5fa52f4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ae295e7362f496d9b9505cb86874da43d52ebf64f143d0e6a5d5a9967066637(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__514315a6082c56180e13e0f131c0125374aa5fc9635f97e62cf75d727f00b050(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c068936ef77e1946f6bc95d3d6b03c6db37198a708413cbb2e4bc219b3f4490a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba61a2dfdd10c752272e5ed0e884692812d1e963bf89a0dbf271b9d120f292ce(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c392c12b34c3f5b99604557705242f1df42d7add96cd683fc32e81ded9a534e(
+    *,
+    connected_device_id: builtins.str,
+    device_id: builtins.str,
+    global_network_id: builtins.str,
+    connected_link_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    link_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ef3cb1cd4abb4fa5b383cbcb25ab3b19985891cac9ee903fdc80a4b7855c3861(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9673,22 +9841,6 @@ def _typecheckingstub__ef3cb1cd4abb4fa5b383cbcb25ab3b19985891cac9ee903fdc80a4b78
 
 def _typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00(
     resource: _aws_networkmanager_440bf644.ICoreNetworkRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    core_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10042,8 +10194,6 @@ def _typecheckingstub__6758e62c3c7516f470d4321acf14d6cd719d5ea18630fa2d9a55194ac
     core_network_id: builtins.str,
     direct_connect_gateway_arn: builtins.str,
     edge_locations: typing.Sequence[builtins.str],
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10086,18 +10236,6 @@ def _typecheckingstub__8f477d5419a55c22d192b724265bf14727227dd604c87c0d669a011b8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ec85f59086760e06e9ae4dbd12ecc07bd7f9ee7b4a7823f72f703e0cd8157e33(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be5e8f3ecd60a5b91f7f8e09e58a12ffa30f696d82764034038748dbeac9b413(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5a68ad78fac0cb928f695a5bed84643519be19ccf3f984643d5ae625b25ec8d9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -10133,8 +10271,6 @@ def _typecheckingstub__3475ff92c365cda6e0b65a4e4998df75b2d508bbcb68c8098fd64cd1a
     core_network_id: builtins.str,
     direct_connect_gateway_arn: builtins.str,
     edge_locations: typing.Sequence[builtins.str],
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectConnectGatewayAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10471,7 +10607,6 @@ def _typecheckingstub__aabf08c6f82f3c177f73a39833791562d59537dbe20329f7f5c42adbe
     core_network_id: builtins.str,
     vpn_connection_arn: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10511,12 +10646,6 @@ def _typecheckingstub__fde85f146ddbfe5918124ff34f04b28072bbe0389091946f95c9fe8cd
 
 def _typecheckingstub__d05a80c421708badd8d8e7880b7656cca7f73e2d563fc42313752e56912b35ba(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fda1f6990ec62bde86bfdd46eb9343b25a9a804f96d66541c547ad4e5436a63c(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10562,7 +10691,6 @@ def _typecheckingstub__113def3967f836e31386ebfbfb261bf671b49bfa26918b1a903a38605
     core_network_id: builtins.str,
     vpn_connection_arn: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSiteToSiteVpnAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10681,7 +10809,6 @@ def _typecheckingstub__76fd48cd4f7728733266eb51b353c86fecd583f774019081446c28ca5
     peering_id: builtins.str,
     transit_gateway_route_table_arn: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10721,12 +10848,6 @@ def _typecheckingstub__e96460515a73cddc08c4eeb7c5c0d62b3470f6ba77019112fad9b6b67
 
 def _typecheckingstub__2126f9a4fa55e495a14ebdde0f7ee58e0aecff60468e0630cb2ac77b72dbf3c2(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e1942ea07c2f6a897771725cd1b40a57144f128a31474ed07c0924ecc5d40c70(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10772,7 +10893,6 @@ def _typecheckingstub__32c28142db297494ed9a38267ab8bd9715938d6419db97dd30cc2434f
     peering_id: builtins.str,
     transit_gateway_route_table_arn: builtins.str,
     network_function_group_name: typing.Optional[builtins.str] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransitGatewayRouteTableAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10788,7 +10908,6 @@ def _typecheckingstub__962ef8273d6d2d97a33b00603b7bf87793fdecfaae4031352d9cbc1bc
     subnet_arns: typing.Sequence[builtins.str],
     vpc_arn: builtins.str,
     options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10852,12 +10971,6 @@ def _typecheckingstub__4df78b42bf8dafd3f4ef447404aa6d3bb210d4de6d8c8238c7b7509fe
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9ecfa692459a1851872b78a5726026ca20a26f54a8ce67b1b36f91411f690eba(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4e08a82721c316f3d57592bb6309e39f40fb575ea68e4532f8a4bb8f162f0e1c(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVpcAttachment.ProposedSegmentChangeProperty]],
 ) -> None:
@@ -10910,7 +11023,6 @@ def _typecheckingstub__12d5c20c6145e2cfb5336d480d3ded8850bc2ee5b31fe21ab1b44a90d
     subnet_arns: typing.Sequence[builtins.str],
     vpc_arn: builtins.str,
     options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.VpcOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    proposed_network_function_group_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

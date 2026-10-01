@@ -37,7 +37,7 @@ Three call sites share this module:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable, NamedTuple
 
 import httpx
 
@@ -61,7 +61,10 @@ __all__ = [
     "MilestoneContext",
     "fetch_milestone_context",
     "GateAFileExists",
+    "GateAResult",
+    "gate_a_probe",
     "gate_a_status",
+    "milestone_oracle_loop",
     "ManifestFetch",
     "GateAApprovalFetch",
     "gate_a_signoff",
@@ -220,22 +223,51 @@ def _default_gate_a_file_exists(repo_github: str, path: str, branch: str) -> boo
         return False
 
 
-def gate_a_status(
+class GateAResult(NamedTuple):
+    """The full tri-state result of a Gate-A existence check (#2785 review).
+
+    ``gate_a_status`` (below) collapses this into a plain ``str | None`` for
+    the callers that just want to abort on ANY truthy result — dispatch/drive
+    correctly treat "confirmed absent" and "read failed" identically, since
+    neither justifies dispatching. But a caller resolving
+    :func:`milestone_oracle_loop`'s ``gate_a_satisfied`` needs to tell the two
+    apart: a *confirmed* absence legitimately means "not oracle-loop, nothing
+    to race on yet" (``gate_a_satisfied=False`` is correct), while a
+    *transient* read failure means the answer is unknown and must not be
+    silently folded into the same "not oracle-loop" branch — that would
+    disable #2542's shared-group refusal for a milestone that may well be
+    under oracle-loop control, purely because of ordinary GitHub flakiness.
+
+    ``block_reason`` is ``None`` when Gate A is satisfied (dispatch may
+    proceed); otherwise a human-readable message, exactly as
+    :func:`gate_a_status` returns. ``transient`` is ``True`` only when
+    ``block_reason`` is set because of a failed *read* (network, auth, a
+    rate limit) rather than a confirmed 404 on every candidate path.
+    """
+
+    block_reason: str | None
+    transient: bool = False
+
+
+def gate_a_probe(
     repo_cfg: Repo,
     config: "Config",
     milestone_number: int,
     *,
     file_exists: GateAFileExists | None = None,
-) -> str | None:
+) -> GateAResult:
     """Gate A (docs/ORACLE_LOOP.md, #930): a milestone's issues may not
     dispatch until its black-box contract exists.
 
-    Returns ``None`` when dispatch may proceed — either the repo has no
-    ``acceptance.drivers`` entry configured (Gate A is an oracle-loop
-    concept; repos outside that model dispatch exactly as before #930), or
-    the contract file already exists on the repo's default branch. Returns a
-    human-readable block reason otherwise, naming the missing path and the
-    command that produces it.
+    Returns a :class:`GateAResult` whose ``block_reason`` is ``None`` when
+    dispatch may proceed — either the repo has no ``acceptance.drivers``
+    entry configured (Gate A is an oracle-loop concept; repos outside that
+    model dispatch exactly as before #930), or the contract file already
+    exists on the repo's default branch. Otherwise ``block_reason`` is a
+    human-readable message naming the missing path and the command that
+    produces it, and ``transient`` says whether that's a confirmed absence
+    or an inconclusive (failed) read — see :class:`GateAResult`'s own
+    docstring for why the distinction matters.
 
     #2896: a bare *milestone_number* doesn't say which acceptance search
     root its contract lives under (the shared repo-root tree, or an
@@ -259,7 +291,7 @@ def gate_a_status(
     remedy attached.
     """
     if not config.acceptance.has_driver(repo_cfg.name):
-        return None
+        return GateAResult(None)
 
     from coord import github_ops  # noqa: PLC0415
     from coord.acceptance import gate_a_contract_candidates  # noqa: PLC0415
@@ -270,24 +302,100 @@ def gate_a_status(
     for path in candidates:
         try:
             if check(repo_cfg.github, path, repo_cfg.default_branch):
-                return None
+                return GateAResult(None)
         except github_ops.GhTransientError as e:
             transient = transient or e
             continue
     if transient is not None:
-        return (
+        return GateAResult(
             f"Gate A undetermined: could not read {repo_cfg.name}'s Gate-A "
             f"contract on {repo_cfg.default_branch!r} ({transient}). This is "
             "a failed read, not a confirmed absence — the contract may well "
-            "exist. Retry once the rate limit clears."
+            "exist. Retry once the rate limit clears.",
+            transient=True,
         )
     named = " or ".join(repr(p) for p in candidates)
-    return (
+    return GateAResult(
         f"Gate A not satisfied: {named} does not exist yet on "
         f"{repo_cfg.default_branch!r}. Run `coord acceptance mock {repo_cfg.name} "
         "<tracking_issue>` (docs/ORACLE_LOOP.md) to render the mock + write "
         "the contract before dispatching this milestone's issues."
     )
+
+
+def gate_a_status(
+    repo_cfg: Repo,
+    config: "Config",
+    milestone_number: int,
+    *,
+    file_exists: GateAFileExists | None = None,
+) -> str | None:
+    """Thin ``str | None`` view over :func:`gate_a_probe`, for the callers
+    (``milestone_dispatch_cmd``, ``milestone_drive_cmd``,
+    ``_milestone_drain_tick``) that only need to know whether to abort —
+    they already treat a confirmed absence and a transient read failure
+    identically (abort either way, since neither justifies dispatching), so
+    dropping ``GateAResult.transient`` here is safe for them. A caller that
+    needs to tell the two apart (:func:`milestone_oracle_loop`'s
+    ``gate_a_satisfied``) should call :func:`gate_a_probe` directly instead.
+    """
+    return gate_a_probe(
+        repo_cfg, config, milestone_number, file_exists=file_exists
+    ).block_reason
+
+
+def milestone_oracle_loop(
+    repo_cfg: Repo,
+    config: "Config",
+    *,
+    gate_a_satisfied: bool,
+) -> bool:
+    """Whether a milestone is actually under oracle-loop control (#2785).
+
+    #2542 introduced a family of checks/behaviors keyed on "is this
+    milestone oracle-loop-controlled" (:func:`coord.milestone_order.
+    validate_no_shared_oracle_group`'s shared-group refusal,
+    :func:`plan_dispatch`'s one-entry-per-tick cap, :func:`plan_queue`'s
+    whole-milestone ``after=`` chaining) — but every one of those call sites
+    resolved the question from ``config.acceptance.has_driver(repo_cfg.
+    name)`` alone. That is a REPO-level fact (does this repo declare ANY
+    acceptance driver at all, for ANY milestone), not a per-milestone one.
+    A repo can have a driver configured and still run milestones that never
+    touch the oracle loop at all — this repo's own ms-60 (Store Service,
+    plain refactors, no ``tests/acceptance/ms-60/``) alongside ms-37/ms-65
+    (real oracle-loop milestones). Under the old resolution EVERY milestone
+    in a repo that has EVER declared a driver was treated as oracle-loop-
+    controlled — #1949 (ms-60's tracking epic) had its `## Work order`
+    become permanently un-editable, refusing shared groups that pose no
+    actual hazard, because there is no ``tests/acceptance/ms-60/manifest.
+    yml`` for anything to race on.
+
+    True only when the repo has a driver configured AND *this milestone's*
+    Gate-A contract already exists (``gate_a_satisfied`` — the caller's
+    already-resolved :func:`gate_a_status` existence probe: ``... is
+    None``, the same signal :func:`coord.acceptance.gate_a_contract_candidates`
+    checks for). A milestone with no contract yet has nothing to race on
+    either: nobody has authored a JIT acceptance slice into a manifest that
+    doesn't exist, so treating it as oracle-loop-active before Gate A is
+    even satisfied would repeat the same category of over-broad mistake
+    this replaces, just one gate later.
+
+    Deliberately takes the already-resolved ``gate_a_satisfied`` rather than
+    a bare ``milestone_number`` and re-probing GitHub itself: every caller
+    in this module and ``coord.serve_app`` already computes a Gate-A
+    existence probe on the same tick (``gate_a_status`` / ``probe_milestone
+    ().gate_a_blocked``) before ever reaching an ``oracle_loop=`` call site
+    — re-deriving it here would mean a second live fetch per tick for no
+    new information. A caller with no probe in hand yet (``coord milestone
+    write-order``, which has no other reason to touch Gate A) computes one
+    fresh via ``gate_a_status(repo_cfg, config, milestone_number) is None``.
+
+    Single source of truth for this question (epic #2096, "one question,
+    one answer") — every #2542 caller should resolve ``oracle_loop``
+    through this rather than re-deriving ``has_driver`` locally, so the two
+    can never drift apart again.
+    """
+    return config.acceptance.has_driver(repo_cfg.name) and gate_a_satisfied
 
 
 # (repo_github, path, branch) -> file content, or None if it doesn't exist.
@@ -704,6 +812,17 @@ def issue_oracle_ready(
     the entry (re-checked every tick) instead of landing it in terminal
     ``blocked``, which nothing re-evaluates (#2040) — this is an explicitly
     operator-fixable condition with a one-command remedy.
+
+    #2785 audit note: the ``has_driver`` check below is correctly
+    repo-level — it's a cheap early exit only, immediately followed by the
+    real per-milestone ``gate_a_status`` existence check a few lines down
+    (via ``effective_file_exists``). A repo with no driver at all can have
+    no oracle-loop milestone, so short-circuiting there costs nothing; a
+    repo WITH a driver still falls through to the per-milestone contract
+    check before this ever returns non-default readiness. Unlike #2542's
+    ``validate_no_shared_oracle_group``/``plan_dispatch``/``plan_queue``
+    family (see :func:`milestone_oracle_loop`), this function never treated
+    ``has_driver`` alone as sufficient.
     """
     if milestone_number is None or not config.acceptance.has_driver(repo_cfg.name):
         return OracleReadiness()
@@ -943,9 +1062,12 @@ def plan_dispatch(
     distinct idle machines instead of piling onto one).
 
     ``oracle_loop`` (#2542) — the caller's already-resolved
-    ``config.acceptance.has_driver(repo_cfg.name)`` — caps ``to_dispatch`` at
-    **one** entry per call. Without this, two ready-frontier entries with no
-    claim/dependency edge between them (the normal, desired fan-out above)
+    :func:`milestone_oracle_loop` for *this milestone* (#2785; NOT the
+    repo-level ``config.acceptance.has_driver(repo_cfg.name)`` alone — see
+    that function's docstring for why the distinction matters) — caps
+    ``to_dispatch`` at **one** entry per call. Without this, two
+    ready-frontier entries with no claim/dependency edge between them (the
+    normal, desired fan-out above)
     would both dispatch in the very same tick under an oracle-loop
     milestone, and each independently authors its own JIT acceptance slice
     into the SAME ``tests/acceptance/ms-N/manifest.yml``
@@ -1039,9 +1161,12 @@ def plan_queue(
     the defensive tail below only fires on inputs constructed outside it.
 
     ``oracle_loop`` (#2542) — the caller's already-resolved
-    ``config.acceptance.has_driver(repo_name)`` — additionally chains every
-    entry's ``after`` to the issue immediately before it in this function's
-    own topological order, so the drive-queue admits the WHOLE milestone
+    :func:`milestone_oracle_loop` for *this milestone* (#2785; NOT the
+    repo-level ``config.acceptance.has_driver(repo_name)`` alone — see that
+    function's docstring for why the distinction matters) — additionally
+    chains every entry's ``after`` to the issue immediately before it in
+    this function's own topological order, so the drive-queue admits the
+    WHOLE milestone
     strictly one entry at a time. Without this, two entries with no declared
     edge between them (different ``group``s, or neither declaring one) are
     both ``waiting`` the moment their own pre-reqs land, and the

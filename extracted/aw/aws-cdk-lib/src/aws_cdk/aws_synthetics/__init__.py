@@ -448,6 +448,32 @@ canary = synthetics.Canary(self, "MyCanary",
 )
 ```
 
+### Encrypting environment variables
+
+Canary environment variables are encrypted at rest using an AWS-managed key by default.
+
+To use a customer-managed KMS key instead, specify the `environmentEncryption` property. This mirrors `lambda.Function.environmentEncryption`, since a canary runs as a managed Lambda function.
+
+```python
+import aws_cdk.aws_kms as kms
+
+
+key = kms.Key(self, "myKey")
+
+canary = synthetics.Canary(self, "MyCanary",
+    schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+    test=synthetics.Test.custom(
+        code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+        handler="index.handler"
+    ),
+    runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_13_0,
+    environment_variables={
+        "stage": "prod"
+    },
+    environment_encryption=key
+)
+```
+
 ### Tag replication
 
 You can configure a canary to replicate its tags to the underlying Lambda function. This is useful when you want the same tags that are applied to the canary to also be applied to the Lambda function that the canary uses.
@@ -738,6 +764,7 @@ class BrowserType(enum.Enum):
         "canary_name": "canaryName",
         "cleanup": "cleanup",
         "dry_run_and_update": "dryRunAndUpdate",
+        "environment_encryption": "environmentEncryption",
         "environment_variables": "environmentVariables",
         "failure_retention_period": "failureRetentionPeriod",
         "max_retries": "maxRetries",
@@ -770,6 +797,7 @@ class CanaryProps:
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
+        environment_encryption: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         failure_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
@@ -799,6 +827,7 @@ class CanaryProps:
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
+        :param environment_encryption: The customer-managed KMS key used to encrypt the canary's Lambda function environment variables at rest. This mirrors ``lambda.Function.environmentEncryption``, since a canary runs as a managed Lambda function. Default: - Lambda uses an AWS managed key to encrypt the environment variables at rest.
         :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
         :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
         :param max_retries: The amount of times the canary will automatically retry a failed run. This is only supported on the following runtimes or newer: ``Runtime.SYNTHETICS_NODEJS_PUPPETEER_10_0``, ``Runtime.SYNTHETICS_NODEJS_PLAYWRIGHT_2_0``, ``Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1``. Max retries can be set between 0 and 2. Canaries which time out after 10 minutes are automatically limited to one retry. Default: 0
@@ -819,15 +848,17 @@ class CanaryProps:
 
         Example::
 
+            import aws_cdk as cdk
+            
+            
             canary = synthetics.Canary(self, "MyCanary",
                 schedule=synthetics.Schedule.rate(Duration.minutes(5)),
                 test=synthetics.Test.custom(
                     code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                     handler="index.handler"
                 ),
-                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-                ]
+                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+                memory=cdk.Size.mebibytes(1024)
             )
         '''
         if isinstance(artifacts_bucket_location, dict):
@@ -847,6 +878,7 @@ class CanaryProps:
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
             check_type(argname="argument cleanup", value=cleanup, expected_type=type_hints["cleanup"])
             check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
+            check_type(argname="argument environment_encryption", value=environment_encryption, expected_type=type_hints["environment_encryption"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
@@ -884,6 +916,8 @@ class CanaryProps:
             self._values["cleanup"] = cleanup
         if dry_run_and_update is not None:
             self._values["dry_run_and_update"] = dry_run_and_update
+        if environment_encryption is not None:
+            self._values["environment_encryption"] = environment_encryption
         if environment_variables is not None:
             self._values["environment_variables"] = environment_variables
         if failure_retention_period is not None:
@@ -1064,6 +1098,18 @@ class CanaryProps:
         '''
         result = self._values.get("dry_run_and_update")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def environment_encryption(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
+        '''The customer-managed KMS key used to encrypt the canary's Lambda function environment variables at rest.
+
+        This mirrors ``lambda.Function.environmentEncryption``, since a canary runs as
+        a managed Lambda function.
+
+        :default: - Lambda uses an AWS managed key to encrypt the environment variables at rest.
+        '''
+        result = self._values.get("environment_encryption")
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
     def environment_variables(
@@ -4189,15 +4235,17 @@ class Code(
 
     Example::
 
+        import aws_cdk as cdk
+        
+        
         canary = synthetics.Canary(self, "MyCanary",
             schedule=synthetics.Schedule.rate(Duration.minutes(5)),
             test=synthetics.Test.custom(
                 code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                 handler="index.handler"
             ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-            ]
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+            memory=cdk.Size.mebibytes(1024)
         )
     '''
 
@@ -4564,15 +4612,17 @@ class CustomTestOptions:
 
         Example::
 
+            import aws_cdk as cdk
+            
+            
             canary = synthetics.Canary(self, "MyCanary",
                 schedule=synthetics.Schedule.rate(Duration.minutes(5)),
                 test=synthetics.Test.custom(
                     code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                     handler="index.handler"
                 ),
-                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-                ]
+                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+                memory=cdk.Size.mebibytes(1024)
             )
         '''
         if __debug__:
@@ -4931,15 +4981,17 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     Example::
 
+        import aws_cdk as cdk
+        
+        
         canary = synthetics.Canary(self, "MyCanary",
             schedule=synthetics.Schedule.rate(Duration.minutes(5)),
             test=synthetics.Test.custom(
                 code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                 handler="index.handler"
             ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-            ]
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+            memory=cdk.Size.mebibytes(1024)
         )
     '''
 
@@ -5757,15 +5809,17 @@ class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test")
 
     Example::
 
+        import aws_cdk as cdk
+        
+        
         canary = synthetics.Canary(self, "MyCanary",
             schedule=synthetics.Schedule.rate(Duration.minutes(5)),
             test=synthetics.Test.custom(
                 code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                 handler="index.handler"
             ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-            ]
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+            memory=cdk.Size.mebibytes(1024)
         )
     '''
 
@@ -5940,15 +5994,17 @@ class Canary(
 
     Example::
 
+        import aws_cdk as cdk
+        
+        
         canary = synthetics.Canary(self, "MyCanary",
             schedule=synthetics.Schedule.rate(Duration.minutes(5)),
             test=synthetics.Test.custom(
                 code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
                 handler="index.handler"
             ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION
-            ]
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
+            memory=cdk.Size.mebibytes(1024)
         )
     '''
 
@@ -5968,6 +6024,7 @@ class Canary(
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
+        environment_encryption: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         failure_retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
@@ -5998,6 +6055,7 @@ class Canary(
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
+        :param environment_encryption: The customer-managed KMS key used to encrypt the canary's Lambda function environment variables at rest. This mirrors ``lambda.Function.environmentEncryption``, since a canary runs as a managed Lambda function. Default: - Lambda uses an AWS managed key to encrypt the environment variables at rest.
         :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
         :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
         :param max_retries: The amount of times the canary will automatically retry a failed run. This is only supported on the following runtimes or newer: ``Runtime.SYNTHETICS_NODEJS_PUPPETEER_10_0``, ``Runtime.SYNTHETICS_NODEJS_PLAYWRIGHT_2_0``, ``Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1``. Max retries can be set between 0 and 2. Canaries which time out after 10 minutes are automatically limited to one retry. Default: 0
@@ -6030,6 +6088,7 @@ class Canary(
             canary_name=canary_name,
             cleanup=cleanup,
             dry_run_and_update=dry_run_and_update,
+            environment_encryption=environment_encryption,
             environment_variables=environment_variables,
             failure_retention_period=failure_retention_period,
             max_retries=max_retries,
@@ -6514,6 +6573,7 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
+    environment_encryption: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     failure_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     max_retries: typing.Optional[jsii.Number] = None,
@@ -7097,6 +7157,7 @@ def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
+    environment_encryption: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     failure_retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     max_retries: typing.Optional[jsii.Number] = None,

@@ -42,11 +42,13 @@ from .paginator import (
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
+    ListSegmentSubscriptionEventsPaginator,
     ListUploadJobsPaginator,
 )
 from .type_defs import (
     AddProfileKeyRequestTypeDef,
     AddProfileKeyResponseTypeDef,
+    AssociateStreamForSegmentsRequestTypeDef,
     BatchGetCalculatedAttributeForProfileRequestTypeDef,
     BatchGetCalculatedAttributeForProfileResponseTypeDef,
     BatchGetProfileRequestTypeDef,
@@ -106,9 +108,13 @@ from .type_defs import (
     DeleteRecommenderSchemaRequestTypeDef,
     DeleteSegmentDefinitionRequestTypeDef,
     DeleteSegmentDefinitionResponseTypeDef,
+    DeleteSegmentSubscriptionRequestTypeDef,
+    DeleteSegmentSubscriptionResponseTypeDef,
     DeleteWorkflowRequestTypeDef,
     DetectProfileObjectTypeRequestTypeDef,
     DetectProfileObjectTypeResponseTypeDef,
+    DisassociateStreamForSegmentsRequestTypeDef,
+    DisassociateStreamForSegmentsResponseTypeDef,
     GetAutoMergingPreviewRequestTypeDef,
     GetAutoMergingPreviewResponseTypeDef,
     GetCalculatedAttributeDefinitionRequestTypeDef,
@@ -155,8 +161,12 @@ from .type_defs import (
     GetSegmentMembershipResponseTypeDef,
     GetSegmentSnapshotRequestTypeDef,
     GetSegmentSnapshotResponseTypeDef,
+    GetSegmentSubscriptionRequestTypeDef,
+    GetSegmentSubscriptionResponseTypeDef,
     GetSimilarProfilesRequestTypeDef,
     GetSimilarProfilesResponseTypeDef,
+    GetStreamForSegmentsRequestTypeDef,
+    GetStreamForSegmentsResponseTypeDef,
     GetUploadJobPathRequestTypeDef,
     GetUploadJobPathResponseTypeDef,
     GetUploadJobRequestTypeDef,
@@ -209,6 +219,8 @@ from .type_defs import (
     ListRuleBasedMatchesResponseTypeDef,
     ListSegmentDefinitionsRequestTypeDef,
     ListSegmentDefinitionsResponseTypeDef,
+    ListSegmentSubscriptionEventsRequestTypeDef,
+    ListSegmentSubscriptionEventsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListUploadJobsRequestTypeDef,
@@ -227,8 +239,12 @@ from .type_defs import (
     PutProfileObjectResponseTypeDef,
     PutProfileObjectTypeRequestTypeDef,
     PutProfileObjectTypeResponseTypeDef,
+    PutSegmentSubscriptionRequestTypeDef,
+    PutSegmentSubscriptionResponseTypeDef,
     SearchProfilesRequestTypeDef,
     SearchProfilesResponseTypeDef,
+    SearchRecommendationsRequestTypeDef,
+    SearchRecommendationsResponseTypeDef,
     StartRecommenderRequestTypeDef,
     StartUploadJobRequestTypeDef,
     StopRecommenderRequestTypeDef,
@@ -311,6 +327,17 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/add_profile_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#add_profile_key)
+        """
+
+    async def associate_stream_for_segments(
+        self, **kwargs: Unpack[AssociateStreamForSegmentsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an Amazon Kinesis data stream to receive segment membership events
+        for a given domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/associate_stream_for_segments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#associate_stream_for_segments)
         """
 
     async def batch_get_calculated_attribute_for_profile(
@@ -640,6 +667,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_segment_definition)
         """
 
+    async def delete_segment_subscription(
+        self, **kwargs: Unpack[DeleteSegmentSubscriptionRequestTypeDef]
+    ) -> DeleteSegmentSubscriptionResponseTypeDef:
+        """
+        Deletes a segment subscription for membership events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_segment_subscription.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_segment_subscription)
+        """
+
     async def delete_workflow(
         self, **kwargs: Unpack[DeleteWorkflowRequestTypeDef]
     ) -> dict[str, Any]:
@@ -658,6 +695,17 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/detect_profile_object_type.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#detect_profile_object_type)
+        """
+
+    async def disassociate_stream_for_segments(
+        self, **kwargs: Unpack[DisassociateStreamForSegmentsRequestTypeDef]
+    ) -> DisassociateStreamForSegmentsResponseTypeDef:
+        """
+        Disassociates the Amazon Kinesis data stream configured for segment membership
+        events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/disassociate_stream_for_segments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#disassociate_stream_for_segments)
         """
 
     async def get_auto_merging_preview(
@@ -898,6 +946,17 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_segment_snapshot)
         """
 
+    async def get_segment_subscription(
+        self, **kwargs: Unpack[GetSegmentSubscriptionRequestTypeDef]
+    ) -> GetSegmentSubscriptionResponseTypeDef:
+        """
+        Returns the current subscription configuration, execution schedule, and status
+        for segment membership events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_segment_subscription.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_segment_subscription)
+        """
+
     async def get_similar_profiles(
         self, **kwargs: Unpack[GetSimilarProfilesRequestTypeDef]
     ) -> GetSimilarProfilesResponseTypeDef:
@@ -907,6 +966,17 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_similar_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_similar_profiles)
+        """
+
+    async def get_stream_for_segments(
+        self, **kwargs: Unpack[GetStreamForSegmentsRequestTypeDef]
+    ) -> GetStreamForSegmentsResponseTypeDef:
+        """
+        Returns information about the segment membership event stream configured for a
+        specific domain, including the stream state and associated segments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_stream_for_segments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_stream_for_segments)
         """
 
     async def get_upload_job(
@@ -1184,6 +1254,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_segment_definitions)
         """
 
+    async def list_segment_subscription_events(
+        self, **kwargs: Unpack[ListSegmentSubscriptionEventsRequestTypeDef]
+    ) -> ListSegmentSubscriptionEventsResponseTypeDef:
+        """
+        Returns the most recent membership events for a segment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_segment_subscription_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_segment_subscription_events)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -1265,6 +1345,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#put_profile_object_type)
         """
 
+    async def put_segment_subscription(
+        self, **kwargs: Unpack[PutSegmentSubscriptionRequestTypeDef]
+    ) -> PutSegmentSubscriptionResponseTypeDef:
+        """
+        Creates or updates a segment subscription for membership events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/put_segment_subscription.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#put_segment_subscription)
+        """
+
     async def search_profiles(
         self, **kwargs: Unpack[SearchProfilesRequestTypeDef]
     ) -> SearchProfilesResponseTypeDef:
@@ -1275,6 +1365,16 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/search_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#search_profiles)
+        """
+
+    async def search_recommendations(
+        self, **kwargs: Unpack[SearchRecommendationsRequestTypeDef]
+    ) -> SearchRecommendationsResponseTypeDef:
+        """
+        Retrieves recommendations for a profile in a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/search_recommendations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#search_recommendations)
         """
 
     async def start_recommender(
@@ -1522,6 +1622,17 @@ class CustomerProfilesClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_segment_definitions"]
     ) -> ListSegmentDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_segment_subscription_events"]
+    ) -> ListSegmentSubscriptionEventsPaginator:
         """
         Create a paginator for an operation.
 

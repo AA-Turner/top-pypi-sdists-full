@@ -1051,6 +1051,9 @@ class DatapointsAPI(APIClient):
         include_unit: bool = True,
         include_aggregate_name: bool = True,
         include_granularity_name: bool = False,
+        include_numeric_states: bool = True,
+        include_string_states: bool = True,
+        expand_state_aggregates: bool = True,
     ) -> pd.DataFrame:
         """Get datapoints directly in a pandas dataframe.
 
@@ -1081,6 +1084,9 @@ class DatapointsAPI(APIClient):
             include_unit (bool): Include the unit_external_id in the dataframe columns, if present (separate MultiIndex level)
             include_aggregate_name (bool): Include aggregate in the dataframe columns, if present (separate MultiIndex level)
             include_granularity_name (bool): Include granularity in the dataframe columns, if present (separate MultiIndex level)
+            include_numeric_states (bool): For state time series, include the numeric states in the dataframe columns. Defaults to True.
+            include_string_states (bool): For state time series, include the string states in the dataframe columns. Defaults to True.
+            expand_state_aggregates (bool): Expand aggregates that are only available for state time series to separate DataFrame columns per unique state. This currently only includes ``state_count``/``state_transitions``/``state_duration``. Setting to False results in a list of aggregate values with one entry per distinct state present per granularity interval. Defaults to True.
 
         Returns:
             pd.DataFrame: A pandas DataFrame containing the requested time series. The ordering of columns is ids first, then external_ids, and lastly instance_ids. For time series with multiple aggregates, they will be sorted in alphabetical order ("average" before "max").
@@ -1175,6 +1181,9 @@ class DatapointsAPI(APIClient):
                 include_granularity_name=include_granularity_name,
                 include_status=include_status,
                 include_unit=include_unit,
+                include_numeric_states=include_numeric_states,
+                include_string_states=include_string_states,
+                expand_state_aggregates=expand_state_aggregates,
             )
         # Uniform index requires extra validation and processing:
         uses_tz_or_calendar_gran = any(q.use_cursors for q in fetcher.all_queries)
@@ -1192,6 +1201,9 @@ class DatapointsAPI(APIClient):
             include_granularity_name=include_granularity_name,
             include_status=include_status,
             include_unit=include_unit,
+            include_numeric_states=include_numeric_states,
+            include_string_states=include_string_states,
+            expand_state_aggregates=expand_state_aggregates,
         )
         start = to_pandas_timestamp(min(q.start_ms for q in fetcher.agg_queries))
         end = to_pandas_timestamp(max(q.end_ms for q in fetcher.agg_queries))
@@ -1407,6 +1419,11 @@ class DatapointsAPI(APIClient):
         Returns:
             LatestDatapoint | LatestDatapointList | None: A LatestDatapoint object containing the latest datapoint (if it exists), or a LatestDatapointList if multiple time series were requested. If `ignore_unknown_ids` is `True`, a single time series is requested and it is not found, the function will return `None`.
 
+        Note:
+            For state time series, the datapoint's value is given by ``numeric_state``/``string_state`` instead of
+            ``value``. Accessing ``value`` for a state time series will raise a ``ValueError`` (and oppositely for
+            regular time series). The ``is_state`` attribute can be used to easily distinguish time series types.
+
         Examples:
 
             Getting the latest datapoint in a time series:
@@ -1420,6 +1437,14 @@ class DatapointsAPI(APIClient):
                 ... )
                 >>> if res:  # Check if the datapoint exists
                 ...     print(res.timestamp, res.value)
+
+            For a state time series, read ``numeric_state``/``string_state`` instead of ``value``:
+
+                >>> res = client.time_series.data.retrieve_latest(
+                ...     instance_id=NodeId("ts-space", "state-ts")
+                ... )
+                >>> if res.has_datapoint:
+                ...     print(res.timestamp, res.numeric_state, res.string_state)
 
             The timestamp is a timezone-aware ``datetime`` object (UTZ). If you instead prefer the timestamp in
             milliseconds since the epoch, you can use the ``timestamp_ms`` property:
@@ -1441,6 +1466,17 @@ class DatapointsAPI(APIClient):
             You can also get the latest datapoint before a specific time in the future e.g. forecast data:
 
                 >>> res = client.time_series.data.retrieve_latest(external_id="foo", before="2d-ahead")
+
+            If you're querying a mix of regular and state time series, use ``is_state`` to know which field(s) to read:
+
+                >>> res = client.time_series.data.retrieve_latest(
+                ...     instance_id=[NodeId("ts-space", "state-ts"), NodeId("ts-space", "regular-ts")],
+                ... )
+                >>> for dp in res:
+                ...     if dp.is_state:
+                ...         print(dp.numeric_state)
+                ...     else:
+                ...         print(dp.value)
 
             You can also retrieve the datapoint in a different unit or unit system:
 

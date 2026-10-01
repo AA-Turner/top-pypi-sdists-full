@@ -2600,14 +2600,14 @@ class TestGeneratedExamples(object):
 
         client.accounts.reject(
             "acct_xxxxxxxxxxxxx",
-            {"reason": "fraud"},
+            {"reason": "fraud_other"},
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/accounts/acct_xxxxxxxxxxxxx/reject",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="reason=fraud",
+            post_data="reason=fraud_other",
         )
 
     def test_accounts_reject_post(
@@ -2615,13 +2615,13 @@ class TestGeneratedExamples(object):
     ) -> None:
         stripe.Account.reject(
             "acct_xxxxxxxxxxxxx",
-            reason="fraud",
+            reason="fraud_other",
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/accounts/acct_xxxxxxxxxxxxx/reject",
             query_string="",
-            post_data="reason=fraud",
+            post_data="reason=fraud_other",
         )
 
     def test_accounts_reject_post_service(
@@ -2638,14 +2638,14 @@ class TestGeneratedExamples(object):
 
         client.v1.accounts.reject(
             "acct_xxxxxxxxxxxxx",
-            {"reason": "fraud"},
+            {"reason": "fraud_other"},
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/accounts/acct_xxxxxxxxxxxxx/reject",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="reason=fraud",
+            post_data="reason=fraud_other",
         )
 
     @pytest.mark.anyio
@@ -2654,13 +2654,13 @@ class TestGeneratedExamples(object):
     ) -> None:
         await stripe.Account.reject_async(
             "acct_xxxxxxxxxxxxx",
-            reason="fraud",
+            reason="fraud_other",
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/accounts/acct_xxxxxxxxxxxxx/reject",
             query_string="",
-            post_data="reason=fraud",
+            post_data="reason=fraud_other",
         )
 
     @pytest.mark.anyio
@@ -2678,14 +2678,14 @@ class TestGeneratedExamples(object):
 
         await client.v1.accounts.reject_async(
             "acct_xxxxxxxxxxxxx",
-            {"reason": "fraud"},
+            {"reason": "fraud_other"},
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/accounts/acct_xxxxxxxxxxxxx/reject",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="reason=fraud",
+            post_data="reason=fraud_other",
         )
 
     def test_application_fees_get_service_non_namespaced(
@@ -12958,7 +12958,7 @@ class TestGeneratedExamples(object):
                     "customer": "cus_xxxxxxxxxxxxx",
                 },
                 "permissions": ["payment_method", "balances"],
-                "filters": {"countries": ["US"]},
+                "filters": {"country": "US"},
             }
         )
         http_client_mock.assert_requested(
@@ -12966,7 +12966,7 @@ class TestGeneratedExamples(object):
             path="/v1/financial_connections/sessions",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[countries][0]=US",
+            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[country]=US",
         )
 
     def test_financial_connections_sessions_post_2(
@@ -12978,13 +12978,13 @@ class TestGeneratedExamples(object):
                 "customer": "cus_xxxxxxxxxxxxx",
             },
             permissions=["payment_method", "balances"],
-            filters={"countries": ["US"]},
+            filters={"country": "US"},
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/financial_connections/sessions",
             query_string="",
-            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[countries][0]=US",
+            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[country]=US",
         )
 
     def test_financial_connections_sessions_post_2_service(
@@ -13006,7 +13006,7 @@ class TestGeneratedExamples(object):
                     "customer": "cus_xxxxxxxxxxxxx",
                 },
                 "permissions": ["payment_method", "balances"],
-                "filters": {"countries": ["US"]},
+                "filters": {"country": "US"},
             }
         )
         http_client_mock.assert_requested(
@@ -13014,7 +13014,7 @@ class TestGeneratedExamples(object):
             path="/v1/financial_connections/sessions",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[countries][0]=US",
+            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[country]=US",
         )
 
     @pytest.mark.anyio
@@ -13027,13 +13027,13 @@ class TestGeneratedExamples(object):
                 "customer": "cus_xxxxxxxxxxxxx",
             },
             permissions=["payment_method", "balances"],
-            filters={"countries": ["US"]},
+            filters={"country": "US"},
         )
         http_client_mock.assert_requested(
             "post",
             path="/v1/financial_connections/sessions",
             query_string="",
-            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[countries][0]=US",
+            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[country]=US",
         )
 
     @pytest.mark.anyio
@@ -13056,7 +13056,7 @@ class TestGeneratedExamples(object):
                     "customer": "cus_xxxxxxxxxxxxx",
                 },
                 "permissions": ["payment_method", "balances"],
-                "filters": {"countries": ["US"]},
+                "filters": {"country": "US"},
             }
         )
         http_client_mock.assert_requested(
@@ -13064,7 +13064,7 @@ class TestGeneratedExamples(object):
             path="/v1/financial_connections/sessions",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[countries][0]=US",
+            post_data="account_holder[type]=customer&account_holder[customer]=cus_xxxxxxxxxxxxx&permissions[0]=payment_method&permissions[1]=balances&filters[country]=US",
         )
 
     def test_financial_connections_transactions_get_service_non_namespaced(
@@ -43935,7 +43935,6 @@ class TestGeneratedExamples(object):
                             "fields": "eventually_due",
                             "future_requirements": "include",
                         },
-                        "configurations": ["merchant"],
                         "refresh_url": "refresh_url",
                         "return_url": "return_url",
                     },
@@ -43944,7 +43943,6 @@ class TestGeneratedExamples(object):
                             "fields": "eventually_due",
                             "future_requirements": "include",
                         },
-                        "configurations": ["merchant"],
                         "refresh_url": "refresh_url",
                         "return_url": "return_url",
                     },
@@ -43957,7 +43955,7 @@ class TestGeneratedExamples(object):
             path="/v2/core/account_links",
             query_string="",
             api_base="https://api.stripe.com",
-            post_data='{"account":"account","use_case":{"account_onboarding":{"collection_options":{"fields":"eventually_due","future_requirements":"include"},"configurations":["merchant"],"refresh_url":"refresh_url","return_url":"return_url"},"account_update":{"collection_options":{"fields":"eventually_due","future_requirements":"include"},"configurations":["merchant"],"refresh_url":"refresh_url","return_url":"return_url"},"type":"account_onboarding"}}',
+            post_data='{"account":"account","use_case":{"account_onboarding":{"collection_options":{"fields":"eventually_due","future_requirements":"include"},"refresh_url":"refresh_url","return_url":"return_url"},"account_update":{"collection_options":{"fields":"eventually_due","future_requirements":"include"},"refresh_url":"refresh_url","return_url":"return_url"},"type":"account_onboarding"}}',
             is_json=True,
         )
 

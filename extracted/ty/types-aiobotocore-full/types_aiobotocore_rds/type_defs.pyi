@@ -547,6 +547,7 @@ __all__ = (
     "TagSpecificationTypeDef",
     "TagTypeDef",
     "TargetHealthTypeDef",
+    "TargetResourceConfigurationTypeDef",
     "TenantDatabasePendingModifiedValuesTypeDef",
     "TenantDatabaseTypeDef",
     "TenantDatabasesMessageTypeDef",
@@ -738,6 +739,10 @@ class DBParameterGroupTypeDef(TypedDict):
     DBParameterGroupFamily: NotRequired[str]
     Description: NotRequired[str]
     DBParameterGroupArn: NotRequired[str]
+
+class TargetResourceConfigurationTypeDef(TypedDict):
+    SourceArn: str
+    TargetKmsKeyId: NotRequired[str]
 
 class DBClusterAssociatedRoleTypeDef(TypedDict):
     RoleArn: str
@@ -1610,20 +1615,6 @@ class CopyOptionGroupMessageTypeDef(TypedDict):
     TargetOptionGroupDescription: str
     Tags: NotRequired[Sequence[TagTypeDef]]
 
-class CreateBlueGreenDeploymentRequestTypeDef(TypedDict):
-    BlueGreenDeploymentName: str
-    Source: str
-    TargetEngineVersion: NotRequired[str]
-    TargetDBParameterGroupName: NotRequired[str]
-    TargetDBClusterParameterGroupName: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    TargetDBInstanceClass: NotRequired[str]
-    UpgradeTargetStorageConfig: NotRequired[bool]
-    TargetIops: NotRequired[int]
-    TargetStorageType: NotRequired[str]
-    TargetAllocatedStorage: NotRequired[int]
-    TargetStorageThroughput: NotRequired[int]
-
 class CreateCustomDBEngineVersionMessageTypeDef(TypedDict):
     Engine: str
     EngineVersion: str
@@ -1967,6 +1958,21 @@ class DBParameterGroupsMessageTypeDef(TypedDict):
     DBParameterGroups: list[DBParameterGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateBlueGreenDeploymentRequestTypeDef(TypedDict):
+    BlueGreenDeploymentName: str
+    Source: str
+    TargetEngineVersion: NotRequired[str]
+    TargetDBParameterGroupName: NotRequired[str]
+    TargetDBClusterParameterGroupName: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    TargetDBInstanceClass: NotRequired[str]
+    UpgradeTargetStorageConfig: NotRequired[bool]
+    TargetIops: NotRequired[int]
+    TargetStorageType: NotRequired[str]
+    TargetAllocatedStorage: NotRequired[int]
+    TargetStorageThroughput: NotRequired[int]
+    TargetResourceConfigurations: NotRequired[Sequence[TargetResourceConfigurationTypeDef]]
+
 class ModifyDBClusterMessageTypeDef(TypedDict):
     DBClusterIdentifier: str
     NewDBClusterIdentifier: NotRequired[str]
@@ -2059,6 +2065,7 @@ class DBSnapshotTypeDef(TypedDict):
     DedicatedLogVolume: NotRequired[bool]
     AdditionalStorageVolumes: NotRequired[list[AdditionalStorageVolumeTypeDef]]
     SnapshotAvailabilityZone: NotRequired[str]
+    FullSnapshotSizeInBytes: NotRequired[int]
 
 class PendingModifiedValuesTypeDef(TypedDict):
     DBInstanceClass: NotRequired[str]

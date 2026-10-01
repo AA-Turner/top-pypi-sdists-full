@@ -28,7 +28,28 @@ class Experiment(NamedTuple):
 _REGISTRY: dict[str, Experiment] = {
     # Hides the `build` command until Go (compiled-language) support launches.
     "build_command": Experiment("build_command", bool, True),
+    # Gates CLI usage telemetry (see _telemetry.py). Off by default
+    # during validation. Users can opt out via DO_NOT_TRACK / AGENTS_CLI_TELEMETRY.
+    "cli_telemetry": Experiment("cli_telemetry", bool, False),
 }
+
+
+# String spellings accepted for boolean experiments, e.g. '{"x": "false"}'.
+# bool("false") is True, so strings can't go through the plain type cast.
+_TRUE_STRINGS = frozenset({"1", "true", "yes", "on"})
+_FALSE_STRINGS = frozenset({"0", "false", "no", "off"})
+
+
+def _cast(exp: Experiment, val: Any) -> Any:
+    """Cast an override value to the experiment's type."""
+    if exp.value_type is bool and isinstance(val, str):
+        normalized = val.strip().lower()
+        if normalized in _TRUE_STRINGS:
+            return True
+        if normalized in _FALSE_STRINGS:
+            return False
+        raise ValueError(f"expected true/false, 1/0, yes/no or on/off, got {val!r}")
+    return exp.value_type(val)
 
 
 def resolve_experiment(label: str) -> Any:
@@ -45,8 +66,7 @@ def resolve_experiment(label: str) -> Any:
             overrides = json.loads(env_val)
             if label in overrides:
                 val = overrides[label]
-                # Cast to correct type if necessary
-                return exp.value_type(val)
+                return _cast(exp, val)
         except Exception as e:
             logging.warning(
                 f"Failed to apply AGENTS_CLI_EXPERIMENTS override for '{label}', "

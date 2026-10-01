@@ -17,7 +17,7 @@ pre-branch state.
 from __future__ import annotations
 
 import itertools
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
 
 from angr.ailment.expression import (
@@ -35,7 +35,7 @@ from angr.ailment.expression import (
     VirtualVariable,
     VirtualVariableCategory,
 )
-from angr.ailment.statement import Assignment, ConditionalJump, SideEffectStatement, Statement, Store
+from angr.ailment.statement import Assignment, ConditionalJump, Return, SideEffectStatement, Statement, Store
 
 # ops for which operand order is irrelevant; commutative matching tries both orders
 COMMUTATIVE_OPS = frozenset({"Add", "Mul", "And", "Or", "Xor", "CmpEQ", "CmpNE"})
@@ -93,6 +93,12 @@ class MatchCtx:
     ptr_bits: int | None = None
     # match structural nodes through interposed Convert wrappers
     skip_conversions: bool = True
+    #: also step over Convert wrappers right above a variable or constant leaf. The
+    #: exact library keeps this off: its patterns spell out the conversions they
+    #: expect. A pattern lifted from a selection has had them dropped, since the
+    #: generator mirrors the structural nodes' skipping, so it needs the leaves to
+    #: skip as well or it cannot match the statements it came from.
+    skip_conversions_at_leaves: bool = False
     # when a structural node meets a VirtualVariable, chase its unique non-phi
     # same-block definition; returns (stmt_idx, def_src_expr) or None
     chase_fn: Callable[[int], tuple[int, Expression] | None] | None = None
@@ -129,6 +135,17 @@ class MatchCtx:
     # load or a call may well have done. The answer is used to identify an
     # idiom, never to move or re-evaluate anything.
     def_fn: Callable[[int], Expression | None] | None = None
+    # the address a symbol has in the binary being matched, or None if it has none.
+    # A pattern that names a symbol is portable across binaries only through this.
+    symbol_addr_fn: Callable[[str], int | None] | None = None
+
+
+def _unwrap_leaf(expr: Expression, state: MatchState, ctx: MatchCtx) -> tuple[Expression, MatchState]:
+    """Step over Convert wrappers above a leaf when the context asks for it."""
+    while ctx.skip_conversions_at_leaves and isinstance(expr, Convert):
+        state = replace(state, skipped_converts=(*state.skipped_converts, expr))
+        expr = expr.operand
+    return expr, state
 
 
 class PatternNode:
@@ -145,13 +162,32 @@ class PatternExpr(PatternNode):
     def match(self, expr: Expression, state: MatchState, ctx: MatchCtx) -> MatchState | None:
         raise NotImplementedError
 
-    def _prepare(self, expr: Expression, state: MatchState, ctx: MatchCtx) -> tuple[Expression, MatchState] | None:
+    @staticmethod
+    def _prepare(expr: Expression, state: MatchState, ctx: MatchCtx) -> tuple[Expression, MatchState] | None:
         """Common preamble for structural nodes: skip Convert wrappers and chase
-        vvar definitions when enabled."""
-        while ctx.skip_conversions and isinstance(expr, Convert):
-            state = replace(state, skipped_converts=(*state.skipped_converts, expr))
-            expr = expr.operand
-        if isinstance(expr, VirtualVariable) and (ctx.chase_fn is not None or ctx.remote_chase_fn is not None):
+        vvar definitions when enabled.
+
+        The chase is a loop, and it remembers which virtual variables it has
+        already resolved. Two definitions can resolve into each other: a byte
+        kept in a stack slot and reloaded through a loop-header phi gives
+        ``v = Conv(64->8, w)`` and ``w = Conv(8->64, v)``, and both answers are
+        correct. Each one on its own also terminates -- ``_resolve_remote_def``
+        bounds its own depth and never hands back a bare vvar -- but that is not
+        enough here, because this method strips the Convert and asks again, so
+        composing the two walks in a circle. A variable that comes back has
+        nothing further to reach, and the node declines, which is what it
+        already does when a definition cannot be chased at all.
+        """
+        chased_varids: set[int] = set()
+        while True:
+            while ctx.skip_conversions and isinstance(expr, Convert):
+                state = replace(state, skipped_converts=(*state.skipped_converts, expr))
+                expr = expr.operand
+            if not isinstance(expr, VirtualVariable) or (ctx.chase_fn is None and ctx.remote_chase_fn is None):
+                return expr, state
+            if expr.varid in chased_varids:
+                return None
+            chased_varids.add(expr.varid)
             chased = ctx.chase_fn(expr.varid) if ctx.chase_fn is not None else None
             if chased is not None:
                 stmt_idx, def_expr = chased
@@ -160,15 +196,16 @@ class PatternExpr(PatternNode):
                     consumed_stmt_idxs=state.consumed_stmt_idxs | {stmt_idx},
                     chased_defs=(*state.chased_defs, (expr.varid, stmt_idx)),
                 )
-                return self._prepare(def_expr, state, ctx)
+                expr = def_expr
+                continue
             if ctx.remote_chase_fn is not None:
                 remote = ctx.remote_chase_fn(expr.varid)
                 if remote is not None and remote.bits == expr.bits:
                     if all(varid != expr.varid for varid, _ in state.remote_defs):
                         state = replace(state, remote_defs=(*state.remote_defs, (expr.varid, remote)))
-                    return self._prepare(remote, state, ctx)
+                    expr = remote
+                    continue
             return None
-        return expr, state
 
     @staticmethod
     def _bind_if_named(name: str | None, expr: Expression, state: MatchState) -> MatchState | None:
@@ -185,6 +222,7 @@ class PAny(PatternExpr):
     bits: int | None = None
 
     def match(self, expr: Expression, state: MatchState, ctx: MatchCtx) -> MatchState | None:
+        expr, state = _unwrap_leaf(expr, state, ctx)
         if self.bits is not None and getattr(expr, "bits", None) != self.bits:
             return None
         return self._bind_if_named(self.name, expr, state)
@@ -199,6 +237,7 @@ class PVVar(PatternExpr):
     categories: frozenset[VirtualVariableCategory] | None = None
 
     def match(self, expr: Expression, state: MatchState, ctx: MatchCtx) -> MatchState | None:
+        expr, state = _unwrap_leaf(expr, state, ctx)
         if not isinstance(expr, VirtualVariable):
             return None
         if self.bits is not None and expr.bits != self.bits:
@@ -217,11 +256,29 @@ class PConst(PatternExpr):
     pred: Callable[[int], bool] | None = None
     bits: int | None = None
     name: str | None = None
+    #: an enumerable set of acceptable values. Prefer this over ``pred`` when the
+    #: set is known: the finder indexes patterns by the constants they accept, so
+    #: a pattern is only tried where one of its constants occurs.
+    values: frozenset[int] | None = None
+    #: the address of this symbol in the binary being matched, resolved through
+    #: ``MatchCtx.symbol_addr_fn``; the portable spelling of a global's address
+    symbol: str | None = None
+
+    def __post_init__(self):
+        if self.values is not None and not isinstance(self.values, frozenset):
+            object.__setattr__(self, "values", frozenset(self.values))
 
     def match(self, expr: Expression, state: MatchState, ctx: MatchCtx) -> MatchState | None:
+        expr, state = _unwrap_leaf(expr, state, ctx)
         if not isinstance(expr, Const) or not isinstance(expr.value, int):
             return None
         if self.value is not None and expr.value != self.value:
+            return None
+        if self.symbol is not None:
+            addr = ctx.symbol_addr_fn(self.symbol) if ctx.symbol_addr_fn is not None else None
+            if addr is None or expr.value != addr:
+                return None
+        if self.values is not None and expr.value not in self.values:
             return None
         if self.pred is not None and not self.pred(expr.value):
             return None
@@ -801,6 +858,10 @@ class PAssign(PatternStmt):
 
     dst: PatternExpr
     src: PatternExpr
+    #: fuzzy matching only: the statement may be absent from an occurrence
+    optional: bool = field(default=False, kw_only=True)
+    #: fuzzy matching only: relative contribution to an occurrence's score
+    weight: float = field(default=1.0, kw_only=True)
 
     def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
         if not isinstance(stmt, Assignment):
@@ -818,6 +879,10 @@ class PStore(PatternStmt):
     addr: PatternExpr
     value: PatternExpr
     size: int | None = None
+    #: fuzzy matching only: the statement may be absent from an occurrence
+    optional: bool = field(default=False, kw_only=True)
+    #: fuzzy matching only: relative contribution to an occurrence's score
+    weight: float = field(default=1.0, kw_only=True)
 
     def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
         if not isinstance(stmt, Store):
@@ -843,6 +908,10 @@ class PCallStmt(PatternStmt):
 
     call: PCall
     dst: PatternExpr | None = None
+    #: fuzzy matching only: the statement may be absent from an occurrence
+    optional: bool = field(default=False, kw_only=True)
+    #: fuzzy matching only: relative contribution to an occurrence's score
+    weight: float = field(default=1.0, kw_only=True)
 
     def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
         if isinstance(stmt, SideEffectStatement):
@@ -860,11 +929,57 @@ class PCondJump(PatternStmt):
     """Matches a ConditionalJump, matching its condition expression."""
 
     condition: PatternExpr
+    #: fuzzy matching only: the statement may be absent from an occurrence
+    optional: bool = field(default=False, kw_only=True)
+    #: fuzzy matching only: relative contribution to an occurrence's score
+    weight: float = field(default=1.0, kw_only=True)
 
     def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
         if not isinstance(stmt, ConditionalJump):
             return None
         return self.condition.match(stmt.condition, state, ctx)
+
+
+@dataclass(frozen=True)
+class PAnyStmt(PatternStmt):
+    """Matches any single statement. The statement-level counterpart of
+    :class:`PAny`: a placeholder for "something happens here" whose exact form
+    the pattern does not care about."""
+
+    optional: bool = field(default=False, kw_only=True)
+    weight: float = field(default=1.0, kw_only=True)
+
+    def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
+        return state
+
+
+@dataclass(frozen=True)
+class PReturn(PatternStmt):
+    """Matches a Return. ``values`` constrains the returned expressions, one pattern
+    each; None matches a return of any arity."""
+
+    values: tuple[PatternExpr, ...] | None = None
+    optional: bool = field(default=False, kw_only=True)
+    weight: float = field(default=1.0, kw_only=True)
+
+    def __post_init__(self):
+        if self.values is not None and not isinstance(self.values, tuple):
+            object.__setattr__(self, "values", tuple(self.values))
+
+    def match(self, stmt: Statement, state: MatchState, ctx: MatchCtx) -> MatchState | None:
+        if not isinstance(stmt, Return):
+            return None
+        if self.values is None:
+            return state
+        exprs = stmt.ret_exprs or ()
+        if len(exprs) != len(self.values):
+            return None
+        st: MatchState | None = state
+        for pat, expr in zip(self.values, exprs):
+            st = pat.match(expr, st, ctx)
+            if st is None:
+                return None
+        return st
 
 
 @dataclass(frozen=True)
@@ -938,6 +1053,38 @@ class PGraphPat(PatternNode):
         return {dst for _, dst in self.edges if dst not in self.blocks}
 
 
+#: The statement patterns that stand for one concrete statement, and so are the
+#: ones a fuzzy occurrence can score, skip or weight.
+LeafStmt = PAssign | PStore | PCallStmt | PCondJump | PReturn | PAnyStmt
+
+
+def iter_stmt_patterns(node: PatternNode) -> Iterator[LeafStmt]:
+    """Every leaf statement pattern under ``node``, in pattern order."""
+    if isinstance(node, PGraphPat):
+        for block in node.blocks.values():
+            yield from iter_stmt_patterns(block)
+    elif isinstance(node, PBlockPat):
+        yield from iter_stmt_patterns(node.stmts)
+    elif isinstance(node, PStmtSeq):
+        for stmt in node.stmts:
+            yield from iter_stmt_patterns(stmt)
+    elif isinstance(node, (PAssign, PStore, PCallStmt, PCondJump, PReturn, PAnyStmt)):
+        yield node
+    elif isinstance(node, PatternStmt):
+        raise TypeError(f"{type(node).__name__} is not a leaf statement pattern")
+
+
+def has_fuzzy_nodes(node: PatternNode) -> bool:
+    """Whether ``node`` can only be matched by the fuzzy matcher.
+
+    An optional statement has no meaning to the exact matcher, which either
+    finds every statement pattern or fails; a pattern carrying one has to be
+    kept away from it rather than silently matched as if the statement were
+    required.
+    """
+    return any(stmt.optional for stmt in iter_stmt_patterns(node))
+
+
 def pattern_anchor_key(node: PatternNode) -> tuple[str, str | None] | None:
     """A cheap discriminator of the pattern root, used to prune candidate
     patterns at each expression position: ``(ail kind, op or None)``.
@@ -997,6 +1144,73 @@ def pattern_anchor_key(node: PatternNode) -> tuple[str, str | None] | None:
     if isinstance(node, PGraphPat):
         return pattern_anchor_key(node.blocks[node.entry].stmts)
     return None
+
+
+IndexKey = tuple[str, str | None, int | None]
+
+
+def _const_values(node: PatternExpr) -> frozenset[int] | None:
+    """The literal values a PConst operand accepts, or None if not enumerable."""
+    if not isinstance(node, PConst):
+        return None
+    if node.value is not None:
+        return frozenset((node.value,))
+    return node.values
+
+
+def pattern_index_keys(node: PatternNode) -> list[IndexKey] | None:
+    """Every ``(ail kind, op or None, constant operand or None)`` an occurrence of
+    ``node`` can start with; None when the root is not discriminating.
+
+    Finer than :func:`pattern_anchor_key` in three ways. A set-valued op is
+    expanded into one key per op rather than dropped to "any op". A PChoice is
+    the union of its alternatives' keys, not "anywhere" unless one alternative
+    truly is. And a binary op with a PConst operand whose values are enumerable
+    (``value`` or ``values``) carries each such value as a third component: a
+    PConst only matches a literal Const, so a ``Mul(x, magic)`` pattern need not
+    be tried at a multiply by any other constant. The generated
+    ``std::vector<T>::size`` family is a thousand such patterns keyed on
+    ``Mul``, and without this every multiply in a function tried all of them.
+    """
+    if isinstance(node, PChoice):
+        out: list[IndexKey] = []
+        for alt in node.alternatives:
+            keys = pattern_index_keys(alt)
+            if keys is None:
+                return None
+            out.extend(k for k in keys if k not in out)
+        return out
+    if isinstance(node, (PBinOp, PUnaryOp)):
+        kind = "BinaryOp" if isinstance(node, PBinOp) else "UnaryOp"
+        ops: list[str | None] = [node.op] if isinstance(node.op, str) else sorted(node.op)
+        consts: frozenset[int] | None = None
+        if isinstance(node, PBinOp):
+            for operand in node.operands:
+                consts = _const_values(operand)
+                if consts is not None:
+                    break
+        if consts is None:
+            return [(kind, op, None) for op in ops]
+        return [(kind, op, c) for op in ops for c in sorted(consts)]
+    if isinstance(node, PStmtSeq):
+        return pattern_index_keys(node.stmts[0]) if node.stmts else None
+    if isinstance(node, PGraphPat):
+        return pattern_index_keys(node.blocks[node.entry].stmts)
+    key = pattern_anchor_key(node)
+    return None if key is None else [(key[0], key[1], None)]
+
+
+def expr_const_operands(expr: Expression) -> tuple[int, ...]:
+    """The literal constants among a binary op's operands (through Converts), for the index lookup."""
+    if not isinstance(expr, BinaryOp):
+        return ()
+    out = []
+    for operand in expr.operands:
+        while isinstance(operand, Convert):
+            operand = operand.operand
+        if isinstance(operand, Const) and isinstance(operand.value, int):
+            out.append(operand.value)
+    return tuple(out)
 
 
 StmtKey = tuple[str, tuple[str, str | None] | None]

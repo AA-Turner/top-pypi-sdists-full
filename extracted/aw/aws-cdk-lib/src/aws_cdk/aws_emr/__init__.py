@@ -7939,12 +7939,12 @@ class CfnInstanceGroupConfig(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrInstanceGroupId")
+    def attr_instance_group_id(self) -> builtins.str:
         '''
-        :cloudformationAttribute: Id
+        :cloudformationAttribute: InstanceGroupId
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrInstanceGroupId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -8123,6 +8123,99 @@ class CfnInstanceGroupConfig(
             type_hints = cached_type_hints(_typecheckingstub__58871e6eae621e6fbe1e15c4166ad29e07293a9a1d2305d7fe9ca365634fb809)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emr.CfnInstanceGroupConfig.AppConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "classification": "classification",
+            "configuration_properties": "configurationProperties",
+            "configurations": "configurations",
+        },
+    )
+    class AppConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            classification: typing.Optional[builtins.str] = None,
+            configuration_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstanceGroupConfig.AppConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param classification: 
+            :param configuration_properties: 
+            :param configurations: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-appconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emr as emr
+                
+                # app_configuration_property_: emr.CfnInstanceGroupConfig.AppConfigurationProperty
+                
+                app_configuration_property = emr.CfnInstanceGroupConfig.AppConfigurationProperty(
+                    classification="classification",
+                    configuration_properties={
+                        "configuration_properties_key": "configurationProperties"
+                    },
+                    configurations=[app_configuration_property_]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea18492723dd61a3146175d823305815c2aea01d3f24bad6099539c3025f6c88)
+                check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
+                check_type(argname="argument configuration_properties", value=configuration_properties, expected_type=type_hints["configuration_properties"])
+                check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if classification is not None:
+                self._values["classification"] = classification
+            if configuration_properties is not None:
+                self._values["configuration_properties"] = configuration_properties
+            if configurations is not None:
+                self._values["configurations"] = configurations
+
+        @builtins.property
+        def classification(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-appconfiguration.html#cfn-emr-instancegroupconfig-appconfiguration-classification
+            '''
+            result = self._values.get("classification")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def configuration_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-appconfiguration.html#cfn-emr-instancegroupconfig-appconfiguration-configurationproperties
+            '''
+            result = self._values.get("configuration_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AppConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-appconfiguration.html#cfn-emr-instancegroupconfig-appconfiguration-configurations
+            '''
+            result = self._values.get("configurations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstanceGroupConfig.AppConfigurationProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AppConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_emr.CfnInstanceGroupConfig.AutoScalingPolicyProperty",
@@ -12880,6 +12973,15 @@ def _typecheckingstub__05359e9787323de816895b743b6af3dd8f21fcc6a67f534dd7684d665
 
 def _typecheckingstub__58871e6eae621e6fbe1e15c4166ad29e07293a9a1d2305d7fe9ca365634fb809(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea18492723dd61a3146175d823305815c2aea01d3f24bad6099539c3025f6c88(
+    *,
+    classification: typing.Optional[builtins.str] = None,
+    configuration_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstanceGroupConfig.AppConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

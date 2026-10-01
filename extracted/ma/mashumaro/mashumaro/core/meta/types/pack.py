@@ -14,10 +14,11 @@ from contextlib import suppress
 from dataclasses import is_dataclass
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, ForwardRef, Tuple
+from typing import Tuple  # noqa: UP035
+from typing import Any, ForwardRef
 
 import typing_extensions
-from typing_extensions import NotRequired
+from typing_extensions import Buffer, NotRequired, TypeForm
 
 from mashumaro.core.const import PY_311_MIN
 from mashumaro.core.meta.code.lines import CodeLines
@@ -26,6 +27,7 @@ from mashumaro.core.meta.helpers import (
     get_class_that_defines_method,
     get_function_return_annotation,
     get_literal_values,
+    get_slice_type_args,
     get_type_origin,
     get_type_var_default,
     is_final,
@@ -47,7 +49,9 @@ from mashumaro.core.meta.helpers import (
     is_union,
     is_unpack,
     not_none_type_arg,
+    resolve_type_alias_type,
     resolve_type_params,
+    resolve_typed_dict_annotations,
     substitute_type_params,
     type_name,
     type_var_has_default,
@@ -78,9 +82,8 @@ from mashumaro.types import (
 )
 
 if sys.version_info >= (3, 14):
-    from typing import evaluate_forward_ref
-
     from annotationlib import get_annotations
+    from typing import evaluate_forward_ref
 else:
     from typing_extensions import evaluate_forward_ref, get_annotations
 
@@ -235,23 +238,21 @@ def pack_generic_serializable_type(spec: ValueSpec) -> Expression | None:
 
 @register
 def pack_dataclass(spec: ValueSpec) -> Expression | None:
-    if is_dataclass(spec.origin_type):
+    if isinstance(spec.origin_type, type) and is_dataclass(spec.origin_type):
         type_args = get_args(spec.type)
         method_name = spec.builder.get_pack_method_name(
             type_args, spec.builder.format_name
         )
         method_loc = spec.origin_type if spec.builder.is_nailed else spec.attrs
-        if get_class_that_defines_method(
-            method_name, method_loc
-        ) != method_loc and (
-            spec.origin_type is not spec.builder.cls
-            or spec.builder.get_pack_method_name(
-                type_args=type_args,
-                format_name=spec.builder.format_name,
-                encoder=spec.builder.encoder,
-            )
-            != method_name
-        ):
+        method_is_defined = (
+            get_class_that_defines_method(method_name, method_loc)
+            == method_loc
+        )
+        method_is_in_progress = (
+            not method_is_defined
+            and (method_loc, method_name) in spec.builder.methods_in_progress
+        )
+        if not method_is_defined and not method_is_in_progress:
             builder = spec.builder.__class__(
                 spec.origin_type,
                 type_args,
@@ -265,12 +266,18 @@ def pack_dataclass(spec: ValueSpec) -> Expression | None:
                 allow_postponed_evaluation=(
                     spec.builder.allow_postponed_evaluation
                 ),
+                methods_in_progress=spec.builder.methods_in_progress,
             )
             builder.add_pack_method()
         flags = spec.builder.get_pack_method_flags(spec.type)
         if spec.builder.is_nailed:
             return f"{spec.expression}.{method_name}({flags})"
         else:
+            if method_is_in_progress:
+                return (
+                    f"{spec.cls_attrs_name}.{method_name}"
+                    f"({spec.expression})"
+                )
             cls_alias = clean_id(type_name(spec.origin_type))
             method_name_alias = f"{cls_alias}_{method_name}"
             spec.builder.ensure_object_imported(
@@ -293,7 +300,7 @@ def pack_any(spec: ValueSpec) -> Expression | None:
 
 
 def pack_union(
-    spec: ValueSpec, args: tuple[type, ...], prefix: str = "union"
+    spec: ValueSpec, args: tuple[TypeForm, ...], prefix: str = "union"
 ) -> Expression:
     if spec.type is spec.owner and spec.field_ctx.packer:
         return spec.field_ctx.packer
@@ -323,14 +330,18 @@ def pack_union(
     else:
         lines.append(f"def {method_name}({method_args}):")
     packers: list[str] = []
-    packer_arg_types: dict[str, list[type]] = {}
+    packer_arg_types: dict[str, list[TypeForm]] = {}
     for type_arg in args:
         packer = PackerRegistry.get(
             spec.copy(type=type_arg, expression="value", owner=spec.type)
         )
         if packer not in packers:
-            if packer == "value" and not issubclass(
-                get_type_origin(type_arg), Collection
+            resolved_origin = get_type_origin(
+                resolve_type_alias_type(type_arg)
+            )
+            if packer == "value" and (
+                not isinstance(resolved_origin, type)
+                or not issubclass(resolved_origin, Collection)
             ):
                 packers.insert(0, packer)
             else:
@@ -344,6 +355,7 @@ def pack_union(
         for packer in packers:
             packer_arg_type_names = []
             for packer_arg_type in packer_arg_types[packer]:
+                packer_arg_type = resolve_type_alias_type(packer_arg_type)
                 if is_generic(packer_arg_type):
                     packer_arg_type = get_type_origin(packer_arg_type)
                 packer_arg_type_name = clean_id(type_name(packer_arg_type))
@@ -358,8 +370,10 @@ def pack_union(
                 )
             else:
                 packer_arg_type_check = f"is {packer_arg_type_names[0]}"
-            if packer == "value" and not issubclass(
-                packer_arg_type, Collection
+            resolved_packer_arg_type = resolve_type_alias_type(packer_arg_type)
+            if packer == "value" and (
+                not isinstance(resolved_packer_arg_type, type)
+                or not issubclass(resolved_packer_arg_type, Collection)
             ):
                 with lines.indent(
                     f"if value.__class__ {packer_arg_type_check}:"
@@ -485,14 +499,16 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
         elif is_type_var_any(spec.type):
             return spec.expression
         elif is_type_var(spec.type):
-            constraints = getattr(spec.type, "__constraints__")
+            if type_var_has_default(spec.type):
+                pv = PackerRegistry.get(
+                    spec.copy(type=get_type_var_default(spec.type))
+                )
+                return expr_or_maybe_none(spec, pv)
+            constraints = spec.type.__constraints__
             if constraints:
                 return pack_union(spec, constraints, "type_var")
             else:
-                if type_var_has_default(spec.type):
-                    bound = get_type_var_default(spec.type)
-                else:
-                    bound = getattr(spec.type, "__bound__")
+                bound = spec.type.__bound__
                 # act as if it was Optional[bound]
                 pv = PackerRegistry.get(spec.copy(type=bound))
                 return expr_or_maybe_none(spec, pv)
@@ -509,9 +525,16 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
             method_loc = (
                 spec.builder.cls if spec.builder.is_nailed else spec.attrs
             )
+            method_is_in_progress = (
+                get_class_that_defines_method(method_name, method_loc)
+                != method_loc
+                and (method_loc, method_name)
+                in spec.builder.methods_in_progress
+            )
             if (
                 get_class_that_defines_method(method_name, method_loc)
                 != method_loc
+                and not method_is_in_progress
                 # not hasattr(self.cls, method_name)
                 and spec.builder.get_pack_method_name(
                     format_name=spec.builder.format_name,
@@ -530,6 +553,7 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
                         if not spec.builder.is_nailed
                         else None
                     ),
+                    methods_in_progress=spec.builder.methods_in_progress,
                 )
                 builder.add_pack_method()
             flags = spec.builder.get_pack_method_flags(spec.builder.cls)
@@ -590,6 +614,22 @@ def pack_timezone(spec: ValueSpec) -> Expression | None:
 
 
 @register
+def pack_slice(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is slice:
+        packers = []
+        for attr, type_arg in zip(
+            ("start", "stop", "step"), get_slice_type_args(spec.type)
+        ):
+            expression = f"{spec.expression}.{attr}"
+            component_spec = spec.copy(
+                type=type_arg, expression=expression, could_be_none=True
+            )
+            packer = PackerRegistry.get(component_spec)
+            packers.append(expr_or_maybe_none(component_spec, packer))
+        return f"[{', '.join(packers)}]"
+
+
+@register
 def pack_zone_info(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is zoneinfo.ZoneInfo:
         return f"str({spec.expression})"
@@ -628,7 +668,7 @@ def pack_fraction(spec: ValueSpec) -> Expression | None:
 
 def pack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
     if not args:
-        if spec.type in (Tuple, tuple):
+        if spec.type in (Tuple, tuple):  # noqa: UP006
             args = [Any, ...]  # type: ignore
         else:
             return "[]"
@@ -721,16 +761,12 @@ def pack_named_tuple(spec: ValueSpec) -> Expression:
 
 
 def pack_typed_dict(spec: ValueSpec) -> Expression:
-    resolved = resolve_type_params(spec.origin_type, get_args(spec.type))[
-        spec.origin_type
-    ]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
-    }
+    annotations = resolve_typed_dict_annotations(spec.type)
     all_keys = list(annotations.keys())
-    required_keys = set(getattr(spec.type, "__required_keys__", all_keys))
-    optional_keys = set(getattr(spec.type, "__optional_keys__", []))
+    required_keys = set(
+        getattr(spec.origin_type, "__required_keys__", all_keys)
+    )
+    optional_keys = set(getattr(spec.origin_type, "__optional_keys__", []))
 
     # workaround for https://github.com/python/cpython/issues/97727
     for key, annotation in annotations.items():
@@ -791,7 +827,7 @@ def pack_typed_dict(spec: ValueSpec) -> Expression:
 
 @register
 def pack_collection(spec: ValueSpec) -> Expression | None:
-    if not issubclass(spec.origin_type, Collection):
+    if not issubclass(spec.origin_type, Collection):  # noqa: SIM114
         return None
     elif issubclass(spec.origin_type, enum.Enum):
         return None
@@ -835,7 +871,7 @@ def pack_collection(spec: ValueSpec) -> Expression | None:
                 return f"{spec.expression}.copy()"
         return f"{{{ke}: {ve} for key, value in {spec.expression}.items()}}"
 
-    if issubclass(spec.origin_type, typing.ByteString):  # type: ignore
+    if issubclass(spec.origin_type, (bytes, bytearray, memoryview)):
         spec.builder.ensure_object_imported(encodebytes)
         return f"encodebytes({spec.expression}).decode()"
     elif issubclass(spec.origin_type, str):
@@ -872,6 +908,13 @@ def pack_collection(spec: ValueSpec) -> Expression | None:
     elif ensure_generic_collection_subclass(spec, Sequence):
         ie = inner_expr()
         return _make_sequence_expression(ie)
+
+
+@register
+def pack_buffer(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is Buffer:
+        spec.builder.ensure_object_imported(encodebytes)
+        return f"encodebytes({spec.expression}).decode()"
 
 
 @register

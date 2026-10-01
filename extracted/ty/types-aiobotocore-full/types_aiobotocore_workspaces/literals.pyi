@@ -178,6 +178,10 @@ ComputeType = Literal[
     "GRAPHICS_G6_4XLARGE",
     "GRAPHICS_G6_8XLARGE",
     "GRAPHICS_G6_XLARGE",
+    "GRAPHICS_G7_12XLARGE",
+    "GRAPHICS_G7_2XLARGE",
+    "GRAPHICS_G7_4XLARGE",
+    "GRAPHICS_G7_8XLARGE",
     "GRAPHICS_GR6F_4XLARGE",
     "GRAPHICS_GR6_4XLARGE",
     "GRAPHICS_GR6_8XLARGE",
@@ -231,7 +235,7 @@ DescribeWorkspacesPoolsFilterOperatorType = Literal[
 ]
 EndpointEncryptionModeType = Literal["FIPS_VALIDATED", "STANDARD_TLS"]
 ImageAssociatedResourceTypeType = Literal["APPLICATION"]
-ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN", "GRAPHICS_G6"]
+ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN", "GRAPHICS_G6", "GRAPHICS_G7"]
 ImageTypeType = Literal["OWNED", "SHARED"]
 InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
@@ -500,6 +504,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -574,6 +579,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -602,6 +608,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -696,6 +703,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

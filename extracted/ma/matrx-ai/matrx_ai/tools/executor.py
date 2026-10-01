@@ -56,6 +56,25 @@ _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES = frozenset(
 )
 
 
+def _candidate_stopped_content(result: ToolResult, stop: dict[str, Any]) -> dict[str, Any]:
+    """The content slot for a candidate-stopped call.
+
+    It exists only because ``execute`` returns a pair; it is NEVER a tool result
+    for the model — ``handle_tool_calls_v2`` drops every ``candidate_stopped``
+    call and the orchestrator ends the run. The flag rides the dict too, so any
+    other caller that reads only the content can still tell.
+    """
+    return {
+        "tool_use_id": result.call_id,
+        "call_id": result.call_id,
+        "name": result.tool_name,
+        "content": "",
+        "is_error": False,
+        "candidate_stopped": True,
+        "stopped_at": stop,
+    }
+
+
 def _dispatch_timeout_seconds(
     tool_def: ToolDefinition,
     arguments: dict[str, Any],
@@ -1495,6 +1514,37 @@ class ToolExecutor:
             is_delegated_pre = True
             _dispatch_kind = "DELEGATE"
 
+        # --- Mandate-candidate containment (PLAN.md P3) ---
+        # Decided HERE — after the delegation set is final, before the row, the
+        # guardrails, the stream and any dispatch — so a candidate call cannot
+        # act before it is judged. None ⇒ no marker in scope ⇒ nothing changes.
+        from matrx_ai.tools.candidate_containment import (
+            candidate_stop as _candidate_stop,
+        )
+        from matrx_ai.tools.candidate_containment import decide as _candidate_decide
+
+        containment = await _candidate_decide(
+            tool_def,
+            arguments,
+            call_id=ctx.call_id,
+            is_delegated=bool(
+                client_tools and (tool_name in client_tools or tool_def.name in client_tools)
+            ),
+        )
+        if containment is not None and containment.disposition != "real":
+            return await self._contain_candidate_call(
+                ctx,
+                tool_def,
+                arguments,
+                containment,
+                tool_name=tool_name,
+                as_called=as_called,
+                started_at=started_at,
+            )
+        # A nested run (agent-as-tool, a child agent) that stops records the
+        # stop in the SHARED ledger; sampled here so the parent call can end too.
+        candidate_stop_before = _candidate_stop() if containment is not None else None
+
         # ``as_called`` is the literal (wire) name the model used;
         # ``tool_def.name`` is the *canonical* identity. Pass both so the
         # logger records each in its own column (analytics defaults to
@@ -1505,6 +1555,7 @@ class ToolExecutor:
             arguments,
             exposed_name=as_called,
             authorization_metadata=authorization.metadata or None,
+            candidate_disposition=containment.as_record() if containment is not None else None,
         )
 
         stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
@@ -1665,6 +1716,44 @@ class ToolExecutor:
             )
 
         result.compute_duration()
+
+        # --- Mandate-candidate: a nested run stopped under this call ---
+        # The child's stop is terminal for the whole candidate: this call's
+        # result (e.g. an agent tool's "child answered") is never handed to the
+        # model. The row closes as a candidate stop, like the child's own.
+        if containment is not None and candidate_stop_before is None:
+            nested_stop = _candidate_stop()
+            if nested_stop is not None:
+                from matrx_ai.persistence.queue_helpers import get_coordinator as _get_coord
+
+                _ns_coord = _get_coord()
+                await self._persist_tool_outcome(
+                    self.execution_logger.log_abandoned(
+                        row_id,
+                        reason="candidate_stopped",
+                        error_message=(
+                            "Candidate run stopped inside this call at step "
+                            f"{nested_stop.get('step')} ({nested_stop.get('tool')}); its "
+                            "result was not returned to the model."
+                        ),
+                        execution_events=stream.get_events_for_persistence(),
+                        coordinator=_ns_coord,
+                    ),
+                    coordinator=_ns_coord,
+                    name="tool_log_candidate_stopped_nested",
+                )
+                stopped = ToolResult(
+                    success=False,
+                    candidate_stopped=True,
+                    candidate_disposition=containment.as_record(),
+                    tool_name=tool_name,
+                    call_id=ctx.call_id,
+                    started_at=started_at,
+                    completed_at=time.time(),
+                )
+                stopped.compute_duration()
+                return _candidate_stopped_content(stopped, nested_stop), stopped
+            result.candidate_disposition = containment.as_record()
 
         # THE REFUSAL REACHES THE PERSON HONESTLY. One place, after every
         # dispatch path: a failure class we can NAME carries its cause and its
@@ -2344,6 +2433,123 @@ class ToolExecutor:
                 full_results.append(full_result)
 
         return content_results, full_results
+
+    # ------------------------------------------------------------------
+    # Mandate-candidate containment — borrowed / stopped calls never dispatch
+    # ------------------------------------------------------------------
+
+    async def _contain_candidate_call(
+        self,
+        ctx: ToolContext,
+        tool_def: ToolDefinition,
+        arguments: dict[str, Any],
+        containment: Any,
+        *,
+        tool_name: str,
+        as_called: str,
+        started_at: float,
+    ) -> tuple[dict[str, Any], ToolResult]:
+        """Record a ``borrowed`` or ``stopped`` call; nothing is dispatched.
+
+        borrowed — the model receives the live run's model-facing content
+        exactly as the live model saw it (no result gate, no re-serialisation).
+        stopped — the row closes as ``candidate_stopped``; the returned result
+        carries ``candidate_stopped=True`` and ``handle_tool_calls_v2`` never
+        hands it to the model. The run ends at the orchestrator's next check.
+        """
+        from matrx_ai.persistence.queue_helpers import get_coordinator as _get_coord
+
+        record = containment.as_record()
+        row_id = await self.execution_logger.log_started(
+            ctx,
+            tool_def,
+            arguments,
+            exposed_name=as_called,
+            candidate_disposition=record,
+        )
+        coordinator = _get_coord()
+
+        if containment.disposition == "borrowed":
+            borrowed = containment.borrowed
+            content = borrowed.content
+            chars = len(content) if isinstance(content, str) else len(str(content))
+            preview = {"chars": chars, "borrowed_from_call_id": borrowed.live_call_id}
+            result = ToolResult(
+                success=not borrowed.is_error,
+                provider_content=content,
+                error=(
+                    ToolError(
+                        error_type="candidate_borrowed_error",
+                        message=(content if isinstance(content, str) else str(content)),
+                    )
+                    if borrowed.is_error
+                    else None
+                ),
+                output_chars=chars,
+                output_preview=preview,
+                candidate_disposition=record,
+                tool_name=tool_name,
+                call_id=ctx.call_id,
+                started_at=started_at,
+                completed_at=time.time(),
+            )
+            result.compute_duration()
+            log = (
+                self.execution_logger.log_error(row_id, result, [], coordinator=coordinator)
+                if borrowed.is_error
+                else self.execution_logger.log_completed(
+                    row_id, result, [], coordinator=coordinator
+                )
+            )
+            await self._persist_tool_outcome(
+                log, coordinator=coordinator, name="tool_log_candidate_borrowed"
+            )
+            content_dict: dict[str, Any] = {
+                "tool_use_id": ctx.call_id,
+                "call_id": ctx.call_id,
+                "name": tool_name,
+                "content": content,
+                "is_error": bool(borrowed.is_error),
+                "output_chars": chars,
+                "output_preview": preview,
+                "approved_max_chars": None,
+            }
+            return content_dict, result
+
+        stop = {
+            "step": containment.seq,
+            "tool": tool_def.name,
+            "class": containment.side_effect_class,
+        }
+        await self._persist_tool_outcome(
+            self.execution_logger.log_abandoned(
+                row_id,
+                reason="candidate_stopped",
+                error_message=(
+                    f"Candidate run stopped before this call at step {containment.seq}: "
+                    f"{containment.stopped_reason}. Nothing was executed."
+                ),
+                coordinator=coordinator,
+            ),
+            coordinator=coordinator,
+            name="tool_log_candidate_stopped",
+        )
+        result = ToolResult(
+            success=False,
+            candidate_stopped=True,
+            candidate_disposition=record,
+            tool_name=tool_name,
+            call_id=ctx.call_id,
+            started_at=started_at,
+            completed_at=time.time(),
+        )
+        result.compute_duration()
+        vcprint(
+            f"[ToolExecutor] mandate candidate STOPPED at step {containment.seq}: "
+            f"{tool_def.name} ({containment.side_effect_class}) — {containment.stopped_reason}",
+            color="yellow",
+        )
+        return _candidate_stopped_content(result, stop), result
 
     # ------------------------------------------------------------------
     # Dispatch

@@ -37,11 +37,21 @@ if typing.TYPE_CHECKING:
     from .save_annotation_schema import SaveAnnotationSchema
     from .sent_notification_schema import SentNotificationSchema
     from .sent_notification_schema_status import SentNotificationSchemaStatus
+    from .series_write import SeriesWrite
+    from .series_write_parent import SeriesWriteParent
+    from .series_write_result import SeriesWriteResult
     from .start_job_execution_schema import StartJobExecutionSchema
     from .table_summary import TableSummary
+    from .table_write import TableWrite
+    from .table_write_mode import TableWriteMode
+    from .table_write_on_match import TableWriteOnMatch
+    from .table_write_result import TableWriteResult
     from .tools_job_schema import ToolsJobSchema
     from .tools_ml_model_detail_schema import ToolsMlModelDetailSchema
     from .validation_error_schema import ValidationErrorSchema
+    from .write_data_error_response import WriteDataErrorResponse
+    from .write_data_problem import WriteDataProblem
+    from .write_data_response import WriteDataResponse
     from .write_plan import WritePlan
 _dynamic_imports: typing.Dict[str, str] = {
     "AgentRunEvent": ".agent_run_event",
@@ -75,11 +85,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SaveAnnotationSchema": ".save_annotation_schema",
     "SentNotificationSchema": ".sent_notification_schema",
     "SentNotificationSchemaStatus": ".sent_notification_schema_status",
+    "SeriesWrite": ".series_write",
+    "SeriesWriteParent": ".series_write_parent",
+    "SeriesWriteResult": ".series_write_result",
     "StartJobExecutionSchema": ".start_job_execution_schema",
     "TableSummary": ".table_summary",
+    "TableWrite": ".table_write",
+    "TableWriteMode": ".table_write_mode",
+    "TableWriteOnMatch": ".table_write_on_match",
+    "TableWriteResult": ".table_write_result",
     "ToolsJobSchema": ".tools_job_schema",
     "ToolsMlModelDetailSchema": ".tools_ml_model_detail_schema",
     "ValidationErrorSchema": ".validation_error_schema",
+    "WriteDataErrorResponse": ".write_data_error_response",
+    "WriteDataProblem": ".write_data_problem",
+    "WriteDataResponse": ".write_data_response",
     "WritePlan": ".write_plan",
 }
 
@@ -137,10 +157,20 @@ __all__ = [
     "SaveAnnotationSchema",
     "SentNotificationSchema",
     "SentNotificationSchemaStatus",
+    "SeriesWrite",
+    "SeriesWriteParent",
+    "SeriesWriteResult",
     "StartJobExecutionSchema",
     "TableSummary",
+    "TableWrite",
+    "TableWriteMode",
+    "TableWriteOnMatch",
+    "TableWriteResult",
     "ToolsJobSchema",
     "ToolsMlModelDetailSchema",
     "ValidationErrorSchema",
+    "WriteDataErrorResponse",
+    "WriteDataProblem",
+    "WriteDataResponse",
     "WritePlan",
 ]

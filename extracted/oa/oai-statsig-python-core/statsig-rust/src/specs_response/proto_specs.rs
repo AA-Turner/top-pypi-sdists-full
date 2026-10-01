@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     io::{Cursor, Read, Write},
     sync::Arc,
+    time::Instant,
 };
 
 use prost::Message;
@@ -35,7 +36,7 @@ use crate::{
 };
 
 use crate::specs_adapter::remote_config_value_hydrator::{
-    ProtobufHydrationSession, RemoteConfigValueHydrator,
+    HydrationPhase, ProtobufHydrationSession, RemoteConfigValueHydrator,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
     rewrite_top_level_envelope,
@@ -375,6 +376,7 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration_and_checksums(
     let mut hydration = context
         .hydrator
         .begin_protobuf_hydration(context.source_url);
+    let started_at = Instant::now();
     let result = deserialize_protobuf_for_store_with_hydration_inner(
         ops_stats,
         current_specs,
@@ -386,6 +388,9 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration_and_checksums(
         context,
     )
     .await;
+    context
+        .hydrator
+        .log_phase_latency(started_at.elapsed(), HydrationPhase::ProtobufResponse);
     hydration.finish(result.as_ref().map(|_| ()));
     result
 }

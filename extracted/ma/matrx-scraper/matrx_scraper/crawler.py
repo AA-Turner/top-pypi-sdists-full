@@ -725,6 +725,11 @@ class SiteCrawler:
         # Counters (used by progress events)
         self._pages_discovered = 0
         self._pages_fetched = 0
+        # Pages whose HTTP response has ARRIVED. `_pages_fetched` only counts a
+        # page once its capture is fully persisted (snapshot, screenshots, S3),
+        # which can trail the network fetch by minutes — a live "N fetched"
+        # read off it showed 0 while pages were visibly landing (2026-09-14).
+        self._pages_downloaded = 0
         self._pages_failed = 0
         # A page slot is consumed before a worker dequeues work. Counting only
         # completed fetches allows every concurrent worker to pass the limit at
@@ -1251,6 +1256,7 @@ class SiteCrawler:
                 run_id=self.run_id,
                 pages_discovered=self._pages_discovered,
                 pages_fetched=self._pages_fetched,
+                pages_downloaded=self._pages_downloaded,
                 pages_failed=self._pages_failed,
                 issues_count=0,  # host fills this in after issue detection runs
                 duration_ms=duration_ms,
@@ -1937,6 +1943,7 @@ class SiteCrawler:
                     # Any answer that is not "too many requests" ends the run
                     # of consecutive 429s the stop rule counts.
                     self._pause.record_success()
+                self._pages_downloaded += 1
                 await self._emit(
                     CrawlPageFetchedEvent(
                         run_id=self.run_id,
@@ -2568,6 +2575,7 @@ class SiteCrawler:
                 run_id=self.run_id,
                 pages_discovered=self._pages_discovered,
                 pages_fetched=self._pages_fetched,
+                pages_downloaded=self._pages_downloaded,
                 pages_failed=self._pages_failed,
                 pages_in_flight=progress_in_flight,
                 queue_depth=progress_queue_depth,

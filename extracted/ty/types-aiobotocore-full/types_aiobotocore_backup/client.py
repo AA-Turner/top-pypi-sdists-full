@@ -974,7 +974,7 @@ class BackupClient(AioBaseClient):
     ) -> ListBackupJobSummariesOutputTypeDef:
         """
         This is a request for a summary of backup jobs created or running within the
-        most recent 30 days.
+        most recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_backup_job_summaries.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_backup_job_summaries)
@@ -1050,7 +1050,7 @@ class BackupClient(AioBaseClient):
     ) -> ListCopyJobSummariesOutputTypeDef:
         """
         This request obtains a list of copy jobs created or running within the the most
-        recent 30 days.
+        recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_copy_job_summaries.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_copy_job_summaries)
@@ -1189,7 +1189,7 @@ class BackupClient(AioBaseClient):
     ) -> ListRestoreJobSummariesOutputTypeDef:
         """
         This request obtains a summary of restore jobs created or running within the
-        the most recent 30 days.
+        the most recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_restore_job_summaries.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_restore_job_summaries)
@@ -1241,7 +1241,7 @@ class BackupClient(AioBaseClient):
     ) -> ListScanJobSummariesOutputTypeDef:
         """
         This is a request for a summary of scan jobs created or running within the most
-        recent 30 days.
+        recent 14 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_scan_job_summaries.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_scan_job_summaries)

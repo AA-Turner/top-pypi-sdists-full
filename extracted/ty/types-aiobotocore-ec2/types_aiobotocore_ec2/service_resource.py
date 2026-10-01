@@ -218,6 +218,7 @@ from .type_defs import (
     InstanceNetworkPerformanceOptionsTypeDef,
     InstanceSecondaryInterfaceTypeDef,
     InstanceStateTypeDef,
+    InstanceTypeSpecificationTypeDef,
     InternetGatewayAttachmentTypeDef,
     InternetGatewayCreateTagsRequestTypeDef,
     IpPermissionOutputTypeDef,
@@ -3268,6 +3269,7 @@ class Image(AIOBoto3ServiceResource):
     free_tier_eligible: Awaitable[bool]
     public_ssm_parameter_name: Awaitable[str]
     image_watermarks: Awaitable[list[ImageWatermarkTypeDef]]
+    instance_type_specification: Awaitable[InstanceTypeSpecificationTypeDef]
     image_id: Awaitable[str]
     image_location: Awaitable[str]
     state: Awaitable[ImageStateType]
@@ -4850,6 +4852,8 @@ class Volume(AIOBoto3ServiceResource):
     sse_type: Awaitable[SSETypeType]
     operator: Awaitable[OperatorResponseTypeDef]
     volume_initialization_rate: Awaitable[int]
+    volume_arn: Awaitable[str]
+    owner_id: Awaitable[str]
     volume_id: Awaitable[str]
     size: Awaitable[int]
     snapshot_id: Awaitable[str]

@@ -485,6 +485,7 @@ __all__ = (
     "ServiceRevisionOverridesTypeDef",
     "ServiceRevisionSummaryTypeDef",
     "ServiceRevisionTypeDef",
+    "ServiceRevisionVpcLatticeConfigurationTypeDef",
     "ServiceTypeDef",
     "ServiceVolumeConfigurationOutputTypeDef",
     "ServiceVolumeConfigurationTypeDef",
@@ -556,6 +557,7 @@ __all__ = (
     "VolumeOutputTypeDef",
     "VolumeTypeDef",
     "VolumeUnionTypeDef",
+    "VpcLatticeAdvancedConfigurationTypeDef",
     "VpcLatticeConfigurationTypeDef",
     "WaiterConfigTypeDef",
 )
@@ -876,12 +878,6 @@ class ServiceRegistryTypeDef(TypedDict):
     port: NotRequired[int]
     containerName: NotRequired[str]
     containerPort: NotRequired[int]
-
-
-class VpcLatticeConfigurationTypeDef(TypedDict):
-    roleArn: str
-    targetGroupArn: str
-    portName: str
 
 
 class ScaleTypeDef(TypedDict):
@@ -1644,6 +1640,11 @@ class ServiceRevisionLoadBalancerTypeDef(TypedDict):
     productionListenerRule: NotRequired[str]
 
 
+class ServiceRevisionVpcLatticeConfigurationTypeDef(TypedDict):
+    targetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+
+
 ResourceTypeDef = TypedDict(
     "ResourceTypeDef",
     {
@@ -1787,6 +1788,12 @@ class UpdateTaskProtectionRequestTypeDef(TypedDict):
     tasks: Sequence[str]
     protectionEnabled: bool
     expiresInMinutes: NotRequired[int]
+
+
+class VpcLatticeAdvancedConfigurationTypeDef(TypedDict):
+    alternateTargetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+    testListenerRule: NotRequired[str]
 
 
 class LoadBalancerTypeDef(TypedDict):
@@ -2541,6 +2548,7 @@ class MonitoringConfigurationTypeDef(TypedDict):
 
 class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
+    vpcLatticeConfigurations: NotRequired[list[ServiceRevisionVpcLatticeConfigurationTypeDef]]
 
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
@@ -2562,6 +2570,15 @@ class ServiceConnectTlsConfigurationTypeDef(TypedDict):
 
 
 TmpfsUnionTypeDef = Union[TmpfsTypeDef, TmpfsOutputTypeDef]
+
+
+class VpcLatticeConfigurationTypeDef(TypedDict):
+    roleArn: str
+    targetGroupArn: str
+    portName: str
+    advancedConfiguration: NotRequired[VpcLatticeAdvancedConfigurationTypeDef]
+
+
 ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigurationOutputTypeDef]
 TaskSetTypeDef = TypedDict(
     "TaskSetTypeDef",

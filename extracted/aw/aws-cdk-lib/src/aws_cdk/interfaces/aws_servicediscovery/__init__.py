@@ -340,13 +340,14 @@ typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRe
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_servicediscovery.InstanceReference",
     jsii_struct_bases=[],
-    name_mapping={"instance_id": "instanceId"},
+    name_mapping={"instance_id": "instanceId", "service_id": "serviceId"},
 )
 class InstanceReference:
-    def __init__(self, *, instance_id: builtins.str) -> None:
+    def __init__(self, *, instance_id: builtins.str, service_id: builtins.str) -> None:
         '''A reference to a Instance resource.
 
         :param instance_id: The InstanceId of the Instance resource.
+        :param service_id: The ServiceId of the Instance resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -357,14 +358,17 @@ class InstanceReference:
             from aws_cdk.interfaces import aws_servicediscovery as interfaces_servicediscovery
             
             instance_reference = interfaces_servicediscovery.InstanceReference(
-                instance_id="instanceId"
+                instance_id="instanceId",
+                service_id="serviceId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4bdbb3373e9830f3c521133ba4f1fb36534ea7576b70ee0f70b1dbd5f00a679)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
+            "service_id": service_id,
         }
 
     @builtins.property
@@ -372,6 +376,13 @@ class InstanceReference:
         '''The InstanceId of the Instance resource.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_id(self) -> builtins.str:
+        '''The ServiceId of the Instance resource.'''
+        result = self._values.get("service_id")
+        assert result is not None, "Required property 'service_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -608,6 +619,7 @@ def _typecheckingstub__47957067bc6a34b9e1d55ef91eda7d10378a02ce1bc0ee39770e7bd28
 def _typecheckingstub__d4bdbb3373e9830f3c521133ba4f1fb36534ea7576b70ee0f70b1dbd5f00a679(
     *,
     instance_id: builtins.str,
+    service_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -203,7 +203,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[AssociateEnvironmentOperationsRoleMessageTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Add or change the operations role used by an environment.
+        The operations role feature of Elastic Beanstalk is in beta release and is
+        subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/associate_environment_operations_role.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#associate_environment_operations_role)
@@ -255,8 +256,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[CreateConfigurationTemplateMessageTypeDef]
     ) -> ConfigurationSettingsDescriptionResponseTypeDef:
         """
-        Creates an AWS Elastic Beanstalk configuration template, associated with a
-        specific Elastic Beanstalk application.
+        Creates an Elastic Beanstalk configuration template, associated with a specific
+        Elastic Beanstalk application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/create_configuration_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#create_configuration_template)
@@ -266,8 +267,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEnvironmentMessageTypeDef]
     ) -> EnvironmentDescriptionResponseTypeDef:
         """
-        Launches an AWS Elastic Beanstalk environment for the specified application
-        using the specified configuration.
+        Launches an Elastic Beanstalk environment for the specified application using
+        the specified configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/create_environment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#create_environment)
@@ -345,8 +346,8 @@ class ElasticBeanstalkClient(AioBaseClient):
 
     async def describe_account_attributes(self) -> DescribeAccountAttributesResultTypeDef:
         """
-        Returns attributes related to AWS Elastic Beanstalk that are associated with
-        the calling AWS account.
+        Returns attributes related to Elastic Beanstalk that are associated with the
+        calling Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/describe_account_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#describe_account_attributes)
@@ -429,7 +430,7 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeEnvironmentResourcesMessageTypeDef]
     ) -> EnvironmentResourceDescriptionsMessageTypeDef:
         """
-        Returns AWS resources for this environment.
+        Returns Amazon Web Services resources for this environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/describe_environment_resources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#describe_environment_resources)
@@ -459,8 +460,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeInstancesHealthRequestTypeDef]
     ) -> DescribeInstancesHealthResultTypeDef:
         """
-        Retrieves detailed information about the health of instances in your AWS
-        Elastic Beanstalk.
+        Retrieves detailed information about the health of instances in your Elastic
+        Beanstalk environments.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/describe_instances_health.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#describe_instances_health)
@@ -480,7 +481,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateEnvironmentOperationsRoleMessageTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Disassociate the operations role from an environment.
+        The operations role feature of Elastic Beanstalk is in beta release and is
+        subject to change.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/disassociate_environment_operations_role.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#disassociate_environment_operations_role)
@@ -501,7 +503,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[ListPlatformBranchesRequestTypeDef]
     ) -> ListPlatformBranchesResultTypeDef:
         """
-        Lists the platform branches available for your account in an AWS Region.
+        Lists the platform branches available for your account in an Amazon Web
+        Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/list_platform_branches.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#list_platform_branches)
@@ -511,7 +514,8 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[ListPlatformVersionsRequestTypeDef]
     ) -> ListPlatformVersionsResultTypeDef:
         """
-        Lists the platform versions available for your account in an AWS Region.
+        Lists the platform versions available for your account in an Amazon Web
+        Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/list_platform_versions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#list_platform_versions)
@@ -521,7 +525,7 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceMessageTypeDef]
     ) -> ResourceTagsDescriptionMessageTypeDef:
         """
-        Return the tags applied to an AWS Elastic Beanstalk resource.
+        Return the tags applied to an Elastic Beanstalk resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#list_tags_for_resource)
@@ -531,8 +535,9 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[RebuildEnvironmentMessageTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes and recreates all of the AWS resources (for example: the Auto Scaling
-        group, load balancer, etc.) for a specified environment and forces a restart.
+        Deletes and recreates all of the Amazon Web Services resources (for example:
+        the Auto Scaling group, load balancer, etc.) for a specified environment and
+        forces a restart.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/rebuild_environment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#rebuild_environment)
@@ -647,7 +652,7 @@ class ElasticBeanstalkClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateTagsForResourceMessageTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Update the list of tags applied to an AWS Elastic Beanstalk resource.
+        Update the list of tags applied to an Elastic Beanstalk resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elasticbeanstalk/client/update_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elasticbeanstalk/client/#update_tags_for_resource)

@@ -782,9 +782,358 @@ class CfnClusterProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_docdbelastic_7fdcbbe8.IClusterSnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnClusterSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdbelastic.CfnClusterSnapshot",
+):
+    '''Resource Type definition for AWS::DocDBElastic::ClusterSnapshot.
+
+    Creates a manual snapshot of an Amazon DocumentDB elastic cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdbelastic-clustersnapshot.html
+    :cloudformationResource: AWS::DocDBElastic::ClusterSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdbelastic as docdbelastic
+        
+        cfn_cluster_snapshot = docdbelastic.CfnClusterSnapshot(self, "MyCfnClusterSnapshot",
+            cluster_arn="clusterArn",
+            snapshot_name="snapshotName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_arn: builtins.str,
+        snapshot_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DocDBElastic::ClusterSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_arn: The ARN of the elastic cluster of which to create a snapshot.
+        :param snapshot_name: The name of the elastic cluster snapshot.
+        :param tags: An array of key-value pairs to apply to the elastic cluster snapshot.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0db109586ae8330af416009d17ee16b4686e262e70a1b0c3480e97e2565976a5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnClusterSnapshotProps(
+            cluster_arn=cluster_arn, snapshot_name=snapshot_name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnClusterSnapshot")
+    @builtins.classmethod
+    def is_cfn_cluster_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnClusterSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc736a86aca44169ab75b91e6a5bc9fb9a43cfe27a01e8c38846963070ea30a4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnClusterSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6aad750640176796941beeb2994e0394fef1dadab7a9c29e10df30180d185c10)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__736387f08a4345297421d2369890153118afd3a1c9b6cbc75f336506105185fe)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAdminUserName")
+    def attr_admin_user_name(self) -> builtins.str:
+        '''The name of the elastic cluster administrator.
+
+        :cloudformationAttribute: AdminUserName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAdminUserName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterCreationTime")
+    def attr_cluster_creation_time(self) -> builtins.str:
+        '''The time when the source elastic cluster was created, in Universal Coordinated Time (UTC).
+
+        :cloudformationAttribute: ClusterCreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyId")
+    def attr_kms_key_id(self) -> builtins.str:
+        '''The KMS key identifier used to encrypt the source elastic cluster.
+
+        :cloudformationAttribute: KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotArn")
+    def attr_snapshot_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the elastic cluster snapshot.
+
+        :cloudformationAttribute: SnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreationTime")
+    def attr_snapshot_creation_time(self) -> builtins.str:
+        '''The time when the elastic cluster snapshot was created, in Universal Coordinated Time (UTC).
+
+        :cloudformationAttribute: SnapshotCreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotType")
+    def attr_snapshot_type(self) -> builtins.str:
+        '''The type of the elastic cluster snapshot (manual or automated).
+
+        :cloudformationAttribute: SnapshotType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the elastic cluster snapshot.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSubnetIds")
+    def attr_subnet_ids(self) -> typing.List[builtins.str]:
+        '''The Amazon EC2 subnet IDs associated with the source elastic cluster.
+
+        :cloudformationAttribute: SubnetIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrSubnetIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcSecurityGroupIds")
+    def attr_vpc_security_group_ids(self) -> typing.List[builtins.str]:
+        '''The Amazon EC2 security group IDs associated with the source elastic cluster.
+
+        :cloudformationAttribute: VpcSecurityGroupIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrVpcSecurityGroupIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterSnapshotRef")
+    def cluster_snapshot_ref(
+        self,
+    ) -> "_aws_docdbelastic_7fdcbbe8.ClusterSnapshotReference":
+        '''A reference to a ClusterSnapshot resource.'''
+        return typing.cast("_aws_docdbelastic_7fdcbbe8.ClusterSnapshotReference", jsii.get(self, "clusterSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> builtins.str:
+        '''The ARN of the elastic cluster of which to create a snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c15a6452d0eaad219d234ad09d56f1028eaeaecbba553cdd6c2a3cc49857c20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotName")
+    def snapshot_name(self) -> builtins.str:
+        '''The name of the elastic cluster snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotName"))
+
+    @snapshot_name.setter
+    def snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f76b182e041e609adf533c8cc1d113dd9c8db9ae4690cbb8fced19e6890fd64)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the elastic cluster snapshot.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__145fad72f653411ea7720841e041e0595cfcc8d97f0f21c41508e8362cd4e03c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdbelastic.CfnClusterSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_arn": "clusterArn",
+        "snapshot_name": "snapshotName",
+        "tags": "tags",
+    },
+)
+class CfnClusterSnapshotProps:
+    def __init__(
+        self,
+        *,
+        cluster_arn: builtins.str,
+        snapshot_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnClusterSnapshot``.
+
+        :param cluster_arn: The ARN of the elastic cluster of which to create a snapshot.
+        :param snapshot_name: The name of the elastic cluster snapshot.
+        :param tags: An array of key-value pairs to apply to the elastic cluster snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdbelastic-clustersnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdbelastic as docdbelastic
+            
+            cfn_cluster_snapshot_props = docdbelastic.CfnClusterSnapshotProps(
+                cluster_arn="clusterArn",
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7312696a2836816e3012aa75e434596451dd7a2794d8a9813cf0afb177975ee)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "snapshot_name": snapshot_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The ARN of the elastic cluster of which to create a snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdbelastic-clustersnapshot.html#cfn-docdbelastic-clustersnapshot-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The name of the elastic cluster snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdbelastic-clustersnapshot.html#cfn-docdbelastic-clustersnapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the elastic cluster snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdbelastic-clustersnapshot.html#cfn-docdbelastic-clustersnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnCluster",
     "CfnClusterProps",
+    "CfnClusterSnapshot",
+    "CfnClusterSnapshotProps",
 ]
 
 publication.publish()
@@ -935,6 +1284,62 @@ def _typecheckingstub__2b5fe934af328fd508365294b2de9cfcaa71e04fad229d22243ec4156
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0db109586ae8330af416009d17ee16b4686e262e70a1b0c3480e97e2565976a5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_arn: builtins.str,
+    snapshot_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc736a86aca44169ab75b91e6a5bc9fb9a43cfe27a01e8c38846963070ea30a4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6aad750640176796941beeb2994e0394fef1dadab7a9c29e10df30180d185c10(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__736387f08a4345297421d2369890153118afd3a1c9b6cbc75f336506105185fe(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c15a6452d0eaad219d234ad09d56f1028eaeaecbba553cdd6c2a3cc49857c20(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f76b182e041e609adf533c8cc1d113dd9c8db9ae4690cbb8fced19e6890fd64(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__145fad72f653411ea7720841e041e0595cfcc8d97f0f21c41508e8362cd4e03c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7312696a2836816e3012aa75e434596451dd7a2794d8a9813cf0afb177975ee(
+    *,
+    cluster_arn: builtins.str,
+    snapshot_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

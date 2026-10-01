@@ -14,6 +14,9 @@ Usage::
         DescribeMalwareScansPaginator,
         GuardDutyClient,
         ListCoveragePaginator,
+        ListCustomDetectionRuleAssociationsPaginator,
+        ListCustomDetectionRuleOrgConfigurationsPaginator,
+        ListCustomDetectionRulesPaginator,
         ListDetectorsPaginator,
         ListFiltersPaginator,
         ListFindingsPaginator,
@@ -36,6 +39,9 @@ Usage::
 
     describe_malware_scans_paginator: DescribeMalwareScansPaginator = client.get_paginator("describe_malware_scans")
     list_coverage_paginator: ListCoveragePaginator = client.get_paginator("list_coverage")
+    list_custom_detection_rule_associations_paginator: ListCustomDetectionRuleAssociationsPaginator = client.get_paginator("list_custom_detection_rule_associations")
+    list_custom_detection_rule_org_configurations_paginator: ListCustomDetectionRuleOrgConfigurationsPaginator = client.get_paginator("list_custom_detection_rule_org_configurations")
+    list_custom_detection_rules_paginator: ListCustomDetectionRulesPaginator = client.get_paginator("list_custom_detection_rules")
     list_detectors_paginator: ListDetectorsPaginator = client.get_paginator("list_detectors")
     list_filters_paginator: ListFiltersPaginator = client.get_paginator("list_filters")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
@@ -55,6 +61,9 @@ from .client import GuardDutyClient
 from .paginator import (
     DescribeMalwareScansPaginator,
     ListCoveragePaginator,
+    ListCustomDetectionRuleAssociationsPaginator,
+    ListCustomDetectionRuleOrgConfigurationsPaginator,
+    ListCustomDetectionRulesPaginator,
     ListDetectorsPaginator,
     ListFiltersPaginator,
     ListFindingsPaginator,
@@ -76,6 +85,9 @@ __all__ = (
     "DescribeMalwareScansPaginator",
     "GuardDutyClient",
     "ListCoveragePaginator",
+    "ListCustomDetectionRuleAssociationsPaginator",
+    "ListCustomDetectionRuleOrgConfigurationsPaginator",
+    "ListCustomDetectionRulesPaginator",
     "ListDetectorsPaginator",
     "ListFiltersPaginator",
     "ListFindingsPaginator",

@@ -90,6 +90,9 @@ __all__ = (
     "DescribeLanguageModelRequestWaitTypeDef",
     "DescribeLanguageModelResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EncryptionConfigurationOutputTypeDef",
+    "EncryptionConfigurationTypeDef",
+    "EncryptionConfigurationUnionTypeDef",
     "GetCallAnalyticsCategoryRequestTypeDef",
     "GetCallAnalyticsCategoryResponseTypeDef",
     "GetCallAnalyticsJobRequestTypeDef",
@@ -186,6 +189,8 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateCallAnalyticsCategoryRequestTypeDef",
     "UpdateCallAnalyticsCategoryResponseTypeDef",
+    "UpdateLanguageModelRequestTypeDef",
+    "UpdateLanguageModelResponseTypeDef",
     "UpdateMedicalVocabularyRequestTypeDef",
     "UpdateMedicalVocabularyResponseTypeDef",
     "UpdateVocabularyFilterRequestTypeDef",
@@ -314,6 +319,16 @@ class DescribeLanguageModelRequestTypeDef(TypedDict):
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
+
+
+class EncryptionConfigurationOutputTypeDef(TypedDict):
+    KMSKey: str
+    KMSEncryptionContext: NotRequired[dict[str, str]]
+
+
+class EncryptionConfigurationTypeDef(TypedDict):
+    KMSKey: str
+    KMSEncryptionContext: NotRequired[Mapping[str, str]]
 
 
 class GetCallAnalyticsCategoryRequestTypeDef(TypedDict):
@@ -542,21 +557,6 @@ class UpdateMedicalVocabularyRequestTypeDef(TypedDict):
     VocabularyFileUri: str
 
 
-class UpdateVocabularyFilterRequestTypeDef(TypedDict):
-    VocabularyFilterName: str
-    Words: NotRequired[Sequence[str]]
-    VocabularyFilterFileUri: NotRequired[str]
-    DataAccessRoleArn: NotRequired[str]
-
-
-class UpdateVocabularyRequestTypeDef(TypedDict):
-    VocabularyName: str
-    LanguageCode: LanguageCodeType
-    Phrases: NotRequired[Sequence[str]]
-    VocabularyFileUri: NotRequired[str]
-    DataAccessRoleArn: NotRequired[str]
-
-
 class CallAnalyticsJobDetailsTypeDef(TypedDict):
     Skipped: NotRequired[list[CallAnalyticsSkippedFeatureTypeDef]]
 
@@ -591,24 +591,6 @@ class CreateMedicalVocabularyRequestTypeDef(TypedDict):
     LanguageCode: LanguageCodeType
     VocabularyFileUri: str
     Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class CreateVocabularyFilterRequestTypeDef(TypedDict):
-    VocabularyFilterName: str
-    LanguageCode: LanguageCodeType
-    Words: NotRequired[Sequence[str]]
-    VocabularyFilterFileUri: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    DataAccessRoleArn: NotRequired[str]
-
-
-class CreateVocabularyRequestTypeDef(TypedDict):
-    VocabularyName: str
-    LanguageCode: LanguageCodeType
-    Phrases: NotRequired[Sequence[str]]
-    VocabularyFileUri: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    DataAccessRoleArn: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -665,27 +647,16 @@ class GetMedicalVocabularyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetVocabularyFilterResponseTypeDef(TypedDict):
-    VocabularyFilterName: str
-    LanguageCode: LanguageCodeType
-    LastModifiedTime: datetime
-    DownloadUri: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetVocabularyResponseTypeDef(TypedDict):
-    VocabularyName: str
-    LanguageCode: LanguageCodeType
-    VocabularyState: VocabularyStateType
-    LastModifiedTime: datetime
-    FailureReason: str
-    DownloadUri: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ListTagsForResourceResponseTypeDef(TypedDict):
     ResourceArn: str
     Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateLanguageModelResponseTypeDef(TypedDict):
+    ModelName: str
+    ModelStatus: ModelStatusType
+    LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -712,14 +683,6 @@ class UpdateVocabularyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateLanguageModelRequestTypeDef(TypedDict):
-    LanguageCode: CLMLanguageCodeType
-    BaseModelName: BaseModelNameType
-    ModelName: str
-    InputDataConfig: InputDataConfigTypeDef
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
 class CreateLanguageModelResponseTypeDef(TypedDict):
     LanguageCode: CLMLanguageCodeType
     BaseModelName: BaseModelNameType
@@ -727,18 +690,6 @@ class CreateLanguageModelResponseTypeDef(TypedDict):
     InputDataConfig: InputDataConfigTypeDef
     ModelStatus: ModelStatusType
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class LanguageModelTypeDef(TypedDict):
-    ModelName: NotRequired[str]
-    CreateTime: NotRequired[datetime]
-    LastModifiedTime: NotRequired[datetime]
-    LanguageCode: NotRequired[CLMLanguageCodeType]
-    BaseModelName: NotRequired[BaseModelNameType]
-    ModelStatus: NotRequired[ModelStatusType]
-    UpgradeAvailability: NotRequired[bool]
-    FailureReason: NotRequired[str]
-    InputDataConfig: NotRequired[InputDataConfigTypeDef]
 
 
 class DescribeLanguageModelRequestWaitTypeDef(TypedDict):
@@ -774,6 +725,46 @@ class GetTranscriptionJobRequestWaitTypeDef(TypedDict):
 class GetVocabularyRequestWaitTypeDef(TypedDict):
     VocabularyName: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetVocabularyFilterResponseTypeDef(TypedDict):
+    VocabularyFilterName: str
+    LanguageCode: LanguageCodeType
+    LastModifiedTime: datetime
+    DownloadUri: str
+    DataAccessRoleArn: str
+    EncryptionConfiguration: EncryptionConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetVocabularyResponseTypeDef(TypedDict):
+    VocabularyName: str
+    LanguageCode: LanguageCodeType
+    VocabularyState: VocabularyStateType
+    LastModifiedTime: datetime
+    FailureReason: str
+    DownloadUri: str
+    DataAccessRoleArn: str
+    EncryptionConfiguration: EncryptionConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LanguageModelTypeDef(TypedDict):
+    ModelName: NotRequired[str]
+    CreateTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    LanguageCode: NotRequired[CLMLanguageCodeType]
+    BaseModelName: NotRequired[BaseModelNameType]
+    ModelStatus: NotRequired[ModelStatusType]
+    UpgradeAvailability: NotRequired[bool]
+    FailureReason: NotRequired[str]
+    InputDataConfig: NotRequired[InputDataConfigTypeDef]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationOutputTypeDef]
+
+
+EncryptionConfigurationUnionTypeDef = Union[
+    EncryptionConfigurationTypeDef, EncryptionConfigurationOutputTypeDef
+]
 
 
 class InterruptionFilterTypeDef(TypedDict):
@@ -1017,6 +1008,58 @@ class ListLanguageModelsResponseTypeDef(TypedDict):
     Models: list[LanguageModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CreateLanguageModelRequestTypeDef(TypedDict):
+    LanguageCode: CLMLanguageCodeType
+    BaseModelName: BaseModelNameType
+    ModelName: str
+    InputDataConfig: InputDataConfigTypeDef
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class CreateVocabularyFilterRequestTypeDef(TypedDict):
+    VocabularyFilterName: str
+    LanguageCode: LanguageCodeType
+    Words: NotRequired[Sequence[str]]
+    VocabularyFilterFileUri: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    DataAccessRoleArn: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+
+
+class CreateVocabularyRequestTypeDef(TypedDict):
+    VocabularyName: str
+    LanguageCode: LanguageCodeType
+    Phrases: NotRequired[Sequence[str]]
+    VocabularyFileUri: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    DataAccessRoleArn: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+
+
+class UpdateLanguageModelRequestTypeDef(TypedDict):
+    ModelName: str
+    DataAccessRoleArn: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+
+
+class UpdateVocabularyFilterRequestTypeDef(TypedDict):
+    VocabularyFilterName: str
+    Words: NotRequired[Sequence[str]]
+    VocabularyFilterFileUri: NotRequired[str]
+    DataAccessRoleArn: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+
+
+class UpdateVocabularyRequestTypeDef(TypedDict):
+    VocabularyName: str
+    LanguageCode: LanguageCodeType
+    Phrases: NotRequired[Sequence[str]]
+    VocabularyFileUri: NotRequired[str]
+    DataAccessRoleArn: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
 
 
 SentimentFilterUnionTypeDef = Union[SentimentFilterTypeDef, SentimentFilterOutputTypeDef]

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_devops_agent.literals import AuthFlowType
+    from types_aiobotocore_devops_agent.literals import AgentSpacePreferenceKeyType
 
-    data: AuthFlowType = "iam"
+    data: AgentSpacePreferenceKeyType = "elevatedActionsEnabled"
     ```
 """
 
@@ -23,6 +23,9 @@ else:
 
 
 __all__ = (
+    "AgentSpacePreferenceKeyType",
+    "ApprovalActionTypeType",
+    "ApprovalStatusType",
     "AuthFlowType",
     "CapabilityTypeType",
     "DevOpsAgentServiceServiceName",
@@ -67,18 +70,23 @@ __all__ = (
     "TaskSortOrderType",
     "TaskStatusType",
     "TaskTypeType",
+    "ToolClassificationType",
+    "TriggerEventType",
     "UserTypeType",
     "ValidationStatusType",
     "WebhookTypeType",
 )
 
 
+AgentSpacePreferenceKeyType = Literal["elevatedActionsEnabled"]
+ApprovalActionTypeType = Literal["APPROVED", "REJECTED"]
+ApprovalStatusType = Literal["APPROVED", "PENDING", "REDEEMED", "REJECTED", "REVOKED"]
 AuthFlowType = Literal["iam", "idc", "idp"]
 CapabilityTypeType = Literal[
     "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
 ]
 EventChannelTypeType = Literal["webhook"]
-ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT"]
+ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT", "WAITING"]
 GitLabTokenTypeType = Literal["group", "personal"]
 GithubRepoOwnerTypeType = Literal["organization", "user"]
 GoalStatusType = Literal["ACTIVE", "COMPLETE", "PAUSED"]
@@ -100,7 +108,7 @@ MCPServerAuthorizationMethodType = Literal[
     "api-key", "bearer-token", "oauth-3lo", "oauth-client-credentials"
 ]
 MonitorAccountTypeType = Literal["monitor"]
-NewRelicRegionType = Literal["EU", "US"]
+NewRelicRegionType = Literal["EU", "JP", "US"]
 OrderTypeType = Literal["ASC", "DESC"]
 PostRegisterServiceSupportedServiceType = Literal[
     "azureidentity",
@@ -164,8 +172,11 @@ TaskStatusType = Literal[
     "PENDING_TRIAGE",
     "SKIPPED",
     "TIMED_OUT",
+    "WAITING",
 ]
 TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
+ToolClassificationType = Literal["DESTRUCTIVE", "MUTATIVE", "READ_ONLY"]
+TriggerEventType = Literal["PULL_REQUEST_DRAFT", "PULL_REQUEST_READY_FOR_REVIEW"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]
 ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]
@@ -250,6 +261,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -324,6 +336,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -352,6 +365,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -446,6 +460,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

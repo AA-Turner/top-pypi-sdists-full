@@ -4,7 +4,7 @@ import os
 import shutil
 import stanza
 from stanza.resources import installation
-from stanza.tests import TEST_HOME_VAR, TEST_WORKING_DIR
+from stanza.tests import TEST_HOME_VAR, TEST_WORKING_DIR, DICTIONARY_TOKENIZERS
 
 logger = logging.getLogger('stanza')
 
@@ -59,12 +59,19 @@ for lang in morphseg_langs:
     stanza.download(lang=lang, model_dir=models_dir, processors='tokenize', logging_level='info')
     logger.info(f"Downloaded {lang} tokenizer for morphseg tests")
 
+logger.info("DOWNLOADING TOKENIZERS WITH DICTIONARY FEATURES")
+
+for lang, package in DICTIONARY_TOKENIZERS:
+    stanza.download(lang=lang, model_dir=models_dir, package=None, processors={"tokenize": package}, logging_level='info')
+    logger.info(f"Downloaded {lang} {package} tokenizer for dictionary tests")
+
 logger.info("DOWNLOADING CORENLP")
 
+# The models are downloaded to match the version of CoreNLP installed here
 installation.install_corenlp(dir=corenlp_dir)
-installation.download_corenlp_models(model="french", version="main", dir=corenlp_dir)
-installation.download_corenlp_models(model="german", version="main", dir=corenlp_dir)
-installation.download_corenlp_models(model="italian", version="main", dir=corenlp_dir)
-installation.download_corenlp_models(model="spanish", version="main", dir=corenlp_dir)
+installation.download_corenlp_models(model="french", dir=corenlp_dir)
+installation.download_corenlp_models(model="german", dir=corenlp_dir)
+installation.download_corenlp_models(model="italian", dir=corenlp_dir)
+installation.download_corenlp_models(model="spanish", dir=corenlp_dir)
 
 logger.info("Test setup completed.")

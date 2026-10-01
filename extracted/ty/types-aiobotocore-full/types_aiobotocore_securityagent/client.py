@@ -30,6 +30,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListActorMessagesPaginator,
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
@@ -145,6 +146,8 @@ from .type_defs import (
     ImportSecurityRequirementsOutputTypeDef,
     InitiateProviderRegistrationInputTypeDef,
     InitiateProviderRegistrationOutputTypeDef,
+    ListActorMessagesInputTypeDef,
+    ListActorMessagesOutputTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
     ListApplicationsRequestTypeDef,
@@ -211,6 +214,8 @@ from .type_defs import (
     UpdateCodeReviewOutputTypeDef,
     UpdateFindingInputTypeDef,
     UpdateIntegratedResourcesInputTypeDef,
+    UpdateIntegrationInputTypeDef,
+    UpdateIntegrationOutputTypeDef,
     UpdatePentestInputTypeDef,
     UpdatePentestOutputTypeDef,
     UpdatePrivateConnectionCertificateInputTypeDef,
@@ -767,6 +772,17 @@ class SecurityAgentClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#initiate_provider_registration)
         """
 
+    async def list_actor_messages(
+        self, **kwargs: Unpack[ListActorMessagesInputTypeDef]
+    ) -> ListActorMessagesOutputTypeDef:
+        """
+        Returns a paginated list of the email MFA messages received for an actor at its
+        server-generated email address, most recent first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_actor_messages.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#list_actor_messages)
+        """
+
     async def list_agent_spaces(
         self, **kwargs: Unpack[ListAgentSpacesInputTypeDef]
     ) -> ListAgentSpacesOutputTypeDef:
@@ -1143,6 +1159,17 @@ class SecurityAgentClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_integrated_resources)
         """
 
+    async def update_integration(
+        self, **kwargs: Unpack[UpdateIntegrationInputTypeDef]
+    ) -> UpdateIntegrationOutputTypeDef:
+        """
+        Creates an integration's webhook, or rotates the HMAC signing secret of an
+        existing one.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_integration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#update_integration)
+        """
+
     async def update_pentest(
         self, **kwargs: Unpack[UpdatePentestInputTypeDef]
     ) -> UpdatePentestOutputTypeDef:
@@ -1211,6 +1238,17 @@ class SecurityAgentClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/verify_target_domain.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#verify_target_domain)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_actor_messages"]
+    ) -> ListActorMessagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityagent/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

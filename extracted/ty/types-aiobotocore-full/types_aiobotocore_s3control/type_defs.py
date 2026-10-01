@@ -54,13 +54,16 @@ from .literals import (
     ReplicationStorageClassType,
     ReplicationTimeStatusType,
     RequestedJobStatusType,
+    S3AnnotationDirectiveType,
     S3CannedAccessControlListType,
     S3ChecksumAlgorithmType,
     S3GlacierJobTierType,
     S3GranteeTypeIdentifierType,
     S3MetadataDirectiveType,
+    S3ObjectLockEventHoldType,
     S3ObjectLockLegalHoldStatusType,
     S3ObjectLockModeType,
+    S3ObjectLockRetentionEventHoldType,
     S3ObjectLockRetentionModeType,
     S3PermissionType,
     S3SSEAlgorithmType,
@@ -367,7 +370,9 @@ __all__ = (
     "S3JobManifestGeneratorTypeDef",
     "S3ManifestOutputLocationOutputTypeDef",
     "S3ManifestOutputLocationTypeDef",
+    "S3ObjectLockEventHoldDurationTypeDef",
     "S3ObjectLockLegalHoldTypeDef",
+    "S3ObjectLockRetentionEventHoldDurationTypeDef",
     "S3ObjectMetadataOutputTypeDef",
     "S3ObjectMetadataTypeDef",
     "S3ObjectOwnerTypeDef",
@@ -1189,6 +1194,11 @@ class S3ObjectOwnerTypeDef(TypedDict):
     DisplayName: NotRequired[str]
 
 
+class S3ObjectLockEventHoldDurationTypeDef(TypedDict):
+    Days: NotRequired[int]
+    Years: NotRequired[int]
+
+
 class S3ObjectMetadataOutputTypeDef(TypedDict):
     CacheControl: NotRequired[str]
     ContentDisposition: NotRequired[str]
@@ -1213,9 +1223,9 @@ class S3ObjectLockLegalHoldTypeDef(TypedDict):
     Status: S3ObjectLockLegalHoldStatusType
 
 
-class S3RetentionOutputTypeDef(TypedDict):
-    RetainUntilDate: NotRequired[datetime]
-    Mode: NotRequired[S3ObjectLockRetentionModeType]
+class S3ObjectLockRetentionEventHoldDurationTypeDef(TypedDict):
+    Days: NotRequired[int]
+    Years: NotRequired[int]
 
 
 class SSEKMSTypeDef(TypedDict):
@@ -1718,11 +1728,6 @@ class S3ObjectMetadataTypeDef(TypedDict):
     SSEAlgorithm: NotRequired[S3SSEAlgorithmType]
 
 
-class S3RetentionTypeDef(TypedDict):
-    RetainUntilDate: NotRequired[TimestampTypeDef]
-    Mode: NotRequired[S3ObjectLockRetentionModeType]
-
-
 class TransitionTypeDef(TypedDict):
     Date: NotRequired[TimestampTypeDef]
     Days: NotRequired[int]
@@ -1906,9 +1911,18 @@ class S3SetObjectLegalHoldOperationTypeDef(TypedDict):
     LegalHold: S3ObjectLockLegalHoldTypeDef
 
 
-class S3SetObjectRetentionOperationOutputTypeDef(TypedDict):
-    Retention: S3RetentionOutputTypeDef
-    BypassGovernanceRetention: NotRequired[bool]
+class S3RetentionOutputTypeDef(TypedDict):
+    RetainUntilDate: NotRequired[datetime]
+    Mode: NotRequired[S3ObjectLockRetentionModeType]
+    EventHold: NotRequired[S3ObjectLockRetentionEventHoldType]
+    EventHoldDuration: NotRequired[S3ObjectLockRetentionEventHoldDurationTypeDef]
+
+
+class S3RetentionTypeDef(TypedDict):
+    RetainUntilDate: NotRequired[TimestampTypeDef]
+    Mode: NotRequired[S3ObjectLockRetentionModeType]
+    EventHold: NotRequired[S3ObjectLockRetentionEventHoldType]
+    EventHoldDuration: NotRequired[S3ObjectLockRetentionEventHoldDurationTypeDef]
 
 
 class StorageLensDataExportEncryptionOutputTypeDef(TypedDict):
@@ -2032,13 +2046,6 @@ class S3ManifestOutputLocationTypeDef(TypedDict):
 LifecycleExpirationUnionTypeDef = Union[
     LifecycleExpirationTypeDef, LifecycleExpirationOutputTypeDef
 ]
-
-
-class S3SetObjectRetentionOperationTypeDef(TypedDict):
-    Retention: S3RetentionTypeDef
-    BypassGovernanceRetention: NotRequired[bool]
-
-
 TransitionUnionTypeDef = Union[TransitionTypeDef, TransitionOutputTypeDef]
 JobManifestUnionTypeDef = Union[JobManifestTypeDef, JobManifestOutputTypeDef]
 
@@ -2152,6 +2159,7 @@ class S3CopyObjectOperationOutputTypeDef(TypedDict):
     CannedAccessControlList: NotRequired[S3CannedAccessControlListType]
     AccessControlGrants: NotRequired[list[S3GrantTypeDef]]
     MetadataDirective: NotRequired[S3MetadataDirectiveType]
+    AnnotationDirective: NotRequired[S3AnnotationDirectiveType]
     ModifiedSinceConstraint: NotRequired[datetime]
     NewObjectMetadata: NotRequired[S3ObjectMetadataOutputTypeDef]
     NewObjectTagging: NotRequired[list[S3TagTypeDef]]
@@ -2166,6 +2174,8 @@ class S3CopyObjectOperationOutputTypeDef(TypedDict):
     ObjectLockRetainUntilDate: NotRequired[datetime]
     BucketKeyEnabled: NotRequired[bool]
     ChecksumAlgorithm: NotRequired[S3ChecksumAlgorithmType]
+    ObjectLockEventHold: NotRequired[S3ObjectLockEventHoldType]
+    ObjectLockEventHoldDuration: NotRequired[S3ObjectLockEventHoldDurationTypeDef]
 
 
 class S3CopyObjectOperationTypeDef(TypedDict):
@@ -2173,6 +2183,7 @@ class S3CopyObjectOperationTypeDef(TypedDict):
     CannedAccessControlList: NotRequired[S3CannedAccessControlListType]
     AccessControlGrants: NotRequired[Sequence[S3GrantTypeDef]]
     MetadataDirective: NotRequired[S3MetadataDirectiveType]
+    AnnotationDirective: NotRequired[S3AnnotationDirectiveType]
     ModifiedSinceConstraint: NotRequired[TimestampTypeDef]
     NewObjectMetadata: NotRequired[S3ObjectMetadataTypeDef]
     NewObjectTagging: NotRequired[Sequence[S3TagTypeDef]]
@@ -2187,6 +2198,18 @@ class S3CopyObjectOperationTypeDef(TypedDict):
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     BucketKeyEnabled: NotRequired[bool]
     ChecksumAlgorithm: NotRequired[S3ChecksumAlgorithmType]
+    ObjectLockEventHold: NotRequired[S3ObjectLockEventHoldType]
+    ObjectLockEventHoldDuration: NotRequired[S3ObjectLockEventHoldDurationTypeDef]
+
+
+class S3SetObjectRetentionOperationOutputTypeDef(TypedDict):
+    Retention: S3RetentionOutputTypeDef
+    BypassGovernanceRetention: NotRequired[bool]
+
+
+class S3SetObjectRetentionOperationTypeDef(TypedDict):
+    Retention: S3RetentionTypeDef
+    BypassGovernanceRetention: NotRequired[bool]
 
 
 class S3BucketDestinationOutputTypeDef(TypedDict):

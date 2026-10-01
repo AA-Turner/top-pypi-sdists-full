@@ -3,6 +3,14 @@ class ErrorBoundary:
     def wrap(instance):
         try:
             for name in get_all_instance_method_names(instance):
+                if name in {
+                    "get_typed_config",
+                    "register_typed_config_callback",
+                    "_INTERNAL_get_typed_config",
+                    "_INTERNAL_typed_config_context",
+                    "_INTERNAL_typed_config_updates",
+                }:
+                    continue
                 original = getattr(instance, name)
 
                 if hasattr(original, '_error_boundary_wrapped'):

@@ -42,11 +42,13 @@ mod fleet_attention;
 mod goals;
 mod json_bridge;
 mod migration;
+mod note_attachment;
 mod notifications;
 mod plans;
 mod prelude;
 mod procs;
 mod project_tag;
+mod prompt_prediction;
 mod provider_policy;
 mod query;
 mod sudo;
@@ -75,6 +77,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     agent_custody::register_agent_custody(m)?;
     bead_decisions::register_bead_decisions(m)?;
     beads::register_beads(m)?;
+    note_attachment::register_note_attachment(m)?;
     plans::register_plans(m)?;
     artifact_refs::register_artifact_refs(m)?;
     artifact_links::register_artifact_links(m)?;
@@ -92,5 +95,6 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     sudo::register_sudo(m)?;
     continuation::register_continuation(m)?;
     telemetry::register_telemetry(m)?;
+    prompt_prediction::register_prompt_prediction(m)?;
     Ok(())
 }

@@ -192,19 +192,27 @@ for the `AWS::S3::Bucket` CloudFormation type:
 ```python
 from aws_cdk.aws_iam import AddToResourcePolicyResult
 from aws_cdk import CfnResource
-from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
-from constructs import Construct, IConstruct
+from aws_cdk.aws_iam import AddToResourcePolicyResult, IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
+from aws_cdk.interfaces import ResourceEnvironment
+from constructs import Construct
 
 # scope: Construct
+
+@jsii.implements(IResourceWithPolicyV2)
+class MyResourceWithPolicy:
+
+    def __init__(self, resource):
+        self.resource = resource
+        self.env = resource.env
+
+    def add_to_resource_policy(self, statement):
+        # custom implementation to add the statement to the resource policy
+        return AddToResourcePolicyResult(statement_added=True, policy_dependable=self.resource)
+
 @jsii.implements(IResourcePolicyFactory)
 class MyFactory:
     def for_resource(self, resource):
-        return {
-            "env": resource.env,
-            def add_to_resource_policy(self, statement):
-                # custom implementation to add the statement to the resource policy
-                return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
-        }
+        return MyResourceWithPolicy(resource)
 
 ResourceWithPolicies.register(scope, "AWS::S3::Bucket", MyFactory())
 ```
@@ -6937,15 +6945,88 @@ class CfnBucket(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3.CfnBucket.DefaultEventHoldProperty",
+        jsii_struct_bases=[],
+        name_mapping={"days": "days", "years": "years"},
+    )
+    class DefaultEventHoldProperty:
+        def __init__(
+            self,
+            *,
+            days: typing.Optional[jsii.Number] = None,
+            years: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param days: 
+            :param years: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-defaulteventhold.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3 as s3
+                
+                default_event_hold_property = s3.CfnBucket.DefaultEventHoldProperty(
+                    days=123,
+                    years=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ddc17c59985d20384b772553484f091a37149bf27b8172a78802f6c7c5e540ac)
+                check_type(argname="argument days", value=days, expected_type=type_hints["days"])
+                check_type(argname="argument years", value=years, expected_type=type_hints["years"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if days is not None:
+                self._values["days"] = days
+            if years is not None:
+                self._values["years"] = years
+
+        @builtins.property
+        def days(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-defaulteventhold.html#cfn-s3-bucket-defaulteventhold-days
+            '''
+            result = self._values.get("days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def years(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-defaulteventhold.html#cfn-s3-bucket-defaulteventhold-years
+            '''
+            result = self._values.get("years")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DefaultEventHoldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3.CfnBucket.DefaultRetentionProperty",
         jsii_struct_bases=[],
-        name_mapping={"days": "days", "mode": "mode", "years": "years"},
+        name_mapping={
+            "days": "days",
+            "default_event_hold": "defaultEventHold",
+            "mode": "mode",
+            "years": "years",
+        },
     )
     class DefaultRetentionProperty:
         def __init__(
             self,
             *,
             days: typing.Optional[jsii.Number] = None,
+            default_event_hold: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBucket.DefaultEventHoldProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mode: typing.Optional[builtins.str] = None,
             years: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -6957,6 +7038,7 @@ class CfnBucket(
                - The ``DefaultRetention`` period can be either ``Days`` or ``Years`` but you must select one. You cannot specify ``Days`` and ``Years`` at the same time.
 
             :param days: The number of days that you want to specify for the default retention period. If Object Lock is turned on, you must specify ``Mode`` and specify either ``Days`` or ``Years`` .
+            :param default_event_hold: 
             :param mode: The default Object Lock retention mode you want to apply to new objects placed in the specified bucket. If Object Lock is turned on, you must specify ``Mode`` and specify either ``Days`` or ``Years`` .
             :param years: The number of years that you want to specify for the default retention period. If Object Lock is turned on, you must specify ``Mode`` and specify either ``Days`` or ``Years`` .
 
@@ -6971,6 +7053,10 @@ class CfnBucket(
                 
                 default_retention_property = s3.CfnBucket.DefaultRetentionProperty(
                     days=123,
+                    default_event_hold=s3.CfnBucket.DefaultEventHoldProperty(
+                        days=123,
+                        years=123
+                    ),
                     mode="mode",
                     years=123
                 )
@@ -6978,11 +7064,14 @@ class CfnBucket(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__97b1487c8aa503a78bd56cb269b2110e0ccb591662bb9a5676891d505bece488)
                 check_type(argname="argument days", value=days, expected_type=type_hints["days"])
+                check_type(argname="argument default_event_hold", value=default_event_hold, expected_type=type_hints["default_event_hold"])
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
                 check_type(argname="argument years", value=years, expected_type=type_hints["years"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if days is not None:
                 self._values["days"] = days
+            if default_event_hold is not None:
+                self._values["default_event_hold"] = default_event_hold
             if mode is not None:
                 self._values["mode"] = mode
             if years is not None:
@@ -6998,6 +7087,16 @@ class CfnBucket(
             '''
             result = self._values.get("days")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def default_event_hold(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.DefaultEventHoldProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-defaultretention.html#cfn-s3-bucket-defaultretention-defaulteventhold
+            '''
+            result = self._values.get("default_event_hold")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBucket.DefaultEventHoldProperty"]], result)
 
         @builtins.property
         def mode(self) -> typing.Optional[builtins.str]:
@@ -9351,6 +9450,10 @@ class CfnBucket(
                     rule=s3.CfnBucket.ObjectLockRuleProperty(
                         default_retention=s3.CfnBucket.DefaultRetentionProperty(
                             days=123,
+                            default_event_hold=s3.CfnBucket.DefaultEventHoldProperty(
+                                days=123,
+                                years=123
+                            ),
                             mode="mode",
                             years=123
                         )
@@ -9431,6 +9534,10 @@ class CfnBucket(
                 object_lock_rule_property = s3.CfnBucket.ObjectLockRuleProperty(
                     default_retention=s3.CfnBucket.DefaultRetentionProperty(
                         days=123,
+                        default_event_hold=s3.CfnBucket.DefaultEventHoldProperty(
+                            days=123,
+                            years=123
+                        ),
                         mode="mode",
                         years=123
                     )
@@ -25332,9 +25439,18 @@ def _typecheckingstub__68deaa32a31f8adf92261f31ce71b9f14406dfc58e0cfd59636c39926
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ddc17c59985d20384b772553484f091a37149bf27b8172a78802f6c7c5e540ac(
+    *,
+    days: typing.Optional[jsii.Number] = None,
+    years: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__97b1487c8aa503a78bd56cb269b2110e0ccb591662bb9a5676891d505bece488(
     *,
     days: typing.Optional[jsii.Number] = None,
+    default_event_hold: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBucket.DefaultEventHoldProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mode: typing.Optional[builtins.str] = None,
     years: typing.Optional[jsii.Number] = None,
 ) -> None:

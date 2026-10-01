@@ -41,6 +41,7 @@ __all__ = (
     "ListRegionsPaginatorName",
     "ListWorkspaceInstancesPaginatorName",
     "MarketTypeEnumType",
+    "NestedVirtualizationEnumType",
     "PaginatorName",
     "PlatformTypeEnumType",
     "ProvisionStateEnumType",
@@ -72,6 +73,7 @@ ListInstanceTypesPaginatorName = Literal["list_instance_types"]
 ListRegionsPaginatorName = Literal["list_regions"]
 ListWorkspaceInstancesPaginatorName = Literal["list_workspace_instances"]
 MarketTypeEnumType = Literal["capacity-block", "spot"]
+NestedVirtualizationEnumType = Literal["disabled", "enabled"]
 PlatformTypeEnumType = Literal[
     "Linux/UNIX",
     "Red Hat BYOL Linux",
@@ -174,6 +176,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -248,6 +251,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -276,6 +280,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -370,6 +375,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Python internals
 from dataclasses import asdict, fields as dataclass_fields
-from typing import Any, ClassVar, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 # Current package
 from dlthub_sdk._glue.context import M, _Ctx
@@ -81,14 +81,19 @@ class Entity(Generic[M]):
         if unknown:
             raise TypeError(f"{cls.__name__}._identity names unknown fields: {unknown}")
 
-    def __getattr__(self, name: str) -> Any:
-        # Reached only when normal lookup fails, i.e. _ctx was never bound.
-        if name == "_ctx":
-            raise UnboundEntity(
-                f"{type(self).__name__} was constructed directly; obtain it from "
-                "the SDK so it carries a context"
-            )
-        raise AttributeError(name)
+    # Hidden from the type checker: a visible __getattr__ types every unknown
+    # attribute as Any, so reading a field an entity does not have would only
+    # fail at runtime.
+    if not TYPE_CHECKING:
+
+        def __getattr__(self, name: str) -> Any:
+            # Reached only when normal lookup fails, i.e. _ctx was never bound.
+            if name == "_ctx":
+                raise UnboundEntity(
+                    f"{type(self).__name__} was constructed directly; obtain it from "
+                    "the SDK so it carries a context"
+                )
+            raise AttributeError(name)
 
     @classmethod
     def _bind(cls: type[E], ctx: _Ctx[Any], obj: E) -> E:

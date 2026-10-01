@@ -167,12 +167,7 @@ def create_github_connection(
         if "ALREADY_EXISTS" in stderr:
             click.echo("✅ Using existing GitHub connection")
         else:
-            click.secho(
-                f"❌ Failed to create GitHub connection: {stderr}", bold=True, fg="red"
-            )
-            raise subprocess.CalledProcessError(
-                result.returncode, result.args, result.stdout, stderr
-            )
+            raise click.ClickException(f"Failed to create GitHub connection: {stderr}")
 
     click.secho("\n⚠️ Important:", bold=True, fg="yellow")
     click.echo(
@@ -265,8 +260,7 @@ def create_github_connection(
                 raise Exception(f"Unexpected connection status: {status}")
 
         except Exception as e:
-            click.secho(f"❌ Failed to check connection status: {e}", bold=True, fg="red")
-            raise
+            raise click.ClickException(f"Failed to check connection status: {e}") from e
 
     raise TimeoutError("GitHub connection authorization timed out after 5 minutes")
 
@@ -350,17 +344,19 @@ def require_apis_enabled(project_id: str, apis: list[str]) -> None:
             else:
                 click.echo(f"✅ {api} already enabled")
         except Exception as e:
-            click.secho(f"❌ Failed to check {api}: {e!s}", bold=True, fg="red")
-            raise
+            raise click.ClickException(f"Failed to check {api}: {e!s}") from e
 
     if missing_apis:
-        click.secho("\n❌ Missing required APIs:", bold=True, fg="red")
-        for api in missing_apis:
-            click.echo(f"  • {api}")
-        click.echo("\nPlease enable them by running:")
-        for api in missing_apis:
-            click.echo(f"  gcloud services enable {api} --project={project_id}")
-        raise click.ClickException("Required APIs are not enabled.")
+        missing = "\n".join(f"  • {api}" for api in missing_apis)
+        commands = "\n".join(
+            f"  gcloud services enable {api} --project={project_id}"
+            for api in missing_apis
+        )
+        raise click.ClickException(
+            "Required APIs are not enabled:\n"
+            f"{missing}\n"
+            f"Please enable them by running:\n{commands}"
+        )
 
 
 def run_command(
@@ -521,18 +517,18 @@ def handle_github_authentication(interactive: bool = True) -> None:
                 text=True,
                 encoding="utf-8",
             )
-            stdout, stderr = process.communicate(input=token + "\n")
+            _stdout, stderr = process.communicate(input=token + "\n")
 
             if process.returncode != 0:
-                click.secho(f"❌ Authentication failed: {stderr}", bold=True, fg="red")
-                raise subprocess.CalledProcessError(
-                    process.returncode, ["gh", "auth", "login"], stdout, stderr
-                )
+                raise click.ClickException(f"Authentication failed: {stderr.strip()}")
 
         click.secho("✅ Successfully authenticated with GitHub", fg="green")
+    # Abort means the user cancelled a prompt; str(Abort()) is empty, so don't
+    # turn it into "Authentication failed: ".
+    except (click.ClickException, click.Abort):
+        raise
     except Exception as e:
-        click.secho(f"❌ Authentication failed: {e}", bold=True, fg="red")
-        raise click.Abort() from e
+        raise click.ClickException(f"Authentication failed: {e}") from e
 
 
 def create_github_repository(repository_owner: str, repository_name: str) -> None:
@@ -577,8 +573,7 @@ def create_github_repository(repository_owner: str, repository_name: str) -> Non
         else:
             click.echo("✅ Using existing GitHub repository")
     except Exception as e:
-        click.secho(f"❌ Failed to create/check repository: {e!s}", bold=True, fg="red")
-        raise
+        raise click.ClickException(f"Failed to create/check repository: {e!s}") from e
 
 
 def _create_state_bucket(bucket_name: str, project_id: str, region: str) -> None:

@@ -29,6 +29,7 @@ import hashlib
 import logging
 import threading
 import weakref
+from collections import OrderedDict
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, Optional, Sequence
 
@@ -40,6 +41,15 @@ from raindrop.app_git import (
     COMMIT_SHA_PROPERTY,
     INFERRED_CONTEXT_KEY,
     effective_app_git,
+)
+from raindrop.prompt_tools import (
+    PROMPT_TOOLS_ATTRIBUTE,
+    PROMPT_TOOLS_SOURCE_ATTRIBUTE,
+    ToolsInput,
+    content_capture_enabled,
+    is_model_span_attributes,
+    normalize_tools,
+    rebuild_implicit,
 )
 
 logger = logging.getLogger("raindrop.analytics")
@@ -64,6 +74,24 @@ def set_default_span_attributes_resolver(
 ) -> None:
     global _default_span_attributes_resolver
     _default_span_attributes_resolver = resolver
+
+# Whether prompt/tool content may be recorded on spans. ``raindrop.analytics``
+# points this at its ``_should_send_prompts`` so the module-level setting (and
+# tests patching it) govern the export path too.
+_content_capture_resolver: Callable[[], bool] = content_capture_enabled
+
+
+def set_content_capture_resolver(resolver: Callable[[], bool]) -> None:
+    global _content_capture_resolver
+    _content_capture_resolver = resolver
+
+
+def _content_capture_allowed() -> bool:
+    try:
+        return bool(_content_capture_resolver())
+    except Exception:
+        return False
+
 
 PROJECT_ID_SPAN_ATTRIBUTE = "raindrop.project_id"
 AUTH_HINT_SPAN_ATTRIBUTE = "raindrop.auth_hint"
@@ -425,7 +453,185 @@ def current_span_attributes(client_identity: int | None = None) -> Dict[str, Any
     )
     for frame in live_span_attribute_frames():
         merged.update(owned(frame.attributes, frame.client_identity))
+    # The tools override rides the same frames but is stamped on model spans
+    # only (see ``current_prompt_tools``), never as an ordinary attribute.
+    merged.pop(PROMPT_TOOLS_ATTRIBUTE, None)
+    merged.pop(PROMPT_TOOLS_SOURCE_ATTRIBUTE, None)
     return merged
+
+
+# --- Prompt tools override ----------------------------------------------------
+#
+# ``tools=`` on ``begin()`` / ``prompt_tools()`` binds a frame holding the
+# canonical ``ai.prompt.tools`` value (plus ``ai.prompt.tools.source`` when the
+# list is a catalog). It is applied only to MODEL spans (``llm.request.type`` /
+# ``gen_ai.request.model`` / ``llm.request.model`` / ``llm.model_name``): at
+# start when the instrumentation marks the span on creation, otherwise at
+# export once the marker attributes have arrived.
+
+
+def bind_prompt_tools(
+    tools: ToolsInput, owner: Any = None, *, source: "str | None" = None
+) -> "_AttributeFrame | None":
+    """Bind a tools override for model spans started later in this context.
+
+    ``source`` marks a catalog-derived list (``ai.prompt.tools.source``); it
+    rides the same frame so an inner override without one never inherits it.
+    """
+    attributes: Dict[str, Any] = {PROMPT_TOOLS_ATTRIBUTE: normalize_tools(tools)}
+    if isinstance(source, str) and source:
+        attributes[PROMPT_TOOLS_SOURCE_ATTRIBUTE] = source
+    return bind_span_attributes(attributes, owner)
+
+
+@contextmanager
+def prompt_tools_scope(
+    tools: ToolsInput, *, source: "str | None" = None
+) -> Iterator[None]:
+    frame = bind_prompt_tools(tools, source=source)
+    try:
+        yield
+    finally:
+        unbind_span_attributes(frame)
+
+
+def _current_prompt_tools_frame() -> "_AttributeFrame | None":
+    innermost: "_AttributeFrame | None" = None
+    for frame in live_span_attribute_frames():
+        if isinstance(frame.attributes.get(PROMPT_TOOLS_ATTRIBUTE), tuple):
+            innermost = frame
+    return innermost
+
+
+def current_prompt_tools() -> "tuple[str, ...] | None":
+    """The innermost live tools override, or ``None`` when none is bound."""
+    frame = _current_prompt_tools_frame()
+    return frame.attributes[PROMPT_TOOLS_ATTRIBUTE] if frame is not None else None
+
+
+def current_prompt_tools_source() -> "str | None":
+    """The ``source`` bound with the innermost live tools override, if any."""
+    frame = _current_prompt_tools_frame()
+    if frame is None:
+        return None
+    source = frame.attributes.get(PROMPT_TOOLS_SOURCE_ATTRIBUTE)
+    return source if isinstance(source, str) else None
+
+
+# Keyed by (trace_id, span_id): the SDK span seen at start and the readable
+# span handed to the exporter are different objects. Bounded so spans that are
+# never exported (sampled out, dropped by the guard) cannot grow it unbounded.
+_deferred_prompt_tools: (
+    "OrderedDict[tuple[int, int], tuple[tuple[str, ...], str | None]]"
+) = OrderedDict()
+_deferred_prompt_tools_lock = threading.Lock()
+_DEFERRED_PROMPT_TOOLS_LIMIT = 4096
+
+# Spans whose start saw content capture allowed. The per-request
+# ``override_enable_content_tracing`` context is only visible on the thread
+# that started the span, not on the exporter thread, so the verdict is taken
+# at start and consulted again at export (same bound as the deferred overrides).
+_content_allowed_spans: "OrderedDict[tuple[int, int], None]" = OrderedDict()
+
+
+def _span_key(span: Any) -> "tuple[int, int] | None":
+    context = span.get_span_context()
+    if context is None:
+        return None
+    return (int(context.trace_id), int(context.span_id))
+
+
+def _remember_content_capture(span: Any) -> None:
+    """Record at span start whether content capture was allowed there."""
+    try:
+        if not _content_capture_allowed():
+            return
+        key = _span_key(span)
+        if key is None:
+            return
+        with _deferred_prompt_tools_lock:
+            _content_allowed_spans[key] = None
+            while len(_content_allowed_spans) > _DEFERRED_PROMPT_TOOLS_LIMIT:
+                _content_allowed_spans.popitem(last=False)
+    except Exception:
+        pass
+
+
+def _content_capture_allowed_for(key: "tuple[int, int] | None") -> bool:
+    """Export-time gate: allowed at start under the span's own context, or now."""
+    allowed_at_start = False
+    if key is not None:
+        with _deferred_prompt_tools_lock:
+            allowed_at_start = key in _content_allowed_spans
+            _content_allowed_spans.pop(key, None)
+    return allowed_at_start or _content_capture_allowed()
+
+
+def _apply_prompt_tools_override(
+    span: Any, tools: "tuple[str, ...]", source: "str | None" = None
+) -> None:
+    """Stamp the override on a model span now, or hold it until export."""
+    try:
+        if not _content_capture_allowed():
+            return
+        if is_model_span_attributes(getattr(span, "attributes", None)):
+            span.set_attribute(PROMPT_TOOLS_ATTRIBUTE, tools)
+            if source:
+                span.set_attribute(PROMPT_TOOLS_SOURCE_ATTRIBUTE, source)
+            return
+        key = _span_key(span)
+        if key is None:
+            return
+        with _deferred_prompt_tools_lock:
+            _deferred_prompt_tools[key] = (tools, source)
+            while len(_deferred_prompt_tools) > _DEFERRED_PROMPT_TOOLS_LIMIT:
+                _deferred_prompt_tools.popitem(last=False)
+    except Exception:
+        # Telemetry must never crash the host app.
+        pass
+
+
+def _prompt_tools_export_attributes(
+    span: Any, attributes: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """``attributes`` plus ``ai.prompt.tools``, or ``None`` if nothing to add.
+
+    A deferred override wins over whatever the span carries; otherwise the
+    list is rebuilt from ``llm.request.functions.*`` or
+    ``gen_ai.tool.definitions`` when the span has them and no
+    ``ai.prompt.tools`` yet. Content capture off → never adds it.
+    """
+    try:
+        override: "tuple[tuple[str, ...], str | None] | None" = None
+        key: "tuple[int, int] | None" = None
+        try:
+            key = _span_key(span)
+            if key is not None:
+                with _deferred_prompt_tools_lock:
+                    override = _deferred_prompt_tools.pop(key, None)
+        except Exception:
+            override = None
+        if not _content_capture_allowed_for(key):
+            return None
+        if not is_model_span_attributes(attributes):
+            return None
+        tools: "tuple[str, ...] | None"
+        source: "str | None" = None
+        if override is not None:
+            tools, source = override
+        elif PROMPT_TOOLS_ATTRIBUTE in attributes:
+            return None
+        else:
+            tools = rebuild_implicit(attributes)
+        if tools is None:
+            return None
+        result = dict(attributes)
+        result[PROMPT_TOOLS_ATTRIBUTE] = tools
+        if source:
+            result[PROMPT_TOOLS_SOURCE_ATTRIBUTE] = source
+        return result
+    except Exception:
+        return None
 
 
 def current_span_client_identity() -> int | None:
@@ -762,6 +968,31 @@ def finalize_app_git_spans(spans: Sequence[Any]) -> Sequence[Any]:
     return result if changed else spans
 
 
+def finalize_export_spans(spans: Sequence[Any]) -> Sequence[Any]:
+    """Rewrite attributes on the way out: Git provenance, then prompt tools."""
+    result = []
+    changed = False
+    for span in spans:
+        attributes = _export_attributes(span)
+        try:
+            current = (
+                attributes
+                if attributes is not None
+                else dict(getattr(span, "attributes", None) or {})
+            )
+            with_tools = _prompt_tools_export_attributes(span, current)
+        except Exception:
+            with_tools = None
+        if with_tools is not None:
+            attributes = with_tools
+        if attributes is None:
+            result.append(span)
+            continue
+        result.append(_SpanAttributeProxy(span, attributes))
+        changed = True
+    return result if changed else spans
+
+
 class _RaindropContextSpanProcessor(SpanProcessor):
     """Stamp every span started under a bound context with routing attributes.
 
@@ -807,6 +1038,15 @@ class _RaindropContextSpanProcessor(SpanProcessor):
         if INFERRED_CONTEXT_KEY in contextual:
             memory_app_git.setdefault(INFERRED_CONTEXT_KEY, contextual[INFERRED_CONTEXT_KEY])
         remember_span_app_git(span, memory_app_git)
+        _remember_content_capture(span)
+        try:
+            tools = current_prompt_tools()
+            tools_source = current_prompt_tools_source()
+        except Exception:
+            tools = None
+            tools_source = None
+        if tools is not None:
+            _apply_prompt_tools_override(span, tools, tools_source)
         if bound is None:
             return
         try:
@@ -930,7 +1170,7 @@ class _GuardedSpanExporter:
             from opentelemetry.sdk.trace.export import SpanExportResult
 
             return SpanExportResult.SUCCESS
-        return self._inner.export(finalize_app_git_spans(allowed))
+        return self._inner.export(finalize_export_spans(allowed))
 
     def shutdown(self) -> None:
         return self._inner.shutdown()

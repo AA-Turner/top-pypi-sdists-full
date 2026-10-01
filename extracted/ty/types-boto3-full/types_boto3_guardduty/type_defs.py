@@ -1151,6 +1151,7 @@ class DetectorAdditionalConfigurationResultTypeDef(TypedDict):
     Name: NotRequired[FeatureAdditionalConfigurationType]
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 
 class DetectorAdditionalConfigurationTypeDef(TypedDict):
@@ -1649,6 +1650,7 @@ class MemberAdditionalConfigurationResultTypeDef(TypedDict):
     Name: NotRequired[OrgFeatureAdditionalConfigurationType]
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 
 class MemberAdditionalConfigurationTypeDef(TypedDict):
@@ -2374,6 +2376,7 @@ class DetectorFeatureConfigurationResultTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
     AdditionalConfiguration: NotRequired[list[DetectorAdditionalConfigurationResultTypeDef]]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 
 class DetectorFeatureConfigurationTypeDef(TypedDict):
@@ -2617,6 +2620,7 @@ class MemberFeaturesConfigurationResultTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
     AdditionalConfiguration: NotRequired[list[MemberAdditionalConfigurationResultTypeDef]]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 
 class MemberFeaturesConfigurationTypeDef(TypedDict):

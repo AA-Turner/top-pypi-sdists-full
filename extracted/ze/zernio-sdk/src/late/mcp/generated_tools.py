@@ -5121,6 +5121,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str | None = None,
         profile_id: str | None = None,
         campaign_id: str | None = None,
+        updated_since: str | None = None,
         search: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
@@ -5142,7 +5143,8 @@ def register_generated_tools(mcp, _get_client):
             page_id: Meta only: Facebook Page ID. Prunes the tree to ads whose creative is backed by this Page: campaigns and ad sets with no ad on the Page drop out, and rolled-up metrics cover only the Page's ads. Mirrors the same filter on /v1/ads and /v1/ads/campaigns.
             account_id: Account ID
             profile_id: Profile ID
-            campaign_id: Restrict the tree to a single campaign by its platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Filters the campaign set itself, so it works regardless of account size and pagination. Pass this when you already hold a campaign id instead of paging the tree to find it. Mirrors the `campaignId` filter on GET /v1/ads.
+            campaign_id: Restrict the tree to one or more campaigns by platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Comma-separate up to 100 ids (`?campaignId=123,456`). Filters the campaign set itself, so it works regardless of account size and pagination. Pass this when you already hold campaign ids (for example from an `ad.status_changed` webhook) instead of paging the whole tree.
+            updated_since: Return only campaigns with a change stored since this time (ISO 8601 with offset, e.g. `2026-09-30T10:00:00Z`): a new ad, or a change to any ad's status, review status, name, budget or creative. Each matching campaign comes back whole (every ad set and ad). Metrics are not a change: to refresh numbers, filter with `hasDelivery=true` and a date range instead. Combines with every other filter (with `hasDelivery`/`minSpend` a campaign must match both).
             search: Case-insensitive substring match on campaign, ad set and ad names (`_`, `%` and spaces match literally), or an exact platform campaign, ad set or ad id. A campaign whose name matches returns with all its ad sets and ads; a match on an ad set or ad name returns only the matching branch. Filters the campaign set itself, so `pagination.total` counts only matching campaigns.
             from_date: Start of the METRICS date range (YYYY-MM-DD). On its own it affects only the spend/impression numbers overlaid on each node, not which campaigns are returned. Pass `hasDelivery` or `minSpend` to also filter the campaign set to this window. Defaults to 90 days ago.
             to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
@@ -5164,6 +5166,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 profile_id=profile_id,
                 campaign_id=campaign_id,
+                updated_since=updated_since,
                 search=search,
                 from_date=from_date,
                 to_date=to_date,
@@ -6546,7 +6549,7 @@ def register_generated_tools(mcp, _get_client):
                 zips: Postal/ZIP geo targeting. `key` is the platform's postal location ID from /v1/ads/targeting/search?dimension=geo&geoType=zip. Supported on Meta, Google, TikTok, Pinterest, X.
                 metros: DMA / metro-area geo targeting (Meta and TikTok). `key` is the platform's metro ID from /v1/ads/targeting/search?dimension=geo&geoType=metro (TikTok metros appear as type `metro`, e.g. the New York DMA).
                 custom_locations: Point-radius (lat/lng) geo targeting. Meta only (custom_locations). Rejected on platforms without radius support.
-                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior. Supported on Meta only (TikTok behaviours are rejected with a 400). Each must include id.
+                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only. Each must include id.
                 work_positions: Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Each must include id. Rejected on other platforms (use LinkedIn's `jobTitles` there).
                 work_employers: Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer. Each must include id.
                 work_industries: Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Each must include id. Rejected on other platforms (use LinkedIn's `industries` there).
@@ -15020,6 +15023,7 @@ def register_generated_tools(mcp, _get_client):
     def connect_get_connect_url(
         platform: str,
         profile_id: str,
+        reconnect_account_id: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
         headless: bool = False,
@@ -15035,6 +15039,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 platform: Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved. (required)
                 profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
+                reconnect_account_id: Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. While a profile holds one account per platform the login still replaces this account as before. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url.
                 redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. X (twitter) caps the OAuth `state` at 500 characters and the redirect is carried inside it, so the URL-encoded `redirect_url` must be at most 258 characters for API callers (310 for dashboard sessions; in headless mode the appended `headless=true` counts toward it); a longer one is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
@@ -15042,7 +15047,7 @@ def register_generated_tools(mcp, _get_client):
         `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are
         conditional and must be treated as optional. Your own query params are kept on every
         redirect, but ours overwrite a param of yours with the same name. On an error redirect the
-        internal `headless`, `adsConnect` and `adsScope` markers we add during the flow are removed.
+        internal `headless`, `adsConnect`, `adsScope` and `reconnectAccountId` markers we add during the flow are removed.
 
         Correlation (every redirect from an OAuth callback, success and failure, and the
         `redirect_url` returned by the selection endpoints such as POST /v1/connect/facebook/select-page):
@@ -15214,6 +15219,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_connect_url(
                 platform=platform,
                 profile_id=profile_id,
+                reconnect_account_id=reconnect_account_id,
                 redirect_url=redirect_url,
                 scopes=scopes,
                 headless=headless,
@@ -21206,7 +21212,7 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
-        gender: str = "all",
+        gender: str | None = None,
         languages: list[str] | None = None,
         places: list[dict[str, Any]] | None = None,
         neighborhoods: list[dict[str, Any]] | None = None,
@@ -21366,12 +21372,12 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
-                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
                 languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
                 places: Meta place keys (from GET /v1/ads/targeting/search).
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
-                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                behaviors: Behavior ids from /v1/ads/targeting/search?dimension=behavior. Meta: each dimension is its own flexible_spec entry (OR within, AND across). TikTok: video/creator interaction categories, sent as the ad group's actions.
                 work_positions
                 work_employers
                 work_industries
@@ -21587,7 +21593,7 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
-        gender: str = "all",
+        gender: str | None = None,
         languages: list[str] | None = None,
         places: list[dict[str, Any]] | None = None,
         neighborhoods: list[dict[str, Any]] | None = None,
@@ -21743,12 +21749,12 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
-                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
                 languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
                 places: Meta place keys (from GET /v1/ads/targeting/search).
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
-                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                behaviors: Behavior ids from /v1/ads/targeting/search?dimension=behavior. Meta: each dimension is its own flexible_spec entry (OR within, AND across). TikTok: video/creator interaction categories, sent as the ad group's actions.
                 work_positions
                 work_employers
                 work_industries
@@ -21948,7 +21954,7 @@ def register_generated_tools(mcp, _get_client):
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
         placements: dict[str, Any] | None = None,
-        gender: str = "all",
+        gender: str | None = None,
         languages: list[str] | None = None,
         places: list[dict[str, Any]] | None = None,
         neighborhoods: list[dict[str, Any]] | None = None,
@@ -22104,12 +22110,12 @@ def register_generated_tools(mcp, _get_client):
         additionally enforces co-selection rules and restricts which
         placements are eligible for click-to-WhatsApp ads, returning an actionable
         error which we surface.
-                gender: Restrict the audience by gender (Meta `genders`). Stored on the ad and read back in `targeting.gender`.
+                gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
                 languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
                 places: Meta place keys (from GET /v1/ads/targeting/search).
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search).
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
-                behaviors: Meta behavior ids. Each dimension is its own flexible_spec entry: OR within, AND across.
+                behaviors: Behavior ids from /v1/ads/targeting/search?dimension=behavior. Meta: each dimension is its own flexible_spec entry (OR within, AND across). TikTok: video/creator interaction categories, sent as the ad group's actions.
                 work_positions
                 work_employers
                 work_industries
@@ -23422,15 +23428,20 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def posts_unpublish_post(post_id: str, platform: str) -> str:
+    def posts_unpublish_post(
+        post_id: str, platform: str, account_id: str | None = None
+    ) -> str:
         """Unpublish post
 
         Args:
             post_id: (required)
-            platform: The platform to delete the post from (required)"""
+            platform: The platform to delete the post from (required)
+            account_id: Which account's copy to delete when the post was published to several accounts on this platform. Required in that case."""
         client = _get_client()
         try:
-            response = client.posts.unpublish_post(post_id=post_id, platform=platform)
+            response = client.posts.unpublish_post(
+                post_id=post_id, platform=platform, account_id=account_id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -23452,7 +23463,7 @@ def register_generated_tools(mcp, _get_client):
             post_id: (required)
             platform: The platform to edit the post on. (required)
             content: The new post text content (required)
-            account_id: Which account's copy of the post to edit when the post was published to several accounts on the same platform; defaults to the first."""
+            account_id: Which account's copy of the post to edit when the post was published to several accounts on the same platform. Required in that case."""
         client = _get_client()
         try:
             response = client.posts.edit_post(
@@ -23494,7 +23505,7 @@ def register_generated_tools(mcp, _get_client):
             post_id: Zernio post ID, or "_" when using direct video ID mode (required)
             platform: The platform to update metadata on (required)
             video_id: YouTube video ID (required for direct mode, ignored for post-based mode)
-            account_id: Zernio account ID (required for direct mode, ignored for post-based mode)
+            account_id: Zernio account ID. Required for direct mode. In post-based mode, picks which account's copy to update when the post was published to several accounts on this platform (required in that case).
             title: New video title (max 100 characters for YouTube)
             description: New video description
             tags: Array of keyword tags (max 500 characters combined for YouTube)
@@ -30259,6 +30270,54 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.whatsapp_phone_numbers.get_whats_app_number_info(
                 account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get pricing analytics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_phone_numbers_get_whats_app_pricing_analytics(
+        account_id: str,
+        start: str,
+        end: str,
+        granularity: str,
+        dimensions: str | None = None,
+        metric_types: str | None = None,
+        pricing_types: str | None = None,
+        pricing_categories: str | None = None,
+        country_codes: str | None = None,
+    ) -> str:
+        """Get pricing analytics
+
+        Args:
+            account_id: WhatsApp account ID (required)
+            start: Range start, ISO 8601 date or date-time. (required)
+            end: Range end, ISO 8601 date or date-time. Must be after start. (required)
+            granularity: (required)
+            dimensions: Comma-separated breakdowns: COUNTRY, PHONE, PRICING_CATEGORY, PRICING_TYPE, TIER. Without it each data point is a total for the interval.
+            metric_types: Comma-separated: COST, VOLUME. Defaults to both.
+            pricing_types: Comma-separated filter: REGULAR, FREE_CUSTOMER_SERVICE, FREE_ENTRY_POINT.
+            pricing_categories: Comma-separated filter of Meta pricing categories, for example MARKETING, MARKETING_LITE, UTILITY, AUTHENTICATION, AUTHENTICATION_INTERNATIONAL, SERVICE, REFERRAL_CONVERSION.
+            country_codes: Comma-separated ISO 3166-1 alpha-2 country codes to filter on."""
+        client = _get_client()
+        try:
+            response = client.whatsapp_phone_numbers.get_whats_app_pricing_analytics(
+                account_id=account_id,
+                start=start,
+                end=end,
+                granularity=granularity,
+                dimensions=dimensions,
+                metric_types=metric_types,
+                pricing_types=pricing_types,
+                pricing_categories=pricing_categories,
+                country_codes=country_codes,
             )
             return _format_response(response)
         except Exception as e:

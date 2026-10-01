@@ -1189,7 +1189,10 @@ def inject_kind_markers_into_schema(
                     child_slug = probe[KIND_KEY]
                 child_schema = props[key]
                 if isinstance(child_sample, list) and isinstance(child_schema, dict):
-                    items = child_schema.get("items")
+                    # Inference can merge a list with null into a permissive
+                    # union without an items constraint. Preserve that valid
+                    # schema rather than introducing the invalid `items: None`.
+                    items = child_schema.get("items", {})
                     child_schema = dict(child_schema)
                     child_schema["items"] = inject(items, probe, child_slug)
                     props[key] = child_schema

@@ -130,7 +130,9 @@ class TestAgentResponse(unittest.TestCase):
                     ],
                 source_classes = [
                     'cloud'
-                    ]
+                    ],
+                evidence_level = 'full',
+                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return AgentResponse(
@@ -143,6 +145,8 @@ class TestAgentResponse(unittest.TestCase):
                 workspace_id = '',
                 creation_source = None,
                 infrastructure = 'aws',
+                evidence_level = 'full',
+                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
         )
         """
 

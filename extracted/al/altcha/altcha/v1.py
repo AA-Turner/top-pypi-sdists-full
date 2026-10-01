@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import base64
+import datetime
 import hashlib
 import hmac
-import base64
 import json
 import secrets
 import time
 import urllib.parse
 from typing import Literal, TypedDict, cast, overload
-import datetime
 
 # Define algorithms
 SHA1: Literal["SHA-1"] = "SHA-1"
@@ -153,7 +153,7 @@ class Payload:
         return base64.b64encode(json.dumps(self.to_dict()).encode()).decode()
 
     @classmethod
-    def from_dict(cls, data: PayloadType) -> "Payload":
+    def from_dict(cls, data: PayloadType) -> Payload:
         """Create a Payload from a dictionary."""
         return cls(
             algorithm=cast(AlgoType, data["algorithm"]),
@@ -164,7 +164,7 @@ class Payload:
         )
 
     @classmethod
-    def from_base64(cls, encoded: str) -> "Payload":
+    def from_base64(cls, encoded: str) -> Payload:
         """Create a Payload from a base64 encoded JSON string."""
         data = cast(PayloadType, json.loads(base64.b64decode(encoded).decode()))
         return cls.from_dict(data)
@@ -561,17 +561,18 @@ def verify_solution(
     except ValueError:  # Guard against malformed expires
         return False, "Altcha payload expired"
 
-    options = ChallengeOptions(
-        algorithm=cast(AlgoType, p["algorithm"]),
-        hmac_key=hmac_key,
-        number=cast(int, p["number"]),
-        salt=cast(str, p["salt"]),
-    )
-    expected_challenge = create_challenge(options)
+    # Hash the submitted salt verbatim (plus the splicing delimiter). Re-parsing
+    # and re-serializing its params would collapse duplicate keys differently
+    # from the expiry check above, letting a forged salt pass as unexpired.
+    algorithm = cast(AlgoType, p["algorithm"])
+    salt = cast(str, p["salt"])
+    if not salt.endswith("&"):
+        salt += "&"
+    expected_challenge = hash_hex(algorithm, (salt + str(p["number"])).encode())
+    expected_signature = hmac_hex(algorithm, expected_challenge.encode(), hmac_key)
 
     return (
-        expected_challenge.challenge == p["challenge"]
-        and expected_challenge.signature == p["signature"]
+        expected_challenge == p["challenge"] and expected_signature == p["signature"]
     ), None
 
 
@@ -770,8 +771,7 @@ def solve_challenge(
             max_number = 1000000
         challenge_str = challenge
 
-    if start < 0:
-        start = 0
+    start = max(start, 0)
 
     start_time = time.time()
     for n in range(start, max_number + 1):

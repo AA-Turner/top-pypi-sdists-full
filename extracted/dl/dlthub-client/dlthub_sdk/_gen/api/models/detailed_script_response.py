@@ -13,6 +13,7 @@ from ..models.script_type import ScriptType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.downstream_run_response import DownstreamRunResponse
     from ..models.recent_run_response import RecentRunResponse
     from ..models.run_response import RunResponse
     from ..models.script_version_response import ScriptVersionResponse
@@ -47,6 +48,9 @@ class DetailedScriptResponse:
         default_trigger (None | str | Unset): Primary trigger string (computed from job_definition)
         deployment_module (None | str | Unset): Deployment module name (e.g. __deployment__)
         description (None | str | Unset): The description of the script
+        downstream_runs (list[DownstreamRunResponse] | None | Unset): Runs the job's last run triggered, newest first.
+            Included only when `downstream_runs_limit` is requested; null otherwise. Empty when the last run triggered
+            nothing, since a chained job fires only once its upstream run reaches a terminal state.
         freshness (list[str] | None | Unset): Freshness constraint strings (computed from job_definition)
         interval_end (datetime.datetime | None | Unset): Upper bound of the bounded work window (from
             job_definition.interval.end). None means no upper bound; the schedule halts once the next tick would exceed it.
@@ -86,6 +90,7 @@ class DetailedScriptResponse:
     default_trigger: None | str | Unset = UNSET
     deployment_module: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
+    downstream_runs: list[DownstreamRunResponse] | None | Unset = UNSET
     freshness: list[str] | None | Unset = UNSET
     interval_end: datetime.datetime | None | Unset = UNSET
     interval_start: datetime.datetime | None | Unset = UNSET
@@ -160,6 +165,18 @@ class DetailedScriptResponse:
             description = UNSET
         else:
             description = self.description
+
+        downstream_runs: list[dict[str, Any]] | None | Unset
+        if isinstance(self.downstream_runs, Unset):
+            downstream_runs = UNSET
+        elif isinstance(self.downstream_runs, list):
+            downstream_runs = []
+            for downstream_runs_type_0_item_data in self.downstream_runs:
+                downstream_runs_type_0_item = downstream_runs_type_0_item_data.to_dict()
+                downstream_runs.append(downstream_runs_type_0_item)
+
+        else:
+            downstream_runs = self.downstream_runs
 
         freshness: list[str] | None | Unset
         if isinstance(self.freshness, Unset):
@@ -275,6 +292,8 @@ class DetailedScriptResponse:
             field_dict["deployment_module"] = deployment_module
         if description is not UNSET:
             field_dict["description"] = description
+        if downstream_runs is not UNSET:
+            field_dict["downstream_runs"] = downstream_runs
         if freshness is not UNSET:
             field_dict["freshness"] = freshness
         if interval_end is not UNSET:
@@ -302,6 +321,7 @@ class DetailedScriptResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.downstream_run_response import DownstreamRunResponse
         from ..models.recent_run_response import RecentRunResponse
         from ..models.run_response import RunResponse
         from ..models.script_version_response import ScriptVersionResponse
@@ -393,6 +413,32 @@ class DetailedScriptResponse:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
+
+        def _parse_downstream_runs(
+            data: object,
+        ) -> list[DownstreamRunResponse] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                downstream_runs_type_0 = []
+                _downstream_runs_type_0 = data
+                for downstream_runs_type_0_item_data in _downstream_runs_type_0:
+                    downstream_runs_type_0_item = DownstreamRunResponse.from_dict(
+                        downstream_runs_type_0_item_data
+                    )
+
+                    downstream_runs_type_0.append(downstream_runs_type_0_item)
+
+                return downstream_runs_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[DownstreamRunResponse] | None | Unset, data)
+
+        downstream_runs = _parse_downstream_runs(d.pop("downstream_runs", UNSET))
 
         def _parse_freshness(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -579,6 +625,7 @@ class DetailedScriptResponse:
             default_trigger=default_trigger,
             deployment_module=deployment_module,
             description=description,
+            downstream_runs=downstream_runs,
             freshness=freshness,
             interval_end=interval_end,
             interval_start=interval_start,

@@ -42,7 +42,10 @@ __all__ = (
     "ClusteringFrequencyType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
+    "CoinbaseCdpSecretType",
     "ConfigurationBundleStatusType",
+    "ConsentPortalSourceTypeType",
+    "ConsentPortalStatusType",
     "ContentLevelType",
     "ContentTypeType",
     "CredentialProviderTypeType",
@@ -69,6 +72,7 @@ __all__ = (
     "GatewayStatusType",
     "HarnessBedrockApiFormatType",
     "HarnessEndpointStatusType",
+    "HarnessHookFailureModeType",
     "HarnessManagedMemoryStrategyTypeType",
     "HarnessOpenAiApiFormatType",
     "HarnessStatusType",
@@ -89,6 +93,7 @@ __all__ = (
     "ListCodeInterpretersPaginatorName",
     "ListConfigurationBundleVersionsPaginatorName",
     "ListConfigurationBundlesPaginatorName",
+    "ListConsentPortalsPaginatorName",
     "ListDatasetExamplesPaginatorName",
     "ListDatasetVersionsPaginatorName",
     "ListDatasetsPaginatorName",
@@ -159,12 +164,14 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "RestApiMethodType",
+    "ResultDestinationType",
     "SchemaTypeType",
     "SearchTypeType",
     "SecretSourceTypeType",
     "ServerProtocolType",
     "ServiceName",
     "SigningAlgorithmType",
+    "StaticQueryParameterConflictResolutionType",
     "StatusType",
     "SynchronizationTypeType",
     "TargetProtocolTypeType",
@@ -180,10 +187,10 @@ AgentManagedRuntimeTypeType = Literal[
     "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
 AgentRuntimeEndpointStatusType = Literal[
-    "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 AgentRuntimeStatusType = Literal[
-    "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
 AuthorizerTypeType = Literal["AUTHENTICATE_ONLY", "AWS_IAM", "CUSTOM_JWT", "NONE"]
@@ -209,8 +216,13 @@ CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+CoinbaseCdpSecretType = Literal["API_KEY", "WALLET_SECRET"]
 ConfigurationBundleStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+ConsentPortalSourceTypeType = Literal["agentcore-gateway"]
+ConsentPortalStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
 ]
 ContentLevelType = Literal["FULL_CONTENT", "METADATA_ONLY"]
 ContentTypeType = Literal["MEMORY_RECORDS"]
@@ -247,7 +259,7 @@ CredentialProviderVendorTypeType = Literal[
 DatasetSchemaTypeType = Literal[
     "AGENTCORE_EVALUATION_PREDEFINED_V1",
     "AGENTCORE_EVALUATION_SIMULATED_V1",
-    "GENERIC_EVALUATION_PREDEFINED_V1",
+    "THIRD_PARTY_EVALUATION_V1",
 ]
 DatasetStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -289,6 +301,7 @@ HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "re
 HarnessEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
+HarnessHookFailureModeType = Literal["allow", "deny"]
 HarnessManagedMemoryStrategyTypeType = Literal[
     "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
 ]
@@ -321,6 +334,7 @@ ListCapacityProvidersPaginatorName = Literal["list_capacity_providers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
 ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
+ListConsentPortalsPaginatorName = Literal["list_consent_portals"]
 ListDatasetExamplesPaginatorName = Literal["list_dataset_examples"]
 ListDatasetVersionsPaginatorName = Literal["list_dataset_versions"]
 ListDatasetsPaginatorName = Literal["list_datasets"]
@@ -430,11 +444,13 @@ RegistryStatusType = Literal[
 ]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
 SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 SigningAlgorithmType = Literal["ES256", "PS256", "RS256"]
+StaticQueryParameterConflictResolutionType = Literal["CLIENT_OVERRIDE", "STATIC_OVERRIDE"]
 StatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
@@ -547,6 +563,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -621,6 +638,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -649,6 +667,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -743,6 +762,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -913,6 +933,7 @@ PaginatorName = Literal[
     "list_code_interpreters",
     "list_configuration_bundle_versions",
     "list_configuration_bundles",
+    "list_consent_portals",
     "list_dataset_examples",
     "list_dataset_versions",
     "list_datasets",

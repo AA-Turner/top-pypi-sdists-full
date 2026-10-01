@@ -108,6 +108,7 @@ from .literals import (
     ContentClassifierType,
     CrossAccountFilterOptionType,
     CustomizationTechniqueType,
+    DatabaseConfigurationRollbackStatusType,
     DataDistributionTypeType,
     DataSourceNameType,
     DeepHealthCheckTypeType,
@@ -303,6 +304,8 @@ from .literals import (
     ServerlessJobTypeType,
     SharingTypeType,
     SkipModelValidationType,
+    SlurmHealthReasonType,
+    SlurmHealthStatusType,
     SoftwareUpdateStatusType,
     SortActionsByType,
     SortAssociationsByType,
@@ -590,6 +593,7 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "ClusterAccountingDatabaseTypeDef",
     "ClusterAutoPatchConfigDetailsTypeDef",
     "ClusterAutoPatchConfigTypeDef",
     "ClusterAutoScalingConfigOutputTypeDef",
@@ -833,6 +837,7 @@ __all__ = (
     "DataSourceOutputTypeDef",
     "DataSourceTypeDef",
     "DataSourceUnionTypeDef",
+    "DatabaseConfigurationMetadataTypeDef",
     "DatasetDefinitionTypeDef",
     "DatasetSourceTypeDef",
     "DebugHookConfigOutputTypeDef",
@@ -2001,6 +2006,7 @@ __all__ = (
     "ShadowModelVariantConfigTypeDef",
     "SharingSettingsTypeDef",
     "ShuffleConfigTypeDef",
+    "SlurmHealthMetadataTypeDef",
     "SourceAlgorithmSpecificationOutputTypeDef",
     "SourceAlgorithmSpecificationTypeDef",
     "SourceAlgorithmSpecificationUnionTypeDef",
@@ -2859,6 +2865,12 @@ class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
 
+class ClusterAccountingDatabaseTypeDef(TypedDict):
+    Endpoint: str
+    SecretArn: str
+    Port: NotRequired[int]
+    Name: NotRequired[str]
+
 class ClusterPatchScheduleDetailsTypeDef(TypedDict):
     NextPatchDate: NotRequired[datetime]
 
@@ -2964,9 +2976,6 @@ UltraServerInfoTypeDef = TypedDict(
 
 class ClusterOrchestratorEksConfigTypeDef(TypedDict):
     ClusterArn: str
-
-class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
-    SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -3448,6 +3457,11 @@ class FileSystemDataSourceTypeDef(TypedDict):
     FileSystemAccessMode: FileSystemAccessModeType
     FileSystemType: FileSystemTypeType
     DirectoryPath: str
+
+class DatabaseConfigurationMetadataTypeDef(TypedDict):
+    RollbackStatus: NotRequired[DatabaseConfigurationRollbackStatusType]
+    Advisory: NotRequired[str]
+    FailureMessage: NotRequired[str]
 
 class RedshiftDatasetDefinitionTypeDef(TypedDict):
     ClusterId: str
@@ -4446,6 +4460,11 @@ class InstanceGroupScalingMetadataTypeDef(TypedDict):
     TargetCount: NotRequired[int]
     MinCount: NotRequired[int]
     FailureMessage: NotRequired[str]
+
+class SlurmHealthMetadataTypeDef(TypedDict):
+    Component: Literal["Slurmdbd"]
+    Status: SlurmHealthStatusType
+    Reason: NotRequired[SlurmHealthReasonType]
 
 class ExtendTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanExtensionOfferingId: str
@@ -7023,6 +7042,10 @@ class ClarifyShapConfigTypeDef(TypedDict):
     Seed: NotRequired[int]
     TextConfig: NotRequired[ClarifyTextConfigTypeDef]
 
+class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
+    SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
+    AccountingDatabase: NotRequired[ClusterAccountingDatabaseTypeDef]
+
 ClusterCapacityRequirementsUnionTypeDef = Union[
     ClusterCapacityRequirementsTypeDef, ClusterCapacityRequirementsOutputTypeDef
 ]
@@ -7065,10 +7088,6 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     PrivateDnsHostname: NotRequired[str]
     CurrentImageReleaseVersion: NotRequired[str]
     ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
-
-class ClusterOrchestratorTypeDef(TypedDict):
-    Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
-    Slurm: NotRequired[ClusterOrchestratorSlurmConfigTypeDef]
 
 class ClusterPatchScheduleTypeDef(TypedDict):
     NextPatchDate: NotRequired[TimestampTypeDef]
@@ -10630,6 +10649,10 @@ class ClarifyExplainerConfigTypeDef(TypedDict):
     EnableExplanations: NotRequired[str]
     InferenceConfig: NotRequired[ClarifyInferenceConfigTypeDef]
 
+class ClusterOrchestratorTypeDef(TypedDict):
+    Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
+    Slurm: NotRequired[ClusterOrchestratorSlurmConfigTypeDef]
+
 class ClusterNodeDetailsTypeDef(TypedDict):
     InstanceGroupName: NotRequired[str]
     InstanceId: NotRequired[str]
@@ -11784,6 +11807,8 @@ class EventMetadataTypeDef(TypedDict):
     InstanceGroup: NotRequired[InstanceGroupMetadataTypeDef]
     InstanceGroupScaling: NotRequired[InstanceGroupScalingMetadataTypeDef]
     Instance: NotRequired[InstanceMetadataTypeDef]
+    DatabaseConfiguration: NotRequired[DatabaseConfigurationMetadataTypeDef]
+    SlurmHealth: NotRequired[SlurmHealthMetadataTypeDef]
 
 DomainSettingsUnionTypeDef = Union[DomainSettingsTypeDef, DomainSettingsOutputTypeDef]
 

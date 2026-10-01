@@ -3,7 +3,7 @@ import inspect
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from weakref import ref
 
 from statsig_python_core import (
@@ -27,9 +27,18 @@ from .evaluation_cache import (
     _EvaluationCacheKeys,
     _get_evaluation_cache,
 )
-from .statsig_types import DynamicConfig, Experiment, FeatureGate, Layer
+from .statsig_types import (
+    DynamicConfig,
+    Experiment,
+    FeatureGate,
+    Layer,
+    TypedDynamicConfig,
+)
+from .typed_config import _TypedConfigs
 
 if TYPE_CHECKING:
+    from google.protobuf.message import Message
+
     from .statsig_python_core import AttributesDict, CustomIdsDict
 
 
@@ -47,6 +56,7 @@ _DEFAULT_EXPOSURE_CALLSITE_IGNORED_MODULE_PREFIXES: tuple[str, ...] = (
 )
 _EXPERIMENT_EXPOSURE_CALLSITE_SDK_CONFIG_PREFIX = "expo_callsite_logging_experiment::"
 _LAYER_EXPOSURE_CALLSITE_SDK_CONFIG_PREFIX = "expo_callsite_logging_layer::"
+_TypedConfigValue = TypeVar("_TypedConfigValue", bound="Message")
 
 
 def handle_fork():
@@ -92,6 +102,10 @@ def _setup_evaluation_cache(
     setattr(instance, "_evaluation_cache", cache)
 
 
+def _setup_typed_configs(instance: StatsigBasePy) -> None:
+    setattr(instance, "_typed_configs", _TypedConfigs(instance))
+
+
 def _get_cache_for_call(
     instance: StatsigBasePy,
 ) -> tuple[Optional[EvaluationCache], Optional[_EvaluationCacheKeys]]:
@@ -103,12 +117,14 @@ def _get_cache_for_call(
 
 class Statsig(StatsigBasePy):
     _statsig_shared_instance = None
+    _typed_configs: _TypedConfigs
 
     def __new__(cls, sdk_key: str, options: Optional[StatsigOptions] = None):
         cache = _get_evaluation_cache(options)
         instance = super().__new__(cls, sdk_key, options)
         _setup_internal_sdk_configs_cache(instance)
         _setup_evaluation_cache(instance, cache)
+        _setup_typed_configs(instance)
         ErrorBoundary.wrap(instance)
         return instance
 
@@ -138,6 +154,7 @@ class Statsig(StatsigBasePy):
         cls._statsig_shared_instance = super().__new__(cls, sdk_key, options)
         _setup_internal_sdk_configs_cache(cls._statsig_shared_instance)
         _setup_evaluation_cache(cls._statsig_shared_instance, cache)
+        _setup_typed_configs(cls._statsig_shared_instance)
         return cls._statsig_shared_instance
 
     @classmethod
@@ -152,6 +169,52 @@ class Statsig(StatsigBasePy):
         )
 
     # ------------------------------------------------------------ [ Core APIs ]
+
+    def get_typed_config(
+        self,
+        name: str,
+        user: StatsigUser,
+        *,
+        message_type: type[_TypedConfigValue],
+        options: Optional[DynamicConfigEvaluationOptions] = None,
+    ) -> TypedDynamicConfig[_TypedConfigValue]:
+        """Evaluate the supplied current context and freshly convert its value.
+
+        Supply a generated protobuf ``message_type``. The result
+        pairs its value with metadata from that same evaluation. Ordinary
+        exposure semantics apply; conversion failures raise and never substitute
+        an earlier value. Reads retain no context binding and notify no callbacks.
+        """
+        if options is not None and not isinstance(
+            options, DynamicConfigEvaluationOptions
+        ):
+            raise TypeError("options must be DynamicConfigEvaluationOptions")
+        return self._typed_configs.get(name, user, message_type, options)
+
+    def register_typed_config_callback(
+        self,
+        name: str,
+        user: StatsigUser,
+        callback: Callable[[TypedDynamicConfig[_TypedConfigValue]], None],
+        *,
+        message_type: type[_TypedConfigValue],
+    ) -> None:
+        """Observe publications using an explicit captured context until shutdown.
+
+        Initialization is required, but no preceding getter is needed. No initial
+        replay, product exposures or getter-driven delivery. Changed selected
+        revisions notify with whole typed results; unrelated LCUT does not.
+        Updates may coalesce. Callbacks run outside shared-state locks on one
+        worker, should be short and nonblocking, and may read a newer snapshot
+        through the ordinary getter. Shutdown waits for admitted delivery unless
+        called by that worker, and prevents later delivery.
+        Conversion and callback errors are reported and isolated.
+        """
+        self._typed_configs.register(name, user, callback, message_type)
+
+    def shutdown(self) -> Any:
+        self._typed_configs.close()
+        return super().shutdown()
 
     def subscribe(
         self,
@@ -196,6 +259,39 @@ class Statsig(StatsigBasePy):
             options,
         )
         return FeatureGate._from_parts(name, parts)
+
+    def get_feature_gate_fields_anonymous(
+        self,
+        name: str,
+        id_options: StatsigRandomUserID,
+        *,
+        context: Optional[StatsigUserContext] = None,
+        custom: Optional["AttributesDict"] = None,
+        custom_ids: Optional["CustomIdsDict"] = None,
+        ip: Optional[str] = None,
+        country: Optional[str] = None,
+        locale: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        options: Optional[FeatureGateEvaluationOptions] = None,
+    ) -> Optional[tuple[bool, str]]:
+        """Return (value, reason), with a fresh anonymous identity per call.
+
+        Options, callbacks and exposures match get_feature_gate_anonymous.
+        The SDK error boundary returns None if the call fails.
+        """
+        parts = super()._INTERNAL_get_feature_gate_anonymous_parts(
+            name,
+            id_options,
+            context,
+            custom,
+            custom_ids,
+            ip,
+            country,
+            locale,
+            user_agent,
+            options,
+        )
+        return parts[0], parts[3]
 
     def get_layer_anonymous(
         self,
@@ -252,6 +348,24 @@ class Statsig(StatsigBasePy):
         )
         return FeatureGate._from_parts(name, parts)
 
+    def get_feature_gate_fields_with_context(
+        self,
+        context: Optional[StatsigUserContext],
+        name: str,
+        user_id: Optional[str] = None,
+        custom: Optional["AttributesDict"] = None,
+        options: Optional[FeatureGateEvaluationOptions] = None,
+    ) -> Optional[tuple[bool, str]]:
+        """Return (value, reason) without constructing a FeatureGate.
+
+        Options, callbacks and exposures match get_feature_gate_with_context.
+        The SDK error boundary returns None if the call fails.
+        """
+        parts = super()._INTERNAL_get_feature_gate_with_context_parts(
+            context, name, user_id, custom, options
+        )
+        return parts[0], parts[3]
+
     def get_dynamic_config_with_context(
         self,
         context: Optional[StatsigUserContext],
@@ -301,6 +415,22 @@ class Statsig(StatsigBasePy):
     ) -> FeatureGate:
         parts = super()._INTERNAL_get_feature_gate_parts(user, name, options)
         return FeatureGate._from_parts(name, parts)
+
+    def get_feature_gate_fields(
+        self,
+        user: StatsigUser,
+        name: str,
+        options: Optional[FeatureGateEvaluationOptions] = None,
+    ) -> Optional[tuple[bool, str]]:
+        """Return (value, reason) without constructing a FeatureGate.
+
+        The reason is identical to get_feature_gate(...).details.reason,
+        including uninitialized, unrecognized and local override results.
+        Options, callbacks and exposures are unchanged. The SDK error boundary
+        returns None if the call fails.
+        """
+        parts = super()._INTERNAL_get_feature_gate_parts(user, name, options)
+        return parts[0], parts[3]
 
     def get_dynamic_config(
         self,

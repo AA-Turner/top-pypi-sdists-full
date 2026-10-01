@@ -137,6 +137,55 @@ class ConnectPeerReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_networkmanager.ConnectionReference",
+    jsii_struct_bases=[],
+    name_mapping={"connection_arn": "connectionArn"},
+)
+class ConnectionReference:
+    def __init__(self, *, connection_arn: builtins.str) -> None:
+        '''A reference to a Connection resource.
+
+        :param connection_arn: The ConnectionArn of the Connection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_networkmanager as interfaces_networkmanager
+            
+            connection_reference = interfaces_networkmanager.ConnectionReference(
+                connection_arn="connectionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__516cf533186a841bdae12921174c4dcd5cf6daf28bdd7c25cc6fb444c49dd250)
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_arn": connection_arn,
+        }
+
+    @builtins.property
+    def connection_arn(self) -> builtins.str:
+        '''The ConnectionArn of the Connection resource.'''
+        result = self._values.get("connection_arn")
+        assert result is not None, "Required property 'connection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_networkmanager.CoreNetworkPrefixListAssociationReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -628,6 +677,51 @@ class _IConnectPeerRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConnectPeerRef).__jsii_proxy_class__ = lambda : _IConnectPeerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_networkmanager.IConnectionRef")
+class IConnectionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> "ConnectionReference":
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_networkmanager.IConnectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> "ConnectionReference":
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionReference", jsii.get(self, "connectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnectionRefProxy
 
 
 @jsii.interface(
@@ -1802,6 +1896,7 @@ class VpcAttachmentReference:
 __all__ = [
     "ConnectAttachmentReference",
     "ConnectPeerReference",
+    "ConnectionReference",
     "CoreNetworkPrefixListAssociationReference",
     "CoreNetworkReference",
     "CustomerGatewayAssociationReference",
@@ -1810,6 +1905,7 @@ __all__ = [
     "GlobalNetworkReference",
     "IConnectAttachmentRef",
     "IConnectPeerRef",
+    "IConnectionRef",
     "ICoreNetworkPrefixListAssociationRef",
     "ICoreNetworkRef",
     "ICustomerGatewayAssociationRef",
@@ -1846,6 +1942,13 @@ def _typecheckingstub__7f015d9931081e9ffd7676e999aae6fc39f581562fb6e8347743350a1
 def _typecheckingstub__66c18e1d85bf0c649a8ea0d151647ff638d4397ed0718be580410310894d2d7a(
     *,
     connect_peer_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__516cf533186a841bdae12921174c4dcd5cf6daf28bdd7c25cc6fb444c49dd250(
+    *,
+    connection_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1961,5 +2064,5 @@ def _typecheckingstub__0e0ff976fac1bf48401e97de79ca9adb82683b277d96c4c2b04e54051
     """Type checking stubs"""
     pass
 
-for cls in [IConnectAttachmentRef, IConnectPeerRef, ICoreNetworkPrefixListAssociationRef, ICoreNetworkRef, ICustomerGatewayAssociationRef, IDeviceRef, IDirectConnectGatewayAttachmentRef, IGlobalNetworkRef, ILinkAssociationRef, ILinkRef, ISiteRef, ISiteToSiteVpnAttachmentRef, ITransitGatewayPeeringRef, ITransitGatewayRegistrationRef, ITransitGatewayRouteTableAttachmentRef, IVpcAttachmentRef]:
+for cls in [IConnectAttachmentRef, IConnectPeerRef, IConnectionRef, ICoreNetworkPrefixListAssociationRef, ICoreNetworkRef, ICustomerGatewayAssociationRef, IDeviceRef, IDirectConnectGatewayAttachmentRef, IGlobalNetworkRef, ILinkAssociationRef, ILinkRef, ISiteRef, ISiteToSiteVpnAttachmentRef, ITransitGatewayPeeringRef, ITransitGatewayRegistrationRef, ITransitGatewayRouteTableAttachmentRef, IVpcAttachmentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

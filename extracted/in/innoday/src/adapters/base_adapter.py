@@ -6,6 +6,7 @@ rather than creating new unified models.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -68,6 +69,26 @@ class BoardCredentialError(BoardAdapterError, ValueError):
     exactly, rather than admitting the whole `ValueError` hierarchy to say
     "credential".
     """
+
+
+@dataclass(frozen=True)
+class BoardRelease:
+    """A release as the board holds it, in words every board type shares.
+
+    Linear calls it a Release inside a pipeline, Jira a Version; InnoDay pairs
+    either with its own release by ``version`` -- the same string tickets carry
+    in ``Ticket.release``. ``stage`` is one of ``planned``, ``started``,
+    ``completed`` or ``canceled`` (Linear's four stage types, the richest set
+    any board has). ``ticket_external_ids`` are the board's own ticket keys
+    (``PF-12``), matching ``Ticket.external_ticket_id``.
+    """
+
+    external_id: str
+    version: str
+    stage: str
+    ticket_external_ids: List[str] = field(default_factory=list)
+    #: Archived on the board: still the same release, but not to be written to.
+    archived: bool = False
 
 
 class BaseBoardAdapter(ABC):
@@ -233,6 +254,62 @@ class BaseBoardAdapter(ABC):
         """
         raise BoardCapabilityError(
             f"{self.__class__.__name__} cannot set a board assignee"
+        )
+
+    async def list_releases(self) -> List[BoardRelease]:
+        """The board's releases in the one line InnoDay pairs with the project.
+
+        **Not abstract, and it raises rather than returning ``[]``.** An empty
+        list would mean "the board has no releases", which is a real answer
+        that later work acts on; a board type (or a plan) with no release
+        feature at all is a different fact. The refusal is a
+        `BoardCapabilityError` so the caller treats it as "releases are
+        managed in InnoDay only" -- never as a failed sync, never retried.
+
+        Raises:
+            BoardCapabilityError: this board cannot offer a release line.
+            BoardAdapterError: the board refused the read.
+        """
+        raise BoardCapabilityError(
+            f"{self.__class__.__name__} has no release line to sync"
+        )
+
+    async def create_release(self, version: str, stage: str) -> BoardRelease:
+        """Create a release in the paired release line, at `stage`.
+
+        Same refusal contract as `list_releases`: a `BoardCapabilityError`
+        means this board cannot hold releases, not that the write failed.
+        """
+        raise BoardCapabilityError(
+            f"{self.__class__.__name__} cannot create board releases"
+        )
+
+    async def update_release(
+        self,
+        external_id: str,
+        *,
+        version: Optional[str] = None,
+        stage: Optional[str] = None,
+    ) -> None:
+        """Rename a board release and/or move it to `stage`."""
+        raise BoardCapabilityError(
+            f"{self.__class__.__name__} cannot update board releases"
+        )
+
+    async def add_ticket_to_release(
+        self, external_release_id: str, ticket_external_id: str
+    ) -> None:
+        """Attach the board ticket `ticket_external_id` (e.g. ``PF-12``)."""
+        raise BoardCapabilityError(
+            f"{self.__class__.__name__} cannot attach tickets to releases"
+        )
+
+    async def remove_ticket_from_release(
+        self, external_release_id: str, ticket_external_id: str
+    ) -> None:
+        """Detach the board ticket `ticket_external_id` from the release."""
+        raise BoardCapabilityError(
+            f"{self.__class__.__name__} cannot detach tickets from releases"
         )
 
     async def add_comment(self, ticket: Ticket, comment: str) -> bool:

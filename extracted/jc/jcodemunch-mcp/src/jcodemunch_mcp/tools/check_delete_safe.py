@@ -17,8 +17,17 @@ Verdict tiers (most-permissive first):
   - corpus_inadequate      — nothing references it, and this index cannot support
                              that as proof (stale, withheld files, or an import
                              edge that only exists at runtime). #566/#569
+  - name_not_searchable    — nothing references it BY NAME, and no call site
+                             would write that name: a C# operator is invoked as
+                             `a + b`, an indexer as `a[0]`. Absence of the token
+                             is not evidence of disuse. #714
+  - dynamic_import_boundary — nothing references it statically, and a Python
+                             dynamic import scoped to its package can load it
+                             (`import_module(f"adapters.{name}")`). The sites
+                             are named. LEDGER L-70
 
-⚠⚠ **`corpus_inadequate` replaces an absence verdict, never a blocking one.**
+⚠⚠ **`corpus_inadequate`, `name_not_searchable` and `dynamic_import_boundary`
+each replace an absence verdict, never a blocking one.**
 A found importer is positive evidence and a thin corpus cannot unfind it — the
 same asymmetry `_stop_rule._HARD_BLOCKER` already encodes.
 """
@@ -30,9 +39,13 @@ import re
 import time
 from typing import Optional
 
+from ..retrieval.verdict import symbol_not_found
 from ..storage import IndexStore, record_savings, estimate_savings, cost_avoided
 from ..storage.generation import connect_readonly
-from ._corpus_adequacy import assess_corpus
+from ..runtime.confidence import symbol_hit_count
+from . import _name_reachability
+from ._corpus_adequacy import UNPROVEN_CEILING, assess_corpus
+from ._dynamic_boundary import FILES_CAP as DYNAMIC_FILES_CAP, DynamicBoundary
 from ._stop_rule import build_stop_rule
 from ._utils import index_status_to_tool_error, resolve_repo
 
@@ -97,24 +110,17 @@ def _detect_entry_point(target: dict) -> Optional[str]:
 
 
 def _runtime_hits(store: IndexStore, owner: str, name: str, symbol_id: str) -> Optional[int]:
-    """Best-effort runtime hit count over the indexed trace window."""
+    """Best-effort runtime hit count over the indexed trace window.
+
+    Delegates to the one reader (#717); a local copy of this query is how
+    `hit_count` outlived the schema that never had it.
+    """
     try:
         db_path = store._sqlite._db_path(owner, name)
-        if not db_path.exists():
-            return None
-        conn = connect_readonly(db_path, isolation_level="")
-        try:
-            cur = conn.execute(
-                "SELECT COALESCE(SUM(hit_count), 0) FROM runtime_calls WHERE symbol_id = ?",
-                (symbol_id,),
-            )
-            row = cur.fetchone()
-            return int(row[0]) if row and row[0] else None
-        finally:
-            conn.close()
     except Exception as exc:  # noqa: BLE001
-        logger.debug("check_delete_safe: runtime hits skipped: %s", exc, exc_info=True)
+        logger.debug("_runtime_hits: db path unavailable: %s", exc, exc_info=True)
         return None
+    return symbol_hit_count(db_path, symbol_id)
 
 
 def _runtime_data_present(store: IndexStore, owner: str, name: str) -> bool:
@@ -196,7 +202,7 @@ def check_delete_safe(
 
     target = _resolve_target(index, symbol)
     if target is None:
-        return {"error": f"Symbol not found: {symbol}"}
+        return symbol_not_found(symbol, index.symbols)
 
     target_id = target["id"]
     target_name = target.get("name", "")
@@ -258,16 +264,20 @@ def check_delete_safe(
     internal_ref_count = 0
     test_ref_count = 0
     try:
-        from .check_references import check_references  # noqa: PLC0415
-        # Batch form (identifiers=[...]) so check_references returns its grouped
-        # `results` shape — singular (identifier=...) returns a flat response with
-        # no `results` key, which this loop would silently read as empty (#338).
-        ref_out = check_references(
-            repo=f"{owner}/{name}", identifiers=[target_name],
-            search_content=True, max_content_results=20,
-            storage_path=storage_path,
-        )
-        for entry in ref_out.get("results", []) or []:
+        from . import check_references  # noqa: PLC0415
+        # ⚠⚠ (LEDGER L-89) EVERY file, never a page. The public tool caps its
+        # content search at 20 files (100 at most), and this verdict was built
+        # from that page alone: twenty test files that merely MENTION the name
+        # pushed the one real caller off it, and a used function graded
+        # `test_coverage_only`. An absence claim needs the whole corpus -- a
+        # count taken after the page is cut describes the page (#559). The
+        # cost is at most one full scan, which a no-match search pays anyway.
+        ref_entries = [check_references._check_single(
+            identifier=target_name, index=index, search_content=True,
+            max_content_results=max(1, len(index.source_files)),
+            owner=owner, name=name, store=store, start=time.perf_counter(),
+        )]
+        for entry in ref_entries:
             for ref in entry.get("content_references", []) or []:
                 ref_file = ref.get("file", "")
                 if not ref_file:
@@ -398,11 +408,92 @@ def check_delete_safe(
     # ⚠ Only the ABSENCE verdicts are overridden. A found importer is positive
     # evidence and an inadequate corpus cannot unfind it, which is the same
     # asymmetry `_HARD_BLOCKER` already encodes.
-    corpus_gap = None
-    if not corpus_adequacy.adequate and verdict in (
-        "safe_to_delete", "internal_only", "test_coverage_only",
+    # ── The name cannot reach a call site (#714) ───────────────────────
+    # ⚠⚠ A SECOND cause with the same destructive shape, and it is not fixed
+    # by re-indexing. A C# operator is invoked as `a + b`, an indexer as
+    # `a[0]`, a conversion as `(string)a` -- the declaration's name
+    # (`operator +`, `this[]`, `explicit operator string`) appears at NO call
+    # site by construction, so "no references found" is not evidence about it.
+    # Measured before this branch existed: on a corpus where every one of them
+    # was used, the ordinary method in the same file returned
+    # `internal_uses_blocking` and `operator +` returned `safe_to_delete` at
+    # confidence 1.0, "No callers or refs found."
+    #
+    # ⚠ Same asymmetry as corpus adequacy: only ABSENCE verdicts are replaced.
+    # A found reference is positive evidence, and an unsearchable name cannot
+    # unfind it.
+    unreachable_name = None
+    if (
+        # ⚠ `target`, the RESOLVED symbol -- not the `symbol` argument, which is
+        # whatever the caller passed. Reading the argument would have looked
+        # right: an id (`…::Vec.operator +#method`) is not an identifier either,
+        # so the branch would fire for ids and silently not for plain names.
+        not _name_reachability.name_can_appear_at_a_call_site(
+            target.get("name", ""), target.get("language")
+        )
+        and verdict in ("safe_to_delete", "internal_only", "test_coverage_only")
     ):
-        verdict = "corpus_inadequate"
+        verdict = "name_not_searchable"
+        unreachable_name = {
+            "action": "read the call sites by hand, or check runtime evidence",
+            "why": (
+                f"{target.get('name', '')!r} is not a name any call site writes, so a "
+                f"reference search over names cannot establish that nothing uses it"
+            ),
+        }
+        blockers.append({
+            "kind": "name_not_searchable",
+            "blockers": [unreachable_name["why"]],
+            "severity": _SEVERITY_INTERNAL_REF,
+        })
+
+    # ── A dynamic import can load its file (LEDGER L-70) ───────────────
+    # ⚠⚠ The destructive surface of #876's boundary. `get_blast_radius`
+    # refused an empty walk for a file a package- or prefix-scoped dynamic
+    # import can reach, while this tool certified the same symbol
+    # `safe_to_delete`: the loader names the module at runtime, so no
+    # importer and no reference exist to find. Same asymmetry as the two
+    # gates above: only ABSENCE verdicts are replaced. An opaque site is
+    # not a blocker (jjg, 2026-09-29); `get_blast_radius` discloses it.
+    dynamic_gap = None
+    reaching = DynamicBoundary(index.imports).reaching(target.get("file", ""))
+    # (LEDGER L-81) `name_not_searchable` gains the gap and the blocker and
+    # keeps its name, the narrower cause; skipping it hid the loaders.
+    if reaching and verdict in (
+        "safe_to_delete", "internal_only", "test_coverage_only", "name_not_searchable",
+    ):
+        if verdict != "name_not_searchable":
+            verdict = "dynamic_import_boundary"
+        dynamic_gap = {
+            "action": "read the named loaders for the module names they can produce",
+            "why": (
+                f"{len(reaching)} file(s) import a module by a computed name that can "
+                f"reach this file (e.g. {reaching[0]}), so finding no importer is not "
+                "evidence that nothing loads it"
+            ),
+        }
+        blocker = {
+            "kind": "dynamic_import_boundary",
+            "blockers": [dynamic_gap["why"]],
+            "files": reaching[:DYNAMIC_FILES_CAP],
+            "severity": _SEVERITY_INTERNAL_REF,
+        }
+        if len(reaching) > DYNAMIC_FILES_CAP:
+            blocker["files_total"] = len(reaching)
+        blockers.append(blocker)
+
+    corpus_gap = None
+    # ⚠ Evaluated after the dynamic gate too: when that gate has already
+    # replaced the absence verdict, a thin corpus is still a blocker and a
+    # gap, and dropping it would hide the re-index that could change the
+    # answer. The dynamic verdict keeps the name; it is the narrower cause,
+    # and so does `name_not_searchable` (LEDGER L-81).
+    if not corpus_adequacy.adequate and verdict in (
+        "safe_to_delete", "internal_only", "test_coverage_only", "dynamic_import_boundary",
+        "name_not_searchable",
+    ):
+        if verdict not in ("dynamic_import_boundary", "name_not_searchable"):
+            verdict = "corpus_inadequate"
         corpus_gap = {
             "action": "re-index this repo",
             "why": corpus_adequacy.warning(),
@@ -421,6 +512,19 @@ def check_delete_safe(
         # unproven verdict to 0.85. Nothing was established here, so nothing is
         # floored.
         confidence = min(confidence, corpus_adequacy.ceiling)
+    elif verdict == "dynamic_import_boundary":
+        # Nothing was established either way: the same ceiling the other
+        # unproven absence uses, never the 0.85 floor `safe_to_delete` gets.
+        confidence = min(confidence, UNPROVEN_CEILING)
+        if corpus_gap:
+            confidence = min(confidence, corpus_adequacy.ceiling)
+    elif verdict == "name_not_searchable":
+        # ⚠ NOT `corpus_adequacy.ceiling`: the corpus may be perfectly adequate
+        # -- the first draft used it and published confidence 1.0 on a refusal,
+        # because adequacy answers a different question. `UNPROVEN_CEILING` is
+        # the number this project already uses for "an absence nothing could
+        # establish", which is exactly this.
+        confidence = min(confidence, UNPROVEN_CEILING)
     elif verdict == "safe_to_delete":
         confidence = max(confidence, 0.85 if dead_code_conf < 0.9 else 0.95)
     elif verdict == "runtime_observed":
@@ -456,6 +560,15 @@ def check_delete_safe(
 
     actions = {
         "safe_to_delete": safe_action,
+        "name_not_searchable": (
+            "No references found BY NAME, and no call site would write this "
+            "name: it is invoked syntactically. Read the call sites, or check "
+            "runtime evidence, before deleting."
+        ),
+        "dynamic_import_boundary": (
+            "No static importer or reference found, but a dynamic import scoped to "
+            "this package can load the file. Read the named loaders before deleting."
+        ),
         "corpus_inadequate": (
             "No references found, but this index cannot support that as proof. "
             + (corpus_adequacy.warning() or "")
@@ -520,6 +633,8 @@ def check_delete_safe(
             include_runtime=include_runtime,
             runtime_data_present=runtime_data_present,
             corpus_gap=corpus_gap,
+            dynamic_gap=dynamic_gap,
+            name_gap=unreachable_name,
         ),
         "corpus_adequacy": corpus_adequacy.as_dict(),
         "signals": {

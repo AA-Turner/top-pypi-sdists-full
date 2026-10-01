@@ -107,6 +107,9 @@ enum RawExposureLogging {
 }
 
 #[cfg(feature = "ffi-support")]
+type TypedConfigRevision = (String, Option<u32>, Option<String>);
+
+#[cfg(feature = "ffi-support")]
 struct RawExperimentExposureOptions {
     include_local_override: bool,
     exposure_logging: RawExposureLogging,
@@ -161,6 +164,7 @@ pub struct StatsigContext {
 
 impl Drop for Statsig {
     fn drop(&mut self) {
+        self.spec_store.close_config_updates();
         let _output_scope = self.output_policy.enter();
         #[cfg(feature = "ffi-support")]
         self.delayed_exposure_store.clear();
@@ -385,6 +389,7 @@ impl Statsig {
     }
 
     pub async fn shutdown_with_timeout(&self, timeout: Duration) -> Result<(), StatsigErr> {
+        self.spec_store.close_config_updates();
         self.output_policy.scope(async {
         log_d!(
             TAG,
@@ -2157,7 +2162,7 @@ impl Statsig {
         use crate::evaluation::evaluator_result::result_to_gate_raw;
 
         let interned_gate_name = InternedString::from_str_ref(gate_name);
-        let (details, evaluation) = self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             gate_name,
             &SpecType::Gate,
@@ -2232,7 +2237,7 @@ impl Statsig {
             DynamicConfigEvaluationOptions::default(),
             include_local_override,
             RawExposureLogging::Delayed,
-            callback,
+            |raw, _, _| callback(raw),
         )
     }
 
@@ -2251,7 +2256,7 @@ impl Statsig {
             DynamicConfigEvaluationOptions::default(),
             include_local_override,
             RawExposureLogging::Delayed,
-            callback,
+            |raw, _, _| callback(raw),
         )
     }
 
@@ -2287,7 +2292,7 @@ impl Statsig {
             options,
             true,
             RawExposureLogging::Immediate,
-            callback,
+            |raw, _, _| callback(raw),
         )
         .0
     }
@@ -2299,14 +2304,14 @@ impl Statsig {
         options: DynamicConfigEvaluationOptions,
         include_local_override: bool,
         exposure_logging: RawExposureLogging,
-        callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
+        callback: impl FnOnce(&DynamicConfigRaw<'_>, &SpecStoreData, Option<&EvaluatorResult>) -> T,
     ) -> (T, Option<String>) {
         use crate::evaluation::evaluator_result::result_to_dynamic_config_raw;
 
         let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
-        let (details, evaluation) = self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, data) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             dynamic_config_name,
             &SpecType::DynamicConfig,
@@ -2315,7 +2320,7 @@ impl Statsig {
         );
 
         let raw = result_to_dynamic_config_raw(dynamic_config_name, &details, evaluation.as_ref());
-        let result = callback(&raw);
+        let result = callback(&raw, &data, evaluation.as_ref());
 
         self.emit_dynamic_config_evaluated_parts(
             dynamic_config_name,
@@ -2359,6 +2364,77 @@ impl Statsig {
         };
 
         (result, token)
+    }
+
+    #[doc(hidden)]
+    pub fn typed_config_updates(&self) -> Arc<crate::ConfigUpdates> {
+        self.spec_store.config_updates()
+    }
+
+    #[doc(hidden)]
+    pub fn use_typed_config<T>(
+        &self,
+        user: &StatsigUserInternal<'_, '_>,
+        name: &str,
+        options: DynamicConfigEvaluationOptions,
+        callback: impl FnOnce(
+            &DynamicConfigRaw<'_>,
+            &str,
+            &[(String, Option<u32>, Option<String>)],
+        ) -> T,
+    ) -> T {
+        let _output_scope = self.output_policy.enter();
+        self.use_raw_dynamic_config_impl(
+            user,
+            name,
+            options,
+            true,
+            RawExposureLogging::Immediate,
+            |raw, data, evaluation| {
+                let (source, revisions) =
+                    Self::collect_typed_config_metadata(name, data, evaluation);
+                callback(raw, &source, &revisions)
+            },
+        )
+        .0
+    }
+
+    fn collect_typed_config_metadata(
+        name: &str,
+        data: &SpecStoreData,
+        evaluation: Option<&EvaluatorResult>,
+    ) -> (String, Vec<TypedConfigRevision>) {
+        let source = evaluation
+            .and_then(|result| result.override_reason)
+            .map(str::to_string)
+            .unwrap_or_else(|| data.source.to_string());
+        let mut revisions = Vec::new();
+        for spec_name in [
+            Some(name),
+            evaluation.and_then(|result| result.override_config_name.as_deref()),
+            evaluation.and_then(|result| result.config_delegate.as_deref()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if revisions.iter().any(|(seen, _, _)| seen == spec_name) {
+                continue;
+            }
+            if let Some(spec) = data
+                .snapshot
+                .dynamic_configs
+                .get(&InternedString::from_str_ref(spec_name))
+            {
+                let view = spec.view();
+                revisions.push((
+                    spec_name.to_string(),
+                    view.version(),
+                    view.checksum()
+                        .map(|checksum| checksum.as_str().to_string()),
+                ));
+            }
+        }
+        (source, revisions)
     }
 
     pub fn get_raw_experiment_by_group_name(
@@ -2531,7 +2607,7 @@ impl Statsig {
         let interned_experiment_name = InternedString::from_str_ref(experiment_name);
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
-        let (details, evaluation) = self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             experiment_name,
             &SpecType::Experiment,
@@ -2703,7 +2779,7 @@ impl Statsig {
 
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
-        let (details, evaluation) = self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             layer_name,
             &SpecType::Layer,
@@ -3439,13 +3515,14 @@ impl Statsig {
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
     ) -> (EvaluationDetails, Option<EvaluatorResult>) {
-        self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             spec_name,
             spec_type,
             disable_exposure_logging,
             true,
-        )
+        );
+        (details, evaluation)
     }
 
     fn evaluate_spec_raw_with_include_local_override(
@@ -3455,7 +3532,11 @@ impl Statsig {
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
         include_local_override: bool,
-    ) -> (EvaluationDetails, Option<EvaluatorResult>) {
+    ) -> (
+        EvaluationDetails,
+        Option<EvaluatorResult>,
+        Arc<SpecStoreData>,
+    ) {
         let data = self.spec_store.load_data();
 
         let override_adapter = if include_local_override {
@@ -3479,14 +3560,14 @@ impl Statsig {
         );
 
         match evaluation {
-            Ok(eval_details) => (eval_details, Some(context.result)),
+            Ok(eval_details) => (eval_details, Some(context.result), data),
             Err(e) => {
                 log_error_to_statsig_and_console!(
                     &self.ops_stats,
                     TAG,
                     StatsigErr::EvaluationError(e.to_string())
                 );
-                (EvaluationDetails::error(&e.to_string()), None)
+                (EvaluationDetails::error(&e.to_string()), None, data)
             }
         }
     }
@@ -3764,7 +3845,7 @@ impl Statsig {
         shared_control_experiments
             .iter()
             .filter_map(|shared_control_experiment| {
-                let (_, result) = self.evaluate_spec_raw_with_include_local_override(
+                let (_, result, _) = self.evaluate_spec_raw_with_include_local_override(
                     user_internal,
                     shared_control_experiment.name.as_str(),
                     &SpecType::Experiment,
@@ -3990,6 +4071,9 @@ fn setup_ops_stats(
 
     ops_stat
 }
+
+#[cfg(all(test, feature = "ffi-support"))]
+mod typed_config_tests;
 
 #[cfg(test)]
 mod tests {

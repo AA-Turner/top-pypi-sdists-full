@@ -137,6 +137,16 @@ COMMANDS = [
         "group": "AI Agent",
     },
     {
+        "name": "skylos agent install-standards [--enforce RULE_ID]",
+        "desc": "Install project coding standards as native agent skills",
+        "group": "AI Agent",
+    },
+    {
+        "name": "skylos agent check-standards [path]",
+        "desc": "Check selected project coding standards with Skylos",
+        "group": "AI Agent",
+    },
+    {
         "name": "skylos agent install-hooks [--claude|--codex|--cursor]",
         "desc": "Install agent-loop hooks: verify every edit, block secret reads and hallucinated installs",
         "details": [
@@ -353,6 +363,25 @@ COMMANDS = [
             "Without --fail-on, vulnerability findings are report-only and exit 0",
             "--output result.json / --sarif result.sarif: save normalized reports",
             "--timeout-seconds 300: bound scanner execution time",
+        ],
+        "group": "Release",
+    },
+    {
+        "name": "skylos verify-verdict BUNDLE [--commit SHA] [--require-passed]",
+        "desc": "Verify a signed Skylos Cloud check verdict before a deploy",
+        "details": [
+            "Checks the Ed25519 DSSE signature, the in-toto/SLSA statement, and the signed check summary",
+            "--keys PATH_OR_URL: trusted keys file (offline) or https:// URL; "
+            "default https://skylos.dev/.well-known/skylos-verdict-keys.json",
+            "--commit/--repository/--project/--workspace: the verdict must be for these",
+            "--require-repository-verified: require a GitHub OIDC upload bound to the repository",
+            "--max-age 7d: reject verdicts signed longer ago",
+            "--require-passed: exit 1 unless PASSED at level SKYLOS_POLICY_PASSED; "
+            "--allow-override also accepts SKYLOS_GATE_OVERRIDDEN",
+            "--json: print one JSON object",
+            "Proves the check ran under this policy with this result, not that the code is safe",
+            'Needs the cryptography package: pip install "skylos[verdict]"',
+            "Exit codes: 0 verified, 1 not passing with --require-passed, 2 not verified",
         ],
         "group": "Release",
     },

@@ -44,6 +44,8 @@ __all__ = (
     "ListTargetsPaginatorName",
     "ListenerProtocolType",
     "PaginatorName",
+    "PayerResponsibilityPayerType",
+    "PayerResponsibilityScopeType",
     "PrivateDnsPreferenceType",
     "ProtocolTypeType",
     "RegionName",
@@ -96,13 +98,15 @@ ListServicesPaginatorName = Literal["list_services"]
 ListTargetGroupsPaginatorName = Literal["list_target_groups"]
 ListTargetsPaginatorName = Literal["list_targets"]
 ListenerProtocolType = Literal["HTTP", "HTTPS", "TLS_PASSTHROUGH"]
+PayerResponsibilityPayerType = Literal["ResourceGatewayAccount", "VpcEndpointAccount"]
+PayerResponsibilityScopeType = Literal["ResourceGatewayCharges"]
 PrivateDnsPreferenceType = Literal[
     "ALL_DOMAINS",
     "SPECIFIED_DOMAINS_ONLY",
     "VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS",
     "VERIFIED_DOMAINS_ONLY",
 ]
-ProtocolTypeType = Literal["TCP"]
+ProtocolTypeType = Literal["TCP", "TCP_UDP"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 ResourceConfigurationIpAddressTypeType = Literal["DUALSTACK", "IPV4", "IPV6"]
 ResourceConfigurationStatusType = Literal[
@@ -114,7 +118,7 @@ ResourceConfigurationStatusType = Literal[
     "UPDATE_FAILED",
     "UPDATE_IN_PROGRESS",
 ]
-ResourceConfigurationTypeType = Literal["ARN", "CHILD", "GROUP", "SINGLE"]
+ResourceConfigurationTypeType = Literal["ARN", "CHILD", "CIDR", "GROUP", "SINGLE"]
 ResourceGatewayIpAddressTypeType = Literal["DUALSTACK", "IPV4", "IPV6"]
 ResourceGatewayStatusType = Literal[
     "ACTIVE",
@@ -238,6 +242,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -312,6 +317,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -340,6 +346,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -434,6 +441,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

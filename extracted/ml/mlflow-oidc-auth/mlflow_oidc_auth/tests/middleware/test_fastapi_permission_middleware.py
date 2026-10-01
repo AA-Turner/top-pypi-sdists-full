@@ -38,6 +38,24 @@ class TestExtractGatewayEndpointName:
         """Test invocations pattern with wrong suffix."""
         assert self._extract("/gateway/my-endpoint/mlflow/other") is None
 
+    def test_raw_proxy_route(self):
+        """``/gateway/proxy/{endpoint_name}/{path}``: the endpoint is the segment after /proxy/."""
+        assert self._extract("/gateway/proxy/my-endpoint/v1/chat/completions") == "my-endpoint"
+        assert self._extract("/gateway/proxy/my-endpoint/v1/embeddings", {"model": "someone-else"}) == "my-endpoint"
+
+    def test_raw_proxy_route_provider_path_may_be_empty(self):
+        """Like MLflow's ``{path:path}``, the provider path may be empty — but the slash after the
+        endpoint is part of the route, and without an endpoint nothing is extracted."""
+        assert self._extract("/gateway/proxy/my-endpoint/") == "my-endpoint"
+        assert self._extract("/gateway/proxy/my-endpoint") is None
+        assert self._extract("/gateway/proxy/") is None
+        assert self._extract("/gateway/proxy//v1/chat") is None
+
+    def test_an_endpoint_named_proxy_is_resolved_like_the_router(self):
+        """MLflow registers the invocations route before the raw proxy, so it serves this path as the
+        invocations of an endpoint named ``proxy``; authorization must judge that same endpoint."""
+        assert self._extract("/gateway/proxy/mlflow/invocations") == "proxy"
+
     def test_chat_completions_mlflow(self):
         """Test MLflow chat completions passthrough."""
         result = self._extract("/gateway/mlflow/v1/chat/completions", {"model": "my-model"})
@@ -47,6 +65,11 @@ class TestExtractGatewayEndpointName:
         """Test OpenAI chat completions passthrough."""
         result = self._extract("/gateway/openai/v1/chat/completions", {"model": "gpt-4"})
         assert result == "gpt-4"
+
+    def test_typesafe_system_one(self):
+        """MLflow 3.17+ TypeSafe System One passthrough: endpoint in the body's ``model``."""
+        assert self._extract("/gateway/typesafe/v1/systemone", {"model": "typesafe-ep"}) == "typesafe-ep"
+        assert self._extract("/gateway/typesafe/v1/systemone", None) is None
 
     def test_embeddings_openai(self):
         """Test OpenAI embeddings passthrough."""
@@ -125,6 +148,21 @@ class TestFindFastapiValidator:
         assert self._find("/ajax-api/3.0/mlflow/assistant") is not None
         assert self._find("/ajax-api/3.0/mlflow/assistant/chat") is not None
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/mlflow/api/3.0/mlflow/mcp-servers",
+            "/mlflow/api/3.0/mlflow/mcp-servers/com.example/server",
+            "/mlflow/ajax-api/3.0/mlflow/mcp-servers/endpoints",
+        ],
+    )
+    def test_mcp_server_registry_routes_behind_a_static_prefix_return_validator(self, path, monkeypatch):
+        """MLflow mounts the registry behind its static prefix; the validator must still apply there."""
+        from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+
+        monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+        assert self._find(path) is not None
+
     def test_mcp_server_registry_routes_return_validator(self):
         """Test MCP server registry routes return a validator on both prefixes."""
         assert self._find("/api/3.0/mlflow/mcp-servers") is not None
@@ -178,6 +216,20 @@ class TestGatewayValidator:
         request = MagicMock(spec=Request)
         result = await validator("user@example.com", request)
         assert result is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("allowed", [True, False])
+    @patch("mlflow_oidc_auth.middleware.fastapi_permission_middleware.can_use_gateway_endpoint")
+    async def test_raw_proxy_requires_use_on_the_endpoint_in_the_path(self, mock_can_use, allowed):
+        """The raw proxy is judged by the endpoint in its path, never by the body it forwards."""
+        mock_can_use.return_value = allowed
+        validator = self._get_gateway_validator("/gateway/proxy/my-endpoint/v1/chat/completions")
+        request = MagicMock(spec=Request)
+        request.json = AsyncMock(return_value={"model": "another-endpoint"})
+
+        assert await validator("user@example.com", request) is allowed
+        mock_can_use.assert_called_once_with("my-endpoint", "user@example.com")
+        request.json.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("mlflow_oidc_auth.middleware.fastapi_permission_middleware.can_use_gateway_endpoint")
@@ -300,7 +352,7 @@ class TestRequireAuthenticationValidator:
 
 
 class TestMCPServerRegistryValidator:
-    """Test the MCP server registry validator: reads open, writes admin-only."""
+    """The MCP server registry: writes admin-only; reads scoped to the request's workspace when workspaces are on."""
 
     def _validator(self):
         from mlflow_oidc_auth.middleware.fastapi_permission_middleware import (
@@ -309,27 +361,157 @@ class TestMCPServerRegistryValidator:
 
         return _get_mcp_server_registry_validator()
 
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("method", ["GET", "HEAD"])
-    async def test_reads_allowed_for_any_user(self, method):
-        """Test that a non-admin authenticated user may read the registry."""
-        validator = self._validator()
+    @staticmethod
+    def _request(method):
         request = MagicMock(spec=Request)
         request.method = method
-        assert await validator("user@example.com", request) is True
+        return request
+
+    @staticmethod
+    def _workspaces(grants, workspace):
+        """Workspaces on, the request naming ``workspace``, and workspace grants from ``grants``."""
+        from contextlib import ExitStack
+
+        from mlflow_oidc_auth.config import config
+
+        stack = ExitStack()
+        stack.enter_context(patch.object(config, "MLFLOW_ENABLE_WORKSPACES", True))
+        stack.enter_context(patch("mlflow_oidc_auth.bridge.user.get_request_workspace", return_value=workspace))
+        stack.enter_context(
+            patch(
+                "mlflow_oidc_auth.utils.workspace_cache.get_workspace_permission_cached",
+                side_effect=lambda username, ws: grants.get((username, ws)),
+            )
+        )
+        return stack
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method", ["GET", "HEAD"])
+    async def test_reads_open_without_workspaces(self, method):
+        """With workspaces off there is one registry and no tenant boundary: any user may read."""
+        from mlflow_oidc_auth.config import config
+
+        with patch.object(config, "MLFLOW_ENABLE_WORKSPACES", False):
+            assert await self._validator()("user@example.com", self._request(method)) is True
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE", "PUT"])
-    async def test_writes_denied_for_non_admin(self, method):
-        """Test that a non-admin authenticated user may not mutate the registry.
+    @pytest.mark.parametrize("workspaces", [False, True])
+    async def test_writes_denied_for_non_admin(self, method, workspaces):
+        """A non-admin may never mutate the registry — admins never reach this validator."""
+        from mlflow_oidc_auth.config import config
+        from mlflow_oidc_auth.permissions import MANAGE
 
-        Admins never reach this validator, so denying here is what makes
-        mutation admin-only.
-        """
-        validator = self._validator()
-        request = MagicMock(spec=Request)
-        request.method = method
-        assert await validator("user@example.com", request) is False
+        with (
+            patch.object(config, "MLFLOW_ENABLE_WORKSPACES", workspaces),
+            patch("mlflow_oidc_auth.utils.workspace_cache.get_workspace_permission_cached", return_value=MANAGE),
+        ):
+            assert await self._validator()("user@example.com", self._request(method)) is False
+
+    @pytest.mark.asyncio
+    async def test_read_allowed_with_workspace_read(self):
+        from mlflow_oidc_auth.permissions import READ
+
+        with self._workspaces({("user@example.com", "team-a"): READ}, "team-a"):
+            assert await self._validator()("user@example.com", self._request("GET")) is True
+
+    @pytest.mark.asyncio
+    async def test_read_denied_in_a_workspace_the_user_has_no_grant_on(self):
+        """Naming another tenant's workspace must not expose its registry."""
+        from mlflow_oidc_auth.permissions import MANAGE
+
+        with self._workspaces({("user@example.com", "team-a"): MANAGE}, "team-b"):
+            assert await self._validator()("user@example.com", self._request("GET")) is False
+
+    @pytest.mark.asyncio
+    async def test_explicit_no_permissions_denies_a_read(self):
+        from mlflow_oidc_auth.permissions import NO_PERMISSIONS
+
+        with self._workspaces({("user@example.com", "team-a"): NO_PERMISSIONS}, "team-a"):
+            assert await self._validator()("user@example.com", self._request("GET")) is False
+
+    @pytest.mark.asyncio
+    async def test_no_workspace_named_is_judged_against_the_default_workspace(self):
+        """MLflow serves the default workspace's registry when no workspace is named."""
+        from mlflow_oidc_auth.permissions import READ
+
+        with self._workspaces({("user@example.com", "default"): READ}, None):
+            assert await self._validator()("user@example.com", self._request("GET")) is True
+        with self._workspaces({("user@example.com", "team-a"): READ}, None):
+            assert await self._validator()("user@example.com", self._request("GET")) is False
+
+
+class TestMCPServerRegistryEndToEnd:
+    """Through the real middleware: the workspace comes from the AuthContext AuthMiddleware set."""
+
+    @staticmethod
+    def _app(username, is_admin, workspace):
+        app = _create_app_with_auth(username=username, is_admin=is_admin, workspace=workspace)
+
+        @app.get("/api/3.0/mlflow/mcp-servers")
+        async def search_mcp_servers():
+            return {"servers": []}
+
+        # Route order matters: the catch-all Flask mount was added first, so move this route ahead of it.
+        app.router.routes.insert(0, app.router.routes.pop())
+        return app
+
+    @staticmethod
+    def _grants(grants):
+        from contextlib import ExitStack
+
+        from mlflow_oidc_auth.config import config
+
+        stack = ExitStack()
+        stack.enter_context(patch.object(config, "MLFLOW_ENABLE_WORKSPACES", True))
+        stack.enter_context(
+            patch(
+                "mlflow_oidc_auth.utils.workspace_cache.get_workspace_permission_cached",
+                side_effect=lambda username, ws: grants.get((username, ws)),
+            )
+        )
+        return stack
+
+    def test_member_of_the_workspace_reads_its_registry(self):
+        from mlflow_oidc_auth.permissions import READ
+
+        with self._grants({("user@example.com", "team-a"): READ}):
+            response = TestClient(self._app("user@example.com", False, "team-a")).get("/api/3.0/mlflow/mcp-servers")
+
+        assert response.status_code == 200
+
+    def test_another_tenants_workspace_is_403(self):
+        from mlflow_oidc_auth.permissions import MANAGE
+
+        with self._grants({("user@example.com", "team-a"): MANAGE}):
+            response = TestClient(self._app("user@example.com", False, "team-b")).get("/api/3.0/mlflow/mcp-servers")
+
+        assert response.status_code == 403
+
+    def test_static_prefix_does_not_bypass_the_check(self, monkeypatch):
+        """With ``--static-prefix`` the registry is mounted under it: reads and writes are still judged."""
+        from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+
+        from mlflow_oidc_auth.permissions import MANAGE
+
+        monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+        app = _create_app_with_auth(username="user@example.com", is_admin=False, workspace="team-b")
+
+        @app.api_route("/mlflow/api/3.0/mlflow/mcp-servers", methods=["GET", "POST"])
+        async def prefixed_mcp_servers():
+            return {"servers": []}
+
+        app.router.routes.insert(0, app.router.routes.pop())
+        client = TestClient(app)
+        with self._grants({("user@example.com", "team-a"): MANAGE}):
+            assert client.get("/mlflow/api/3.0/mlflow/mcp-servers").status_code == 403
+            assert client.post("/mlflow/api/3.0/mlflow/mcp-servers", json={}).status_code == 403
+
+    def test_admin_reads_any_workspace(self):
+        with self._grants({}):
+            response = TestClient(self._app("admin@example.com", True, "team-b")).get("/api/3.0/mlflow/mcp-servers")
+
+        assert response.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -907,3 +1089,245 @@ class TestJobSearchFiltering:
 
         with pytest.raises(ValueError):
             _filter_job_search_response("alice@example.com", b'{"unexpected": true}')
+
+
+# ---------------------------------------------------------------------------
+# Gateway routes never see this plugin's credentials
+# ---------------------------------------------------------------------------
+
+
+class TestGatewayCredentialStripping:
+    """MLflow's gateway copies the caller's headers onto the request it sends to the provider on its
+    passthrough and proxy routes, so this plugin's credentials must be gone before those handlers run."""
+
+    SENT = {
+        "Cookie": "mlflow_oidc_session=not-a-real-session",
+        "Authorization": "Bearer not-a-real-token",
+        "X-Custom": "kept",
+    }
+
+    @staticmethod
+    def _app(is_admin, route):
+        app = _create_app_with_auth(username="user@example.com", is_admin=is_admin)
+
+        @app.post(route)
+        async def gateway_echo(request: Request):
+            return {"headers": {k.lower(): v for k, v in request.headers.items()}}
+
+        app.router.routes.insert(0, app.router.routes.pop())
+        return app
+
+    def _received(self, is_admin, route, path, body=None):
+        with patch("mlflow_oidc_auth.middleware.fastapi_permission_middleware.can_use_gateway_endpoint", return_value=True):
+            response = TestClient(self._app(is_admin, route)).post(path, headers=self.SENT, json=body or {})
+        assert response.status_code == 200, response.text
+        return response.json()["headers"]
+
+    @pytest.mark.parametrize("is_admin", [False, True])
+    @pytest.mark.parametrize(
+        "route,path,body",
+        [
+            ("/gateway/openai/v1/chat/completions", "/gateway/openai/v1/chat/completions", {"model": "my-endpoint"}),
+            ("/gateway/anthropic/v1/messages", "/gateway/anthropic/v1/messages", {"model": "my-endpoint"}),
+        ],
+    )
+    def test_forwarding_routes_see_neither_cookie_nor_authorization(self, is_admin, route, path, body):
+        received = self._received(is_admin, route, path, body)
+
+        assert "cookie" not in received
+        assert "authorization" not in received
+        assert received["x-custom"] == "kept"
+
+    @pytest.mark.parametrize("is_admin", [False, True])
+    def test_the_raw_proxy_sees_neither_cookie_nor_authorization(self, is_admin):
+        """The raw proxy forwards every header it gets to the provider — for a permitted non-admin too."""
+        received = self._received(is_admin, "/gateway/proxy/{endpoint}/{rest:path}", "/gateway/proxy/my-endpoint/v1/chat/completions")
+
+        assert "cookie" not in received
+        assert "authorization" not in received
+
+    @pytest.mark.parametrize("is_admin", [False, True])
+    @pytest.mark.parametrize(
+        "route,path,body",
+        [
+            ("/gateway/{endpoint}/mlflow/invocations", "/gateway/my-endpoint/mlflow/invocations", None),
+            ("/gateway/mlflow/v1/chat/completions", "/gateway/mlflow/v1/chat/completions", {"model": "my-endpoint"}),
+        ],
+    )
+    def test_typed_routes_keep_authorization_for_guardrails_but_never_the_cookie(self, is_admin, route, path, body):
+        """These routes never forward headers; a sanitize guardrail calls back into MLflow with the caller's token."""
+        received = self._received(is_admin, route, path, body)
+
+        assert "cookie" not in received
+        assert received["authorization"] == "Bearer not-a-real-token"
+
+    def test_a_denied_request_is_refused(self):
+        with patch("mlflow_oidc_auth.middleware.fastapi_permission_middleware.can_use_gateway_endpoint", return_value=False):
+            response = TestClient(self._app(False, "/gateway/{endpoint}/mlflow/invocations")).post(
+                "/gateway/my-endpoint/mlflow/invocations", headers=self.SENT, json={}
+            )
+
+        assert response.status_code == 403
+
+    @pytest.mark.parametrize(
+        "path,kept",
+        [
+            ("/gateway/openai/v1/responses", [(b"x-other", b"d")]),
+            ("/gateway/some-future/route", [(b"x-other", b"d")]),
+            ("/gateway/ep/mlflow/invocations", [(b"Authorization", b"b"), (b"authorization", b"c"), (b"x-other", b"d")]),
+        ],
+    )
+    def test_the_strip_is_case_insensitive_and_unknown_routes_lose_authorization(self, path, kept):
+        from mlflow_oidc_auth.middleware.fastapi_permission_middleware import _strip_client_credentials
+
+        request = MagicMock(spec=Request)
+        request.scope = {"headers": [(b"cookie", b"a"), (b"Authorization", b"b"), (b"authorization", b"c"), (b"x-other", b"d")]}
+        _strip_client_credentials(request, path)
+
+        assert request.scope["headers"] == kept
+
+
+# ---------------------------------------------------------------------------
+# Model discovery (MLflow 3.17+): listing narrowed to the endpoints the caller may USE
+# ---------------------------------------------------------------------------
+
+_MODELS = "/gateway/mlflow/v1/models"
+_CAN_USE = "mlflow_oidc_auth.middleware.fastapi_permission_middleware.can_use_gateway_endpoint"
+
+
+class TestGatewayModelDiscovery:
+    """Mirrors MLflow's own ``_filter_list_gateway_models``: ``id`` is the endpoint name."""
+
+    LISTING = {
+        "object": "list",
+        "data": [
+            {"id": "allowed-endpoint", "object": "model", "created": 1, "owned_by": "mlflow"},
+            {"id": "denied-endpoint", "object": "model", "created": 2, "owned_by": "mlflow"},
+        ],
+    }
+
+    def _app(self, username="user@example.com", is_admin=False, workspace=None, body=None, status=200):
+        from starlette.responses import JSONResponse, Response
+
+        app = _create_app_with_auth(username=username, is_admin=is_admin, workspace=workspace)
+        listing = self.LISTING if body is None else body
+
+        @app.get(_MODELS)
+        async def list_models():
+            if isinstance(listing, bytes):
+                response = Response(content=listing, status_code=status, media_type="application/json")
+            else:
+                response = JSONResponse(listing, status_code=status)
+            response.raw_headers.extend([(b"x-model-metadata", b"first"), (b"x-model-metadata", b"second")])
+            return response
+
+        app.router.routes.insert(0, app.router.routes.pop())
+        return app
+
+    def test_models_route_requires_authentication(self):
+        assert self._find(_MODELS) is not None
+        response = TestClient(self._app(username=None)).get(_MODELS)
+        assert response.status_code == 401
+
+    @staticmethod
+    def _find(path):
+        from mlflow_oidc_auth.middleware.fastapi_permission_middleware import _find_fastapi_validator
+
+        return _find_fastapi_validator(path)
+
+    def test_admin_sees_every_endpoint_without_checks(self):
+        with patch(_CAN_USE) as can_use:
+            response = TestClient(self._app(username="admin@example.com", is_admin=True)).get(_MODELS)
+
+        assert response.status_code == 200
+        assert [m["id"] for m in response.json()["data"]] == ["allowed-endpoint", "denied-endpoint"]
+        can_use.assert_not_called()
+
+    def test_regular_user_sees_only_usable_endpoints_and_headers_are_kept(self):
+        with patch(_CAN_USE, side_effect=lambda endpoint, username: endpoint == "allowed-endpoint") as can_use:
+            response = TestClient(self._app()).get(_MODELS)
+
+        assert response.status_code == 200
+        assert response.json() == {"object": "list", "data": [self.LISTING["data"][0]]}
+        assert response.headers.get_list("x-model-metadata") == ["first", "second"]
+        assert int(response.headers["content-length"]) == len(response.content)
+        assert [c.args for c in can_use.call_args_list] == [("allowed-endpoint", "user@example.com"), ("denied-endpoint", "user@example.com")]
+
+    def test_a_failed_permission_lookup_hides_that_endpoint(self):
+        def check(endpoint, username):
+            if endpoint == "denied-endpoint":
+                raise RuntimeError("permission backend unavailable")
+            return True
+
+        with patch(_CAN_USE, side_effect=check):
+            response = TestClient(self._app()).get(_MODELS)
+
+        assert [m["id"] for m in response.json()["data"]] == ["allowed-endpoint"]
+
+    @pytest.mark.parametrize("body", [b"not json", b'{"object": "list"}', b'["not", "a", "listing"]'])
+    def test_a_body_that_cannot_be_filtered_is_500_never_the_unfiltered_list(self, body):
+        with patch(_CAN_USE, return_value=True):
+            response = TestClient(self._app(body=body)).get(_MODELS)
+
+        assert response.status_code == 500
+        assert "allowed-endpoint" not in response.text
+
+    def test_an_error_response_is_returned_unchanged(self):
+        with patch(_CAN_USE, return_value=True):
+            response = TestClient(self._app(body={"error_code": "TEMPORARILY_UNAVAILABLE"}, status=503)).get(_MODELS)
+
+        assert response.status_code == 503
+        assert response.json() == {"error_code": "TEMPORARILY_UNAVAILABLE"}
+
+    def test_the_callers_workspace_is_visible_while_filtering(self):
+        """With workspaces on, an endpoint with no grant falls back to the caller's workspace
+        permission — which needs the caller's AuthContext bridged during the filter."""
+        from mlflow_oidc_auth.bridge.user import get_request_workspace
+
+        seen = []
+
+        def check(endpoint, username):
+            seen.append(get_request_workspace())
+            return get_request_workspace() == "team-a"
+
+        with patch(_CAN_USE, side_effect=check):
+            response = TestClient(self._app(workspace="team-a")).get(_MODELS)
+
+        assert response.status_code == 200
+        assert [m["id"] for m in response.json()["data"]] == ["allowed-endpoint", "denied-endpoint"]
+        assert seen == ["team-a", "team-a"]
+
+    def test_workspace_fallback_end_to_end(self):
+        """The real resolution path: no endpoint grants, workspace MANAGE on team-a only."""
+        from contextlib import ExitStack
+
+        from mlflow_oidc_auth.models import PermissionResult
+        from mlflow_oidc_auth.permissions import MANAGE, NO_PERMISSIONS
+        from mlflow_oidc_auth.utils import permissions as perms
+
+        grants = {("user@example.com", "team-a"): MANAGE}
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(perms.config, "MLFLOW_ENABLE_WORKSPACES", True))
+            stack.enter_context(patch.object(perms, "get_permission_from_store_or_default", return_value=PermissionResult(NO_PERMISSIONS, "fallback")))
+            stack.enter_context(patch("mlflow_oidc_auth.utils.workspace_cache.get_workspace_permission_cached", side_effect=lambda u, ws: grants.get((u, ws))))
+            perms._get_permission_cache().clear()
+            member = TestClient(self._app(workspace="team-a")).get(_MODELS)
+            perms._get_permission_cache().clear()
+            outsider = TestClient(self._app(workspace="team-b")).get(_MODELS)
+
+        assert [m["id"] for m in member.json()["data"]] == ["allowed-endpoint", "denied-endpoint"]
+        assert outsider.json()["data"] == []
+
+    def test_models_route_loses_plugin_credentials(self):
+        """Discovery forwards nothing, but it is a /gateway/ route: the credential strip applies."""
+        from starlette.responses import JSONResponse
+
+        app = _create_app_with_auth(username="admin@example.com", is_admin=True)
+
+        @app.get(_MODELS)
+        async def echo(request: Request):
+            return JSONResponse({"object": "list", "data": [], "headers": sorted(k.lower() for k in request.headers.keys())})
+
+        app.router.routes.insert(0, app.router.routes.pop())
+        received = TestClient(app).get(_MODELS, headers={"Cookie": "s=x", "Authorization": "Bearer y"}).json()["headers"]
+        assert "cookie" not in received and "authorization" not in received

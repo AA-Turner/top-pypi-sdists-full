@@ -33,9 +33,10 @@ from google.agents.cli._project import find_project_config
 from ..utils import cli_options, remote_template, template
 from ..utils.cli_options import InteractionMode
 from ..utils.command import run_gcloud_command
-from ..utils.fs import standard_ignore_patterns
+from ..utils.copy_files import CopyOptions, copy_files
 from ..utils.gcp import verify_credentials_and_vertex
 from ..utils.logging import display_welcome_banner
+from ..utils.symlinks import find_repo_boundary
 
 # Export the shared decorator for use by other commands
 __all__ = ["create"]
@@ -648,9 +649,14 @@ def _resolve_local_spec(
 ) -> AgentSelection | None:
     """Resolve a ``local@<path>`` spec into a template selection.
 
-    Copies the local template to a temp dir (honoring a version lock) and returns
-    an ``AgentSelection``. Returns None when a version-locked local template
-    already executed a nested command (the caller should stop).
+    Copies the local template into a staging dir. Symlinks are vetted as they are
+    materialized against a boundary: the enclosing Git / Mercurial / Jujutsu
+    working copy when the template is inside one, otherwise the template directory
+    itself. An in-boundary link becomes real files; a link escaping the boundary
+    fails the command.
+
+    Returns None when a version-locked local template already executed a nested
+    command (the caller should stop).
     """
     path_str = agent.split("@", 1)[1]
     local_path = pathlib.Path(path_str).resolve()
@@ -663,14 +669,32 @@ def _resolve_local_spec(
     # wherever enhance / upgrade are later run from.
     recorded_spec = f"local@{local_path}"
 
-    # Create a temporary directory and copy the local template to it
+    # Symlinks are bounded by the enclosing VCS working copy; with none, the
+    # template directory itself is the boundary, so an in-template link is
+    # materialized but one escaping it is refused.
+    repo_boundary = find_repo_boundary(local_path)
+    clone_root = repo_boundary or local_path
+    if repo_boundary is None:
+        logging.debug(
+            "No Git, Mercurial, or Jujutsu repository around local template "
+            "'%s'; bounding symlinks to the template directory.",
+            local_path,
+        )
+
+    # Stage the template in a temp dir. The .template config must survive the
+    # staging copy (it is read below); the overlay into the project drops it.
     temp_dir = tempfile.mkdtemp(prefix="acli_local_template_")
     template_source_path = pathlib.Path(temp_dir) / local_path.name
-    shutil.copytree(
-        local_path,
-        template_source_path,
-        ignore=standard_ignore_patterns,
-    )
+    try:
+        copy_files(
+            local_path,
+            template_source_path,
+            clone_root=clone_root,
+            options=CopyOptions(overwrite=True, keep_template_dir=True),
+        )
+    except BaseException:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
 
     # Check for version lock and execute nested command if found
     if remote_template.check_and_execute_with_version_lock(
@@ -685,7 +709,7 @@ def _resolve_local_spec(
         console.print("✅ Using version-locked template", style="green")
     else:
         console.print(f"Using local template: {local_path}")
-    logging.debug("Copied local template to temporary dir: %s", template_source_path)
+    logging.debug("Staged local template in temporary dir: %s", template_source_path)
     return AgentSelection(
         agent=agent,
         final_agent=f"local_{template_source_path.name}",
@@ -694,6 +718,8 @@ def _resolve_local_spec(
         remote_spec=None,
         recorded_spec=recorded_spec,
         bq_analytics=bq_analytics,
+        # The staged copy is already materialized/symlink-free, so the overlay
+        # needs no boundary.
         template_repo_root=None,
     )
 

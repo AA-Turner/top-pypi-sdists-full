@@ -517,6 +517,7 @@ class EncryptionDecryptionAttributesTypeDef(TypedDict):
 
 class ReEncryptionAttributesTypeDef(TypedDict):
     Symmetric: NotRequired[SymmetricEncryptionAttributesTypeDef]
+    Asymmetric: NotRequired[AsymmetricEncryptionAttributesTypeDef]
     Dukpt: NotRequired[DukptEncryptionAttributesTypeDef]
 
 class GenerateMacEmvPinChangeOutputTypeDef(TypedDict):

@@ -71,3 +71,37 @@ Back: A
     def test_empty_content(self):
         result = parse_flashcards("")
         assert len(result.cards) == 0
+
+
+class TestSetTitle:
+    """The ``<flashcards>`` text format carries its own title.
+
+    Real case (conversation 10d796b4, 2026-09-30): a learner asked for the
+    polyatomic ions in their chemistry notes. The format had no title slot, so
+    the adapter's placeholder became the saved deck's name: "Flashcards".
+    """
+
+    TITLED = """<flashcards>
+Title: Polyatomic Ions
+---
+Front: Nitrate
+Back: NO3-
+---
+Front: Title: what a card front may still say
+Back: Anything
+---
+</flashcards>"""
+
+    def test_title_line_before_the_first_card_names_the_set(self):
+        result = parse_flashcards(self.TITLED, is_final=True)
+        assert result.title == "Polyatomic Ions"
+        assert [c.front for c in result.cards] == [
+            "Nitrate",
+            "Title: what a card front may still say",
+        ]
+        assert result.model_dump(by_alias=True)["title"] == "Polyatomic Ions"
+
+    def test_untitled_set_keeps_its_established_payload(self):
+        result = parse_flashcards("Front: Nitrate\nBack: NO3-\n</flashcards>", is_final=True)
+        assert result.title is None
+        assert "title" not in result.model_dump(by_alias=True)

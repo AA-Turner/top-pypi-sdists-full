@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import functools
 import hashlib
 import importlib
@@ -126,6 +127,8 @@ _PLUGIN_UNSUPPORTED_OPTIONS = {
         "breakless_lists",
         "title_from_first_bold",
     ),
+    "exclude": (),
+    "gh-admonitions": (),
     "glightbox": (
         "touchNavigation",
         "loop",
@@ -137,6 +140,7 @@ _PLUGIN_UNSUPPORTED_OPTIONS = {
         "shadow",
     ),
     "literate-nav": (),
+    "llmstxt": ("preprocess",),
     "macros": (),
     "markdown-exec": (),
     "meta": (),
@@ -163,6 +167,7 @@ _PLUGIN_UNSUPPORTED_OPTIONS = {
         "pipeline",
         "prebuild_index",
     ),
+    "social": (),
     "table-reader": (),
     "tags": (
         "tags_compare",
@@ -566,6 +571,13 @@ def _apply_defaults(config: dict, path: str) -> dict:
     elif "theme" not in config:
         config["theme"] = {}
 
+    font_explicit = "font" in config["theme"]
+    configured_icons = config["theme"].get("icon")
+    logo_icon_explicit = (
+        isinstance(configured_icons, dict)
+        and configured_icons.get("logo") is not None
+    )
+
     # Set defaults for custom theme directory
     set_default(config["theme"], "custom_dir", None, str)
 
@@ -595,6 +607,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     config["theme"] = {**theme_config, **config["theme"]}
 
     theme = config["theme"]
+    theme["font_explicit"] = font_explicit
 
     # Set defaults for theme name
     # (we do this after loading the theme configuration
@@ -627,6 +640,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
 
     # Set defaults for theme icons
     icon = set_default(theme, "icon", {}, dict)
+    icon["logo_explicit"] = logo_icon_explicit
     set_default(icon, "repo", None, str)
     set_default(icon, "annotation", None, str)
     set_default(icon, "tag", {}, dict)
@@ -796,6 +810,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     _shim_mkdocstrings(config)
     _shim_autorefs(config)
     _shim_callouts(config)
+    _shim_gh_admonitions(config)
     _shim_markdown_exec(config)
     _shim_glightbox(config)
     _shim_macros(config)
@@ -981,6 +996,21 @@ def _shim_callouts(config: dict[str, Any]) -> None:
         return
 
     plugin = config["plugins"]["callouts"]["config"]
+    if not plugin.get("enabled", True):
+        return
+
+    extension = "pymdownx.quotes"
+    if extension not in config["markdown_extensions"]:
+        config["markdown_extensions"].append(extension)
+    config["mdx_configs"].setdefault(extension, {})["callouts"] = True
+
+
+def _shim_gh_admonitions(config: dict[str, Any]) -> None:
+    """Enable callout blockquotes for an enabled gh-admonitions plugin."""
+    if "gh-admonitions" not in config["plugins"]:
+        return
+
+    plugin = config["plugins"]["gh-admonitions"]["config"]
     if not plugin.get("enabled", True):
         return
 
@@ -1549,6 +1579,91 @@ def _validate_string_options(
             raise ConfigurationError(f"{label} {name} must be a string")
 
 
+def _normalize_llmstxt(
+    raw: dict[str, Any], config: dict, present: bool
+) -> dict[str, Any]:
+    """Validate LLM text output settings and preserve section order."""
+    defaults: dict[str, Any] = {
+        "enabled": present,
+        "autoclean": True,
+        "base_url": None,
+        "markdown_description": None,
+        "full_output": None,
+        "sections": {},
+    }
+    _reject_unknown_options("llmstxt", raw, set(defaults))
+    settings = {**defaults, **raw}
+    _validate_boolean_options("llmstxt", settings, ("enabled", "autoclean"))
+    for name in ("base_url", "markdown_description", "full_output"):
+        if settings[name] is not None and not isinstance(settings[name], str):
+            raise ConfigurationError(f"llmstxt {name} must be a string or null")
+    if settings["enabled"] and not config.get("site_url"):
+        raise ConfigurationError("llmstxt requires site_url")
+    if settings["full_output"] is not None:
+        filename = settings["full_output"]
+        invalid_character = any(
+            character in filename for character in ("\\", "\0", ":")
+        )
+        invalid_component = any(
+            part in ("", ".", "..") for part in filename.split("/")
+        )
+        if invalid_character or invalid_component:
+            raise ConfigurationError(
+                "llmstxt `full_output` must be a relative file path "
+                "within site_dir"
+            )
+        if filename == "llms.txt":
+            raise ConfigurationError(
+                "llmstxt full_output must differ from llms.txt"
+            )
+    if not isinstance(settings["sections"], dict):
+        raise ConfigurationError("llmstxt sections must be a mapping")
+    sections = []
+    for title, entries in settings["sections"].items():
+        if not isinstance(title, str) or not isinstance(entries, list):
+            raise ConfigurationError(
+                "llmstxt sections must map strings to lists"
+            )
+        inputs = []
+        for entry in entries:
+            if isinstance(entry, str):
+                pattern, description = entry, ""
+            elif isinstance(entry, dict) and len(entry) == 1:
+                pattern, description = next(iter(entry.items()))
+            else:
+                raise ConfigurationError(
+                    "llmstxt section entries must be paths "
+                    "or single-entry mappings"
+                )
+            if (
+                not isinstance(pattern, str)
+                or not pattern
+                or not isinstance(description, str)
+            ):
+                raise ConfigurationError(
+                    "llmstxt paths must be non-empty strings and descriptions "
+                    "must be strings"
+                )
+            expression = None
+            if "*" in pattern:
+                # Python uses match(); Rust needs an explicit start anchor.
+                expression = r"\A" + fnmatch.translate(pattern)
+                # Rust does not need Python's backtracking optimization.
+                expression = expression.replace("(?>", "(?:").replace(
+                    r"\Z", r"\z"
+                )
+            inputs.append(
+                {
+                    "pattern": pattern,
+                    "description": description,
+                    "expression": expression,
+                }
+            )
+        sections.append({"title": title, "inputs": inputs})
+    settings["sections"] = sections
+    return settings
+
+
 def _normalize_rss(raw: dict[str, Any]) -> dict[str, Any]:
     """Validate and fill the MkDocs RSS plugin's supported settings."""
     rss = dict(raw)
@@ -1720,13 +1835,15 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     tags: list[dict[str, Any]] = []
     blogs: list[dict[str, Any]] = []
     rss: list[dict[str, Any]] = []
+    social: list[dict[str, Any]] = []
 
     def add(name: Any, data: Any) -> None:
         """Canonicalize Material aliases while preserving tag instances."""
         if not isinstance(name, str):
             raise ConfigurationError("Plugin names must be strings")
         name = name.removeprefix("material/")
-        if name not in _PLUGIN_UNSUPPORTED_OPTIONS:
+        canonical = "social" if name.startswith("social/") else name
+        if canonical not in _PLUGIN_UNSUPPORTED_OPTIONS:
             return
         if data is None:
             data = {}
@@ -1734,13 +1851,15 @@ def _convert_plugins(value: Any, config: dict) -> dict:
             raise ConfigurationError(f"{name} configuration must be a mapping")
         else:
             data = dict(data)
-        for option in _PLUGIN_UNSUPPORTED_OPTIONS[name]:
+        for option in _PLUGIN_UNSUPPORTED_OPTIONS[canonical]:
             data.pop(option, None)
         if name == "tags":
             _reject_unknown_options("tags", data, _TAGS_SUPPORTED_OPTIONS)
             tags.append({"name": name, "config": data})
         elif name == "blog":
             blogs.append({"name": name, "config": data})
+        elif canonical == "social":
+            social.append({"name": name, "config": data})
         elif name == "rss":
             rss.append({"name": name, "config": _normalize_rss(data)})
         else:
@@ -1773,6 +1892,11 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     plugins["blogs"] = blogs
 
     plugins["rss"] = rss
+    # Preserve ordered social instances for native validation and rendering.
+    plugins["social"] = social
+    plugins["llmstxt"] = _normalize_llmstxt(
+        plugins.get("llmstxt", {}), config, "llmstxt" in plugins
+    )
     # Search is enabled by default, even when it isn't explicitly configured.
     search = plugins.pop("search", {})
     _reject_unknown_options("search", search, {"enabled", "separator"})
@@ -1793,6 +1917,34 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     _validate_boolean_options("meta", meta, ("enabled",))
     _validate_string_options("meta", meta, ("meta_file",))
     plugins["meta"] = meta
+
+    # Normalize file exclusion without importing or executing the plugin.
+    present = "exclude" in plugins
+    exclude = plugins.pop("exclude", {})
+    _reject_unknown_options("exclude", exclude, {"enabled", "glob", "regex"})
+    set_default(exclude, "enabled", present)
+    _validate_boolean_options("exclude", exclude, ("enabled",))
+    for name in ("glob", "regex"):
+        patterns = exclude.get(name)
+        if patterns is None or patterns == "":
+            patterns = []
+        elif isinstance(patterns, str):
+            patterns = [patterns]
+        if not isinstance(patterns, list) or not all(
+            isinstance(pattern, str) for pattern in patterns
+        ):
+            raise ConfigurationError(
+                f"exclude {name} must be a string or a list of strings"
+            )
+        exclude[name] = patterns
+    try:
+        for pattern in exclude["regex"]:
+            re.compile(pattern)
+    except re.error as error:
+        raise ConfigurationError(
+            f"exclude invalid regular expression {pattern!r}: {error}"
+        ) from error
+    plugins["exclude"] = exclude
 
     # Normalize redirects into typed native configuration. The enabled flag is
     # internal; plugin presence retains MkDocs' activation semantics. The
@@ -2179,6 +2331,13 @@ def _convert_plugins(value: Any, config: dict) -> dict:
         callouts = plugins["callouts"]
         _reject_unknown_options("callouts", callouts, {"enabled"})
         _validate_boolean_options("callouts", callouts, ("enabled",))
+
+    if "gh-admonitions" in plugins:
+        gh_admonitions = plugins["gh-admonitions"]
+        _reject_unknown_options("gh-admonitions", gh_admonitions, {"enabled"})
+        _validate_boolean_options(
+            "gh-admonitions", gh_admonitions, ("enabled",)
+        )
 
     if "markdown-exec" in plugins:
         markdown_exec = plugins["markdown-exec"]

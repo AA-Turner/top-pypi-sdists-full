@@ -36,7 +36,10 @@ __all__ = (
     "ListInvoiceSummariesResourceTypeType",
     "ListInvoiceUnitsPaginatorName",
     "ListProcurementPortalPreferencesPaginatorName",
+    "ListProcurementPortalSuppliersPaginatorName",
+    "ListProcurementPortalsPaginatorName",
     "PaginatorName",
+    "ProcurementPortalEnvType",
     "ProcurementPortalNameType",
     "ProcurementPortalPreferenceStatusType",
     "ProtocolType",
@@ -68,6 +71,9 @@ ListInvoiceSummariesPaginatorName = Literal["list_invoice_summaries"]
 ListInvoiceSummariesResourceTypeType = Literal["ACCOUNT_ID", "INVOICE_ID"]
 ListInvoiceUnitsPaginatorName = Literal["list_invoice_units"]
 ListProcurementPortalPreferencesPaginatorName = Literal["list_procurement_portal_preferences"]
+ListProcurementPortalSuppliersPaginatorName = Literal["list_procurement_portal_suppliers"]
+ListProcurementPortalsPaginatorName = Literal["list_procurement_portals"]
+ProcurementPortalEnvType = Literal["PROD", "TEST"]
 ProcurementPortalNameType = Literal["COUPA", "SAP_BUSINESS_NETWORK"]
 ProcurementPortalPreferenceStatusType = Literal[
     "ACTIVE",
@@ -169,6 +175,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -243,6 +250,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -271,6 +279,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -365,6 +374,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -524,5 +534,9 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_invoice_summaries", "list_invoice_units", "list_procurement_portal_preferences"
+    "list_invoice_summaries",
+    "list_invoice_units",
+    "list_procurement_portal_preferences",
+    "list_procurement_portal_suppliers",
+    "list_procurement_portals",
 ]

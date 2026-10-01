@@ -67,6 +67,12 @@ class RagSearchArgs(BaseModel):
     origin: list[str] | None = None
     date: KnowledgeDateArg | None = None
     state: list[Literal["inbox", "kept", "archived"]] | None = None
-    organizations: list[str] | None = None
+    # The ORGANIZATION FILTER (policies/active-org-is-never-a-list-filter.md): organization ids to
+    # search, null = every organization the caller belongs to. Never derived from the active
+    # organization, which only attributes the call.
+    organizations: list[str] | None = Field(
+        default=None,
+        description="Organization ids to search. Omit (null) to search every organization you belong to.",
+    )
     sort: Literal["relevance", "recent", "title"] = "relevance"
     cursors: dict[str, str] | None = None

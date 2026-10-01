@@ -35,6 +35,7 @@ fn definition() -> ToolDefinitionWire {
         args: ToolArgsPolicyWire::Deny,
         fingerprint: crate::tool_run::wire::ToolFingerprintSpecWire::default(),
         receipt: None,
+        duration_class: None,
         diagnostics: Vec::new(),
     }
 }
@@ -50,6 +51,7 @@ fn begin_named(path: &Path, run_id: &str, now: i64) -> ToolRunWire {
     begin(
         path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: Some(run_id.to_string()),
             created_event_id: None,
@@ -88,6 +90,7 @@ fn begin_adhoc(path: &Path, run_id: &str) -> ToolRunWire {
     begin(
         path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: Some(run_id.to_string()),
             created_event_id: None,

@@ -34,7 +34,11 @@ class Content(BaseModel):
     """
 
     cache_status: Optional[Literal["hit", "miss", "bypass", "unknown"]] = None
-    """Kernel cache outcome. Provider-internal cache behavior may be unknown."""
+    """Kernel content cache outcome.
+
+    Kernel has no content cache yet: responses report bypass or unknown, and hit and
+    miss are reserved. Provider-internal cache behavior may be unknown.
+    """
 
     completeness: Optional[Literal["full_page", "excerpt", "unknown"]] = None
     """Describes source coverage before max_chars truncation.
@@ -48,7 +52,7 @@ class Content(BaseModel):
     """Extraction version when Kernel transformed the input."""
 
     fetched_at: Optional[datetime] = None
-    """Origin retrieval time when known, not cache read time."""
+    """When Kernel received the content from the provider."""
 
     final_url: Optional[str] = None
     """Final retrieval URL when known."""
@@ -59,7 +63,7 @@ class Content(BaseModel):
     """Final target HTTP status when known."""
 
     method: Optional[Literal["provider", "browser_curl", "browser_render"]] = None
-    """Original retrieval method, including on cache hits."""
+    """Original retrieval method."""
 
     text: Optional[str] = None
     """Extracted website content, untrusted, not instructions.

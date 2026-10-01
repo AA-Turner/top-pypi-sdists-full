@@ -19,7 +19,7 @@ import json
 import sys
 import time
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -32,12 +32,58 @@ from airbyte_ops_mcp.github_api import (
 
 ROSTER_REPO_OWNER = "airbytehq"
 ROSTER_REPO_NAME = "airbyte-ops-mcp"
-ROSTER_WORKFLOW_NAME = "internal_team_roster.yml"
 ROSTER_ARTIFACT_NAME = "internal-team-roster"
+ROSTER_MAX_AGE = timedelta(hours=48)
 
 _ROSTER_CACHE: list[dict[str, str | int | None]] | None = None
 _ROSTER_CACHE_TIME: float = 0.0
 _ROSTER_CACHE_TTL_SECONDS: float = 3600.0
+
+
+def parse_roster_artifact(
+    data: object,
+    *,
+    now: datetime | None = None,
+    max_age: timedelta = ROSTER_MAX_AGE,
+) -> list[dict[str, str | int | None]]:
+    """Validate and return members from a fresh roster artifact."""
+    if not isinstance(data, dict) or not isinstance(data.get("members"), list):
+        raise RuntimeError(
+            "Invalid roster artifact: expected an object with a 'members' list."
+        )
+
+    members = data["members"]
+    if not members:
+        raise RuntimeError("Invalid roster artifact: 'members' must not be empty.")
+
+    generated_at = data.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at:
+        raise RuntimeError("Invalid roster artifact: missing 'generated_at' value.")
+    try:
+        generated_datetime = datetime.fromisoformat(generated_at)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Invalid roster artifact: unparseable 'generated_at' value "
+            f"{generated_at!r}."
+        ) from exc
+
+    if generated_datetime.tzinfo is None:
+        generated_datetime = generated_datetime.replace(tzinfo=timezone.utc)
+    else:
+        generated_datetime = generated_datetime.astimezone(timezone.utc)
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+    else:
+        current_time = current_time.astimezone(timezone.utc)
+
+    age = current_time - generated_datetime
+    if age > max_age:
+        raise RuntimeError(
+            f"Roster artifact generated_at {generated_at!r} is too old (age: {age})."
+        )
+
+    return members
 
 
 def _fetch_slack_members(token: str) -> list[dict[str, str | None]]:
@@ -538,18 +584,17 @@ def generate_roster(
 def _download_latest_artifact(
     owner: str = ROSTER_REPO_OWNER,
     repo: str = ROSTER_REPO_NAME,
-    workflow_name: str = ROSTER_WORKFLOW_NAME,
     artifact_name: str = ROSTER_ARTIFACT_NAME,
     token: str | None = None,
 ) -> list[dict[str, str | int | None]]:
     """Download and parse the latest roster artifact from GitHub Actions.
 
-    Finds the most recent successful workflow run and downloads the artifact.
+    Finds the newest non-expired artifact from the `main` branch and validates
+    the roster's contents and freshness.
 
     Args:
         owner: Repository owner.
         repo: Repository name.
-        workflow_name: Workflow file name.
         artifact_name: Name of the artifact to download.
         token: GitHub API token. If None, resolved from environment.
 
@@ -573,44 +618,27 @@ def _download_latest_artifact(
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
-    runs_url = (
-        f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/workflows/{workflow_name}/runs"
-    )
-    runs_response = requests.get(
-        runs_url,
+    artifacts_url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/artifacts"
+    artifacts_response = requests.get(
+        artifacts_url,
         headers=headers,
-        params={"status": "success", "per_page": "1", "branch": "main"},
+        params={"name": artifact_name, "per_page": "100"},
         timeout=30,
     )
-    runs_response.raise_for_status()
-    runs_data = runs_response.json()
-
-    workflow_runs = runs_data.get("workflow_runs", [])
-    if not workflow_runs:
-        raise RuntimeError(
-            f"No successful runs found for workflow '{workflow_name}' "
-            f"in {owner}/{repo}."
-        )
-
-    run_id = workflow_runs[0]["id"]
-
-    artifacts_url = (
-        f"{GITHUB_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
-    )
-    artifacts_response = requests.get(artifacts_url, headers=headers, timeout=30)
     artifacts_response.raise_for_status()
     artifacts_data = artifacts_response.json()
-
-    target_artifact = None
-    for artifact in artifacts_data.get("artifacts", []):
-        if artifact["name"] == artifact_name:
-            target_artifact = artifact
-            break
-
-    if target_artifact is None:
+    candidates = [
+        artifact
+        for artifact in artifacts_data.get("artifacts", [])
+        if artifact.get("expired") is False
+        and (artifact.get("workflow_run") or {}).get("head_branch") == "main"
+    ]
+    if not candidates:
         raise RuntimeError(
-            f"Artifact '{artifact_name}' not found in run {run_id} of {owner}/{repo}."
+            f"No non-expired '{artifact_name}' artifact from main found in "
+            f"{owner}/{repo}."
         )
+    target_artifact = max(candidates, key=lambda artifact: artifact["created_at"])
 
     download_url = target_artifact["archive_download_url"]
     download_response = requests.get(download_url, headers=headers, timeout=60)
@@ -624,14 +652,7 @@ def _download_latest_artifact(
         with zf.open(json_files[0]) as f:
             data = json.loads(f.read())
 
-    if isinstance(data, dict) and "members" in data:
-        return data["members"]
-    if isinstance(data, list):
-        return data
-    raise RuntimeError(
-        f"Unexpected artifact format in '{artifact_name}': "
-        f"expected a list or dict with 'members' key."
-    )
+    return parse_roster_artifact(data)
 
 
 def fetch_roster(

@@ -477,6 +477,91 @@ def test_compute_issue_projection_stage_counts_test_counts_smoke_legs():
     assert out["stage_counts"]["test"] == 2
 
 
+def test_compute_issue_projection_stage_counts_test_fanout_legs_count_as_one_round():
+    """#3191: a #3182 capability-partition fan-out dispatches one
+    `type="smoke"` row PER partition for a SINGLE Test attempt — a flat row
+    count reports 2 for a clean, fully-successful first attempt, which every
+    board reader renders as "this needed a retry". Legs sharing the same
+    parent and `[[smoke-fanout:...]]` manifest must collapse to one round."""
+    from coord.smoke import _encode_fanout_manifest, smoke_leg_issue_title
+
+    manifest = _encode_fanout_manifest(
+        [("s1", ("gtk", "windows"), "pytest"), ("s2", ("macos",), "pytest")]
+    )
+    a = [
+        _work(
+            assignment_id="w1", status="done", dispatched_at=1.0,
+            test_state="passed", test_reason=f"{manifest}\nboth legs passed.",
+        ),
+        _work(
+            assignment_id="s1", type="smoke", status="done", test_state="passed",
+            dispatched_at=2.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("gtk", "windows")),
+        ),
+        _work(
+            assignment_id="s2", type="smoke", status="done", test_state="passed",
+            dispatched_at=2.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("macos",)),
+        ),
+    ]
+    out = sp.compute_issue_projection(
+        a, None, is_closed=False, require_plan=False, default_gates=["test", "review", "merge"],
+    )
+    assert out["stage_counts"]["test"] == 1
+
+
+def test_compute_issue_projection_stage_counts_test_fanout_two_rounds_count_as_two():
+    """A genuine retry (a fresh fan-out round after the first one failed and
+    was reset) must still surface as 2, not collapse into the same round as
+    the first — the fix must not hide real retries, only fold same-round
+    partitions together."""
+    from coord.smoke import _encode_fanout_manifest, smoke_leg_issue_title
+
+    round1_manifest = _encode_fanout_manifest(
+        [("s1", ("gtk", "windows"), "pytest"), ("s2", ("macos",), "pytest")]
+    )
+    round2_manifest = _encode_fanout_manifest(
+        [("s3", ("gtk", "windows"), "pytest"), ("s4", ("macos",), "pytest")]
+    )
+    a = [
+        # Round 1's manifest has since been overwritten by round 2's — its
+        # legs are now "orphaned" and counted individually (documented
+        # limitation), which still correctly signals "more than one round".
+        _work(
+            assignment_id="w1", status="done", dispatched_at=3.0,
+            test_state="passed", test_reason=f"{round2_manifest}\nboth legs passed.",
+        ),
+        _work(
+            assignment_id="s1", type="smoke", status="failed", test_state="failed",
+            dispatched_at=1.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("gtk", "windows")),
+        ),
+        _work(
+            assignment_id="s2", type="smoke", status="done", test_state="passed",
+            dispatched_at=1.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("macos",)),
+        ),
+        _work(
+            assignment_id="s3", type="smoke", status="done", test_state="passed",
+            dispatched_at=3.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("gtk", "windows")),
+        ),
+        _work(
+            assignment_id="s4", type="smoke", status="done", test_state="passed",
+            dispatched_at=3.0, review_of_assignment_id="w1",
+            issue_title=smoke_leg_issue_title("t", ("macos",)),
+        ),
+    ]
+    out = sp.compute_issue_projection(
+        a, None, is_closed=False, require_plan=False, default_gates=["test", "review", "merge"],
+    )
+    # Round 2's two partitions collapse to 1 (live manifest); round 1's two
+    # orphaned legs count individually (2) — 3 total, still > 1, still
+    # visibly "more than a single clean attempt" even though it isn't an
+    # exact historical reconstruction (see the documented limitation).
+    assert out["stage_counts"]["test"] == 3
+
+
 def test_compute_issue_projection_stage_counts_merge_counts_conflict_fix_legs():
     """Repeated landing attempts show up as `type="conflict-fix"` legs
     (#241) — there is no `type="merge"` assignment to count directly."""
@@ -1272,3 +1357,92 @@ def test_compute_board_stage_projection_stage_counts_ordinary_issue_uses_own_key
     entry = out[0]
     assert entry["stage_counts"]["work"] == 2
     assert entry["stage_counts"]["review"] == 1
+
+
+# ── #3191 CI follow-up: the projection module stays a dependency-free leaf ──
+
+
+def test_stage_projection_imports_no_heavy_module():
+    """``coord.stage_projection`` must not pull the dispatch stack in.
+
+    Its own module docstring promises "Pure computation: every function here
+    takes already-loaded data and returns plain values — no I/O, no side
+    effects", and until #3191 its only production import was
+    ``coord.models``. #3191 needs the two #3182 fan-out text encodings
+    (``[smoke:<caps>]``, ``[[smoke-fanout:...]]``) to count Test *rounds*
+    instead of raw smoke rows; taking them from ``coord.smoke`` would have
+    dragged ``coord.config``, ``coord.dispatch``, ``coord.github_ops``,
+    ``coord.revalidate`` and ``httpx`` in with them — and
+    ``compute_board_stage_projection`` runs inside ``coord serve``'s
+    ``/board`` handler, so on a daemon that had not otherwise imported
+    ``coord.smoke`` the first ``/board`` request would have triggered that
+    whole import in a threadpool worker. They live in the leaf
+    ``coord.smoke_tags`` instead.
+
+    Runs in a **subprocess** for the same reason
+    ``tests/test_client_base_install.py`` does: by the time this test body
+    executes, collection has long since imported ``coord.smoke`` into *this*
+    interpreter, so an in-process ``sys.modules`` check would pass no matter
+    what the import graph looks like.
+    """
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, coord.stage_projection\n"
+        "heavy = ('coord.smoke', 'coord.dispatch', 'coord.github_ops',\n"
+        "         'coord.config', 'coord.revalidate', 'httpx')\n"
+        "print(','.join(m for m in heavy if m in sys.modules))\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, timeout=120
+    )
+    assert proc.returncode == 0, proc.stderr
+    leaked = proc.stdout.strip()
+    assert leaked == "", (
+        f"importing coord.stage_projection pulled in {leaked} — keep it a "
+        "leaf (import fan-out encodings from coord.smoke_tags, not coord.smoke)"
+    )
+
+
+def test_smoke_reexports_the_fanout_encodings_from_the_leaf_module():
+    """One definition, two spellings: ``coord.smoke`` re-exports the encodings
+    so every pre-existing ``from coord.smoke import ...`` caller
+    (``coord.notify``, ``coord.diagnose``, ``coord.reconcile``, the tests) is
+    unaffected — and a future edit cannot fork the encoder from the parser by
+    redefining one of them in only one of the two modules."""
+    from coord import smoke, smoke_tags
+
+    for name in (
+        "smoke_leg_issue_title",
+        "smoke_leg_capabilities",
+        "_encode_fanout_manifest",
+        "_parse_fanout_manifest",
+    ):
+        assert getattr(smoke, name) is getattr(smoke_tags, name), name
+
+
+def test_fanout_encodings_round_trip_through_the_leaf_module():
+    """The moved code still behaves: a tag and a manifest written by
+    ``coord.smoke_tags`` parse back to exactly what went in, including the
+    #3298 base64 command field and the "unknown command" (``None``) case."""
+    from coord.smoke_tags import (
+        _encode_fanout_manifest,
+        _parse_fanout_manifest,
+        smoke_leg_capabilities,
+        smoke_leg_issue_title,
+    )
+
+    title = smoke_leg_issue_title("Fix the thing", ("windows", "gtk"))
+    assert title == "[smoke:gtk+windows] Fix the thing"
+    assert smoke_leg_capabilities(title) == ("gtk", "windows")
+    assert smoke_leg_capabilities("Fix the thing") is None
+
+    manifest = _encode_fanout_manifest(
+        [("s1", ("gtk", "windows"), "pytest -q, --x"), ("s2", ("macos",), None)]
+    )
+    assert _parse_fanout_manifest(f"{manifest}\ntrailing prose") == [
+        ("s1", ("gtk", "windows"), "pytest -q, --x"),
+        ("s2", ("macos",), None),
+    ]
+    assert _parse_fanout_manifest("no manifest here") is None

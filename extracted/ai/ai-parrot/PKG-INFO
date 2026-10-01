@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 1.0.6
+Version: 1.0.7
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -49,7 +49,7 @@ Requires-Dist: semantic-text-splitter<1.0,>=0.30
 Requires-Dist: jsonschema>=4.20
 Requires-Dist: regex>=2023.0
 Requires-Dist: navconfig[default]>=2.5.2
-Requires-Dist: navigator-auth>=0.28.0
+Requires-Dist: navigator-auth>=0.28.3
 Requires-Dist: navigator-session>=1.0.1
 Requires-Dist: pyopenssl>=24.3.0
 Requires-Dist: navigator-api[google,locale,uvloop]>=3.2.2
@@ -88,7 +88,7 @@ Requires-Dist: orjson>=3.9
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.6.0; extra == "notify-all"
 Provides-Extra: db
-Requires-Dist: querysource>=4.1.11; extra == "db"
+Requires-Dist: querysource>=5.1.2; extra == "db"
 Requires-Dist: psycopg-binary>=3.2.12; extra == "db"
 Requires-Dist: jq==1.7.0; extra == "db"
 Requires-Dist: asyncdb[arangodb,bigquery,boto3,influxdb,mongodb,sqlalchemy]>=2.16.2; extra == "db"
@@ -122,6 +122,7 @@ Requires-Dist: tree-sitter-javascript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-rust>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-perl>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-luau>=1.2; extra == "wiki-languages"
+Requires-Dist: ast-grep-py>=0.45; extra == "wiki-languages"
 Provides-Extra: wiki-structural
 Requires-Dist: ast-grep-py>=0.45; extra == "wiki-structural"
 Provides-Extra: leiden
@@ -134,6 +135,8 @@ Provides-Extra: bookstore
 Requires-Dist: bm25s>=0.2; extra == "bookstore"
 Requires-Dist: pymupdf>=1.27; extra == "bookstore"
 Requires-Dist: pymupdf4llm>=0.0.27; extra == "bookstore"
+Provides-Extra: manuals
+Requires-Dist: ai-parrot[bookstore,graphindex]; extra == "manuals"
 Provides-Extra: scheduler
 Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
 Provides-Extra: server
@@ -147,6 +150,10 @@ Provides-Extra: retrieval
 Requires-Dist: rank_bm25==0.2.2; extra == "retrieval"
 Provides-Extra: tokenizer
 Requires-Dist: sentencepiece==0.2.1; extra == "tokenizer"
+Provides-Extra: msgraph
+Requires-Dist: azure-identity>=1.18.0; extra == "msgraph"
+Requires-Dist: msgraph-sdk>=1.8.0; extra == "msgraph"
+Requires-Dist: microsoft-kiota-authentication-azure>=1.2.0; extra == "msgraph"
 Provides-Extra: agents
 Requires-Dist: sentence_transformers>=5.3.0; extra == "agents"
 Requires-Dist: yfinance==0.2.54; extra == "agents"
@@ -325,7 +332,7 @@ Requires-Dist: ai-parrot-client-local; extra == "llms"
 Requires-Dist: ai-parrot-client-vllm; extra == "llms"
 Requires-Dist: ai-parrot-client-jev; extra == "llms"
 Provides-Extra: integrations
-Requires-Dist: querysource>=4.1.11; extra == "integrations"
+Requires-Dist: querysource>=5.1.2; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.6.0; extra == "integrations"
 Provides-Extra: grpc
 Requires-Dist: navigator-eventbus[grpc]; extra == "grpc"
@@ -381,7 +388,7 @@ Requires-Dist: ai-parrot-visualizations[all]; extra == "visualizations"
 Provides-Extra: rust
 Requires-Dist: parrot_codec>=0.1.0; extra == "rust"
 Provides-Extra: all
-Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,rust,visualizations]; extra == "all"
+Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,msgraph,ocr,pdf,reddit,rust,visualizations]; extra == "all"
 Requires-Dist: ai-parrot-embeddings[all]; extra == "all"
 Requires-Dist: ai-parrot-integrations[all]; extra == "all"
 Requires-Dist: ai-parrot-server[all]; extra == "all"

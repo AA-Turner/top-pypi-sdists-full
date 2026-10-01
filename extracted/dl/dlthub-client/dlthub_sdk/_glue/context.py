@@ -119,11 +119,9 @@ class _Cursor:
         self.at += rows
         if self.remaining is not None:
             self.remaining -= rows
-        if not rows:
-            return True
-        # A saturated total is a ceiling rather than a count, so it cannot say
-        # where the rows end; only an empty page can.
-        return total < COUNT_CEILING and self.at >= total
+        # The platform rejects an offset at or past the ceiling, so a saturated
+        # total ends the walk there: the rows beyond it need a narrower filter.
+        return not rows or self.at >= min(total, COUNT_CEILING)
 
 
 @dataclass
@@ -283,7 +281,8 @@ class _Ctx(Generic[M]):
         Args:
             listing: The collection's listing.
             parse: An entity's ``_from_payload``, which this context is passed to.
-            limit: Stop after this many rows. ``None`` walks to the end.
+            limit: Stop after this many rows. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many rows, server-side.
 
         Returns:

@@ -27,18 +27,25 @@ use anyhow::{anyhow, Result};
 use bytes::{Buf, BufMut};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
+use std::time::Duration;
 
 use super::core::Channel;
 use super::types::ActiveProtocol;
 use crate::tube_protocol::{CloseConnectionReason, ControlMessage, CONN_NO_LEN};
 
 // Import from the new connect_as module
-use super::connect_as::{decrypt_connect_as_payload, patch_keeperdb_url_credentials};
+use super::connect_as::{
+    decrypt_connect_as_payload, patch_keeperdb_url_credentials, stage_keeperdb_url_via_handoff,
+};
 
 // Constants for ConnectAs, similar to those in connections.rs
 const CONNECT_AS_DETAILS_LEN_FIELD_BYTES: usize = 4;
 const CONNECT_AS_PUBLIC_KEY_BYTES: usize = 65; // As per Python: 65-byte public key
 const CONNECT_AS_NONCE_BYTES: usize = 12; // As per Python: 12 byte nonce
+
+// KeeperDB handoff staging timeout (PG-459). Mirrors the Gateway's own
+// pre-stage timeout (`keeperdb_proc.py` ~line 814: `timeout=5`).
+const KEEPERDB_HANDOFF_TIMEOUT: Duration = Duration::from_secs(5);
 
 // Re-export SOCKS5 success response constant from pam-socks5 crate (used by tests)
 #[cfg(test)]
@@ -509,6 +516,9 @@ impl Channel {
                                         let ca_password = user_details.password.clone();
                                         let ca_connect_database =
                                             user_details.connect_database.clone();
+                                        // DynamoDB STS session token: blob-only, never a
+                                        // guacd param (PG-459).
+                                        let ca_session_token = user_details.session_token;
 
                                         if let Some(val) = user_details.username {
                                             guacd_params_locked.insert("username".to_string(), val);
@@ -562,10 +572,12 @@ impl Channel {
                                         // auto-login URL whose `credentials=` query param is a
                                         // base64 JSON blob built before ConnectAs credentials
                                         // arrive. Patch it now so the embedded username/password/
-                                        // database match the ConnectAs-supplied values.
+                                        // database match the ConnectAs-supplied values; it is
+                                        // staged via handoff after this block.
                                         if ca_username.is_some()
                                             || ca_password.is_some()
                                             || ca_connect_database.is_some()
+                                            || ca_session_token.is_some()
                                         {
                                             if let Some(existing_url) =
                                                 guacd_params_locked.get("url").cloned()
@@ -582,6 +594,7 @@ impl Channel {
                                                     ca_username.as_deref(),
                                                     ca_password.as_deref(),
                                                     ca_connect_database.as_deref(),
+                                                    ca_session_token.as_deref(),
                                                     auth_key.as_deref(),
                                                 );
                                                 guacd_params_locked
@@ -647,6 +660,35 @@ impl Channel {
             }
         }
         // --- End of ConnectAs Logic ---
+
+        // The Gateway defers KeeperDB handoff staging for ConnectAs sessions
+        // (PG-460), so stage the merged `?credentials=` URL here, even when the
+        // payload carried no fields. The POST runs without holding the lock.
+        if self.connect_as_settings.allow_supply_user || self.connect_as_settings.allow_supply_host
+        {
+            let (stage_url, stage_auth_key) = {
+                let guacd_params_locked = self.guacd_params.lock().await;
+                (
+                    guacd_params_locked.get("url").cloned(),
+                    guacd_params_locked.get("keeperdb_url_auth_key").cloned(),
+                )
+            };
+
+            if let Some(url) = stage_url {
+                if let Some(staged_url) = stage_keeperdb_url_via_handoff(
+                    &url,
+                    stage_auth_key.as_deref(),
+                    KEEPERDB_HANDOFF_TIMEOUT,
+                    &self.channel_id,
+                    &self.conversation_id,
+                )
+                .await
+                {
+                    let mut guacd_params_locked = self.guacd_params.lock().await;
+                    guacd_params_locked.insert("url".to_string(), staged_url);
+                }
+            }
+        }
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             // Build a redacted copy of the params map for logging — strip keys that

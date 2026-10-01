@@ -27,6 +27,7 @@ __all__ = (
     "AttributeEntityTypeType",
     "AuthTypeType",
     "AuthenticationTypeType",
+    "BlueprintCategoryType",
     "ChangeActionType",
     "ComputeEnvironmentsType",
     "ConfigurableActionTypeAuthorizationType",
@@ -117,9 +118,11 @@ __all__ = (
     "NotebookExportStatusType",
     "NotebookRunStatusType",
     "NotebookStatusType",
+    "NotebookTypeType",
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
+    "NotifyOnStateType",
     "OAuth2GrantTypeType",
     "OpenLineageRunStateType",
     "OverallDeploymentStatusType",
@@ -179,6 +182,7 @@ AcceptRuleBehaviorType = Literal["ALL", "NONE"]
 AttributeEntityTypeType = Literal["ASSET", "LISTING"]
 AuthTypeType = Literal["DISABLED", "IAM_IDC"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "OAUTH2"]
+BlueprintCategoryType = Literal["TOOLING"]
 ChangeActionType = Literal["PUBLISH", "UNPUBLISH"]
 ComputeEnvironmentsType = Literal["ATHENA", "PYTHON", "SPARK"]
 ConfigurableActionTypeAuthorizationType = Literal["HTTPS", "IAM"]
@@ -392,11 +396,15 @@ NotebookRunStatusType = Literal[
     "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
 ]
 NotebookStatusType = Literal["ACTIVE", "ARCHIVED", "SYNC_FAILED", "SYNC_IN_PROGRESS"]
+NotebookTypeType = Literal["DATA", "SQL"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
 ]
 NotificationTypeType = Literal["EVENT", "TASK"]
+NotifyOnStateType = Literal[
+    "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
+]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
 OpenLineageRunStateType = Literal["ABORT", "COMPLETE", "FAIL", "OTHER", "RUNNING", "START"]
 OverallDeploymentStatusType = Literal[
@@ -632,6 +640,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -706,6 +715,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -734,6 +744,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -828,6 +839,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

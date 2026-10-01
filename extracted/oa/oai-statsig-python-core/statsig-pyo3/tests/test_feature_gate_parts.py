@@ -52,6 +52,13 @@ def _assert_gate(actual, expected):
     }
 
 
+def _assert_fields(actual, expected):
+    assert type(actual) is tuple
+    assert actual == (expected.value, expected.details.reason)
+    assert type(actual[0]) is bool
+    assert type(actual[1]) is str
+
+
 def _assert_parts(name, parts, raw):
     assert type(parts) is tuple
     assert len(parts) == 7
@@ -133,6 +140,13 @@ def test_all_fixture_gates_match_dictionary_results(make_sdk, user_id, with_cont
                 ),
                 expected,
             )
+            _assert_fields(sdk.get_feature_gate_fields(user, name, options), expected)
+            _assert_fields(
+                sdk.get_feature_gate_fields_with_context(
+                    context, name, user_id, overlay, options
+                ),
+                expected,
+            )
 
 
 def test_missing_and_uninitialized_results_preserve_optional_metadata(make_sdk):
@@ -173,6 +187,17 @@ def test_missing_and_uninitialized_results_preserve_optional_metadata(make_sdk):
             )
             _assert_gate(
                 sdk.get_feature_gate_anonymous(name, policy, options=options), expected
+            )
+            _assert_fields(sdk.get_feature_gate_fields(user, name, options), expected)
+            _assert_fields(
+                sdk.get_feature_gate_fields_with_context(
+                    context, name, user.user_id, options=options
+                ),
+                expected,
+            )
+            _assert_fields(
+                sdk.get_feature_gate_fields_anonymous(name, policy, options=options),
+                expected,
             )
             if not initialized:
                 assert expected.details.to_dict() == {
@@ -243,6 +268,17 @@ def test_overrides_errors_and_zero_version_keep_native_metadata(make_sdk):
             )
             _assert_gate(
                 sdk.get_feature_gate_anonymous(name, policy, options=options), expected
+            )
+            _assert_fields(sdk.get_feature_gate_fields(user, name, options), expected)
+            _assert_fields(
+                sdk.get_feature_gate_fields_with_context(
+                    context, name, user.user_id, options=options
+                ),
+                expected,
+            )
+            _assert_fields(
+                sdk.get_feature_gate_fields_anonymous(name, policy, options=options),
+                expected,
             )
             if name == "parts_unsupported":
                 assert expected.details.reason.endswith(":Unsupported")
@@ -325,7 +361,7 @@ def test_factory_preserves_defaults_and_ordinary_mutable_objects(parts):
     _assert_gate(second, expected)
 
 
-@pytest.mark.parametrize("entrypoint", ["parts", "public"])
+@pytest.mark.parametrize("entrypoint", ["parts", "public", "fields"])
 @pytest.mark.parametrize("with_request", [False, True])
 def test_anonymous_results_replay_each_logged_identity(
     make_sdk, entrypoint, with_request
@@ -369,9 +405,12 @@ def test_anonymous_results_replay_each_logged_identity(
                 name, policy, context=context, custom=custom, **request
             )
         else:
-            result = sdk.get_feature_gate_anonymous(
-                name, policy, context=context, custom=custom, **request
+            method = (
+                sdk.get_feature_gate_fields_anonymous
+                if entrypoint == "fields"
+                else sdk.get_feature_gate_anonymous
             )
+            result = method(name, policy, context=context, custom=custom, **request)
         saved.append((name, result, metadata))
         custom["nested"].append("mutated-after-evaluation")
     assert sdk.flush_events().wait(10)
@@ -392,6 +431,8 @@ def test_anonymous_results_replay_each_logged_identity(
         raw = sdk._INTERNAL_get_feature_gate(user, name, _disabled())
         if entrypoint == "parts":
             _assert_parts(name, result, raw)
+        elif entrypoint == "fields":
+            _assert_fields(result, FeatureGate(name, raw))
         else:
             _assert_gate(result, FeatureGate(name, raw))
         assert event["metadata"]["gateValue"] == str(raw["value"]).lower()
@@ -402,7 +443,7 @@ def test_anonymous_results_replay_each_logged_identity(
 
 @pytest.mark.parametrize("anonymous", [False, True])
 @pytest.mark.parametrize("with_context", [False, True])
-@pytest.mark.parametrize("entrypoint", ["parts", "public"])
+@pytest.mark.parametrize("entrypoint", ["parts", "public", "fields"])
 def test_empty_custom_and_absent_custom_remain_distinct_in_exposures(
     make_sdk, anonymous, with_context, entrypoint
 ):
@@ -410,11 +451,11 @@ def test_empty_custom_and_absent_custom_remain_distinct_in_exposures(
     context = StatsigUserContext() if with_context else None
     for label, custom in (("absent", None), ("empty", {})):
         if anonymous:
-            method = (
-                sdk._INTERNAL_get_feature_gate_anonymous_parts
-                if entrypoint == "parts"
-                else sdk.get_feature_gate_anonymous
-            )
+            method = {
+                "parts": sdk._INTERNAL_get_feature_gate_anonymous_parts,
+                "public": sdk.get_feature_gate_anonymous,
+                "fields": sdk.get_feature_gate_fields_anonymous,
+            }[entrypoint]
             method(
                 "test_public",
                 StatsigRandomUserID(label, 16),
@@ -422,11 +463,11 @@ def test_empty_custom_and_absent_custom_remain_distinct_in_exposures(
                 custom=custom,
             )
         else:
-            method = (
-                sdk._INTERNAL_get_feature_gate_with_context_parts
-                if entrypoint == "parts"
-                else sdk.get_feature_gate_with_context
-            )
+            method = {
+                "parts": sdk._INTERNAL_get_feature_gate_with_context_parts,
+                "public": sdk.get_feature_gate_with_context,
+                "fields": sdk.get_feature_gate_fields_with_context,
+            }[entrypoint]
             method(context, "test_public", user_id=label, custom=custom)
     assert sdk.flush_events().wait(10)
     events = _exposures(logs)
@@ -456,6 +497,7 @@ def test_callbacks_fire_once_per_call_and_exposures_keep_deduplication(make_sdk,
                 "raw": sdk._INTERNAL_get_feature_gate,
                 "parts": sdk._INTERNAL_get_feature_gate_parts,
                 "public": sdk.get_feature_gate,
+                "fields": sdk.get_feature_gate_fields,
             }
             return methods[entrypoint](user, name, options)
         if kind == "context":
@@ -463,24 +505,26 @@ def test_callbacks_fire_once_per_call_and_exposures_keep_deduplication(make_sdk,
                 "raw": sdk._INTERNAL_get_feature_gate_with_context,
                 "parts": sdk._INTERNAL_get_feature_gate_with_context_parts,
                 "public": sdk.get_feature_gate_with_context,
+                "fields": sdk.get_feature_gate_fields_with_context,
             }
             return methods[entrypoint](context, name, user.user_id, options=options)
         methods = {
             "parts": sdk._INTERNAL_get_feature_gate_anonymous_parts,
             "public": sdk.get_feature_gate_anonymous,
+            "fields": sdk.get_feature_gate_fields_anonymous,
         }
         return methods[entrypoint](name, policy, options=options)
 
-    for entrypoint in ("parts", "public"):
+    for entrypoint in ("parts", "public", "fields"):
         evaluate(entrypoint, _disabled())
-    assert len(callbacks) == 2
+    assert len(callbacks) == 3
     assert sdk.flush_events().wait(10)
     assert _exposures(logs) == []
     if kind != "anonymous":
         assert evaluate("raw") == raw
-    for entrypoint in ("parts", "public", "parts", "public"):
+    for entrypoint in ("parts", "public", "fields") * 2:
         evaluate(entrypoint)
-    assert len(callbacks) == (6 if kind == "anonymous" else 7)
+    assert len(callbacks) == (9 if kind == "anonymous" else 10)
     for event in callbacks:
         assert event["event_name"] == "gate_evaluated"
         assert event["data"] == {
@@ -491,5 +535,32 @@ def test_callbacks_fire_once_per_call_and_exposures_keep_deduplication(make_sdk,
         }
     assert sdk.flush_events().wait(10)
     events = _exposures(logs)
-    assert len(events) == (4 if kind == "anonymous" else 1)
+    assert len(events) == (6 if kind == "anonymous" else 1)
     assert len({event["user"]["userID"] for event in events}) == len(events)
+
+
+@pytest.mark.parametrize("kind", ["ordinary", "context", "anonymous"])
+def test_fields_preserve_error_boundary_and_skip_rich_results(
+    make_sdk, monkeypatch, capsys, kind
+):
+    sdk, _, _ = make_sdk()
+
+    def reject_rich_result(*args):
+        raise AssertionError("fields APIs must not construct rich gate results")
+
+    monkeypatch.setattr(FeatureGate, "_from_parts", reject_rich_result)
+    if kind == "ordinary":
+        method = sdk.get_feature_gate_fields
+        valid = (StatsigUser("fields-user"), "test_public")
+        invalid = (object(), "test_public")
+    elif kind == "context":
+        method = sdk.get_feature_gate_fields_with_context
+        valid = (StatsigUserContext(), "test_public", "fields-user")
+        invalid = (object(), "test_public", "fields-user")
+    else:
+        method = sdk.get_feature_gate_fields_anonymous
+        valid = ("test_public", StatsigRandomUserID("fields", 16))
+        invalid = ("test_public", object())
+    assert method(*valid, options=_disabled()) == (True, "Network:Recognized")
+    assert method(*invalid, options=_disabled()) is None
+    assert "Error" in capsys.readouterr().out

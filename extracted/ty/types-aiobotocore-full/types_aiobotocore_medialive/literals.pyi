@@ -29,6 +29,8 @@ __all__ = (
     "AacRawFormatType",
     "AacSpecType",
     "AacVbrQualityType",
+    "AbWatermarkerIdLengthType",
+    "AbWatermarkingProfileType",
     "Ac3AttenuationControlType",
     "Ac3BitstreamModeType",
     "Ac3CodingModeType",
@@ -138,7 +140,9 @@ __all__ = (
     "EbuTtDDestinationStyleControlType",
     "EbuTtDFillLineGapControlType",
     "EmbeddedConvert608To708Type",
+    "EmbeddedDestinationStyleControlType",
     "EmbeddedScte20DetectionType",
+    "EnrichmentMethodType",
     "EventBridgeRuleTemplateEventTypeType",
     "FeatureActivationsInputPrepareScheduleActionsType",
     "FeatureActivationsOutputStaticImageOverlayScheduleActionsType",
@@ -342,6 +346,7 @@ __all__ = (
     "NodeStateType",
     "OfferingDurationUnitsType",
     "OfferingTypeType",
+    "OutputUsageType",
     "PaginatorName",
     "PipelineIdType",
     "PipelineLockingMethodType",
@@ -426,6 +431,8 @@ AacRateControlModeType = Literal["CBR", "VBR"]
 AacRawFormatType = Literal["LATM_LOAS", "NONE"]
 AacSpecType = Literal["MPEG2", "MPEG4"]
 AacVbrQualityType = Literal["HIGH", "LOW", "MEDIUM_HIGH", "MEDIUM_LOW"]
+AbWatermarkerIdLengthType = Literal["ID_2048", "ID_512"]
+AbWatermarkingProfileType = Literal["CAMCORDING", "CUSTOM", "DEFAULT", "HQ", "MEZZANINE", "ROBUST"]
 Ac3AttenuationControlType = Literal["ATTENUATE_3_DB", "NONE"]
 Ac3BitstreamModeType = Literal[
     "COMMENTARY",
@@ -662,7 +669,9 @@ Eac3SurroundModeType = Literal["DISABLED", "ENABLED", "NOT_INDICATED"]
 EbuTtDDestinationStyleControlType = Literal["EXCLUDE", "INCLUDE"]
 EbuTtDFillLineGapControlType = Literal["DISABLED", "ENABLED"]
 EmbeddedConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
+EmbeddedDestinationStyleControlType = Literal["MANUAL", "PASSTHROUGH"]
 EmbeddedScte20DetectionType = Literal["AUTO", "OFF"]
+EnrichmentMethodType = Literal["SCTE35_ELEMENTAL_INFERENCE_QUERY_PARAMS"]
 EventBridgeRuleTemplateEventTypeType = Literal[
     "MEDIACONNECT_ALERT",
     "MEDIACONNECT_FLOW_STATUS_CHANGE",
@@ -1011,6 +1020,9 @@ NodeStateType = Literal[
 ]
 OfferingDurationUnitsType = Literal["MONTHS"]
 OfferingTypeType = Literal["NO_UPFRONT"]
+OutputUsageType = Literal[
+    "MULTIVIEW_EQUAL_SIZE_VIEW", "MULTIVIEW_PRIMARY_VIEW", "MULTIVIEW_SECONDARY_VIEW"
+]
 PipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 PipelineLockingMethodType = Literal["SOURCE_TIMECODE", "VIDEO_ALIGNMENT"]
 PreferredChannelPipelineType = Literal["CURRENTLY_ACTIVE", "PIPELINE_0", "PIPELINE_1"]
@@ -1125,7 +1137,7 @@ TimecodeBurninPositionType = Literal[
     "TOP_RIGHT",
 ]
 TimecodeConfigSourceType = Literal["EMBEDDED", "SYSTEMCLOCK", "ZEROBASED"]
-TtmlDestinationStyleControlType = Literal["PASSTHROUGH", "USE_CONFIGURED"]
+TtmlDestinationStyleControlType = Literal["MANUAL", "PASSTHROUGH", "USE_CONFIGURED"]
 UdpTimedMetadataId3FrameType = Literal["NONE", "PRIV", "TDRL"]
 UpdateNodeStateType = Literal["ACTIVE", "DRAINING"]
 VideoDescriptionRespondToAfdType = Literal["NONE", "PASSTHROUGH", "RESPOND"]
@@ -1135,7 +1147,7 @@ VideoSelectorColorSpaceUsageType = Literal["FALLBACK", "FORCE"]
 WavCodingModeType = Literal[
     "CODING_MODE_1_0", "CODING_MODE_2_0", "CODING_MODE_4_0", "CODING_MODE_8_0"
 ]
-WebvttDestinationStyleControlType = Literal["NO_STYLE_DATA", "PASSTHROUGH"]
+WebvttDestinationStyleControlType = Literal["MANUAL", "NO_STYLE_DATA", "PASSTHROUGH"]
 MediaLiveServiceName = Literal["medialive"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -1217,6 +1229,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -1291,6 +1304,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -1319,6 +1333,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -1413,6 +1428,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

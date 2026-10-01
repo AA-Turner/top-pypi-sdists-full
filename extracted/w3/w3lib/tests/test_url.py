@@ -5,9 +5,21 @@ import sys
 from inspect import isclass
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from urllib.parse import (
+    parse_qs,
+    parse_qsl,
+    quote,
+    quote_plus,
+    unquote_to_bytes,
+    urlparse,
+    urlsplit,
+    urlunparse,
+    urlunsplit,
+)
 
 import pytest
+from hypothesis import HealthCheck, assume, example, given, settings, strategies as st
+from hypothesis.provisional import urls as hyp_urls
 
 from w3lib._infra import (
     _ASCII_ALPHA,
@@ -15,8 +27,23 @@ from w3lib._infra import (
     _ASCII_TAB_OR_NEWLINE,
     _C0_CONTROL_OR_SPACE,
 )
-from w3lib._url import _SPECIAL_SCHEMES
+from w3lib._url import (
+    _SPECIAL_SCHEMES,
+    _parse_qs,
+    _parse_qsl,
+    _quote,
+    _split_params,
+    _unquote,
+    _unquote_plus,
+    _urlparse,
+    _urlsplit,
+    _urlunparse,
+    _urlunsplit,
+)
 from w3lib.url import (
+    _normalize_ipv6_host,
+    _remove_dot_segments,
+    add_http_if_no_scheme,
     add_or_replace_parameter,
     add_or_replace_parameters,
     any_to_uri,
@@ -24,6 +51,7 @@ from w3lib.url import (
     file_uri_to_path,
     is_url,
     parse_data_uri,
+    parse_qsl_to_bytes,
     parse_url,
     path_to_file_uri,
     safe_download_url,
@@ -48,11 +76,11 @@ SAFE_URL_ENCODING_CASES: list[tuple[str | None, str | bytes, str | type[Exceptio
     # Queries are UTF-8-encoded if the scheme is not special, ws or wss.
     ("iso-8859-1", "a://example.com?©", "a://example.com?%C2%A9"),
     *(
-        ("iso-8859-1", f"{scheme}://example.com?©", f"{scheme}://example.com?%C2%A9")
+        ("iso-8859-1", f"{scheme}://example.com?©", f"{scheme}://example.com/?%C2%A9")
         for scheme in ("ws", "wss")
     ),
     *(
-        ("iso-8859-1", f"{scheme}://example.com?©", f"{scheme}://example.com?%A9")
+        ("iso-8859-1", f"{scheme}://example.com?©", f"{scheme}://example.com/?%A9")
         for scheme in _SPECIAL_SCHEMES
         if scheme not in {"ws", "wss"}
     ),
@@ -136,7 +164,7 @@ QUERY_TO_ENCODE = "".join(
     if (
         chr(value) not in _C0_CONTROL_OR_SPACE
         and chr(value) not in QUERY_SAFE
-        and chr(value) not in "#"
+        and chr(value) != "#"
     )
 )
 QUERY_ENCODED = "".join(f"%{ord(char):02X}" for char in QUERY_TO_ENCODE)
@@ -147,7 +175,7 @@ SPECIAL_QUERY_TO_ENCODE = "".join(
     if (
         chr(value) not in _C0_CONTROL_OR_SPACE
         and chr(value) not in SPECIAL_QUERY_SAFE
-        and chr(value) not in "#"
+        and chr(value) != "#"
     )
 )
 SPECIAL_QUERY_ENCODED = "".join(f"%{ord(char):02X}" for char in SPECIAL_QUERY_TO_ENCODE)
@@ -208,6 +236,7 @@ SAFE_URL_URL_CASES = (
     # Authority
     ("https://a@example.com", "https://a@example.com"),
     ("https://a:@example.com", "https://a:@example.com"),
+    ("https://:a@example.com", "https://:a@example.com"),
     ("https://a:a@example.com", "https://a:a@example.com"),
     ("https://a%3A@example.com", "https://a%3A@example.com"),
     (
@@ -219,6 +248,10 @@ SAFE_URL_URL_CASES = (
         f"https://{USERNAME_ENCODED}:{PASSWORD_ENCODED}@example.com",
     ),
     ("https://@\\example.com", ValueError),
+    # "\" ends the authority of a special-scheme URL, so a "\" before "@" is
+    # not a userinfo separator: the host is what precedes the "\".
+    ("https://evil.com\\@good.com/", "https://evil.com/@good.com/"),
+    ("https://good.com\\@evil.com/", "https://good.com/@evil.com/"),
     ("https://\x80:\x80@example.com", "https://%C2%80:%C2%80@example.com"),
     # Host
     ("https://example.com", "https://example.com"),
@@ -249,15 +282,87 @@ SAFE_URL_URL_CASES = (
     ("https://[2402:4e00:40:40::2:3b6]:443", "https://[2402:4e00:40:40::2:3b6]:443"),
     ("http://[::1]", "http://[::1]"),
     ("http://[::1]:8080/path?q=1", "http://[::1]:8080/path?q=1"),
+    # checknetloc, the most of the cases are copied from
+    # https://github.com/python/cpython/blob/main/Lib/test/test_urlparse.py
+    ("http://[v6a.ip]", "http://v6a.ip"),
+    # IPv4-in-brackets / invalid host syntax
+    ("Scheme://user@[192.0.2.146]/Path?Query", ValueError),
+    ("Scheme://user@[important.com:8000]/Path?Query", ValueError),
+    ("Scheme://user@[v123r.IP]/Path?Query", ValueError),
+    ("Scheme://user@[v12ae]/Path?Query", ValueError),
+    ("Scheme://user@[v.IP]/Path?Query", ValueError),
+    ("Scheme://user@[v123.]/Path?Query", ValueError),
+    ("Scheme://user@[v]/Path?Query", ValueError),
+    # invalid IPv6-like malformed forms
+    ("Scheme://user@[0439:23af::2309::fae7:1234]/Path?Query", ValueError),
+    (
+        "Scheme://user@[0439:23af:2309::fae7:1234:2342:438e:192.0.2.146]/Path?Query",
+        ValueError,
+    ),
+    # stray bracket placement / malformed bracketed host
+    ("Scheme://user@]v6a.ip[/Path", ValueError),
+    ("scheme://prefix.[v6a.ip]", ValueError),
+    ("scheme://[v6a.ip].suffix", ValueError),
+    ("scheme://prefix.[v6a.ip]/", ValueError),
+    ("scheme://[v6a.ip].suffix/", ValueError),
+    ("scheme://prefix.[v6a.ip]?", ValueError),
+    ("scheme://[v6a.ip].suffix?", ValueError),
+    # IPv6 label misuse in DNS-like context
+    ("scheme://prefix.[::1]", ValueError),
+    ("scheme://[::1].suffix", ValueError),
+    ("scheme://prefix.[::1]/", ValueError),
+    ("scheme://[::1].suffix/", ValueError),
+    ("scheme://prefix.[::1]?", ValueError),
+    ("scheme://[::1].suffix?", ValueError),
+    # invalid port-like suffixes on IPv6-ish host context
+    ("scheme://prefix.[::1]:a", ValueError),
+    ("scheme://[::1].suffix:a", ValueError),
+    ("scheme://prefix.[::1]:a1", ValueError),
+    ("scheme://[::1].suffix:a1", ValueError),
+    ("scheme://prefix.[::1]:1a", ValueError),
+    ("scheme://[::1].suffix:1a", ValueError),
+    ("scheme://prefix.[::1]:", ValueError),
+    ("scheme://[::1].suffix:/", ValueError),
+    ("scheme://prefix.[::1]:?", ValueError),
+    # userinfo with invalid host embedding
+    ("scheme://user@prefix.[v6a.ip]", ValueError),
+    ("scheme://user@[v6a.ip].suffix", ValueError),
+    # brackets confined to the userinfo, leaving a plain host
+    ("scheme://us[er]@example.com", ValueError),
+    ("scheme://us[er]@[::1]", "scheme://us%5Ber%5D@[::1]"),
+    # unmatched / broken bracket structures
+    ("scheme://[v6a.ip", ValueError),
+    ("scheme://v6a.ip]", ValueError),
+    ("scheme://]v6a.ip[", ValueError),
+    ("scheme://]v6a.ip", ValueError),
+    ("scheme://v6a.ip[", ValueError),
+    # dot/bracket mixed malformed host patterns
+    ("scheme://prefix.[v6a.ip", ValueError),
+    ("scheme://v6a.ip].suffix", ValueError),
+    ("scheme://prefix]v6a.ip[suffix", ValueError),
+    ("scheme://prefix]v6a.ip", ValueError),
+    ("scheme://v6a.ip[suffix", ValueError),
     # Port
     ("https://example.com:", "https://example.com:"),
     ("https://example.com:1", "https://example.com:1"),
     ("https://example.com:443", "https://example.com:443"),
+    ("https://example.com:bad_port", ValueError),
+    ("https://example.com:-1", ValueError),
+    ("https://example.com:66000", ValueError),
+    ("https://example.com:8_0", ValueError),
+    ("https://example.com:+80", ValueError),
+    ("https://example.com:٨٠", ValueError),
     # Path
     ("https://example.com/", "https://example.com/"),
     ("https://example.com/a", "https://example.com/a"),
     ("https://example.com\\a", "https://example.com/a"),
     ("https://example.com/a\\b", "https://example.com/a/b"),
+    # "\" is only converted to "/" before the query/fragment; inside them it
+    # is percent-encoded as usual.
+    ("https://example.com\\a?b\\c", "https://example.com/a?b%5Cc"),
+    ("https://example.com\\a#b\\c", "https://example.com/a#b%5Cc"),
+    ("https://example.com\\a?b\\c#d\\e", "https://example.com/a?b%5Cc#d%5Ce"),
+    ("https://example.com\\a#b?c\\d", "https://example.com/a#b?c%5Cd"),
     (
         f"https://example.com/{PATH_SAFE}",
         f"https://example.com/{PATH_SAFE}",
@@ -268,12 +373,15 @@ SAFE_URL_URL_CASES = (
     ),
     ("https://example.com/ñ", "https://example.com/%C3%B1"),
     ("https://example.com/ñ%C3%B1", "https://example.com/%C3%B1%C3%B1"),
+    # safe unquoted
+    ("https://example.com/%3F", "https://example.com/%3F"),
+    ("https://example.com/%23", "https://example.com/%23"),
     # Query
     ("https://example.com?", "https://example.com?"),
     ("https://example.com/?", "https://example.com/?"),
-    ("https://example.com?a", "https://example.com?a"),
-    ("https://example.com?a=", "https://example.com?a="),
-    ("https://example.com?a=b", "https://example.com?a=b"),
+    ("https://example.com?a", "https://example.com/?a"),
+    ("https://example.com?a=", "https://example.com/?a="),
+    ("https://example.com?a=b", "https://example.com/?a=b"),
     (
         f"a://example.com?{QUERY_SAFE}",
         f"a://example.com?{QUERY_SAFE}",
@@ -285,19 +393,19 @@ SAFE_URL_URL_CASES = (
     *(
         (
             f"{scheme}://example.com?{SPECIAL_QUERY_SAFE}",
-            f"{scheme}://example.com?{SPECIAL_QUERY_SAFE}",
+            f"{scheme}://example.com/?{SPECIAL_QUERY_SAFE}",
         )
         for scheme in _SPECIAL_SCHEMES
     ),
     *(
         (
             f"{scheme}://example.com?{SPECIAL_QUERY_TO_ENCODE}",
-            f"{scheme}://example.com?{SPECIAL_QUERY_ENCODED}",
+            f"{scheme}://example.com/?{SPECIAL_QUERY_ENCODED}",
         )
         for scheme in _SPECIAL_SCHEMES
     ),
-    ("https://example.com?ñ", "https://example.com?%C3%B1"),
-    ("https://example.com?ñ%C3%B1", "https://example.com?%C3%B1%C3%B1"),
+    ("https://example.com?ñ", "https://example.com/?%C3%B1"),
+    ("https://example.com?ñ%C3%B1", "https://example.com/?%C3%B1%C3%B1"),
     # Fragment
     ("https://example.com#", "https://example.com#"),
     ("https://example.com/#", "https://example.com/#"),
@@ -319,6 +427,24 @@ SAFE_URL_URL_CASES = (
         "https://ñ:ñ@ñ.example:1/ñ?ñ#ñ",
         "https://%C3%B1:%C3%B1@xn--ida.example:1/%C3%B1?%C3%B1#%C3%B1",
     ),
+    # invalid characters after NFKC normalisation
+    ("https://example\uff1a80.com", ValueError),
+    ("https://example\uff03.com", ValueError),
+    ("https://example\uff1f.com", ValueError),
+    ("https://example\uff20.com", ValueError),
+    # "\" ends the authority of a special-scheme URL, and both of these
+    # normalise to "\" under NFKC, so they must be rejected like the others.
+    ("https://evil.com\uff3c.example.com", ValueError),
+    ("https://evil.com\ufe68.example.com", ValueError),
+    # changed after NFKC normalisation
+    ("https://examplｅ.com", "https://example.com"),
+    # "[" and "]" outside the authority are ordinary characters and must not
+    # be treated as IPv6 host delimiters.
+    ("https://example.com/[x]", "https://example.com/%5Bx%5D"),
+    ("https://example.com/a]b", "https://example.com/a%5Db"),
+    ("http://example.com/search?tags[]=a", "http://example.com/search?tags%5B%5D=a"),
+    ("https://example.com/a#f[1]", "https://example.com/a#f%5B1%5D"),
+    ("http://[::1]:8080/p?q=[1]", "http://[::1]:8080/p?q=%5B1%5D"),
 )
 
 
@@ -395,12 +521,6 @@ KNOWN_SAFE_URL_STRING_URL_ISSUES = {
     "http://192.168.0.256",  # Invalid IP address
     "http://192.168.0.0.0",  # Invalid IP address / domain name
     "https://example.com:",  # Removes the :
-    # Does not convert \ to /
-    "https://example.com\\a",
-    "https://example.com\\a\\b",
-    # Encodes \ and / after the first one in the path
-    "https://example.com/a/b",
-    "https://example.com/a\\b",
     # Some path characters that RFC 2396 and RFC 3986 require escaping (%)
     # are not escaped.
     f"https://example.com/{PATH_TO_ENCODE}",
@@ -425,12 +545,6 @@ KNOWN_SAFE_URL_STRING_URL_ISSUES = {
     # (%) are not escaped.
     f"a://example.com#{FRAGMENT_TO_ENCODE}",
 }
-if (
-    sys.version_info < (3, 9, 21)
-    or (sys.version_info[:2] == (3, 10) and sys.version_info < (3, 10, 16))
-    or (sys.version_info[:2] == (3, 11) and sys.version_info < (3, 11, 4))
-):
-    KNOWN_SAFE_URL_STRING_URL_ISSUES.add("http://[2a01:5cc0:1:2:3:4]")  # Invalid IPv6
 
 
 @pytest.mark.parametrize(
@@ -576,6 +690,25 @@ class TestUrl:
         assert isinstance(safeurl, str)
         assert safeurl == "http://www.example.com/%C2%A3?unit=%C2%B5"
 
+    def test_safe_url_string_invalid_scheme(self):
+        # A scheme must start with a letter (RFC 3986); a leading digit or
+        # symbol, or an empty scheme, is not a scheme. In particular an empty
+        # scheme must not promote the rest into a scheme-relative URL, which
+        # would expose an attacker-controlled host.
+        assert safe_url_string("://evil.com/path") == "://evil.com/path"
+        assert safe_url_string("1x://evil.com/path") == "1x://evil.com/path"
+        assert safe_url_string("+x://evil.com/path") == "+x://evil.com/path"
+
+    def test_safe_url_string_unclosed_bracket(self):
+        for url in (
+            "http://[::1",
+            "http://[::1/p]",
+            "http://[::1?q=[a]",
+            "http://[::1#f]",
+        ):
+            with pytest.raises(ValueError, match="Invalid IPv6 URL"):
+                safe_url_string(url)
+
     def test_safe_url_string_bytes_input(self):
         safeurl = safe_url_string(b"http://www.example.com/")
         assert isinstance(safeurl, str)
@@ -675,14 +808,24 @@ class TestUrl:
     def test_safe_url_idna_encoding_failure(self):
         # missing DNS label
         assert (
-            safe_url_string("http://.example.com/résumé?q=résumé")
-            == "http://.example.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+            safe_url_string("http://.éxamplé.com/résumé?q=résumé")
+            == "http://.éxamplé.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
         )
 
         # DNS label too long
         assert (
-            safe_url_string(f"http://www.{'example' * 11}.com/résumé?q=résumé")
-            == f"http://www.{'example' * 11}.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+            safe_url_string(f"http://www.{'éxamplé' * 11}.com/résumé?q=résumé")
+            == f"http://www.{'éxamplé' * 11}.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+        )
+
+        # the fallback works when a non-UTF-8 page encoding is given
+        assert (
+            safe_url_string("http://.éxamplé.com/", encoding="latin1")
+            == "http://.éxamplé.com/"
+        )
+        assert (
+            safe_url_string("http://.éxamplé.com:80/?q=a", encoding="utf-16")
+            == "http://.éxamplé.com:80/?%FF%FEq%00=%00a%00"
         )
 
     def test_safe_url_port_number(self):
@@ -807,6 +950,16 @@ class TestUrl:
             == "http://www.example.org/dir/"
         )
 
+        # trailing slash handling
+        assert (
+            safe_download_url("http://www.example.org/dir/?a=b")
+            == "http://www.example.org/dir/?a=b"
+        )
+        assert (
+            safe_download_url("http://www.example.org/dir?a=b/")
+            == "http://www.example.org/dir?a=b/"
+        )
+
         # Encoding related tests
         assert (
             safe_download_url(
@@ -833,12 +986,48 @@ class TestUrl:
             == "http://www.example.org/%A3?%C2%A3"
         )
 
+    def test_safe_download_url_encoded_dot_segments(self):
+        # "%2e", ".%2e", "%2e." and "%2e%2e" are the percent-encoded forms of
+        # the single-dot and double-dot path segments of the URL living
+        # standard, resolved by clients like "." and "..".
+        assert (
+            safe_download_url("http://www.example.org/dir/%2e%2e/secret")
+            == "http://www.example.org/secret"
+        )
+        assert (
+            safe_download_url(
+                "http://www.example.org/%2E%2E/%2E%2E/images/%2e%2e/image"
+            )
+            == "http://www.example.org/image"
+        )
+        assert (
+            safe_download_url("http://www.example.org/dir/.%2e/%2e./a/%2e/b")
+            == "http://www.example.org/a/b"
+        )
+        # Segments that merely contain "%2e" are not dot segments.
+        assert (
+            safe_download_url("http://www.example.org/a%2eb/%2ec/")
+            == "http://www.example.org/a%2eb/%2ec/"
+        )
+
     def test_is_url(self):
         assert is_url("http://www.example.org")
         assert is_url("https://www.example.org")
         assert is_url("file:///some/path")
         assert not is_url("foo://bar")
         assert not is_url("foo--bar")
+
+    def test_add_http_if_no_scheme(self):
+        assert add_http_if_no_scheme("www.example.com") == "http://www.example.com"
+        assert add_http_if_no_scheme("//www.example.com") == "http://www.example.com"
+        assert (
+            add_http_if_no_scheme("https://www.example.com")
+            == "https://www.example.com"
+        )
+        assert (
+            add_http_if_no_scheme("HTTPS://www.example.com")
+            == "HTTPS://www.example.com"
+        )
 
     def test_url_query_parameter(self):
         assert url_query_parameter("product.html?id=200&foo=bar", "id") == "200"
@@ -848,6 +1037,42 @@ class TestUrl:
         )
         assert url_query_parameter("product.html?id=", "id") is None
         assert url_query_parameter("product.html?id=", "id", keep_blank_values=1) == ""
+        # only the first one is returned
+        assert url_query_parameter("product.html?id=200&id=201&id=202", "id") == "200"
+        # query delimiter at index 1 of a short relative URL
+        assert url_query_parameter("a?id=200", "id") == "200"
+        assert (
+            url_query_parameter("product.html?id=200;foo=bar", "id", separator=";")
+            == "200"
+        )
+        # ASCII tab and newlines are removed, like urllib.parse does
+        assert url_query_parameter("product.html?id=200\n", "id") == "200"
+        assert url_query_parameter("product.html?id=2\t00", "id") == "200"
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            (b"product.html?id=200", "200"),
+            (b"product.html?id=", ""),
+            (b"product.html?id=caf%C3%A9", "café"),
+            ("product.html?id=café".encode(), "café"),
+            (b"product.html?other=1&id=200", "200"),
+        ],
+    )
+    def test_url_query_parameter_bytes(self, url: bytes, expected: str) -> None:
+        assert url_query_parameter(url, "id", keep_blank_values=True) == expected
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "product.html?id=b%a3",
+            b"product.html?id=b%a3",
+        ],
+    )
+    def test_url_query_parameter_non_utf8_escape(self, url: str | bytes) -> None:
+        # a percent-escape that is not valid UTF-8 decodes to U+FFFD, as with
+        # urllib.parse.parse_qs(), instead of raising
+        assert url_query_parameter(url, "id") == "b\ufffd"
 
     @pytest.mark.xfail
     def test_url_query_parameter_2(self):
@@ -948,11 +1173,28 @@ class TestUrl:
             == "http://domain/test?arg1=v3&arg2=v2"
         )
 
+        # ASCII tab and newlines are removed, like urllib.parse does
+        assert (
+            add_or_replace_parameter("http://example.com/?a=1\n", "b", "2")
+            == "http://example.com/?a=1&b=2"
+        )
+
     @pytest.mark.xfail(reason="https://github.com/scrapy/w3lib/issues/164")
     def test_add_or_replace_parameter_fail(self):
         assert (
             add_or_replace_parameter("http://domain/test?arg1=v1;arg2=v2", "arg1", "v3")
             == "http://domain/test?arg1=v3&arg2=v2"
+        )
+
+    def test_add_or_replace_parameter_semicolon(self):
+        url = "http://domain/test?arg1=v1;arg2=v2;arg3=v3"
+        assert (
+            add_or_replace_parameter(url, "arg4", "v4", separator=";")
+            == "http://domain/test?arg1=v1;arg2=v2;arg3=v3;arg4=v4"
+        )
+        assert (
+            add_or_replace_parameter(url, "arg3", "nv3", separator=";")
+            == "http://domain/test?arg1=v1;arg2=v2;arg3=nv3"
         )
 
     def test_add_or_replace_parameters(self):
@@ -987,9 +1229,15 @@ class TestUrl:
 
     def test_url_query_cleaner(self):
         assert url_query_cleaner("product.html?") == "product.html"
+        assert url_query_cleaner(b"product.html?") == "product.html"
         assert url_query_cleaner("product.html?&") == "product.html"
         assert (
             url_query_cleaner("product.html?id=200&foo=bar&name=wired", ["id"])
+            == "product.html?id=200"
+        )
+        # bytes URLs are decoded
+        assert (
+            url_query_cleaner(b"product.html?id=200&foo=bar&name=wired", ["id"])
             == "product.html?id=200"
         )
         assert (
@@ -1072,6 +1320,15 @@ class TestUrl:
             )
             == "product.html?id=200"
         )
+        # no stray "#" when there is no fragment
+        assert (
+            url_query_cleaner("product.html", ["id"], keep_fragments=True)
+            == "product.html"
+        )
+        assert (
+            url_query_cleaner("product.html?", ["id"], keep_fragments=True)
+            == "product.html"
+        )
 
     def test_path_to_file_uri(self):
         if os.name == "nt":
@@ -1087,6 +1344,41 @@ class TestUrl:
         assert x.startswith("file:///")
         assert file_uri_to_path(x).lower() == str(Path(fn).absolute()).lower()
 
+    @pytest.mark.skipif(os.name != "nt", reason="Windows UNC paths")
+    @pytest.mark.parametrize(
+        ("path", "uri"),
+        [
+            (r"\\server\share\file.txt", "file://server/share/file.txt"),
+            (
+                r"\\server\shared folder\café #1.txt",
+                "file://server/shared%20folder/caf%C3%A9%20%231.txt",
+            ),
+        ],
+    )
+    def test_path_to_file_uri_unc(self, path, uri):
+        assert path_to_file_uri(path) == uri
+        assert path_to_file_uri(Path(path)) == uri
+        assert file_uri_to_path(path_to_file_uri(path)) == path
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows UNC paths")
+    @pytest.mark.parametrize(
+        ("uri", "path"),
+        [
+            ("file://server/share/file.txt", r"\\server\share\file.txt"),
+            (
+                "file://server/shared%20folder/caf%C3%A9%20%231.txt",
+                r"\\server\shared folder\café #1.txt",
+            ),
+            ("//server/share/file.txt", r"\\server\share\file.txt"),
+        ],
+    )
+    def test_file_uri_to_path_unc(self, uri, path):
+        assert file_uri_to_path(uri) == path
+
+    @pytest.mark.parametrize("host", ["localhost", "LOCALHOST"])
+    def test_file_uri_to_path_localhost(self, host):
+        assert file_uri_to_path(f"file://{host}/foo/bar") == f"{os.sep}foo{os.sep}bar"
+
     def test_file_uri_to_path(self):
         if os.name == "nt":
             assert (
@@ -1096,14 +1388,59 @@ class TestUrl:
             uri = "file:///C:/windows/clock.avi"
             uri2 = path_to_file_uri(file_uri_to_path(uri))
             assert uri == uri2
+            assert file_uri_to_path("///path/to/test.txt") == r"\path\to\test.txt"
+            assert (
+                file_uri_to_path("/path/to/test%20file.txt?bar=baz")
+                == r"\path\to\test file.txt"
+            )
+            assert file_uri_to_path("file:///C:/temp/50%25.txt") == r"C:\temp\50%.txt"
         else:
             assert file_uri_to_path("file:///path/to/test.txt") == "/path/to/test.txt"
             assert file_uri_to_path("/path/to/test.txt") == "/path/to/test.txt"
             uri = "file:///path/to/test.txt"
             uri2 = path_to_file_uri(file_uri_to_path(uri))
             assert uri == uri2
+            assert (
+                file_uri_to_path("//localhost/path/to/test.txt") == "/path/to/test.txt"
+            )
+            assert file_uri_to_path("///path/to/test.txt") == "/path/to/test.txt"
+            assert (
+                file_uri_to_path("/path/to/test%20file.txt?bar=baz")
+                == "/path/to/test file.txt"
+            )
+            assert file_uri_to_path("file:///dir/50%25.txt") == "/dir/50%.txt"
+            assert file_uri_to_path("file:///dir/%41bc") == "/dir/Abc"
+            assert file_uri_to_path(path_to_file_uri("/dir/50%.txt")) == "/dir/50%.txt"
 
         assert file_uri_to_path("test.txt") == "test.txt"
+        assert file_uri_to_path("") == ""
+
+        assert file_uri_to_path("/") == os.sep
+        assert file_uri_to_path("///") == os.sep
+        assert file_uri_to_path("////") == os.sep * 2
+
+        assert file_uri_to_path("//localhost/foo/bar") == f"{os.sep}foo{os.sep}bar"
+
+        assert file_uri_to_path("///foo/bar") == f"{os.sep}foo{os.sep}bar"
+        assert file_uri_to_path("////foo/bar") == f"{os.sep * 2}foo{os.sep}bar"
+
+    @pytest.mark.parametrize(
+        ("uri", "path"),
+        [
+            ("file:///C:/a", r"C:\a"),
+            # a leading slash run is shortened twice: once for the URI
+            # authority, once for the drive-less path
+            ("file:///////a/b", r"\\a\b"),
+        ],
+    )
+    def test_file_uri_to_path_windows(self, monkeypatch, uri, path):
+        monkeypatch.setattr("w3lib._url._IS_WINDOWS", True)
+        assert file_uri_to_path(uri) == path
+
+    def test_file_uri_to_path_windows_bad_drive(self, monkeypatch):
+        monkeypatch.setattr("w3lib._url._IS_WINDOWS", True)
+        with pytest.raises(OSError, match="Bad URL"):
+            file_uri_to_path("file:///C:/a:b")
 
     def test_any_to_uri(self):
         if os.name == "nt":
@@ -1115,6 +1452,76 @@ class TestUrl:
             any_to_uri("http://www.example.com/some/path.txt")
             == "http://www.example.com/some/path.txt"
         )
+
+
+class TestSafeDownloadUrlProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        safe_download_url(url)
+
+
+class TestAddHttpIfNoSchemeProperties:
+    @given(st.text() | hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        add_http_if_no_scheme(url)
+
+
+class TestIsUrlProperties:
+    @given(st.text() | hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        is_url(url)
+
+
+class TestUrlQueryParameterProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        url_query_parameter(url, "foo")
+
+
+class TestUrlQueryCleanerProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        url_query_cleaner(url)
+
+
+class TestAddOrReplaceParameterProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        add_or_replace_parameter(url, "foo", "bar")
+
+
+class TestAddOrReplaceParametersProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        add_or_replace_parameters(url, {"foo": "bar"})
+
+
+class TestSafeUrlStringProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        safe_url_string(url)
+
+    @given(hyp_urls())
+    def test_idempotent(self, url: str) -> None:
+        try:
+            once = safe_url_string(url)
+        except ValueError:
+            return
+        assert safe_url_string(once) == once
+
+
+class TestParseUrlProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        parse_url(url)
+
+    @given(hyp_urls())
+    def test_idempotent(self, url: str) -> None:
+        try:
+            once = parse_url(url)
+        except ValueError:
+            return
+        assert parse_url(once) == once
 
 
 class TestCanonicalizeUrl:
@@ -1141,6 +1548,14 @@ class TestCanonicalizeUrl:
         assert (
             canonicalize_url("http://www.example.com/do?&a=1")
             == "http://www.example.com/do?a=1"
+        )
+
+    def test_typical_usage_semicolon(self):
+        assert (
+            canonicalize_url(
+                "http://www.example.com/do?c=1;b=2;a=3", query_separator=";"
+            )
+            == "http://www.example.com/do?a=3;b=2;c=1"
         )
 
     def test_port_number(self):
@@ -1246,6 +1661,21 @@ class TestCanonicalizeUrl:
             == "http://www.example.com/r%C3%A9sum%C3%A9?country=%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F"
         )
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            pytest.param("http://exa\tmple.com/a\r\nb?q=a\tb", id="str"),
+            pytest.param(b"http://exa\tmple.com/a\r\nb?q=a\tb", id="bytes"),
+        ],
+    )
+    def test_canonicalize_url_remove_ascii_tab_and_newlines(self, url):
+        # ASCII tab and newline are removed from anywhere in the URL, matching
+        # safe_url_string() and the WHATWG/urlsplit behavior. This must not
+        # depend on whether the input is str or bytes: a tab in the host of a
+        # bytes URL was previously left in place, so the canonical form kept a
+        # host a browser would connect to differently.
+        assert canonicalize_url(url) == "http://example.com/ab?q=ab"
+
     def test_normalize_percent_encoding_in_paths(self):
         assert (
             canonicalize_url("http://www.example.com/r%c3%a9sum%c3%a9")
@@ -1341,6 +1771,23 @@ class TestCanonicalizeUrl:
             == "http://user:pass@www.example.com/do?a=1#frag"
         )
 
+    def test_remove_fragments_ipv6_host(self):
+        # The fragment delimiter must still be detected when the netloc is a
+        # bracketed IPv6 literal and the URL also has a query string.
+        assert canonicalize_url("http://[::1]/do?a=1#frag") == "http://[::1]/do?a=1"
+        assert (
+            canonicalize_url("http://[::1]/do?a=1#frag", keep_fragments=True)
+            == "http://[::1]/do?a=1#frag"
+        )
+
+    def test_remove_fragments_relative_url(self):
+        # The fragment/query delimiter must be detected even when it sits at
+        # index 0 or 1 of a relative URL (no authority to skip over).
+        assert canonicalize_url("a#frag") == "a"
+        assert canonicalize_url("a#frag", keep_fragments=True) == "a#frag"
+        assert canonicalize_url("a?b=1#frag") == "a?b=1"
+        assert canonicalize_url("?b=1") == "/?b=1"
+
     def test_dont_convert_safe_characters(self):
         # dont convert safe characters to percent encoding representation
         assert (
@@ -1370,6 +1817,88 @@ class TestCanonicalizeUrl:
             == "sftp://UsEr:PaSsWoRd@www.example.com/"
         )
 
+    def test_resolve_dot_segments(self):
+        assert (
+            canonicalize_url("http://www.example.com/a/b/../../c")
+            == "http://www.example.com/c"
+        )
+        assert (
+            canonicalize_url("http://www.example.com/a/./b")
+            == "http://www.example.com/a/b"
+        )
+        # a trailing ".." leaves a directory reference, regardless of
+        # whether it is followed by a literal trailing slash
+        assert (
+            canonicalize_url("http://www.example.com/a/b/..")
+            == "http://www.example.com/a/"
+        )
+        assert (
+            canonicalize_url("http://www.example.com/a/b/../")
+            == "http://www.example.com/a/"
+        )
+        # dot segments beyond the root are dropped, not turned into "../"
+        assert (
+            canonicalize_url("http://www.example.com/../a")
+            == "http://www.example.com/a"
+        )
+        # percent-encoded dots are decoded before dot segments are resolved
+        assert (
+            canonicalize_url("http://www.example.com/%2E%2E/a")
+            == "http://www.example.com/a"
+        )
+
+    def test_resolve_dot_segments_preserves_empty_segments(self):
+        # An empty path segment is significant (RFC 3986): "/a//b" identifies a
+        # different resource than "/a/b", so resolving dot segments must not
+        # collapse consecutive slashes.
+        assert (
+            canonicalize_url("http://www.example.com/a//b")
+            == "http://www.example.com/a//b"
+        )
+        assert (
+            canonicalize_url("http://www.example.com/a///b")
+            == "http://www.example.com/a///b"
+        )
+        # trailing empty segments are preserved too
+        assert (
+            canonicalize_url("http://www.example.com/a/b//")
+            == "http://www.example.com/a/b//"
+        )
+        # a ".." still removes a preceding empty segment
+        assert (
+            canonicalize_url("http://www.example.com/a//../b")
+            == "http://www.example.com/a/b"
+        )
+
+    def test_remove_dot_segments_rfc_examples(self):
+        # RFC 3986, section 5.2.4 on absolute paths (canonicalize_url resolves
+        # dot segments only for a path that starts with "/").
+        assert _remove_dot_segments("/a/b/c/./../../g") == "/a/g"
+        # a trailing "/." or "/.." leaves a directory reference
+        assert _remove_dot_segments("/a/.") == "/a/"
+        assert _remove_dot_segments("/a/..") == "/"
+        # a "/.." with nothing above the root cannot pop past it
+        assert _remove_dot_segments("/..") == "/"
+        # empty segments are preserved
+        assert _remove_dot_segments("/a//b") == "/a//b"
+
+    def test_opaque_path_dot_segments_are_left_untouched(self):
+        # A path that does not start with "/" is opaque (URL Standard); its
+        # dot segments are not resolved, matching browsers.
+        assert canonicalize_url("mailto:a/../b") == "mailto:a/../b"
+        # a hierarchical path (starts with "/") is still resolved
+        assert canonicalize_url("foo:/a/../b") == "foo:/b"
+
+    def test_normalize_ipv6_host(self):
+        assert canonicalize_url("http://[::0:1]/") == "http://[::1]/"
+        assert (
+            canonicalize_url("http://[2001:0DB8:0000:0000:0000:0000:0000:0001]:8080/a")
+            == "http://[2001:db8::1]:8080/a"
+        )
+        assert (
+            canonicalize_url("http://user:pass@[::1]/a") == "http://user:pass@[::1]/a"
+        )
+
     def test_canonicalize_idns(self):
         assert (
             canonicalize_url("http://www.bücher.de?q=bücher")
@@ -1380,6 +1909,24 @@ class TestCanonicalizeUrl:
             canonicalize_url("http://はじめよう.みんな/?query=サ&maxResults=5")
             == "http://xn--p8j9a0d9c9a.xn--q9jyb4c/?maxResults=5&query=%E3%82%B5"
         )
+        # non-ASCII domain with an explicit port: IDNA encoding must only
+        # apply to the host, not swallow the port separator
+        assert (
+            canonicalize_url("http://www.bücher.de:8080/?q=bücher")
+            == "http://www.xn--bcher-kva.de:8080/?q=b%C3%BCcher"
+        )
+
+    def test_canonicalize_idns_with_userinfo(self):
+        # userinfo must survive with its "@" delimiter instead of being
+        # folded into the IDNA host label
+        assert (
+            canonicalize_url("http://user@例え.jp/path")
+            == "http://user@xn--r8jz45g.jp/path"
+        )
+        assert (
+            canonicalize_url("http://user:pass@例え.jp:8080/p")
+            == "http://user:pass@xn--r8jz45g.jp:8080/p"
+        )
 
     def test_quoted_slash_and_question_sign(self):
         assert (
@@ -1387,6 +1934,38 @@ class TestCanonicalizeUrl:
             == "http://foo.com/AC%2FDC+rocks%3F/?yeah=1"
         )
         assert canonicalize_url("http://foo.com/AC%2FDC/") == "http://foo.com/AC%2FDC/"
+
+    def test_quoted_percent_sign(self):
+        # a quoted percent sign (%25) must stay encoded, not decode to a bare %
+        assert (
+            canonicalize_url("http://foo.com/cmp/Supermercados-Dia%25")
+            == "http://foo.com/cmp/Supermercados-Dia%25"
+        )
+        assert (
+            canonicalize_url("http://foo.com/100%25/path")
+            == "http://foo.com/100%25/path"
+        )
+        # idempotency: second canonicalization must be stable
+        url = "http://foo.com/cmp/Supermercados-Dia%25"
+        assert canonicalize_url(canonicalize_url(url)) == canonicalize_url(url)
+        # double-encoded percent must stay double-encoded
+        assert canonicalize_url("http://foo.com/%2525") == "http://foo.com/%2525"
+
+    def test_quoted_semicolon(self):
+        # a quoted semicolon (%3B) must stay encoded
+        assert canonicalize_url("http://foo.com/x%3B") == "http://foo.com/x%3B"
+        assert canonicalize_url("http://foo.com/%3b") == "http://foo.com/%3B"
+        # idempotency: second canonicalization must be stable
+        for url in (
+            "http://foo.com/x%3B",
+            "http://foo.com/%0A%3BpE%7C",
+        ):
+            once = canonicalize_url(url)
+            assert canonicalize_url(once) == once
+        # an unencoded semicolon still marks a params component
+        assert canonicalize_url("http://foo.com/x;b") == "http://foo.com/x;b"
+        # double-encoded semicolon must stay double-encoded
+        assert canonicalize_url("http://foo.com/%253B") == "http://foo.com/%253B"
 
     def test_canonicalize_urlparsed(self):
         # canonicalize_url() can be passed an already urlparse'd URL
@@ -1422,6 +2001,86 @@ class TestCanonicalizeUrl:
             == "http://www.example.com/a%A3do?q=r%C3%A9sum%C3%A9"
         )
 
+        assert (
+            canonicalize_url(
+                parse_url(
+                    b"http://www.example.com/r\xe9sum\xe9?q=r\xe9sum\xe9",
+                    encoding="latin1",
+                )
+            )
+            == "http://www.example.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+        )
+
+        assert (
+            canonicalize_url(parse_url("http://www.example.com/path;params?x=1#frag"))
+            == "http://www.example.com/path;params?x=1"
+        )
+
+        assert (
+            canonicalize_url(parse_url("http://www.example.com/a;b/c;params?x=1"))
+            == "http://www.example.com/a;b/c;params?x=1"
+        )
+
+        assert (
+            canonicalize_url(parse_url("http://www.example.com/a;b/c"))
+            == "http://www.example.com/a;b/c"
+        )
+
+        assert (
+            canonicalize_url(parse_url("http://www.example.com/abc/def?x=1"))
+            == "http://www.example.com/abc/def?x=1"
+        )
+
+    def test_parse_url_parse_result(self):
+        # an already parsed url is returned as is
+        parts = parse_url("http://www.example.com/path;params?x=1#frag")
+        assert parse_url(parts) is parts
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://www.example.com/public;/../admin/secret",
+            "http://www.example.com/dir;x/file",
+            "http://www.example.com/a;b/c",
+            "http://www.example.com/a;b/c;d",
+        ],
+    )
+    def test_parse_url_non_final_segment_semicolon(self, url):
+        # a ";" outside the last path segment is not a params delimiter
+        assert parse_url(url).path == urlparse(url).path
+        assert parse_url(url).params == urlparse(url).params
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://exa\tmple.com/p",
+            "http://exa\nmple.com/p",
+            "http://exa\rmple.com/p",
+            "https://good.com\t.evil.com/a\r\nb?q=a\tb#f\tr",
+            "http://example.com:8\t0/",
+        ],
+    )
+    def test_parse_url_remove_ascii_tab_and_newlines(self, url):
+        # urlsplit drops every ASCII tab and newline from the URL, so a tab in
+        # the host cannot survive into parse_url()'s netloc and report a host a
+        # browser would not connect to.
+        assert parse_url(url).netloc == urlparse(url).netloc
+        assert parse_url(url).hostname == urlparse(url).hostname
+        assert "\t" not in parse_url(url).netloc
+
+    def test_urlsplit_remove_ascii_tab_and_newlines_from_scheme(self):
+        # the default-scheme argument gets the same tab/newline removal as the
+        # URL itself, matching urllib.parse.urlsplit
+        assert _urlsplit("//example.com/p", "ht\ttp").scheme == "http"
+        assert _urlsplit("//example.com/p", "ht\ntt\rp").scheme == "htttp"
+
+    def test_canonicalize_url_non_final_segment_semicolon(self):
+        # the path after such a ";" still gets percent-encoding normalization
+        assert (
+            canonicalize_url("http://www.example.com/dir;x/a%7Eb")
+            == "http://www.example.com/dir;x/a~b"
+        )
+
     def test_canonicalize_url_idempotence(self):
         for url, enc in [
             ("http://www.bücher.de/résumé?q=résumé", "utf8"),
@@ -1440,14 +2099,14 @@ class TestCanonicalizeUrl:
     def test_canonicalize_url_idna_exceptions(self):
         # missing DNS label
         assert (
-            canonicalize_url("http://.example.com/résumé?q=résumé")
-            == "http://.example.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+            canonicalize_url("http://.éxamplé.com/résumé?q=résumé")
+            == "http://.éxamplé.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
         )
 
         # DNS label too long
         assert (
-            canonicalize_url(f"http://www.{'example' * 11}.com/résumé?q=résumé")
-            == f"http://www.{'example' * 11}.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
+            canonicalize_url(f"http://www.{'éxamplé' * 11}.com/résumé?q=résumé")
+            == f"http://www.{'éxamplé' * 11}.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
         )
 
     def test_preserve_nonfragment_hash(self):
@@ -1490,6 +2149,30 @@ class TestCanonicalizeUrl:
         assert canonicalize_url(" https://example.com") == "https://example.com/"
         assert canonicalize_url("https://example.com ") == "https://example.com/"
         assert canonicalize_url(" https://example.com ") == "https://example.com/"
+
+    def test_unclosed_bracket(self):
+        for url in (
+            "http://[::1",
+            "http://[::1/p]",
+            "http://[::1?q=[a]",
+            "http://[::1#f]",
+        ):
+            with pytest.raises(ValueError, match="Invalid IPv6 URL"):
+                canonicalize_url(url)
+
+
+class TestCanonicalizeUrlProperties:
+    @given(hyp_urls())
+    def test_no_exception(self, url: str) -> None:
+        canonicalize_url(url)
+
+    @given(hyp_urls())
+    def test_idempotent(self, url: str) -> None:
+        try:
+            once = canonicalize_url(url)
+        except ValueError:
+            return
+        assert canonicalize_url(once) == once
 
 
 class TestDataURI:
@@ -1540,6 +2223,12 @@ class TestDataURI:
         }
         assert result.data == b"\xce\x8e\xce\xa3\xce\x8e"
 
+    def test_mediatype_parameter_empty_quoted_value(self):
+        result = parse_data_uri('data:text/plain;foo="",AAA')
+        assert result.media_type == "text/plain"
+        assert result.media_type_parameters == {"foo": ""}
+        assert result.data == b"AAA"
+
     def test_base64(self):
         result = parse_data_uri("data:text/plain;base64,SGVsbG8sIHdvcmxkLg%3D%3D")
         assert result.media_type == "text/plain"
@@ -1574,8 +2263,247 @@ class TestDataURI:
         with pytest.raises(ValueError, match="not a data URI"):
             parse_data_uri("http://example.com/")
 
+    def test_data_prefixed_scheme(self):
+        for uri in ("datax:,A%20brief%20note", "database:,A%20brief%20note"):
+            with pytest.raises(ValueError, match="not a data URI"):
+                parse_data_uri(uri)
+
     def test_scheme_case_insensitive(self):
         result = parse_data_uri("DATA:,A%20brief%20note")
         assert result.data == b"A brief note"
         result = parse_data_uri("DaTa:,A%20brief%20note")
         assert result.data == b"A brief note"
+
+
+class TestParseQsl:
+    """Cases are copied from https://github.com/python/cpython/blob/main/Lib/test/test_urlparse.py"""
+
+    @pytest.mark.parametrize(
+        ("qs", "output"),
+        [
+            ("", []),
+            ("&", []),
+            ("&&", []),
+            ("=", [(b"", b"")]),
+            ("=a", [(b"", b"a")]),
+            ("a", [(b"a", b"")]),
+            ("a=", [(b"a", b"")]),
+            ("&a=b", [(b"a", b"b")]),
+            ("a=a+b&b=b+c", [(b"a", b"a b"), (b"b", b"b c")]),
+            ("a=1&a=2", [(b"a", b"1"), (b"a", b"2")]),
+            (b"", []),
+            (b"&", []),
+            (b"&&", []),
+            (b"=", [(b"", b"")]),
+            (b"=a", [(b"", b"a")]),
+            (b"a", [(b"a", b"")]),
+            (b"a=", [(b"a", b"")]),
+            (b"&a=b", [(b"a", b"b")]),
+            (b"a=a+b&b=b+c", [(b"a", b"a b"), (b"b", b"b c")]),
+            (b"a=1&a=2", [(b"a", b"1"), (b"a", b"2")]),
+            (";a=b", [(b";a", b"b")]),
+            ("a=a+b;b=b+c", [(b"a", b"a b;b=b c")]),
+            (b";a=b", [(b";a", b"b")]),
+            (b"a=a+b;b=b+c", [(b"a", b"a b;b=b c")]),
+            ("\u0141=\xe9", [(b"\xc5\x81", b"\xc3\xa9")]),
+            ("%C5%81=%C3%A9", [(b"\xc5\x81", b"\xc3\xa9")]),
+            ("%81=%A9", [(b"\x81", b"\xa9")]),
+            (b"\xc5\x81=\xc3\xa9", [(b"\xc5\x81", b"\xc3\xa9")]),
+            (b"%C5%81=%C3%A9", [(b"\xc5\x81", b"\xc3\xa9")]),
+            (b"\x81=\xa9", [(b"\x81", b"\xa9")]),
+            (b"%81=%A9", [(b"\x81", b"\xa9")]),
+            ("%41%42%43=%61%62%63", [(b"ABC", b"abc")]),
+            ("%2D%2E%5F%7E=%30%39", [(b"-._~", b"09")]),
+            (b"%41%42%43=%61%62%63", [(b"ABC", b"abc")]),
+            (b"%2D%2E%5F%7E=%30%39", [(b"-._~", b"09")]),
+        ],
+    )
+    def test_parse_qsl(self, qs, output):
+        assert parse_qsl_to_bytes(qs, keep_blank_values=True) == output
+        output_without_blanks = [v for v in output if len(v[1])]
+        assert parse_qsl_to_bytes(qs, keep_blank_values=False) == output_without_blanks
+
+
+class TestPrivateHelpers:
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("http://example.com/path", ("http", "example.com", "/path", "", "")),
+            (
+                "http://example.com/path?query",
+                ("http", "example.com", "/path", "query", ""),
+            ),
+            (
+                "http://example.com/path#fragment",
+                ("http", "example.com", "/path", "", "fragment"),
+            ),
+            (
+                "http://example.com/path?query#fragment",
+                ("http", "example.com", "/path", "query", "fragment"),
+            ),
+            (
+                "a,b://example.com/path?query#fragment",
+                ("", "", "a,b://example.com/path", "query", "fragment"),
+            ),
+        ],
+    )
+    def test_urlsplit(self, url: str, expected: tuple[str, str, str, str, str]) -> None:
+        assert tuple(_urlsplit(url)) == expected
+
+    @pytest.mark.parametrize(
+        ("components", "expected"),
+        [
+            (("http", "example.com", "path", "", ""), "http://example.com/path"),
+            (("http", "example.com", "/path", "", ""), "http://example.com/path"),
+            (("http", "", "path", "", ""), "http:path"),
+            (("http", "", "/path", "", ""), "http:///path"),
+            (("mailto", "", "user@example.com", "", ""), "mailto:user@example.com"),
+            (("", "", "//foo", "", ""), "////foo"),
+            (("", "", "", "q", ""), "?q"),
+            (("", "", "", "", "frag"), "#frag"),
+            (("", "", "", "q", "frag"), "?q#frag"),
+            (("http", "example.com", "", "q", "frag"), "http://example.com?q#frag"),
+        ],
+    )
+    def test_urlunsplit(self, components, expected):
+        assert _urlunsplit(*components) == expected
+
+    @pytest.mark.parametrize(
+        ("components", "expected"),
+        [
+            (("http", "example.com", "path", "", "", ""), "http://example.com/path"),
+            (
+                ("http", "example.com", "/path", "a=1", "b=2", "frag"),
+                "http://example.com/path;a=1?b=2#frag",
+            ),
+            (("http", "", "path", "", "", ""), "http:path"),
+            (("http", "", "/path", "", "q=1", "frag"), "http:///path?q=1#frag"),
+            (("mailto", "", "user@example.com", "", "", ""), "mailto:user@example.com"),
+        ],
+    )
+    def test_urlunparse(self, components, expected):
+        assert _urlunparse(*components) == expected
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            # a ";" in the last segment starts the params
+            ("/a;b", ("/a", "b")),
+            ("/a/b;c", ("/a/b", "c")),
+            ("/a;b/c;d", ("/a;b/c", "d")),
+            ("/a;b/c;", ("/a;b/c", "")),
+            # a ";" in an earlier segment is an ordinary path character
+            ("/a;b/c", ("/a;b/c", "")),
+            ("/dir;x/file", ("/dir;x/file", "")),
+            ("/public;/../admin/secret", ("/public;/../admin/secret", "")),
+            # without a "/" the first ";" starts the params
+            ("a;b", ("a", "b")),
+            (";a", ("", "a")),
+            # no ";" at all
+            ("/a/b", ("/a/b", "")),
+            ("", ("", "")),
+        ],
+    )
+    def test_split_params(self, path, expected):
+        assert _split_params("http", path) == expected
+        # schemes that do not use params keep the path intact
+        assert _split_params("data", path) == (path, "")
+
+    @pytest.mark.parametrize(
+        ("netloc", "expected"),
+        [
+            # no brackets at all
+            ("example.com", "example.com"),
+            # unclosed bracket
+            ("[::1", "[::1"),
+            # content between brackets is not a valid IP address
+            ("[not-an-address]", "[not-an-address]"),
+            # an IPv4 address in brackets is left untouched
+            ("[127.0.0.1]", "[127.0.0.1]"),
+            # a valid IPv6 address is normalized
+            ("[::0:1]", "[::1]"),
+        ],
+    )
+    def test_normalize_ipv6_host(self, netloc, expected):
+        assert _normalize_ipv6_host(netloc) == expected
+
+
+class TestPrivateHelpersProperties:
+    @example("/")
+    @given(st.text())
+    def test_quote_matches_stdlib(self, data: str) -> None:
+        result = _quote(data.encode("utf-8"), safe=b"/").decode("utf-8")
+        expected = quote(data)
+        assert result == expected
+
+    @given(st.text())
+    def test_quote_plus_matches_stdlib(self, data: str) -> None:
+        result = _quote(data.encode("utf-8"), quote_plus=True).decode("utf-8")
+        expected = quote_plus(data)
+        assert result == expected
+
+    @given(st.text())
+    def test_unquote_matches_stdlib(self, data: str) -> None:
+        result = _unquote(data)
+        expected = unquote_to_bytes(data)
+        assert result == expected
+
+    @given(st.text())
+    def test_unquote_plus_matches_stdlib(self, data: str) -> None:
+        result = _unquote_plus(data)
+        expected = unquote_to_bytes(data.replace("+", " "))
+        assert result == expected
+
+    # assume() rejects most generated inputs on Python 3.10, tripping the check
+    @settings(suppress_health_check=[HealthCheck.filter_too_much])
+    @given(st.text())
+    def test_parse_qs_matches_stdlib(self, data: str) -> None:
+        if sys.version_info < (3, 11):
+            # https://github.com/python/cpython/issues/74668
+            assume(data.isascii())
+        result = _parse_qs(data)
+        expected = parse_qs(data.encode("utf-8"))
+        assert result == expected
+
+    @settings(suppress_health_check=[HealthCheck.filter_too_much])
+    @given(st.text())
+    def test_parse_qsl_matches_stdlib(self, data: str) -> None:
+        if sys.version_info < (3, 11):
+            assume(data.isascii())
+        result = _parse_qsl(data)
+        expected = parse_qsl(data.encode("utf-8"))
+        assert result == expected
+
+    @given(hyp_urls())
+    def test_urlparse_matches_stdlib(self, url: str) -> None:
+        result = _urlparse(url)
+        expected = urlparse(url)
+        assert result.scheme == expected.scheme
+        assert result.netloc == expected.netloc
+        assert result.path == expected.path
+        assert result.query == expected.query
+        assert result.fragment == expected.fragment
+
+    @given(hyp_urls())
+    def test_urlsplit_matches_stdlib(self, url: str) -> None:
+        result = _urlsplit(url)
+        expected = urlsplit(url)
+        assert result.scheme == expected.scheme
+        assert result.netloc == expected.netloc
+        assert result.path == expected.path
+        assert result.query == expected.query
+        assert result.fragment == expected.fragment
+
+    @given(st.text() | hyp_urls())
+    def test_urlunparse_matches_stdlib(self, url: str) -> None:
+        parsed = urlparse(url)
+        result = _urlunparse(*parsed)
+        expected = urlunparse(parsed)
+        assert result == expected
+
+    @given(st.text() | hyp_urls())
+    def test_urlunsplit_matches_stdlib(self, url: str) -> None:
+        split = urlsplit(url)
+        result = _urlunsplit(*split)
+        expected = urlunsplit(split)
+        assert result == expected

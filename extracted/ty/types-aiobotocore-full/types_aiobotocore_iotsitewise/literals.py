@@ -121,6 +121,7 @@ __all__ = (
     "ListWorkspacesPaginatorName",
     "LoggingLevelType",
     "MonitorErrorCodeType",
+    "MountStorageTypeType",
     "PaginatorName",
     "PermissionType",
     "PipelineErrorCodeType",
@@ -146,6 +147,7 @@ __all__ = (
     "SearchStatusType",
     "SearchTypeType",
     "ServiceName",
+    "StorageClassType",
     "StorageTypeType",
     "TargetResourceTypeType",
     "TimeOrderingType",
@@ -310,6 +312,7 @@ ListTimeSeriesTypeType = Literal["ASSOCIATED", "DISASSOCIATED"]
 ListWorkspacesPaginatorName = Literal["list_workspaces"]
 LoggingLevelType = Literal["ERROR", "INFO", "OFF"]
 MonitorErrorCodeType = Literal["INTERNAL_FAILURE", "LIMIT_EXCEEDED", "VALIDATION_ERROR"]
+MountStorageTypeType = Literal["SHARED_STORAGE"]
 PermissionType = Literal["ADMINISTRATOR", "VIEWER"]
 PipelineErrorCodeType = Literal[
     "EXECUTION_ERROR", "INTERNAL_FAILURE", "TIMED_OUT", "VALIDATION_ERROR"
@@ -352,6 +355,7 @@ ResourceTypeType = Literal["PORTAL", "PROJECT"]
 ScalarTypeType = Literal["BOOLEAN", "DOUBLE", "INT", "STRING", "TIMESTAMP"]
 SearchStatusType = Literal["FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]
 SearchTypeType = Literal["DEEP", "QUICK"]
+StorageClassType = Literal["STANDARD_1", "STANDARD_2", "THROUGHPUT_1", "THROUGHPUT_2"]
 StorageTypeType = Literal["MULTI_LAYER_STORAGE", "SITEWISE_DEFAULT_STORAGE"]
 TargetResourceTypeType = Literal["ASSET", "COMPUTATION_MODEL"]
 TimeOrderingType = Literal["ASCENDING", "DESCENDING"]
@@ -441,6 +445,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -515,6 +520,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -543,6 +549,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -637,6 +644,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

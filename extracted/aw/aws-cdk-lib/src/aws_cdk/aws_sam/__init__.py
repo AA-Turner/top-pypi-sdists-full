@@ -8647,7 +8647,7 @@ class CfnFunctionProps:
                 ),
                 events={
                     "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.HttpApiEventProperty(
+                        properties=sam.CfnFunction.SQSEventProperty(
                             skill_id="skillId"
                         ),
                         type="type"

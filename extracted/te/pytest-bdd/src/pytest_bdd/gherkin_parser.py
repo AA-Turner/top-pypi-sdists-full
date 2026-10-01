@@ -4,7 +4,7 @@ import linecache
 import re
 import textwrap
 import typing
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -83,7 +83,7 @@ class Cell:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
-        return cls(location=Location.from_dict(data["location"]), value=_to_raw_string(data["value"]))
+        return cls(location=Location.from_dict(data["location"]), value=data["value"])
 
 
 @dataclass
@@ -297,15 +297,11 @@ class GherkinDocument:
     comments: list[Comment]
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(cls, data: Mapping[str, Any]) -> Self:
         return cls(
             feature=Feature.from_dict(data["feature"]),
             comments=[Comment.from_dict(comment) for comment in data["comments"]],
         )
-
-
-def _to_raw_string(normal_string: str) -> str:
-    return normal_string.replace("\\", "\\\\")
 
 
 def get_gherkin_document(abs_filename: str, encoding: str = "utf-8") -> GherkinDocument:

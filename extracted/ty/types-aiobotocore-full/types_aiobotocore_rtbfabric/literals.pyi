@@ -25,6 +25,7 @@ __all__ = (
     "CertificateAssociatedWaiterName",
     "CertificateAssociationStatusType",
     "CertificateDisassociatedWaiterName",
+    "ClientRoutingPolicyType",
     "ConnectivityTypeType",
     "FilterTypeType",
     "GatewayTypeType",
@@ -66,6 +67,7 @@ CertificateAssociationStatusType = Literal[
     "ASSOCIATED", "DISASSOCIATED", "FAILED", "PENDING_ASSOCIATION", "PENDING_DISASSOCIATION"
 ]
 CertificateDisassociatedWaiterName = Literal["certificate_disassociated"]
+ClientRoutingPolicyType = Literal["ANY_AVAILABILITY_ZONE", "AVAILABILITY_ZONE_AFFINITY"]
 ConnectivityTypeType = Literal["DEFAULT", "EXTERNAL_INBOUND", "PUBLIC_EGRESS", "PUBLIC_INGRESS"]
 FilterTypeType = Literal["EXCLUDE", "INCLUDE"]
 GatewayTypeType = Literal["EXTERNAL", "INTERNAL"]
@@ -217,6 +219,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -291,6 +294,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -319,6 +323,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -413,6 +418,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

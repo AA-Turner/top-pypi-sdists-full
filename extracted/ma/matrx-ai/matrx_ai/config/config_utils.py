@@ -50,22 +50,59 @@ def encode_binary_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 _DISPLAY_PLACEHOLDER_PREFIXES = ("<bytes length=", "<str length=", "<bytes len=")
 
 
-def contains_display_placeholder(payload: Any) -> bool:
-    """True if any string in ``payload`` is a redaction placeholder.
+def _snapshot_redaction_marker() -> str:
+    """The opening of the inline marker the snapshot redactor pipeline leaves
+    where it truncated a string — imported from its one definition, never
+    copied. Head + marker + tail survive; the middle is gone."""
+    from matrx_ai.providers.snapshot_redactors import MARKER_OPEN
 
-    The ONE definition of "this recorded payload is not re-issuable because its
-    binary material was replaced by a human-readable stand-in". Consumers that
-    rebuild a request from a recording (wire replay, proof selection) ask this
-    rather than each inventing its own string test — and rather than discovering
-    it as 151 opaque SDK validation errors.
+    return MARKER_OPEN
+
+
+def find_unreissuable_value(payload: Any, path: str = "$") -> tuple[str, str, str] | None:
+    """The first string in ``payload`` whose real value is gone, or ``None``.
+
+    Returns ``(what, path, excerpt)`` where ``what`` is ``"display_placeholder"``
+    (a legacy ``<bytes length=N>`` stand-in) or ``"snapshot_redaction_marker"``
+    (a string the snapshot redactor truncated), ``path`` is its JSON path and
+    ``excerpt`` is the placeholder or marker text itself — so a refusal can name
+    exactly what was lost and where.
     """
     if isinstance(payload, str):
-        return payload.startswith(_DISPLAY_PLACEHOLDER_PREFIXES)
+        if payload.startswith(_DISPLAY_PLACEHOLDER_PREFIXES):
+            return ("display_placeholder", path, payload[:80])
+        at = payload.find(_snapshot_redaction_marker())
+        if at >= 0:
+            end = payload.find(">>>", at)
+            marker = payload[at : end + 3] if end >= 0 else payload[at : at + 400]
+            return ("snapshot_redaction_marker", path, marker[:400])
+        return None
     if isinstance(payload, dict):
-        return any(contains_display_placeholder(value) for value in payload.values())
+        for key, value in payload.items():
+            found = find_unreissuable_value(value, f"{path}.{key}")
+            if found is not None:
+                return found
+        return None
     if isinstance(payload, (list, tuple)):
-        return any(contains_display_placeholder(item) for item in payload)
-    return False
+        for index, item in enumerate(payload):
+            found = find_unreissuable_value(item, f"{path}[{index}]")
+            if found is not None:
+                return found
+    return None
+
+
+def contains_display_placeholder(payload: Any) -> bool:
+    """True if any string in ``payload`` stands in for a value that is gone.
+
+    The ONE definition of "this recorded payload is not re-issuable because
+    part of it was replaced by a human-readable stand-in": a legacy
+    ``<bytes length=N>`` display placeholder, or a snapshot-redaction marker
+    (a >64 KiB string kept only as head + marker + tail). Consumers that rebuild
+    a request from a recording (wire replay, proof selection) ask this rather
+    than each inventing its own string test — and rather than re-sending the
+    truncated text as if it were the original input.
+    """
+    return find_unreissuable_value(payload) is not None
 
 
 def decode_binary_metadata(metadata: dict[str, Any]) -> dict[str, Any]:

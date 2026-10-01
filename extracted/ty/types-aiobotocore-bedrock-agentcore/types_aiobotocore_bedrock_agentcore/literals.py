@@ -45,6 +45,8 @@ __all__ = (
     "ExtractionModeType",
     "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
+    "HarnessHookDecisionType",
+    "HarnessHookEventTypeType",
     "HarnessOpenAiApiFormatType",
     "HarnessStopReasonType",
     "HarnessToolTypeType",
@@ -82,6 +84,7 @@ __all__ = (
     "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
+    "ResultDestinationType",
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
     "ScreenshotFormatType",
@@ -143,10 +146,15 @@ ExtractionJobStatusType = Literal["FAILED"]
 ExtractionModeType = Literal["SKIP"]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
+HarnessHookDecisionType = Literal["allow", "deny"]
+HarnessHookEventTypeType = Literal[
+    "after_invocation", "after_tool_call", "before_invocation", "before_tool_call"
+]
 HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStopReasonType = Literal[
     "content_filtered",
     "end_turn",
+    "hook_stopped",
     "interrupted",
     "malformed_model_output",
     "malformed_tool_use",
@@ -247,6 +255,7 @@ RegistryRecordStatusType = Literal[
     "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
 ]
 ResourceContentTypeType = Literal["blob", "text"]
+ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
 ScreenshotFormatType = Literal["PNG"]
@@ -351,6 +360,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -425,6 +435,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -453,6 +464,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -547,6 +559,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

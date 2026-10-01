@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse
-Version: 4.15.6
+Version: 4.16.0
 Summary: Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management
 Keywords: langfuse,llm,observability,tracing,opentelemetry,evaluation,llm-as-a-judge,prompt-management,datasets,experiments,openai,langchain,ai-agents,monitoring
 Author: langfuse
@@ -12,9 +12,9 @@ Requires-Dist: pydantic>=2,<3
 Requires-Dist: backoff>=1.10.0
 Requires-Dist: wrapt>=1.14,<3
 Requires-Dist: packaging>=23.2,<27.0
-Requires-Dist: opentelemetry-api>=1.33.1,<2
-Requires-Dist: opentelemetry-sdk>=1.33.1,<2
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.33.1,<2
+Requires-Dist: opentelemetry-api>=1.45.0,<2
+Requires-Dist: opentelemetry-sdk>=1.45.0,<2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.45.0,<2
 Requires-Dist: typing-extensions>=4.12.2,<5
 Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://langfuse.com

@@ -267,6 +267,55 @@ class FlowEntitlementReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.FlowMediaStreamReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_media_stream_arn": "flowMediaStreamArn"},
+)
+class FlowMediaStreamReference:
+    def __init__(self, *, flow_media_stream_arn: builtins.str) -> None:
+        '''A reference to a FlowMediaStream resource.
+
+        :param flow_media_stream_arn: The Arn of the FlowMediaStream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediaconnect as interfaces_mediaconnect
+            
+            flow_media_stream_reference = interfaces_mediaconnect.FlowMediaStreamReference(
+                flow_media_stream_arn="flowMediaStreamArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65f66bb53a0b72e226b3a486756b0acd9452a82a741397303036f368b6803d99)
+            check_type(argname="argument flow_media_stream_arn", value=flow_media_stream_arn, expected_type=type_hints["flow_media_stream_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_media_stream_arn": flow_media_stream_arn,
+        }
+
+    @builtins.property
+    def flow_media_stream_arn(self) -> builtins.str:
+        '''The Arn of the FlowMediaStream resource.'''
+        result = self._values.get("flow_media_stream_arn")
+        assert result is not None, "Required property 'flow_media_stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowMediaStreamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.FlowOutputReference",
     jsii_struct_bases=[],
     name_mapping={"output_arn": "outputArn"},
@@ -710,6 +759,53 @@ class _IFlowEntitlementRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IFlowEntitlementRef).__jsii_proxy_class__ = lambda : _IFlowEntitlementRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowMediaStreamRef"
+)
+class IFlowMediaStreamRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowMediaStream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowMediaStreamRef")
+    def flow_media_stream_ref(self) -> "FlowMediaStreamReference":
+        '''(experimental) A reference to a FlowMediaStream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowMediaStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowMediaStream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediaconnect.IFlowMediaStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowMediaStreamRef")
+    def flow_media_stream_ref(self) -> "FlowMediaStreamReference":
+        '''(experimental) A reference to a FlowMediaStream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FlowMediaStreamReference", jsii.get(self, "flowMediaStreamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowMediaStreamRef).__jsii_proxy_class__ = lambda : _IFlowMediaStreamRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconnect.IFlowOutputRef")
@@ -1228,6 +1324,7 @@ __all__ = [
     "BridgeReference",
     "BridgeSourceReference",
     "FlowEntitlementReference",
+    "FlowMediaStreamReference",
     "FlowOutputReference",
     "FlowReference",
     "FlowSourceReference",
@@ -1237,6 +1334,7 @@ __all__ = [
     "IBridgeRef",
     "IBridgeSourceRef",
     "IFlowEntitlementRef",
+    "IFlowMediaStreamRef",
     "IFlowOutputRef",
     "IFlowRef",
     "IFlowSourceRef",
@@ -1278,6 +1376,13 @@ def _typecheckingstub__6a57ab8b2799544f17aecf266ba0a305c9946b460679a831f68a8cc26
 def _typecheckingstub__0edc53b6b6e960dbdc6bd64c4eb6c4541ecc0a17bdd262b31812971a606f44ad(
     *,
     entitlement_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65f66bb53a0b72e226b3a486756b0acd9452a82a741397303036f368b6803d99(
+    *,
+    flow_media_stream_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1339,5 +1444,5 @@ def _typecheckingstub__eb1ab08a2a2f206b84e407515955ae1d24f39785cfe1e4e1df154f9ce
     """Type checking stubs"""
     pass
 
-for cls in [IBridgeOutputRef, IBridgeRef, IBridgeSourceRef, IFlowEntitlementRef, IFlowOutputRef, IFlowRef, IFlowSourceRef, IFlowVpcInterfaceRef, IGatewayRef, IRouterInputRef, IRouterNetworkInterfaceRef, IRouterOutputRef]:
+for cls in [IBridgeOutputRef, IBridgeRef, IBridgeSourceRef, IFlowEntitlementRef, IFlowMediaStreamRef, IFlowOutputRef, IFlowRef, IFlowSourceRef, IFlowVpcInterfaceRef, IGatewayRef, IRouterInputRef, IRouterNetworkInterfaceRef, IRouterOutputRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

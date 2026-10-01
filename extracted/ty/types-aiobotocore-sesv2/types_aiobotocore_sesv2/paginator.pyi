@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_sesv2.client import SESV2Client
     from types_aiobotocore_sesv2.paginator import (
+        ListEmailIdentityCertificatesPaginator,
         ListMultiRegionEndpointsPaginator,
         ListReputationEntitiesPaginator,
         ListResourceTenantsPaginator,
@@ -23,6 +24,7 @@ Usage::
     with session.create_client("sesv2") as client:
         client: SESV2Client
 
+        list_email_identity_certificates_paginator: ListEmailIdentityCertificatesPaginator = client.get_paginator("list_email_identity_certificates")
         list_multi_region_endpoints_paginator: ListMultiRegionEndpointsPaginator = client.get_paginator("list_multi_region_endpoints")
         list_reputation_entities_paginator: ListReputationEntitiesPaginator = client.get_paginator("list_reputation_entities")
         list_resource_tenants_paginator: ListResourceTenantsPaginator = client.get_paginator("list_resource_tenants")
@@ -39,6 +41,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListEmailIdentityCertificatesRequestPaginateTypeDef,
+    ListEmailIdentityCertificatesResponseTypeDef,
     ListMultiRegionEndpointsRequestPaginateTypeDef,
     ListMultiRegionEndpointsResponseTypeDef,
     ListReputationEntitiesRequestPaginateTypeDef,
@@ -57,12 +61,33 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListEmailIdentityCertificatesPaginator",
     "ListMultiRegionEndpointsPaginator",
     "ListReputationEntitiesPaginator",
     "ListResourceTenantsPaginator",
     "ListTenantResourcesPaginator",
     "ListTenantsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListEmailIdentityCertificatesPaginatorBase = AioPaginator[
+        ListEmailIdentityCertificatesResponseTypeDef
+    ]
+else:
+    _ListEmailIdentityCertificatesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListEmailIdentityCertificatesPaginator(_ListEmailIdentityCertificatesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/paginator/ListEmailIdentityCertificates.html#SESV2.Paginator.ListEmailIdentityCertificates)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/paginators/#listemailidentitycertificatespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEmailIdentityCertificatesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListEmailIdentityCertificatesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/paginator/ListEmailIdentityCertificates.html#SESV2.Paginator.ListEmailIdentityCertificates.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/paginators/#listemailidentitycertificatespaginator)
+        """
 
 if TYPE_CHECKING:
     _ListMultiRegionEndpointsPaginatorBase = AioPaginator[ListMultiRegionEndpointsResponseTypeDef]

@@ -27,6 +27,7 @@ __all__ = (
     "ActionStatusType",
     "ActionTypeType",
     "ApplicationVersionStatusType",
+    "ArchitectureTypeType",
     "ComputeTypeType",
     "ConfigurationDeploymentStatusType",
     "ConfigurationOptionValueTypeType",
@@ -45,6 +46,7 @@ __all__ = (
     "EnvironmentUpdatedWaiterName",
     "EventSeverityType",
     "FailureTypeType",
+    "ImageBuildTypeType",
     "InstancesHealthAttributeType",
     "ListPlatformVersionsPaginatorName",
     "PaginatorName",
@@ -65,6 +67,7 @@ ActionTypeType = Literal["InstanceRefresh", "PlatformUpdate", "Unknown"]
 ApplicationVersionStatusType = Literal[
     "Building", "Failed", "Processed", "Processing", "Unprocessed"
 ]
+ArchitectureTypeType = Literal["amd64", "arm64"]
 ComputeTypeType = Literal["BUILD_GENERAL1_LARGE", "BUILD_GENERAL1_MEDIUM", "BUILD_GENERAL1_SMALL"]
 ConfigurationDeploymentStatusType = Literal["deployed", "failed", "pending"]
 ConfigurationOptionValueTypeType = Literal["List", "Scalar"]
@@ -112,6 +115,7 @@ FailureTypeType = Literal[
     "RollbackSuccessful",
     "UpdateCancelled",
 ]
+ImageBuildTypeType = Literal["buildpack", "docker"]
 InstancesHealthAttributeType = Literal[
     "All",
     "ApplicationMetrics",
@@ -211,6 +215,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -285,6 +290,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -313,6 +319,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -407,6 +414,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

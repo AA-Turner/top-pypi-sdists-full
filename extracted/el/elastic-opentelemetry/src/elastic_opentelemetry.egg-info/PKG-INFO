@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elastic-opentelemetry
-Version: 1.16.0
+Version: 1.16.1
 Summary: Elastic Distribution of OpenTelemetry Python
 Author-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>
 Maintainer-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>

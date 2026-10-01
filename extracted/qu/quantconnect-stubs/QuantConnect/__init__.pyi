@@ -3009,10 +3009,10 @@ class DataMappingMode(IntEnum):
     """
 
     OPEN_INTEREST = 2
-    """The contract maps when the following back month contract has a higher open interest that the current front month (2)"""
+    """The contract maps when the following back month contract has a higher open interest than the current front month (2)"""
 
     OPEN_INTEREST_ANNUAL = 3
-    """The contract maps when any of the back month contracts of the next year have a higher volume that the current front month (3)"""
+    """The contract maps when any of the back month contracts of the next year have a higher open interest than the current front month (3)"""
 
 
 class CashBookUpdateType(IntEnum):

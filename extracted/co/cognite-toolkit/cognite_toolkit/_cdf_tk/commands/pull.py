@@ -148,9 +148,7 @@ class PullV2Command(ToolkitCommand):
 
         results: list[PullResult] = []
         for resource_type, resources in resources_by_type.items():
-            resource_io = resources[0].crud_cls.create_loader(
-                client, build_dir=build_folder.build_dir, console=client.console
-            )
+            resource_io = resources[0].crud_cls.create_io(client)
 
             cdf_resources = resource_io.retrieve([resource.identifier for resource in resources])
             cdf_resource_by_id = {resource_io.get_id(r): r for r in cdf_resources}
@@ -571,11 +569,8 @@ class PullV2Command(ToolkitCommand):
                 extra_content, extra_placeholders = BuildVariable.substitute_with_placeholders(
                     safe_read(extra.source_path), built.variables
                 )
-                if (
-                    built.crud_cls.extra_content_property in item_write
-                    and built.crud_cls.extra_content_property is not None
-                ):
-                    new_extra = item_write.pop(built.crud_cls.extra_content_property)
+                if extra.resource_field in item_write and extra.resource_field is not None:
+                    new_extra = item_write.pop(extra.resource_field)
                     for placeholder, variable in extra_placeholders.items():
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(str(variable.value), f"{{{{ {variable.name} }}}}")

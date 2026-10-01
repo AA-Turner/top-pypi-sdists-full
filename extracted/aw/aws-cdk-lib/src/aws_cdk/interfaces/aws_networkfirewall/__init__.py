@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_networkfirewall.ContainerAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"container_association_arn": "containerAssociationArn"},
+)
+class ContainerAssociationReference:
+    def __init__(self, *, container_association_arn: builtins.str) -> None:
+        '''A reference to a ContainerAssociation resource.
+
+        :param container_association_arn: The ContainerAssociationArn of the ContainerAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_networkfirewall as interfaces_networkfirewall
+            
+            container_association_reference = interfaces_networkfirewall.ContainerAssociationReference(
+                container_association_arn="containerAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a60d64c9a952fad867dc88469e47c5a6221a5a4dd9ac3960dc6e263f100efe2e)
+            check_type(argname="argument container_association_arn", value=container_association_arn, expected_type=type_hints["container_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_association_arn": container_association_arn,
+        }
+
+    @builtins.property
+    def container_association_arn(self) -> builtins.str:
+        '''The ContainerAssociationArn of the ContainerAssociation resource.'''
+        result = self._values.get("container_association_arn")
+        assert result is not None, "Required property 'container_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_networkfirewall.FirewallPolicyReference",
     jsii_struct_bases=[],
     name_mapping={"firewall_policy_arn": "firewallPolicyArn"},
@@ -134,6 +183,53 @@ class FirewallReference:
         return "FirewallReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_networkfirewall.IContainerAssociationRef"
+)
+class IContainerAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="containerAssociationRef")
+    def container_association_ref(self) -> "ContainerAssociationReference":
+        '''(experimental) A reference to a ContainerAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContainerAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_networkfirewall.IContainerAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="containerAssociationRef")
+    def container_association_ref(self) -> "ContainerAssociationReference":
+        '''(experimental) A reference to a ContainerAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContainerAssociationReference", jsii.get(self, "containerAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContainerAssociationRef).__jsii_proxy_class__ = lambda : _IContainerAssociationRefProxy
 
 
 @jsii.interface(
@@ -611,8 +707,10 @@ class VpcEndpointAssociationReference:
 
 
 __all__ = [
+    "ContainerAssociationReference",
     "FirewallPolicyReference",
     "FirewallReference",
+    "IContainerAssociationRef",
     "IFirewallPolicyRef",
     "IFirewallRef",
     "ILoggingConfigurationRef",
@@ -626,6 +724,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__a60d64c9a952fad867dc88469e47c5a6221a5a4dd9ac3960dc6e263f100efe2e(
+    *,
+    container_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__bc3a7ea8f865dd2ed15f63bf33b08bd8a433c4d9c685696775a3cef691b50192(
     *,
@@ -669,5 +774,5 @@ def _typecheckingstub__685dfbe589915ae995a2001ac169f17fe768f12601dbc55650b6a3da2
     """Type checking stubs"""
     pass
 
-for cls in [IFirewallPolicyRef, IFirewallRef, ILoggingConfigurationRef, IRuleGroupRef, ITLSInspectionConfigurationRef, IVpcEndpointAssociationRef]:
+for cls in [IContainerAssociationRef, IFirewallPolicyRef, IFirewallRef, ILoggingConfigurationRef, IRuleGroupRef, ITLSInspectionConfigurationRef, IVpcEndpointAssociationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

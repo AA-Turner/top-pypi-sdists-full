@@ -7,7 +7,7 @@ pub use event_logging_adapter::*;
 pub use gcir::gcir_formatter::GCIRResponseFormat;
 pub use gcir::gcir_options::ClientInitResponseOptions;
 pub use hashing::HashAlgorithm;
-pub use id_lists_adapter::{IdListsAdapter, StatsigHttpIdListsAdapter};
+pub use id_lists_adapter::{IdListPropagationUpdate, IdListsAdapter, StatsigHttpIdListsAdapter};
 pub use init_details::{FailureDetails, InitializeDetails};
 pub use initialize_response::InitializeResponse;
 pub use instance_registry::InstanceRegistry;
@@ -42,6 +42,8 @@ pub use statsig_runtime::StatsigRuntime;
 pub use statsig_types::{
     BulkEvaluationOptions, BulkEvaluationResponse, ResolvedBulkEvaluationOptions,
 };
+#[doc(hidden)]
+pub use typed_config::ConfigUpdates;
 pub use user::user_data::{
     UserCustomMap as StatsigUserCustomMap, UserData as StatsigUserData,
     UserDataMap as StatsigUserDataMap, UserDataStringMap as StatsigUserDataStringMap,
@@ -113,6 +115,7 @@ mod specs_adapter;
 mod statsig;
 mod statsig_err;
 mod statsig_type_factories;
+mod typed_config;
 mod utils;
 mod value_parsing;
 

@@ -10,6 +10,7 @@ from ..types.deploy_computer_response_out import DeployComputerResponseOut
 from ..types.revoke_ssh_access_response_out import RevokeSshAccessResponseOut
 from ..types.ssh_access_info_out import SshAccessInfoOut
 from ..types.ssh_access_response_out import SshAccessResponseOut
+from ..types.ssh_access_token_list_out import SshAccessTokenListOut
 from .raw_client import AsyncRawComputerClient, RawComputerClient
 
 # this is used as the default value for optional parameters
@@ -216,6 +217,75 @@ class ComputerClient:
         )
         """
         _response = self._raw_client.revoke_ssh_access(asset_id, token=token, request_options=request_options)
+        return _response.data
+
+    def list_ssh_access_tokens(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> SshAccessTokenListOut:
+        """
+        List the unrevoked temporary SSH tokens YOU minted for this computer with `create_ssh_access` — each with its id, the token's last 4 characters, and its creation and expiry times. Tokens that expired in the last 15 minutes are included with `expired: true`, because a session opened before expiry can outlive it briefly. The token itself is never returned again after it is minted, and tokens other users minted are not listed. Requires edit access to the computer. Tokens minted before this listing existed are not listed; they expire on their own.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshAccessTokenListOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.list_ssh_access_tokens(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.list_ssh_access_tokens(asset_id, request_options=request_options)
+        return _response.data
+
+    def revoke_ssh_access_token(
+        self, asset_id: str, token_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> RevokeSshAccessResponseOut:
+        """
+        Revoke a temporary SSH token you minted for this computer, by the id `list_ssh_access_tokens` returns. The token stops admitting connections and every open SSH session using it is disconnected. An expired token can still be revoked, which ends a session that outlived its expiry. Returns 404 for an id that is not one of your unrevoked tokens on this computer. Requires edit access to the computer.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        token_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RevokeSshAccessResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.revoke_ssh_access_token(
+            asset_id="asset_id",
+            token_id="token_id",
+        )
+        """
+        _response = self._raw_client.revoke_ssh_access_token(asset_id, token_id, request_options=request_options)
         return _response.data
 
     def start_computer(
@@ -525,6 +595,91 @@ class AsyncComputerClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.revoke_ssh_access(asset_id, token=token, request_options=request_options)
+        return _response.data
+
+    async def list_ssh_access_tokens(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> SshAccessTokenListOut:
+        """
+        List the unrevoked temporary SSH tokens YOU minted for this computer with `create_ssh_access` — each with its id, the token's last 4 characters, and its creation and expiry times. Tokens that expired in the last 15 minutes are included with `expired: true`, because a session opened before expiry can outlive it briefly. The token itself is never returned again after it is minted, and tokens other users minted are not listed. Requires edit access to the computer. Tokens minted before this listing existed are not listed; they expire on their own.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SshAccessTokenListOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.list_ssh_access_tokens(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_ssh_access_tokens(asset_id, request_options=request_options)
+        return _response.data
+
+    async def revoke_ssh_access_token(
+        self, asset_id: str, token_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> RevokeSshAccessResponseOut:
+        """
+        Revoke a temporary SSH token you minted for this computer, by the id `list_ssh_access_tokens` returns. The token stops admitting connections and every open SSH session using it is disconnected. An expired token can still be revoked, which ends a session that outlived its expiry. Returns 404 for an id that is not one of your unrevoked tokens on this computer. Requires edit access to the computer.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        token_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RevokeSshAccessResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.revoke_ssh_access_token(
+                asset_id="asset_id",
+                token_id="token_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.revoke_ssh_access_token(asset_id, token_id, request_options=request_options)
         return _response.data
 
     async def start_computer(

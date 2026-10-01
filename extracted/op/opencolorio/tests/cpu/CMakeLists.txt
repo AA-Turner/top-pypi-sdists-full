@@ -19,10 +19,28 @@ macro(add_ocio_test_variant NAME BINARY)
     endif()
 endmacro()
 
-function(add_ocio_test NAME SOURCES PRIVATE_INCLUDES)
+function(prepend var prefix)
+    set(new "")
+    foreach(f ${ARGN})
+        list(APPEND new "${prefix}${f}")
+    endforeach(f)
+    set(${var} "${new}" PARENT_SCOPE)
+endfunction(prepend)
+
+function(add_ocio_test NAME SOURCES TESTS PRIVATE_INCLUDES)
     set(TEST_BINARY "test_${NAME}_exec")
     set(TEST_NAME "test_${NAME}")
-    add_executable(${TEST_BINARY} ${SOURCES})
+
+    prepend(SOURCES "${PROJECT_SOURCE_DIR}/src/OpenColorIO/" ${SOURCES})
+    set(SOURCES_ALL ${SOURCES})
+    list(APPEND SOURCES_ALL ${TESTS})
+
+    add_executable(${TEST_BINARY} ${SOURCES_ALL})
+
+    # Group the source files to replicate the source tree structure in the IDEs.
+    source_group(TREE "${PROJECT_SOURCE_DIR}/src/OpenColorIO/" PREFIX "OpenColorIO Library" FILES ${SOURCES})
+    source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "Tests" FILES ${TESTS})
+
     target_compile_definitions(${TEST_BINARY}
         PRIVATE
             OpenColorIO_SKIP_IMPORTS
@@ -112,6 +130,11 @@ function(add_ocio_test NAME SOURCES PRIVATE_INCLUDES)
 
         if(OCIO_USE_AVX512)
             add_ocio_test_variant(${TEST_NAME}_avx512 ${TEST_BINARY} --avx512)
+            # Runs in its own process, independent of the full suite above, so it still
+            # executes (and reports its own result) even if some other AVX512 test crashes
+            # the ${TEST_NAME}_avx512 process before reaching it.
+            add_ocio_test_variant(${TEST_NAME}_avx512_diag ${TEST_BINARY} --avx512
+                                   --run_only "Lut3DRenderer/avx512_tetrahedral_bounds")
         endif()
     else()
         add_ocio_test_variant(${TEST_NAME} ${TEST_BINARY})
@@ -188,6 +211,7 @@ set(SOURCES
 set(TESTS
     apphelpers/CategoryHelpers_tests.cpp
     apphelpers/ColorSpaceHelpers_tests.cpp
+    apphelpers/ConfigCompatibility_tests.cpp
     apphelpers/DisplayViewHelpers_tests.cpp
     apphelpers/LegacyViewingPipeline_tests.cpp
     apphelpers/MergeConfigsHelpers_tests.cpp
@@ -331,18 +355,6 @@ set(TESTS
     ViewTransform_tests.cpp
 )
 
-function(prepend var prefix)
-    set(new "")
-    foreach(f ${ARGN})
-        list(APPEND new "${prefix}${f}")
-    endforeach(f)
-    set(${var} "${new}" PARENT_SCOPE)
-endfunction(prepend)
-
-prepend(SOURCES "${PROJECT_SOURCE_DIR}/src/OpenColorIO/" ${SOURCES})
-
-list(APPEND SOURCES ${TESTS})
-
 if(OCIO_USE_SIMD AND (OCIO_ARCH_X86 OR OCIO_USE_SSE2NEON))
     # Note that these files are gated by preprocessors to remove them based on the OCIO_USE_* vars.
     set_property(SOURCE "${CMAKE_SOURCE_DIR}/src/OpenColorIO/ops/lut1d/Lut1DOpCPU_SSE2.cpp" APPEND PROPERTY COMPILE_OPTIONS ${OCIO_SSE2_ARGS})
@@ -359,4 +371,4 @@ if(OCIO_USE_SIMD AND (OCIO_ARCH_X86 OR OCIO_USE_SSE2NEON))
     set_property(SOURCE "AVX512_tests.cpp" APPEND PROPERTY COMPILE_OPTIONS ${OCIO_AVX512_ARGS})
 endif()
 
-add_ocio_test(cpu "${SOURCES}" TRUE)
+add_ocio_test(cpu "${SOURCES}" "${TESTS}" TRUE)

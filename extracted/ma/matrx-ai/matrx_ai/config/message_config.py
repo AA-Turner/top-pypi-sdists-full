@@ -1171,6 +1171,11 @@ class MessageList:
         else:
             blocks.pop(slot, None)
 
+    def turn_context_blocks(self) -> dict[str, str]:
+        """A copy of this turn's staged blocks, by slot — read by the host's context
+        self-check (it verifies what was rendered before the model call)."""
+        return dict(self._turn_context_blocks)
+
     def clear_turn_context(self) -> None:
         """Drop every staged per-turn block (called at the end of a turn)."""
         self._turn_context_blocks.clear()

@@ -40,7 +40,7 @@ class Event(StripeObject):
         """
         Information on the API request that instigated the event.
         """
-        type: Literal["request"]
+        type: Union[Literal["request"], str]
         """
         Event reason type.
         """
@@ -73,6 +73,10 @@ class Event(StripeObject):
     reason: Optional[Reason]
     """
     Reason for the event.
+    """
+    snapshot_event: Optional[str]
+    """
+    For interop events, this is the snapshot event ID.
     """
     type: str
     """
@@ -121,6 +125,18 @@ class RelatedObject:
 
     def __repr__(self) -> str:
         return f"<RelatedObject id={self.id} type={self.type} url={self.url}>"
+
+
+class RelatedSingletonObject:
+    type: str
+    url: str
+
+    def __init__(self, d) -> None:
+        self.type = d["type"]
+        self.url = d["url"]
+
+    def __repr__(self) -> str:
+        return f"<RelatedSingletonObject type={self.type} url={self.url}>"
 
 
 class EventNotification:

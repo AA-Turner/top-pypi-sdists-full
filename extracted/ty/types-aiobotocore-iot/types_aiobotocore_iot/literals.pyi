@@ -76,6 +76,9 @@ __all__ = (
     "FleetMetricUnitType",
     "GetBehaviorModelTrainingSummariesPaginatorName",
     "IndexStatusType",
+    "InfluxDBSecretTypeType",
+    "InfluxDBTimestampUnitType",
+    "InfluxDBVersionType",
     "IoTServiceName",
     "JobEndBehaviorType",
     "JobExecutionFailureTypeType",
@@ -342,6 +345,9 @@ FleetMetricUnitType = Literal[
 ]
 GetBehaviorModelTrainingSummariesPaginatorName = Literal["get_behavior_model_training_summaries"]
 IndexStatusType = Literal["ACTIVE", "BUILDING", "REBUILDING"]
+InfluxDBSecretTypeType = Literal["SecretBinary", "SecretString"]
+InfluxDBTimestampUnitType = Literal["ms", "ns", "s", "us"]
+InfluxDBVersionType = Literal["V2", "V3"]
 JobEndBehaviorType = Literal["CANCEL", "FORCE_CANCEL", "STOP_ROLLOUT"]
 JobExecutionFailureTypeType = Literal["ALL", "FAILED", "REJECTED", "TIMED_OUT"]
 JobExecutionStatusType = Literal[
@@ -554,6 +560,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -628,6 +635,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -656,6 +664,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -750,6 +759,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

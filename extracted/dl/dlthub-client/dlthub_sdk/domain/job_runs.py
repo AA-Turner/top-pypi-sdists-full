@@ -74,6 +74,10 @@ TERMINAL_STATUSES = frozenset(
     }
 )
 
+#: The terminal statuses that did not succeed. SKIPPED is terminal but not a
+#: failure: a gate declined the run, so nothing was attempted.
+FAILED_STATUSES = frozenset({JobRunStatus.FAILED, JobRunStatus.CANCELLED})
+
 
 @dataclass(frozen=True)
 class PipelineRunSummary:
@@ -86,6 +90,7 @@ class PipelineRunSummary:
 
     Attributes:
         pipeline_name: The dlt pipeline's name.
+        pipeline_run_id: Addresses this pipeline run's detail and trace.
         transaction_id: Identifies this pipeline run in telemetry.
         destination: Where it wrote, when telemetry reported one.
         dataset: The dataset it wrote to, when telemetry reported one.
@@ -98,6 +103,7 @@ class PipelineRunSummary:
     """
 
     pipeline_name: str
+    pipeline_run_id: str | None
     transaction_id: str | None
     destination: str | None
     dataset: str | None
@@ -111,6 +117,11 @@ class PipelineRunSummary:
     def _from_payload(payload: PipelineRunSummaryResponse) -> PipelineRunSummary:
         return PipelineRunSummary(
             pipeline_name=payload.pipeline_name,
+            pipeline_run_id=(
+                str(payload.pipeline_run_id)
+                if isinstance(payload.pipeline_run_id, UUID)
+                else None
+            ),
             transaction_id=_narrow.text(payload.transaction_id),
             destination=_narrow.text(payload.destination_name),
             dataset=_narrow.text(payload.dataset_name),
@@ -316,6 +327,19 @@ class JobRun(Entity[M]):
             True once the run has reached a terminal status.
         """
         return self.status in TERMINAL_STATUSES
+
+    @property
+    def failed(self) -> bool:
+        """Whether the run finished without succeeding.
+
+        A SKIPPED run is finished but not failed — a gate declined it, so
+        nothing was attempted.
+
+        Returns:
+            True once the run has reached a terminal status other than
+            COMPLETED or SKIPPED.
+        """
+        return self.status in FAILED_STATUSES
 
     @overload
     def cancel(self: JobRun[Sync]) -> JobRun[Sync]: ...
@@ -747,7 +771,8 @@ class JobRuns(Collection[M]):
         Args:
             job_id: Narrow to one job's runs. Omit to use the job in scope, or
                 the whole workspace when there is none.
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:

@@ -29,6 +29,7 @@ from .fs import is_ignored_name, is_secret_file
 # Backstop to the inode-based cycle guard: refuse to materialize a template
 # tree nested more deeply than this (a symlink loop, or a pathological repo).
 MAX_COPY_DEPTH = 64
+_REPO_MARKERS = (".git", ".hg", ".jj")
 
 
 class ScaffoldSymlinkSecurityError(ValueError):
@@ -37,6 +38,20 @@ class ScaffoldSymlinkSecurityError(ValueError):
     Subclasses ``ValueError`` so ``create()``'s handler renders it as a concise
     one-line ``ClickException`` rather than a traceback.
     """
+
+
+def find_repo_boundary(path: pathlib.Path) -> pathlib.Path | None:
+    """Nearest ancestor of *path* (inclusive) holding a VCS working-copy marker.
+
+    Returns:
+        The boundary directory, or None when *path* is not inside such a working
+        copy.
+    """
+    path = path.resolve()
+    for candidate in (path, *path.parents):
+        if any((candidate / marker).exists() for marker in _REPO_MARKERS):
+            return candidate
+    return None
 
 
 def resolve_safe_symlink(link: pathlib.Path, clone_root: pathlib.Path) -> pathlib.Path:
@@ -65,20 +80,9 @@ def resolve_safe_symlink(link: pathlib.Path, clone_root: pathlib.Path) -> pathli
         ScaffoldSymlinkSecurityError: If the link is dangling, cyclic, escapes the
             repo, or targets an ignored path / an environment file.
     """
-    root = clone_root.resolve()
-    try:
-        # strict=True normalizes `..`, follows intermediate links, and fails on
-        # a dangling target so the generated project never gets a dead link.
-        target = link.resolve(strict=True)
-    except (OSError, RuntimeError) as e:
-        # FileNotFoundError (dangling target) or ELOOP / "too many levels of
-        # symbolic links" (a symlink cycle).
-        raise ScaffoldSymlinkSecurityError(
-            f"Symlink '{_symlink_display(link)}' points to a missing target or "
-            "forms a loop. Copy the shared files directly into the template "
-            "instead of linking to them."
-        ) from e
+    target = _resolve_symlink(link=link)
 
+    root = clone_root.resolve()
     if not target.is_relative_to(root):
         raise ScaffoldSymlinkSecurityError(
             f"Symlink '{link}' resolves to '{target}', which "
@@ -103,12 +107,13 @@ def resolve_safe_symlink(link: pathlib.Path, clone_root: pathlib.Path) -> pathli
 
 
 def require_safe_symlink(
-    link: pathlib.Path, clone_root: pathlib.Path | None
+    link: pathlib.Path,
+    clone_root: pathlib.Path | None,
 ) -> pathlib.Path:
-    """Resolve *link* to its safe target, or reject it.
+    """Resolve *link* to its target, or reject it.
 
-    With no *clone_root* (a bundled, trusted copy) there is no repository to
-    contain the link, so any symlink is refused. Otherwise the link is vetted by
+    With no *clone_root* (a bundled, trusted copy) any symlink is refused;
+    otherwise the target is vetted against *clone_root* by
     :func:`resolve_safe_symlink`.
     """
     if clone_root is None:
@@ -117,6 +122,20 @@ def require_safe_symlink(
             "allowed here for security reasons; copy the files directly instead."
         )
     return resolve_safe_symlink(link, clone_root)
+
+
+def _resolve_symlink(link: pathlib.Path) -> pathlib.Path:
+    """Resolve *link* to its target with no containment check."""
+    try:
+        # strict=True still rejects a dead link or a loop; there is just no
+        # containment / ignored-path / secret-file check.
+        return link.resolve(strict=True)
+    except (OSError, RuntimeError) as e:
+        raise ScaffoldSymlinkSecurityError(
+            f"Symlink '{_symlink_display(link)}' points to a missing target or "
+            "forms a loop. Copy the shared files directly into the template "
+            "instead of linking to them."
+        ) from e
 
 
 def _symlink_display(link: pathlib.Path) -> str:

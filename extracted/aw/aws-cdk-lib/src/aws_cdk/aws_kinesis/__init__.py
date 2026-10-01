@@ -385,6 +385,1796 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesis_40f1d96a.IChannelRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnChannel(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel",
+):
+    '''Resource Type definition for AWS::Kinesis::Channel.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html
+    :cloudformationResource: AWS::Kinesis::Channel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesis as kinesis
+        
+        cfn_channel = kinesis.CfnChannel(self, "MyCfnChannel",
+            channel_name="channelName",
+            service_execution_role_arn="serviceExecutionRoleArn",
+            stream_configuration_list=[kinesis.CfnChannel.StreamConfigurationProperty(
+                record_configuration=kinesis.CfnChannel.RecordConfigurationProperty(
+                    record_format_type="recordFormatType",
+        
+                    # the properties below are optional
+                    gsr_schema_arn="gsrSchemaArn"
+                ),
+                stream_arn="streamArn"
+            )],
+        
+            # the properties below are optional
+            encryption_configuration=kinesis.CfnChannel.EncryptionConfigurationProperty(
+                encryption_type="encryptionType",
+                key_id="keyId"
+            ),
+            logging_configuration=kinesis.CfnChannel.LoggingConfigurationProperty(
+                cloud_watch_logs=kinesis.CfnChannel.CloudWatchLogsConfigurationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    log_group_name="logGroupName",
+                    log_stream_name="logStreamName"
+                )
+            ),
+            s3_destination_configuration=kinesis.CfnChannel.S3DestinationConfigurationProperty(
+                storage_configuration=kinesis.CfnChannel.S3StorageConfigurationProperty(
+                    bucket_arn="bucketArn",
+                    compression_type="compressionType",
+                    expected_bucket_owner="expectedBucketOwner",
+        
+                    # the properties below are optional
+                    output_key_template="outputKeyTemplate",
+                    storage_class="storageClass"
+                ),
+        
+                # the properties below are optional
+                data_freshness_in_seconds=123,
+                dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                    bucket_arn="bucketArn",
+                    expected_bucket_owner="expectedBucketOwner",
+        
+                    # the properties below are optional
+                    error_output_prefix="errorOutputPrefix"
+                )
+            ),
+            s3_tables_destination_configuration=kinesis.CfnChannel.S3TablesDestinationConfigurationProperty(
+                dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                    bucket_arn="bucketArn",
+                    expected_bucket_owner="expectedBucketOwner",
+        
+                    # the properties below are optional
+                    error_output_prefix="errorOutputPrefix"
+                ),
+                s3_tables_configuration_list=[kinesis.CfnChannel.S3TableConfigurationProperty(
+                    compression_type="compressionType",
+                    namespace="namespace",
+                    table_bucket_arn="tableBucketArn",
+                    table_name="tableName",
+        
+                    # the properties below are optional
+                    partition_spec=kinesis.CfnChannel.PartitionSpecProperty(
+                        partition_fields=[kinesis.CfnChannel.PartitionFieldProperty(
+                            source_name="sourceName",
+                            transform="transform"
+                        )]
+                    )
+                )],
+        
+                # the properties below are optional
+                data_freshness_in_seconds=123
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        channel_name: builtins.str,
+        service_execution_role_arn: builtins.str,
+        stream_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.StreamConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_tables_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3TablesDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Kinesis::Channel``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param channel_name: The name of the channel. The name's uniqueness is scoped per AWS account and region.
+        :param service_execution_role_arn: The ARN of the IAM role that the channel assumes to read from the source stream, deliver records to the destination, and (when enabled) write CloudWatch Logs.
+        :param stream_configuration_list: List of stream configurations associated with the channel. v1 supports a single element; the list shape allows future extensibility to fan in from multiple streams.
+        :param encryption_configuration: Server-side encryption configuration for data at rest in the destination. Data delivered to S3 / S3 Tables is encrypted with the same key.
+        :param logging_configuration: Configuration for delivering channel operational logs.
+        :param s3_destination_configuration: Configuration for delivery to a vanilla S3 bucket destination. Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+        :param s3_tables_destination_configuration: Configuration for delivery to S3 Tables destinations. Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+        :param tags: An arbitrary set of tags (key-value pairs) to associate with the Kinesis channel.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7166982321ce39b90848699ab7144e1a3b0cc07fe17e0f6ef9c53b863f5d217c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChannelProps(
+            channel_name=channel_name,
+            service_execution_role_arn=service_execution_role_arn,
+            stream_configuration_list=stream_configuration_list,
+            encryption_configuration=encryption_configuration,
+            logging_configuration=logging_configuration,
+            s3_destination_configuration=s3_destination_configuration,
+            s3_tables_destination_configuration=s3_tables_destination_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForChannel")
+    @builtins.classmethod
+    def arn_for_channel(
+        cls,
+        resource: "_aws_kinesis_40f1d96a.IChannelRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08508f372d5b8118d06ce3a6cdf9df3e4259503d70567e242e14cf7a1e6b9096)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
+
+    @jsii.member(jsii_name="isCfnChannel")
+    @builtins.classmethod
+    def is_cfn_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd7f16cf08c30d44fe8f7003f26377a3ba6c13a2777cbf92ef57998396b8a754)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b4fa98362ad40928c8acf291e525bc251281fc75eab28b425b0f3770a571072)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__582374499d50d6cdd6ce892cd7c2b397db79709ec9918f5707f25faf827ec4a7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelArn")
+    def attr_channel_arn(self) -> builtins.str:
+        '''The ARN of the channel.
+
+        :cloudformationAttribute: ChannelARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelCreationTimestamp")
+    def attr_channel_creation_timestamp(self) -> builtins.str:
+        '''Timestamp of when the channel was created.
+
+        :cloudformationAttribute: ChannelCreationTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelCreationTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelId")
+    def attr_channel_id(self) -> builtins.str:
+        '''The service-generated unique identifier for the channel.
+
+        :cloudformationAttribute: ChannelId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrChannelStatus")
+    def attr_channel_status(self) -> builtins.str:
+        '''The status of the channel.
+
+        :cloudformationAttribute: ChannelStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrChannelStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "_aws_kinesis_40f1d96a.ChannelReference":
+        '''A reference to a Channel resource.'''
+        return typing.cast("_aws_kinesis_40f1d96a.ChannelReference", jsii.get(self, "channelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelName")
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel.'''
+        return typing.cast(builtins.str, jsii.get(self, "channelName"))
+
+    @channel_name.setter
+    def channel_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af404684948512563ecf2943927f5079bb192d0395922b7d104afa6a101d8c15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceExecutionRoleArn")
+    def service_execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that the channel assumes to read from the source stream, deliver records to the destination, and (when enabled) write CloudWatch Logs.'''
+        return typing.cast(builtins.str, jsii.get(self, "serviceExecutionRoleArn"))
+
+    @service_execution_role_arn.setter
+    def service_execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6052184e9602688028c70f6bf76d693127683d5c35f02df11b4fb51c026adf5c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamConfigurationList")
+    def stream_configuration_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.StreamConfigurationProperty"]]]:
+        '''List of stream configurations associated with the channel.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.StreamConfigurationProperty"]]], jsii.get(self, "streamConfigurationList"))
+
+    @stream_configuration_list.setter
+    def stream_configuration_list(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.StreamConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f752e1586dbeeeece2931e17c23eecf50b2c669a820e653376f2c361c6812bff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamConfigurationList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]]:
+        '''Server-side encryption configuration for data at rest in the destination.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c3606c253b276424c9fea97a3f5d6b6104217b728d395d6ec1dfcf5c0e7e2ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfiguration")
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LoggingConfigurationProperty"]]:
+        '''Configuration for delivering channel operational logs.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+
+    @logging_configuration.setter
+    def logging_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LoggingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4c13295a220ace33e2273cac70e0ffb0b3d6c8415918adfbf98cc3e6f3ccf73c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DestinationConfiguration")
+    def s3_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]]:
+        '''Configuration for delivery to a vanilla S3 bucket destination.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]], jsii.get(self, "s3DestinationConfiguration"))
+
+    @s3_destination_configuration.setter
+    def s3_destination_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0fbf9b088eee08e5b53b8d39193ff2fb4cb2a3998ef84554c711e55d62bb3799)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3TablesDestinationConfiguration")
+    def s3_tables_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TablesDestinationConfigurationProperty"]]:
+        '''Configuration for delivery to S3 Tables destinations.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TablesDestinationConfigurationProperty"]], jsii.get(self, "s3TablesDestinationConfiguration"))
+
+    @s3_tables_destination_configuration.setter
+    def s3_tables_destination_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TablesDestinationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f38c1474466b4f01736ce5b8923c12db9eaee5d2d589537d07df2e73105de6ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3TablesDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An arbitrary set of tags (key-value pairs) to associate with the Kinesis channel.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__149ecadbd3e8d5902be8819a951e2fb51344157495d7b39f137f7ba4c7702324)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.CloudWatchLogsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "log_group_name": "logGroupName",
+            "log_stream_name": "logStreamName",
+        },
+    )
+    class CloudWatchLogsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            log_group_name: typing.Optional[builtins.str] = None,
+            log_stream_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''CloudWatch Logs configuration for the channel.
+
+            When Enabled is true and LogGroupName is omitted, the service uses a default group derived from the channel name and id; LogStreamName defaults to the literal string 'DestinationDelivery'.
+
+            :param enabled: Whether CloudWatch Logs delivery is enabled.
+            :param log_group_name: The CloudWatch log group name. When Enabled is true and LogGroupName is omitted, the service uses the default '/aws/kinesis//'.
+            :param log_stream_name: The CloudWatch log stream name. Defaults to the literal string 'DestinationDelivery' when omitted. Default: - "DestinationDelivery"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-cloudwatchlogsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                cloud_watch_logs_configuration_property = kinesis.CfnChannel.CloudWatchLogsConfigurationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    log_group_name="logGroupName",
+                    log_stream_name="logStreamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__95b7fc3561b6bce983eabdd2aae31022b255473496f430a3bd4a27c9fcb16910)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+                check_type(argname="argument log_stream_name", value=log_stream_name, expected_type=type_hints["log_stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if log_group_name is not None:
+                self._values["log_group_name"] = log_group_name
+            if log_stream_name is not None:
+                self._values["log_stream_name"] = log_stream_name
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether CloudWatch Logs delivery is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-cloudwatchlogsconfiguration.html#cfn-kinesis-channel-cloudwatchlogsconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def log_group_name(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log group name.
+
+            When Enabled is true and LogGroupName is omitted, the service uses the default '/aws/kinesis//'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-cloudwatchlogsconfiguration.html#cfn-kinesis-channel-cloudwatchlogsconfiguration-loggroupname
+            '''
+            result = self._values.get("log_group_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_stream_name(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log stream name.
+
+            Defaults to the literal string 'DestinationDelivery' when omitted.
+
+            :default: - "DestinationDelivery"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-cloudwatchlogsconfiguration.html#cfn-kinesis-channel-cloudwatchlogsconfiguration-logstreamname
+            '''
+            result = self._values.get("log_stream_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_arn": "bucketArn",
+            "expected_bucket_owner": "expectedBucketOwner",
+            "error_output_prefix": "errorOutputPrefix",
+        },
+    )
+    class DeadLetterQueueS3ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            expected_bucket_owner: builtins.str,
+            error_output_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration of the S3 bucket used to capture records that cannot be delivered to the primary destination.
+
+            :param bucket_arn: The ARN of the S3 bucket for storing failed records.
+            :param expected_bucket_owner: The AWS account ID of the expected owner of the dead-letter queue S3 bucket. Used to verify bucket ownership before delivery.
+            :param error_output_prefix: Optional S3 key prefix under which error records are organized. When omitted, the service uses the default 'kinesis-channel/errors///'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-deadletterqueues3configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                dead_letter_queue_s3_configuration_property = kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                    bucket_arn="bucketArn",
+                    expected_bucket_owner="expectedBucketOwner",
+                
+                    # the properties below are optional
+                    error_output_prefix="errorOutputPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9e3562e52594426971b405277333a8357707f6f01282e686f144b3f8f76569be)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+                check_type(argname="argument error_output_prefix", value=error_output_prefix, expected_type=type_hints["error_output_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "expected_bucket_owner": expected_bucket_owner,
+            }
+            if error_output_prefix is not None:
+                self._values["error_output_prefix"] = error_output_prefix
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''The ARN of the S3 bucket for storing failed records.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-deadletterqueues3configuration.html#cfn-kinesis-channel-deadletterqueues3configuration-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expected_bucket_owner(self) -> builtins.str:
+            '''The AWS account ID of the expected owner of the dead-letter queue S3 bucket.
+
+            Used to verify bucket ownership before delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-deadletterqueues3configuration.html#cfn-kinesis-channel-deadletterqueues3configuration-expectedbucketowner
+            '''
+            result = self._values.get("expected_bucket_owner")
+            assert result is not None, "Required property 'expected_bucket_owner' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def error_output_prefix(self) -> typing.Optional[builtins.str]:
+            '''Optional S3 key prefix under which error records are organized.
+
+            When omitted, the service uses the default 'kinesis-channel/errors///'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-deadletterqueues3configuration.html#cfn-kinesis-channel-deadletterqueues3configuration-erroroutputprefix
+            '''
+            result = self._values.get("error_output_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeadLetterQueueS3ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_type": "encryptionType", "key_id": "keyId"},
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            encryption_type: builtins.str,
+            key_id: builtins.str,
+        ) -> None:
+            '''Server-side encryption configuration for data at rest in the destination.
+
+            Data delivered to S3 / S3 Tables is encrypted with the same key.
+
+            :param encryption_type: The encryption type. KMS is the only supported value.
+            :param key_id: The customer-managed AWS KMS key. Accepts a key GUID, key ARN, alias ARN, or alias name prefixed by 'alias/'. The Kinesis Data Streams managed alias 'aws/kinesis' is not accepted - the key must be customer-owned so it can also be used by readers of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                encryption_configuration_property = kinesis.CfnChannel.EncryptionConfigurationProperty(
+                    encryption_type="encryptionType",
+                    key_id="keyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__208b17403d01da5f04c6c6076e765459446f077b527ac076913722066189baf3)
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_type": encryption_type,
+                "key_id": key_id,
+            }
+
+        @builtins.property
+        def encryption_type(self) -> builtins.str:
+            '''The encryption type.
+
+            KMS is the only supported value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-encryptionconfiguration.html#cfn-kinesis-channel-encryptionconfiguration-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            assert result is not None, "Required property 'encryption_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_id(self) -> builtins.str:
+            '''The customer-managed AWS KMS key.
+
+            Accepts a key GUID, key ARN, alias ARN, or alias name prefixed by 'alias/'. The Kinesis Data Streams managed alias 'aws/kinesis' is not accepted - the key must be customer-owned so it can also be used by readers of the destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-encryptionconfiguration.html#cfn-kinesis-channel-encryptionconfiguration-keyid
+            '''
+            result = self._values.get("key_id")
+            assert result is not None, "Required property 'key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.LoggingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cloud_watch_logs": "cloudWatchLogs"},
+    )
+    class LoggingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CloudWatchLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration for delivering channel operational logs.
+
+            :param cloud_watch_logs: CloudWatch Logs configuration for the channel. When Enabled is true and LogGroupName is omitted, the service uses a default group derived from the channel name and id; LogStreamName defaults to the literal string 'DestinationDelivery'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-loggingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                logging_configuration_property = kinesis.CfnChannel.LoggingConfigurationProperty(
+                    cloud_watch_logs=kinesis.CfnChannel.CloudWatchLogsConfigurationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        log_group_name="logGroupName",
+                        log_stream_name="logStreamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e861df9dd62abd80da0cf7cf2b735185750a2e000ece6088523f59613bd14a73)
+                check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cloud_watch_logs": cloud_watch_logs,
+            }
+
+        @builtins.property
+        def cloud_watch_logs(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CloudWatchLogsConfigurationProperty"]:
+            '''CloudWatch Logs configuration for the channel.
+
+            When Enabled is true and LogGroupName is omitted, the service uses a default group derived from the channel name and id; LogStreamName defaults to the literal string 'DestinationDelivery'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-loggingconfiguration.html#cfn-kinesis-channel-loggingconfiguration-cloudwatchlogs
+            '''
+            result = self._values.get("cloud_watch_logs")
+            assert result is not None, "Required property 'cloud_watch_logs' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CloudWatchLogsConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.PartitionFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_name": "sourceName", "transform": "transform"},
+    )
+    class PartitionFieldProperty:
+        def __init__(
+            self,
+            *,
+            source_name: builtins.str,
+            transform: builtins.str,
+        ) -> None:
+            '''A single partition field consisting of a transform applied to a source column.
+
+            :param source_name: The name of the source column on which the transform is applied.
+            :param transform: The partitioning transform applied to the SourceName column.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-partitionfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                partition_field_property = kinesis.CfnChannel.PartitionFieldProperty(
+                    source_name="sourceName",
+                    transform="transform"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__be8b1fb248634b869832acc51946cb706ffdc2f1bd2119293435e9d2d8bd192d)
+                check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
+                check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_name": source_name,
+                "transform": transform,
+            }
+
+        @builtins.property
+        def source_name(self) -> builtins.str:
+            '''The name of the source column on which the transform is applied.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-partitionfield.html#cfn-kinesis-channel-partitionfield-sourcename
+            '''
+            result = self._values.get("source_name")
+            assert result is not None, "Required property 'source_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def transform(self) -> builtins.str:
+            '''The partitioning transform applied to the SourceName column.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-partitionfield.html#cfn-kinesis-channel-partitionfield-transform
+            '''
+            result = self._values.get("transform")
+            assert result is not None, "Required property 'transform' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.PartitionSpecProperty",
+        jsii_struct_bases=[],
+        name_mapping={"partition_fields": "partitionFields"},
+    )
+    class PartitionSpecProperty:
+        def __init__(
+            self,
+            *,
+            partition_fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Partitioning specification for the destination Iceberg table.
+
+            Follows the S3 Tables / Iceberg PartitionSpec format.
+
+            :param partition_fields: List of partition fields that define how records are partitioned when written to the destination table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-partitionspec.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                partition_spec_property = kinesis.CfnChannel.PartitionSpecProperty(
+                    partition_fields=[kinesis.CfnChannel.PartitionFieldProperty(
+                        source_name="sourceName",
+                        transform="transform"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c875440869c5dd4620d7a9db597a28d94dd5e525b83b3ca1875773c37b80d197)
+                check_type(argname="argument partition_fields", value=partition_fields, expected_type=type_hints["partition_fields"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "partition_fields": partition_fields,
+            }
+
+        @builtins.property
+        def partition_fields(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionFieldProperty"]]]:
+            '''List of partition fields that define how records are partitioned when written to the destination table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-partitionspec.html#cfn-kinesis-channel-partitionspec-partitionfields
+            '''
+            result = self._values.get("partition_fields")
+            assert result is not None, "Required property 'partition_fields' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionFieldProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PartitionSpecProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.RecordConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "record_format_type": "recordFormatType",
+            "gsr_schema_arn": "gsrSchemaArn",
+        },
+    )
+    class RecordConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            record_format_type: builtins.str,
+            gsr_schema_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration that describes how records on the source stream are encoded.
+
+            :param record_format_type: The format used to interpret records read from the source stream.
+            :param gsr_schema_arn: The ARN of the AWS Glue Schema Registry (GSR) schema. Required for the S3 Tables destination, where it is used to create the S3 Table and to validate that the record format matches the table schema. Also used when RecordFormatType is GSR_JSON to interpret records read from the source stream. Vanilla S3 delivery writes records as S3 objects and does not need a schema. The schema must be in the same account and region as the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-recordconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                record_configuration_property = kinesis.CfnChannel.RecordConfigurationProperty(
+                    record_format_type="recordFormatType",
+                
+                    # the properties below are optional
+                    gsr_schema_arn="gsrSchemaArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2b78812263f19ddb35e0293cf4ae6864719830d813ce1773073238f9fc260eb3)
+                check_type(argname="argument record_format_type", value=record_format_type, expected_type=type_hints["record_format_type"])
+                check_type(argname="argument gsr_schema_arn", value=gsr_schema_arn, expected_type=type_hints["gsr_schema_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "record_format_type": record_format_type,
+            }
+            if gsr_schema_arn is not None:
+                self._values["gsr_schema_arn"] = gsr_schema_arn
+
+        @builtins.property
+        def record_format_type(self) -> builtins.str:
+            '''The format used to interpret records read from the source stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-recordconfiguration.html#cfn-kinesis-channel-recordconfiguration-recordformattype
+            '''
+            result = self._values.get("record_format_type")
+            assert result is not None, "Required property 'record_format_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def gsr_schema_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the AWS Glue Schema Registry (GSR) schema.
+
+            Required for the S3 Tables destination, where it is used to create the S3 Table and to validate that the record format matches the table schema. Also used when RecordFormatType is GSR_JSON to interpret records read from the source stream. Vanilla S3 delivery writes records as S3 objects and does not need a schema. The schema must be in the same account and region as the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-recordconfiguration.html#cfn-kinesis-channel-recordconfiguration-gsrschemaarn
+            '''
+            result = self._values.get("gsr_schema_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecordConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.S3DestinationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "storage_configuration": "storageConfiguration",
+            "data_freshness_in_seconds": "dataFreshnessInSeconds",
+            "dead_letter_queue_s3_configuration": "deadLetterQueueS3Configuration",
+        },
+    )
+    class S3DestinationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            storage_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3StorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+            dead_letter_queue_s3_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DeadLetterQueueS3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for delivery to a vanilla S3 bucket destination.
+
+            Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+
+            :param storage_configuration: S3 storage configuration that describes the destination bucket and how delivered objects are stored.
+            :param data_freshness_in_seconds: The maximum time in seconds the channel buffers records before delivery if the minimum target file size is not reached. Default: - 300
+            :param dead_letter_queue_s3_configuration: Configuration of the S3 bucket used to capture records that cannot be delivered to the primary destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3destinationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                s3_destination_configuration_property = kinesis.CfnChannel.S3DestinationConfigurationProperty(
+                    storage_configuration=kinesis.CfnChannel.S3StorageConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        compression_type="compressionType",
+                        expected_bucket_owner="expectedBucketOwner",
+                
+                        # the properties below are optional
+                        output_key_template="outputKeyTemplate",
+                        storage_class="storageClass"
+                    ),
+                
+                    # the properties below are optional
+                    data_freshness_in_seconds=123,
+                    dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        expected_bucket_owner="expectedBucketOwner",
+                
+                        # the properties below are optional
+                        error_output_prefix="errorOutputPrefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9abdab63db2f546937db5582e5fe97a107ffe84911b34ef6918dc976729b7785)
+                check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
+                check_type(argname="argument data_freshness_in_seconds", value=data_freshness_in_seconds, expected_type=type_hints["data_freshness_in_seconds"])
+                check_type(argname="argument dead_letter_queue_s3_configuration", value=dead_letter_queue_s3_configuration, expected_type=type_hints["dead_letter_queue_s3_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "storage_configuration": storage_configuration,
+            }
+            if data_freshness_in_seconds is not None:
+                self._values["data_freshness_in_seconds"] = data_freshness_in_seconds
+            if dead_letter_queue_s3_configuration is not None:
+                self._values["dead_letter_queue_s3_configuration"] = dead_letter_queue_s3_configuration
+
+        @builtins.property
+        def storage_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3StorageConfigurationProperty"]:
+            '''S3 storage configuration that describes the destination bucket and how delivered objects are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3destinationconfiguration.html#cfn-kinesis-channel-s3destinationconfiguration-storageconfiguration
+            '''
+            result = self._values.get("storage_configuration")
+            assert result is not None, "Required property 'storage_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3StorageConfigurationProperty"], result)
+
+        @builtins.property
+        def data_freshness_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The maximum time in seconds the channel buffers records before delivery if the minimum target file size is not reached.
+
+            :default: - 300
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3destinationconfiguration.html#cfn-kinesis-channel-s3destinationconfiguration-datafreshnessinseconds
+            '''
+            result = self._values.get("data_freshness_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def dead_letter_queue_s3_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3ConfigurationProperty"]]:
+            '''Configuration of the S3 bucket used to capture records that cannot be delivered to the primary destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3destinationconfiguration.html#cfn-kinesis-channel-s3destinationconfiguration-deadletterqueues3configuration
+            '''
+            result = self._values.get("dead_letter_queue_s3_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3ConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3DestinationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.S3StorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket_arn": "bucketArn",
+            "compression_type": "compressionType",
+            "expected_bucket_owner": "expectedBucketOwner",
+            "output_key_template": "outputKeyTemplate",
+            "storage_class": "storageClass",
+        },
+    )
+    class S3StorageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            compression_type: builtins.str,
+            expected_bucket_owner: builtins.str,
+            output_key_template: typing.Optional[builtins.str] = None,
+            storage_class: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''S3 storage configuration that describes the destination bucket and how delivered objects are stored.
+
+            :param bucket_arn: The ARN of the S3 bucket for record delivery. Different channels can deliver to the same bucket. Buckets can be cross-account but must be in the same region as the channel.
+            :param compression_type: The compression algorithm applied to delivered objects.
+            :param expected_bucket_owner: The AWS account ID of the expected owner of the destination S3 bucket. Used to verify bucket ownership before delivery.
+            :param output_key_template: Optional template for the S3 object key path. Supports placeholders in the form !{name}: !{channel-name}, !{channel-id}, !{stream-name}, !{yyyy}, !{yy}, !{MM}, !{dd}, !{HH}, !{mm}, and !{extension} (a literal file extension can be supplied as !{extension:.json.gz}). When omitted, the service uses the default 'kinesis-channel/!{channel-name}/!{channel-id}/!{yyyy}/!{MM}/!{dd}/!{HH}/!{channel-name}-!{channel-id}-!{yyyy}-!{MM}-!{dd}-!{HH}-!{mm}!{extension}'.
+            :param storage_class: The S3 storage class for delivered objects. Default: - "STANDARD"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                s3_storage_configuration_property = kinesis.CfnChannel.S3StorageConfigurationProperty(
+                    bucket_arn="bucketArn",
+                    compression_type="compressionType",
+                    expected_bucket_owner="expectedBucketOwner",
+                
+                    # the properties below are optional
+                    output_key_template="outputKeyTemplate",
+                    storage_class="storageClass"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea7e02e524783f56dce8bf46bfa62f201ac94eb46f7e7a099cc474fad7c71c43)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+                check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+                check_type(argname="argument output_key_template", value=output_key_template, expected_type=type_hints["output_key_template"])
+                check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "compression_type": compression_type,
+                "expected_bucket_owner": expected_bucket_owner,
+            }
+            if output_key_template is not None:
+                self._values["output_key_template"] = output_key_template
+            if storage_class is not None:
+                self._values["storage_class"] = storage_class
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''The ARN of the S3 bucket for record delivery.
+
+            Different channels can deliver to the same bucket. Buckets can be cross-account but must be in the same region as the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html#cfn-kinesis-channel-s3storageconfiguration-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def compression_type(self) -> builtins.str:
+            '''The compression algorithm applied to delivered objects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html#cfn-kinesis-channel-s3storageconfiguration-compressiontype
+            '''
+            result = self._values.get("compression_type")
+            assert result is not None, "Required property 'compression_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expected_bucket_owner(self) -> builtins.str:
+            '''The AWS account ID of the expected owner of the destination S3 bucket.
+
+            Used to verify bucket ownership before delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html#cfn-kinesis-channel-s3storageconfiguration-expectedbucketowner
+            '''
+            result = self._values.get("expected_bucket_owner")
+            assert result is not None, "Required property 'expected_bucket_owner' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_key_template(self) -> typing.Optional[builtins.str]:
+            '''Optional template for the S3 object key path.
+
+            Supports placeholders in the form !{name}: !{channel-name}, !{channel-id}, !{stream-name}, !{yyyy}, !{yy}, !{MM}, !{dd}, !{HH}, !{mm}, and !{extension} (a literal file extension can be supplied as !{extension:.json.gz}). When omitted, the service uses the default 'kinesis-channel/!{channel-name}/!{channel-id}/!{yyyy}/!{MM}/!{dd}/!{HH}/!{channel-name}-!{channel-id}-!{yyyy}-!{MM}-!{dd}-!{HH}-!{mm}!{extension}'.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html#cfn-kinesis-channel-s3storageconfiguration-outputkeytemplate
+            '''
+            result = self._values.get("output_key_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def storage_class(self) -> typing.Optional[builtins.str]:
+            '''The S3 storage class for delivered objects.
+
+            :default: - "STANDARD"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3storageconfiguration.html#cfn-kinesis-channel-s3storageconfiguration-storageclass
+            '''
+            result = self._values.get("storage_class")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3StorageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.S3TableConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "compression_type": "compressionType",
+            "namespace": "namespace",
+            "table_bucket_arn": "tableBucketArn",
+            "table_name": "tableName",
+            "partition_spec": "partitionSpec",
+        },
+    )
+    class S3TableConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            compression_type: builtins.str,
+            namespace: builtins.str,
+            table_bucket_arn: builtins.str,
+            table_name: builtins.str,
+            partition_spec: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.PartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''An S3 Tables destination including its table bucket, namespace, table name, and partition spec.
+
+            :param compression_type: The compression algorithm applied to objects delivered to the S3 Tables destination.
+            :param namespace: The name of the S3 Tables namespace that contains the destination table.
+            :param table_bucket_arn: The ARN of the S3 Tables table bucket for record delivery. Buckets can be cross-account but must be in the same region as the channel.
+            :param table_name: The name of the destination S3 Tables table. The table is created for the customer if it does not yet exist.
+            :param partition_spec: Partitioning specification for the destination Iceberg table. Follows the S3 Tables / Iceberg PartitionSpec format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                s3_table_configuration_property = kinesis.CfnChannel.S3TableConfigurationProperty(
+                    compression_type="compressionType",
+                    namespace="namespace",
+                    table_bucket_arn="tableBucketArn",
+                    table_name="tableName",
+                
+                    # the properties below are optional
+                    partition_spec=kinesis.CfnChannel.PartitionSpecProperty(
+                        partition_fields=[kinesis.CfnChannel.PartitionFieldProperty(
+                            source_name="sourceName",
+                            transform="transform"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3e9fe688d18d46665c77463781c91f4c7fde353d396bdbfb75157bc5d5733853)
+                check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
+                check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+                check_type(argname="argument partition_spec", value=partition_spec, expected_type=type_hints["partition_spec"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "compression_type": compression_type,
+                "namespace": namespace,
+                "table_bucket_arn": table_bucket_arn,
+                "table_name": table_name,
+            }
+            if partition_spec is not None:
+                self._values["partition_spec"] = partition_spec
+
+        @builtins.property
+        def compression_type(self) -> builtins.str:
+            '''The compression algorithm applied to objects delivered to the S3 Tables destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html#cfn-kinesis-channel-s3tableconfiguration-compressiontype
+            '''
+            result = self._values.get("compression_type")
+            assert result is not None, "Required property 'compression_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The name of the S3 Tables namespace that contains the destination table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html#cfn-kinesis-channel-s3tableconfiguration-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def table_bucket_arn(self) -> builtins.str:
+            '''The ARN of the S3 Tables table bucket for record delivery.
+
+            Buckets can be cross-account but must be in the same region as the channel.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html#cfn-kinesis-channel-s3tableconfiguration-tablebucketarn
+            '''
+            result = self._values.get("table_bucket_arn")
+            assert result is not None, "Required property 'table_bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def table_name(self) -> builtins.str:
+            '''The name of the destination S3 Tables table.
+
+            The table is created for the customer if it does not yet exist.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html#cfn-kinesis-channel-s3tableconfiguration-tablename
+            '''
+            result = self._values.get("table_name")
+            assert result is not None, "Required property 'table_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def partition_spec(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSpecProperty"]]:
+            '''Partitioning specification for the destination Iceberg table.
+
+            Follows the S3 Tables / Iceberg PartitionSpec format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tableconfiguration.html#cfn-kinesis-channel-s3tableconfiguration-partitionspec
+            '''
+            result = self._values.get("partition_spec")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.PartitionSpecProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3TableConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.S3TablesDestinationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dead_letter_queue_s3_configuration": "deadLetterQueueS3Configuration",
+            "s3_tables_configuration_list": "s3TablesConfigurationList",
+            "data_freshness_in_seconds": "dataFreshnessInSeconds",
+        },
+    )
+    class S3TablesDestinationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            dead_letter_queue_s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DeadLetterQueueS3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_tables_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3TableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for delivery to S3 Tables destinations.
+
+            Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+
+            :param dead_letter_queue_s3_configuration: Configuration of the S3 bucket used to capture records that cannot be delivered to the primary destination.
+            :param s3_tables_configuration_list: The list of S3 Tables destinations. v1 supports a single element; the list shape allows future extensibility to fan out to multiple tables.
+            :param data_freshness_in_seconds: The maximum time in seconds the channel buffers records before delivery if the minimum target file size is not reached. Default: - 300
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tablesdestinationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                s3_tables_destination_configuration_property = kinesis.CfnChannel.S3TablesDestinationConfigurationProperty(
+                    dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        expected_bucket_owner="expectedBucketOwner",
+                
+                        # the properties below are optional
+                        error_output_prefix="errorOutputPrefix"
+                    ),
+                    s3_tables_configuration_list=[kinesis.CfnChannel.S3TableConfigurationProperty(
+                        compression_type="compressionType",
+                        namespace="namespace",
+                        table_bucket_arn="tableBucketArn",
+                        table_name="tableName",
+                
+                        # the properties below are optional
+                        partition_spec=kinesis.CfnChannel.PartitionSpecProperty(
+                            partition_fields=[kinesis.CfnChannel.PartitionFieldProperty(
+                                source_name="sourceName",
+                                transform="transform"
+                            )]
+                        )
+                    )],
+                
+                    # the properties below are optional
+                    data_freshness_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__41b5d1aed1e77bcce2375cc56732ef91c762c43aee5e3729f30c31bc78fc1adf)
+                check_type(argname="argument dead_letter_queue_s3_configuration", value=dead_letter_queue_s3_configuration, expected_type=type_hints["dead_letter_queue_s3_configuration"])
+                check_type(argname="argument s3_tables_configuration_list", value=s3_tables_configuration_list, expected_type=type_hints["s3_tables_configuration_list"])
+                check_type(argname="argument data_freshness_in_seconds", value=data_freshness_in_seconds, expected_type=type_hints["data_freshness_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dead_letter_queue_s3_configuration": dead_letter_queue_s3_configuration,
+                "s3_tables_configuration_list": s3_tables_configuration_list,
+            }
+            if data_freshness_in_seconds is not None:
+                self._values["data_freshness_in_seconds"] = data_freshness_in_seconds
+
+        @builtins.property
+        def dead_letter_queue_s3_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3ConfigurationProperty"]:
+            '''Configuration of the S3 bucket used to capture records that cannot be delivered to the primary destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tablesdestinationconfiguration.html#cfn-kinesis-channel-s3tablesdestinationconfiguration-deadletterqueues3configuration
+            '''
+            result = self._values.get("dead_letter_queue_s3_configuration")
+            assert result is not None, "Required property 'dead_letter_queue_s3_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DeadLetterQueueS3ConfigurationProperty"], result)
+
+        @builtins.property
+        def s3_tables_configuration_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TableConfigurationProperty"]]]:
+            '''The list of S3 Tables destinations.
+
+            v1 supports a single element; the list shape allows future extensibility to fan out to multiple tables.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tablesdestinationconfiguration.html#cfn-kinesis-channel-s3tablesdestinationconfiguration-s3tablesconfigurationlist
+            '''
+            result = self._values.get("s3_tables_configuration_list")
+            assert result is not None, "Required property 's3_tables_configuration_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TableConfigurationProperty"]]], result)
+
+        @builtins.property
+        def data_freshness_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The maximum time in seconds the channel buffers records before delivery if the minimum target file size is not reached.
+
+            :default: - 300
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-s3tablesdestinationconfiguration.html#cfn-kinesis-channel-s3tablesdestinationconfiguration-datafreshnessinseconds
+            '''
+            result = self._values.get("data_freshness_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3TablesDestinationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnChannel.StreamConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "record_configuration": "recordConfiguration",
+            "stream_arn": "streamArn",
+        },
+    )
+    class StreamConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            record_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.RecordConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            stream_arn: builtins.str,
+        ) -> None:
+            '''The configuration of a Kinesis stream that the channel reads from.
+
+            :param record_configuration: The configuration that describes how records on the source stream are encoded.
+            :param stream_arn: The Amazon resource name (ARN) of the Kinesis data stream that the channel reads from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-streamconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                stream_configuration_property = kinesis.CfnChannel.StreamConfigurationProperty(
+                    record_configuration=kinesis.CfnChannel.RecordConfigurationProperty(
+                        record_format_type="recordFormatType",
+                
+                        # the properties below are optional
+                        gsr_schema_arn="gsrSchemaArn"
+                    ),
+                    stream_arn="streamArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7a0a5319a4094ef429831b08952871c195a0fe95ba1235bf633c31263c4ddd43)
+                check_type(argname="argument record_configuration", value=record_configuration, expected_type=type_hints["record_configuration"])
+                check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "record_configuration": record_configuration,
+                "stream_arn": stream_arn,
+            }
+
+        @builtins.property
+        def record_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordConfigurationProperty"]:
+            '''The configuration that describes how records on the source stream are encoded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-streamconfiguration.html#cfn-kinesis-channel-streamconfiguration-recordconfiguration
+            '''
+            result = self._values.get("record_configuration")
+            assert result is not None, "Required property 'record_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RecordConfigurationProperty"], result)
+
+        @builtins.property
+        def stream_arn(self) -> builtins.str:
+            '''The Amazon resource name (ARN) of the Kinesis data stream that the channel reads from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-channel-streamconfiguration.html#cfn-kinesis-channel-streamconfiguration-streamarn
+            '''
+            result = self._values.get("stream_arn")
+            assert result is not None, "Required property 'stream_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesis.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_name": "channelName",
+        "service_execution_role_arn": "serviceExecutionRoleArn",
+        "stream_configuration_list": "streamConfigurationList",
+        "encryption_configuration": "encryptionConfiguration",
+        "logging_configuration": "loggingConfiguration",
+        "s3_destination_configuration": "s3DestinationConfiguration",
+        "s3_tables_destination_configuration": "s3TablesDestinationConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        service_execution_role_arn: builtins.str,
+        stream_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.StreamConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_tables_destination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.S3TablesDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param channel_name: The name of the channel. The name's uniqueness is scoped per AWS account and region.
+        :param service_execution_role_arn: The ARN of the IAM role that the channel assumes to read from the source stream, deliver records to the destination, and (when enabled) write CloudWatch Logs.
+        :param stream_configuration_list: List of stream configurations associated with the channel. v1 supports a single element; the list shape allows future extensibility to fan in from multiple streams.
+        :param encryption_configuration: Server-side encryption configuration for data at rest in the destination. Data delivered to S3 / S3 Tables is encrypted with the same key.
+        :param logging_configuration: Configuration for delivering channel operational logs.
+        :param s3_destination_configuration: Configuration for delivery to a vanilla S3 bucket destination. Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+        :param s3_tables_destination_configuration: Configuration for delivery to S3 Tables destinations. Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+        :param tags: An arbitrary set of tags (key-value pairs) to associate with the Kinesis channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesis as kinesis
+            
+            cfn_channel_props = kinesis.CfnChannelProps(
+                channel_name="channelName",
+                service_execution_role_arn="serviceExecutionRoleArn",
+                stream_configuration_list=[kinesis.CfnChannel.StreamConfigurationProperty(
+                    record_configuration=kinesis.CfnChannel.RecordConfigurationProperty(
+                        record_format_type="recordFormatType",
+            
+                        # the properties below are optional
+                        gsr_schema_arn="gsrSchemaArn"
+                    ),
+                    stream_arn="streamArn"
+                )],
+            
+                # the properties below are optional
+                encryption_configuration=kinesis.CfnChannel.EncryptionConfigurationProperty(
+                    encryption_type="encryptionType",
+                    key_id="keyId"
+                ),
+                logging_configuration=kinesis.CfnChannel.LoggingConfigurationProperty(
+                    cloud_watch_logs=kinesis.CfnChannel.CloudWatchLogsConfigurationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        log_group_name="logGroupName",
+                        log_stream_name="logStreamName"
+                    )
+                ),
+                s3_destination_configuration=kinesis.CfnChannel.S3DestinationConfigurationProperty(
+                    storage_configuration=kinesis.CfnChannel.S3StorageConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        compression_type="compressionType",
+                        expected_bucket_owner="expectedBucketOwner",
+            
+                        # the properties below are optional
+                        output_key_template="outputKeyTemplate",
+                        storage_class="storageClass"
+                    ),
+            
+                    # the properties below are optional
+                    data_freshness_in_seconds=123,
+                    dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        expected_bucket_owner="expectedBucketOwner",
+            
+                        # the properties below are optional
+                        error_output_prefix="errorOutputPrefix"
+                    )
+                ),
+                s3_tables_destination_configuration=kinesis.CfnChannel.S3TablesDestinationConfigurationProperty(
+                    dead_letter_queue_s3_configuration=kinesis.CfnChannel.DeadLetterQueueS3ConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        expected_bucket_owner="expectedBucketOwner",
+            
+                        # the properties below are optional
+                        error_output_prefix="errorOutputPrefix"
+                    ),
+                    s3_tables_configuration_list=[kinesis.CfnChannel.S3TableConfigurationProperty(
+                        compression_type="compressionType",
+                        namespace="namespace",
+                        table_bucket_arn="tableBucketArn",
+                        table_name="tableName",
+            
+                        # the properties below are optional
+                        partition_spec=kinesis.CfnChannel.PartitionSpecProperty(
+                            partition_fields=[kinesis.CfnChannel.PartitionFieldProperty(
+                                source_name="sourceName",
+                                transform="transform"
+                            )]
+                        )
+                    )],
+            
+                    # the properties below are optional
+                    data_freshness_in_seconds=123
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa8886af989b60a328cabd052c6612ec86954cc065fc95e86c527f26facc5a93)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
+            check_type(argname="argument stream_configuration_list", value=stream_configuration_list, expected_type=type_hints["stream_configuration_list"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
+            check_type(argname="argument s3_destination_configuration", value=s3_destination_configuration, expected_type=type_hints["s3_destination_configuration"])
+            check_type(argname="argument s3_tables_destination_configuration", value=s3_tables_destination_configuration, expected_type=type_hints["s3_tables_destination_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "service_execution_role_arn": service_execution_role_arn,
+            "stream_configuration_list": stream_configuration_list,
+        }
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if logging_configuration is not None:
+            self._values["logging_configuration"] = logging_configuration
+        if s3_destination_configuration is not None:
+            self._values["s3_destination_configuration"] = s3_destination_configuration
+        if s3_tables_destination_configuration is not None:
+            self._values["s3_tables_destination_configuration"] = s3_tables_destination_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel.
+
+        The name's uniqueness is scoped per AWS account and region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that the channel assumes to read from the source stream, deliver records to the destination, and (when enabled) write CloudWatch Logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-serviceexecutionrolearn
+        '''
+        result = self._values.get("service_execution_role_arn")
+        assert result is not None, "Required property 'service_execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_configuration_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.StreamConfigurationProperty"]]]:
+        '''List of stream configurations associated with the channel.
+
+        v1 supports a single element; the list shape allows future extensibility to fan in from multiple streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-streamconfigurationlist
+        '''
+        result = self._values.get("stream_configuration_list")
+        assert result is not None, "Required property 'stream_configuration_list' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.StreamConfigurationProperty"]]], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]]:
+        '''Server-side encryption configuration for data at rest in the destination.
+
+        Data delivered to S3 / S3 Tables is encrypted with the same key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LoggingConfigurationProperty"]]:
+        '''Configuration for delivering channel operational logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-loggingconfiguration
+        '''
+        result = self._values.get("logging_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LoggingConfigurationProperty"]], result)
+
+    @builtins.property
+    def s3_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]]:
+        '''Configuration for delivery to a vanilla S3 bucket destination.
+
+        Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-s3destinationconfiguration
+        '''
+        result = self._values.get("s3_destination_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3DestinationConfigurationProperty"]], result)
+
+    @builtins.property
+    def s3_tables_destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TablesDestinationConfigurationProperty"]]:
+        '''Configuration for delivery to S3 Tables destinations.
+
+        Exactly one of S3DestinationConfiguration and S3TablesDestinationConfiguration must be specified on the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-s3tablesdestinationconfiguration
+        '''
+        result = self._values.get("s3_tables_destination_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.S3TablesDestinationConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An arbitrary set of tags (key-value pairs) to associate with the Kinesis channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-channel.html#cfn-kinesis-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesis_40f1d96a.IResourcePolicyRef)
 class CfnResourcePolicy(
     _aws_cdk_0cae9daa.CfnResource,
@@ -6110,6 +7900,8 @@ class StreamProps:
 
 
 __all__ = [
+    "CfnChannel",
+    "CfnChannelProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
     "CfnStream",
@@ -6132,6 +7924,212 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__7166982321ce39b90848699ab7144e1a3b0cc07fe17e0f6ef9c53b863f5d217c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    channel_name: builtins.str,
+    service_execution_role_arn: builtins.str,
+    stream_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_tables_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3TablesDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08508f372d5b8118d06ce3a6cdf9df3e4259503d70567e242e14cf7a1e6b9096(
+    resource: _aws_kinesis_40f1d96a.IChannelRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd7f16cf08c30d44fe8f7003f26377a3ba6c13a2777cbf92ef57998396b8a754(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b4fa98362ad40928c8acf291e525bc251281fc75eab28b425b0f3770a571072(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__582374499d50d6cdd6ce892cd7c2b397db79709ec9918f5707f25faf827ec4a7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af404684948512563ecf2943927f5079bb192d0395922b7d104afa6a101d8c15(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6052184e9602688028c70f6bf76d693127683d5c35f02df11b4fb51c026adf5c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f752e1586dbeeeece2931e17c23eecf50b2c669a820e653376f2c361c6812bff(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.StreamConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c3606c253b276424c9fea97a3f5d6b6104217b728d395d6ec1dfcf5c0e7e2ef(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c13295a220ace33e2273cac70e0ffb0b3d6c8415918adfbf98cc3e6f3ccf73c(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.LoggingConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fbf9b088eee08e5b53b8d39193ff2fb4cb2a3998ef84554c711e55d62bb3799(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.S3DestinationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f38c1474466b4f01736ce5b8923c12db9eaee5d2d589537d07df2e73105de6ab(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.S3TablesDestinationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__149ecadbd3e8d5902be8819a951e2fb51344157495d7b39f137f7ba4c7702324(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95b7fc3561b6bce983eabdd2aae31022b255473496f430a3bd4a27c9fcb16910(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    log_group_name: typing.Optional[builtins.str] = None,
+    log_stream_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e3562e52594426971b405277333a8357707f6f01282e686f144b3f8f76569be(
+    *,
+    bucket_arn: builtins.str,
+    expected_bucket_owner: builtins.str,
+    error_output_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__208b17403d01da5f04c6c6076e765459446f077b527ac076913722066189baf3(
+    *,
+    encryption_type: builtins.str,
+    key_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e861df9dd62abd80da0cf7cf2b735185750a2e000ece6088523f59613bd14a73(
+    *,
+    cloud_watch_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CloudWatchLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be8b1fb248634b869832acc51946cb706ffdc2f1bd2119293435e9d2d8bd192d(
+    *,
+    source_name: builtins.str,
+    transform: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c875440869c5dd4620d7a9db597a28d94dd5e525b83b3ca1875773c37b80d197(
+    *,
+    partition_fields: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b78812263f19ddb35e0293cf4ae6864719830d813ce1773073238f9fc260eb3(
+    *,
+    record_format_type: builtins.str,
+    gsr_schema_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9abdab63db2f546937db5582e5fe97a107ffe84911b34ef6918dc976729b7785(
+    *,
+    storage_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+    dead_letter_queue_s3_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DeadLetterQueueS3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea7e02e524783f56dce8bf46bfa62f201ac94eb46f7e7a099cc474fad7c71c43(
+    *,
+    bucket_arn: builtins.str,
+    compression_type: builtins.str,
+    expected_bucket_owner: builtins.str,
+    output_key_template: typing.Optional[builtins.str] = None,
+    storage_class: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e9fe688d18d46665c77463781c91f4c7fde353d396bdbfb75157bc5d5733853(
+    *,
+    compression_type: builtins.str,
+    namespace: builtins.str,
+    table_bucket_arn: builtins.str,
+    table_name: builtins.str,
+    partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41b5d1aed1e77bcce2375cc56732ef91c762c43aee5e3729f30c31bc78fc1adf(
+    *,
+    dead_letter_queue_s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DeadLetterQueueS3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_tables_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3TableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    data_freshness_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a0a5319a4094ef429831b08952871c195a0fe95ba1235bf633c31263c4ddd43(
+    *,
+    record_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RecordConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    stream_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa8886af989b60a328cabd052c6612ec86954cc065fc95e86c527f26facc5a93(
+    *,
+    channel_name: builtins.str,
+    service_execution_role_arn: builtins.str,
+    stream_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_tables_destination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.S3TablesDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957(
     scope: _constructs_77d1e7e8.Construct,

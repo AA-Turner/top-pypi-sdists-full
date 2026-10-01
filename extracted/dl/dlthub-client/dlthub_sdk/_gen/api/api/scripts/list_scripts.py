@@ -46,6 +46,8 @@ def _get_kwargs(
     order: list[ListScriptsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     recent_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -236,6 +238,22 @@ def _get_kwargs(
         json_recent_runs_limit = recent_runs_limit
     params["recent_runs_limit"] = json_recent_runs_limit
 
+    json_downstream_runs_limit: int | None | Unset
+    if isinstance(downstream_runs_limit, Unset):
+        json_downstream_runs_limit = UNSET
+    else:
+        json_downstream_runs_limit = downstream_runs_limit
+    params["downstream_runs_limit"] = json_downstream_runs_limit
+
+    json_downstream_runs_category: None | str | Unset
+    if isinstance(downstream_runs_category, Unset):
+        json_downstream_runs_category = UNSET
+    elif isinstance(downstream_runs_category, JobCategory):
+        json_downstream_runs_category = downstream_runs_category.value
+    else:
+        json_downstream_runs_category = downstream_runs_category
+    params["downstream_runs_category"] = json_downstream_runs_category
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -332,6 +350,8 @@ def sync_detailed(
     order: list[ListScriptsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     recent_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
@@ -391,6 +411,11 @@ def sync_detailed(
             returns the rows after it under the same `sort` and `order`. Mutually exclusive with
             `offset`.
         recent_runs_limit (int | None | Unset): Attach this many of the job's most recent runs.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -422,6 +447,8 @@ def sync_detailed(
         order=order,
         cursor=cursor,
         recent_runs_limit=recent_runs_limit,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     )
 
     response = client.get_httpx_client().request(
@@ -456,6 +483,8 @@ def sync(
     order: list[ListScriptsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     recent_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
@@ -516,6 +545,11 @@ def sync(
             returns the rows after it under the same `sort` and `order`. Mutually exclusive with
             `offset`.
         recent_runs_limit (int | None | Unset): Attach this many of the job's most recent runs.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -548,6 +582,8 @@ def sync(
         order=order,
         cursor=cursor,
         recent_runs_limit=recent_runs_limit,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     ).parsed
 
 
@@ -576,6 +612,8 @@ async def asyncio_detailed(
     order: list[ListScriptsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     recent_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
@@ -635,6 +673,11 @@ async def asyncio_detailed(
             returns the rows after it under the same `sort` and `order`. Mutually exclusive with
             `offset`.
         recent_runs_limit (int | None | Unset): Attach this many of the job's most recent runs.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -666,6 +709,8 @@ async def asyncio_detailed(
         order=order,
         cursor=cursor,
         recent_runs_limit=recent_runs_limit,
+        downstream_runs_limit=downstream_runs_limit,
+        downstream_runs_category=downstream_runs_category,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -698,6 +743,8 @@ async def asyncio(
     order: list[ListScriptsOrderType0Item] | None | Unset = UNSET,
     cursor: None | str | Unset = UNSET,
     recent_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_limit: int | None | Unset = UNSET,
+    downstream_runs_category: JobCategory | None | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
@@ -758,6 +805,11 @@ async def asyncio(
             returns the rows after it under the same `sort` and `order`. Mutually exclusive with
             `offset`.
         recent_runs_limit (int | None | Unset): Attach this many of the job's most recent runs.
+        downstream_runs_limit (int | None | Unset): Attach this many of the runs each run
+            triggered, newest first. Only runs started by the run's outcome are linked.
+        downstream_runs_category (JobCategory | None | Unset): Attach only downstream runs whose
+            job declares this category, so the newest of that kind is found however many other runs
+            came after it.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -791,5 +843,7 @@ async def asyncio(
             order=order,
             cursor=cursor,
             recent_runs_limit=recent_runs_limit,
+            downstream_runs_limit=downstream_runs_limit,
+            downstream_runs_category=downstream_runs_category,
         )
     ).parsed

@@ -207,6 +207,8 @@ __all__ = (
     "GetWirelessGatewayTaskRequestTypeDef",
     "GetWirelessGatewayTaskResponseTypeDef",
     "GlobalIdentityTypeDef",
+    "GnssCaptureTypeDef",
+    "GnssMultiFrameTypeDef",
     "GnssTypeDef",
     "GsmLocalIdTypeDef",
     "GsmNmrObjTypeDef",
@@ -809,6 +811,10 @@ class GetWirelessGatewayTaskRequestTypeDef(TypedDict):
 class GlobalIdentityTypeDef(TypedDict):
     Lac: int
     GeranCid: int
+
+class GnssCaptureTypeDef(TypedDict):
+    Payload: str
+    CaptureTime: NotRequired[float]
 
 class GsmLocalIdTypeDef(TypedDict):
     Bsic: int
@@ -1546,6 +1552,13 @@ class GsmNmrObjTypeDef(TypedDict):
     RxLevel: NotRequired[int]
     GlobalIdentity: NotRequired[GlobalIdentityTypeDef]
 
+class GnssMultiFrameTypeDef(TypedDict):
+    Captures: Sequence[GnssCaptureTypeDef]
+    CaptureTimeAccuracy: NotRequired[float]
+    AssistPosition: NotRequired[Sequence[float]]
+    AssistAltitude: NotRequired[float]
+    Use2DSolver: NotRequired[bool]
+
 class ImportedWirelessDeviceTypeDef(TypedDict):
     Sidewalk: NotRequired[ImportedSidewalkDeviceTypeDef]
 
@@ -2187,6 +2200,7 @@ class GetPositionEstimateRequestTypeDef(TypedDict):
     CellTowers: NotRequired[CellTowersTypeDef]
     Ip: NotRequired[IpTypeDef]
     Gnss: NotRequired[GnssTypeDef]
+    GnssMultiFrame: NotRequired[GnssMultiFrameTypeDef]
     Timestamp: NotRequired[TimestampTypeDef]
     AdvancedConfiguration: NotRequired[AdvancedConfigurationTypeDef]
 

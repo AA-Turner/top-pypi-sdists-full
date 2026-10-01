@@ -12,20 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Copying template files into a generated project.
-
-The generic tree copier (:func:`copy_files`) plus the frontend, deployment, and
-flat-structure helpers that build on it. Symlink safety is delegated to
-``symlinks.py``: a link whose resolved target stays inside the fetched repo is
-materialized as real files, an unsafe one is refused.
-"""
+"""Copying template files into a generated project."""
 
 import logging
 import pathlib
 import shutil
 import sys
+from dataclasses import dataclass, replace
 
-from google.agents.cli.scaffold.utils.fs import is_ignored_name
+from google.agents.cli.scaffold.utils.fs import is_ignored_name, is_secret_file
 
 from .symlinks import MAX_COPY_DEPTH, ScaffoldSymlinkSecurityError, require_safe_symlink
 
@@ -45,15 +40,34 @@ _FLAT_SKIP_FILES = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class CopyOptions:
+    """Policy for copying a template tree into a generated project.
+
+    Attributes:
+        overwrite: Overwrite existing files (True) or skip them (False).
+        skip_manifest: Skip a root agents-cli-manifest.yaml.
+        keep_template_dir: Retain a ``.template`` directory instead of dropping
+            it.
+        guidance_filename: Write a root AGENTS.md under this name instead, so a
+            template's guide replaces the base one whatever the project calls it.
+        skip_secret_files: Drop credential files (``.env`` / ``.env.*``) while
+            copying.
+    """
+
+    overwrite: bool = False
+    skip_manifest: bool = False
+    keep_template_dir: bool = False
+    guidance_filename: str | None = None
+    skip_secret_files: bool = False
+
+
 def copy_files(
     src: pathlib.Path,
     dst: pathlib.Path,
-    agent_name: str | None = None,
-    overwrite: bool = False,
     *,
-    skip_manifest: bool = False,
-    guidance_filename: str | None = None,
     clone_root: pathlib.Path | None = None,
+    options: CopyOptions | None = None,
     _visited: frozenset[tuple[int, int]] | None = None,
     _depth: int = 0,
 ) -> None:
@@ -70,19 +84,15 @@ def copy_files(
     Args:
         src: Source path
         dst: Destination path
-        agent_name: Name of the agent (for agent-specific exclusions)
-        overwrite: Whether to overwrite existing files (True) or skip them (False)
-        guidance_filename: Write a root AGENTS.md under this name instead, so a
-            template's guide replaces the base one whatever the project calls it.
-        skip_manifest: Skip a root agents-cli-manifest.yaml. Set when copying a
-            fetched template, whose manifest describes the template rather than
-            the project and has already been read for config.
         clone_root: Repository root that materialized symlink targets must stay
             within. When None, symlinks are refused rather than followed.
+        options: Copy policy. Defaults to a no-op ``CopyOptions()``.
         _visited: Internal — inodes of directories on the current recursion
             path, used to detect symlink cycles.
         _depth: Internal — current recursion depth, capped at MAX_COPY_DEPTH.
     """
+    if options is None:
+        options = CopyOptions()
     if _visited is None:
         _visited = frozenset()
 
@@ -92,7 +102,7 @@ def copy_files(
             f"'{src}'; refusing to continue (possible symlink loop)."
         )
 
-    if _should_skip(src, skip_manifest=skip_manifest):
+    if _should_skip(src, options):
         logging.debug("Skipping file/directory: %s", src)
         return
 
@@ -100,11 +110,8 @@ def copy_files(
         _copy_dir(
             src,
             dst,
-            agent_name=agent_name,
-            overwrite=overwrite,
-            skip_manifest=skip_manifest,
-            guidance_filename=guidance_filename,
             clone_root=clone_root,
+            options=options,
             visited=_visited,
             depth=_depth,
         )
@@ -113,13 +120,12 @@ def copy_files(
             src,
             dst,
             clone_root=clone_root,
-            agent_name=agent_name,
-            overwrite=overwrite,
+            options=options,
             visited=_visited,
             depth=_depth,
         )
     else:
-        _copy_file(src, dst, overwrite=overwrite)
+        _copy_file(src, dst, overwrite=options.overwrite)
 
 
 def copy_frontend_files(frontend_type: str, project_template: pathlib.Path) -> None:
@@ -135,7 +141,7 @@ def copy_frontend_files(frontend_type: str, project_template: pathlib.Path) -> N
     if frontends_path.exists():
         logging.debug("Copying frontend files from %s", frontends_path)
         # Copy frontend files directly to project root instead of a nested frontend directory
-        copy_files(frontends_path, project_template, overwrite=True)
+        copy_files(frontends_path, project_template, options=CopyOptions(overwrite=True))
     else:
         logging.warning("Frontend type directory not found: %s", frontends_path)
         # Don't fall back to default if it's "None" - just skip
@@ -146,40 +152,13 @@ def copy_frontend_files(frontend_type: str, project_template: pathlib.Path) -> N
             logging.debug("No default frontend configured, skipping frontend files")
 
 
-def copy_deployment_files(
-    deployment_target: str,
-    agent_name: str,
-    project_template: pathlib.Path,
-    agent_directory: str = "app",
-) -> None:
-    """Copy files from the specified deployment target folder."""
-    if not deployment_target:
-        return
-
-    deployment_path = (
-        pathlib.Path(__file__).parent.parent / "deployment_targets" / deployment_target
-    )
-
-    if deployment_path.exists():
-        logging.debug("Copying deployment files from %s", deployment_path)
-        # Pass agent_name to respect agent-specific exclusions
-        copy_files(
-            deployment_path,
-            project_template,
-            agent_name=agent_name,
-            overwrite=True,
-        )
-    else:
-        logging.warning("Deployment target directory not found: %s", deployment_path)
-
-
 def copy_flat_structure_agent_files(
     src: pathlib.Path,
     dst: pathlib.Path,
     agent_directory: str,
     *,
     clone_root: pathlib.Path | None = None,
-    guidance_filename: str | None = None,
+    options: CopyOptions | None = None,
 ) -> None:
     """Copy agent files from a flat structure template to the agent directory.
 
@@ -197,10 +176,10 @@ def copy_flat_structure_agent_files(
         agent_directory: Target agent directory name
         clone_root: Repository root that materialized symlink targets must stay
             within. When None, symlinks are refused rather than followed.
-        guidance_filename: Write a root AGENTS.md under this name instead, so a
-            template's guide replaces the base one whatever the project calls it
-            (matching the standard copy path).
+        options: Copy policy.
     """
+    if options is None:
+        options = CopyOptions()
     agent_dst = dst / agent_directory
     # Path-containment guard: reject traversal that slipped past validation
     _assert_path_within(agent_dst, dst)
@@ -212,30 +191,39 @@ def copy_flat_structure_agent_files(
         # A symlink is materialized from its vetted target; a plain entry is
         # copied from itself. Either way it is named and classified below by the
         # entry's own name, not the target's.
-        source = require_safe_symlink(item, clone_root) if item.is_symlink() else item
+        source = item
+        if item.is_symlink():
+            source = require_safe_symlink(item, clone_root)
+
         _place_flat_entry(
             item,
             source,
             dst=dst,
             agent_dst=agent_dst,
             clone_root=clone_root,
-            guidance_filename=guidance_filename,
+            options=options,
         )
 
 
-def _should_skip(path: pathlib.Path, *, skip_manifest: bool) -> bool:
+def _should_skip(path: pathlib.Path, options: CopyOptions) -> bool:
     """Whether a template entry should be skipped during copying.
 
     Drops compiled artifacts and build caches, VCS directories, the template's
-    own ``.template`` config, and (optionally) its manifest.
+    own ``.template`` config (unless ``optios.skip_secret_files`` is set (only
+    while materializing a symlinked directory), also drops credential files so a
+    ``.env`` reached through a directory link is never copied into the project.ns.keep_template_dir``), and
+    (optionally) its manifest. When ``options.skip_secret_files`` is set also drops credential files so a
+    ``.env`` reached through a directory link is never copied into the project.
     """
     if is_ignored_name(path.name):
         return True
+    if options.skip_secret_files and is_secret_file(path.name):
+        return True
     if path.suffix in [".pyc"]:
         return True
-    if path.is_dir() and path.name == ".template":
+    if path.is_dir() and path.name == ".template" and not options.keep_template_dir:
         return True
-    if skip_manifest and path.name == "agents-cli-manifest.yaml":
+    if options.skip_manifest and path.name == "agents-cli-manifest.yaml":
         return True
     return False
 
@@ -277,16 +265,16 @@ def _dir_cycle_key(path: pathlib.Path) -> tuple[int, int] | None:
 
 
 def _destination_for(
-    item: pathlib.Path, dst: pathlib.Path, guidance_filename: str | None
+    item: pathlib.Path, dst: pathlib.Path, options: CopyOptions
 ) -> pathlib.Path:
-    """Destination for *item*, renaming a root AGENTS.md to *guidance_filename*.
+    """Destination for *item*, renaming a root AGENTS.md to the guidance file.
 
     Renamed whether AGENTS.md is a real file or a symlink to a file, so a
     template that shares its guide via an intra-repo symlink overwrites the base
     guidance file instead of leaving it in place and dropping a stray AGENTS.md.
     """
-    if guidance_filename and item.name == "AGENTS.md" and item.is_file():
-        return dst / guidance_filename
+    if options.guidance_filename and item.name == "AGENTS.md" and item.is_file():
+        return dst / options.guidance_filename
     return dst / item.name
 
 
@@ -295,8 +283,7 @@ def _materialize_symlink(
     dest: pathlib.Path,
     *,
     clone_root: pathlib.Path | None,
-    agent_name: str | None,
-    overwrite: bool,
+    options: CopyOptions,
     visited: frozenset[tuple[int, int]],
     depth: int,
 ) -> None:
@@ -309,29 +296,28 @@ def _materialize_symlink(
     """
     target = require_safe_symlink(link, clone_root)
     if target.is_dir():
+        # A direct link to a .env file is already refused by require_safe_symlink;
+        # skip_secret_files closes the gap for a secret reached by recursively
+        # materializing a linked directory (link -> some_dir/ with some_dir/.env).
         copy_files(
             target,
             dest,
-            agent_name,
-            overwrite,
             clone_root=clone_root,
+            options=replace(options, skip_secret_files=True),
             _visited=visited,
             _depth=depth + 1,
         )
     else:
         logging.debug("Materializing symlink: %s -> %s", link, dest)
-        _copy_file(target, dest, overwrite=overwrite)
+        _copy_file(target, dest, overwrite=options.overwrite)
 
 
 def _copy_dir(
     src: pathlib.Path,
     dst: pathlib.Path,
     *,
-    agent_name: str | None,
-    overwrite: bool,
-    skip_manifest: bool,
-    guidance_filename: str | None,
     clone_root: pathlib.Path | None,
+    options: CopyOptions,
     visited: frozenset[tuple[int, int]],
     depth: int,
 ) -> None:
@@ -355,17 +341,16 @@ def _copy_dir(
             raise
 
     for item in src.iterdir():
-        if _should_skip(item, skip_manifest=skip_manifest):
+        if _should_skip(item, options):
             logging.debug("Skipping file/directory: %s", item)
             continue
-        dest = _destination_for(item, dst, guidance_filename)
+        dest = _destination_for(item, dst, options)
         if item.is_symlink():
             _materialize_symlink(
                 item,
                 dest,
                 clone_root=clone_root,
-                agent_name=agent_name,
-                overwrite=overwrite,
+                options=options,
                 visited=child_visited,
                 depth=depth,
             )
@@ -373,14 +358,13 @@ def _copy_dir(
             copy_files(
                 item,
                 dest,
-                agent_name,
-                overwrite,
                 clone_root=clone_root,
+                options=options,
                 _visited=child_visited,
                 _depth=depth + 1,
             )
         else:
-            _copy_file(item, dest, overwrite=overwrite)
+            _copy_file(item, dest, overwrite=options.overwrite)
 
 
 def _assert_path_within(
@@ -417,27 +401,27 @@ def _place_flat_entry(
     dst: pathlib.Path,
     agent_dst: pathlib.Path,
     clone_root: pathlib.Path | None,
-    guidance_filename: str | None = None,
+    options: CopyOptions,
 ) -> None:
-    """Copy one flat-structure entry, reading bytes from *source*.
-
-    Placement follows *item*'s own name: a directory is materialized (replacing
-    any existing one) at the project root, a ``.py`` file lands in the agent
-    directory, and anything else in the project root — where a root AGENTS.md is
-    renamed to *guidance_filename* (see ``_destination_for``). *source* is the
-    entry itself, or the vetted target when *item* is a symlink.
-    """
+    """Copy one flat-structure entry, reading bytes from *source*."""
     if source.is_dir():
         dest_dir = dst / item.name
         _assert_path_within(dest_dir, dst)
         if dest_dir.exists():
             shutil.rmtree(dest_dir)
-        copy_files(source, dest_dir, clone_root=clone_root, overwrite=True)
+        # When the entry is a symlink to a directory, materializing it must not
+        # pull a .env inside it into the project (see _materialize_symlink).
+        copy_files(
+            source,
+            dest_dir,
+            clone_root=clone_root,
+            options=CopyOptions(overwrite=True, skip_secret_files=item.is_symlink()),
+        )
         return
 
     if item.suffix in _FLAT_AGENT_FILE_EXTENSIONS:
         dest_file = agent_dst / item.name
     else:
-        dest_file = _destination_for(item, dst, guidance_filename)
+        dest_file = _destination_for(item, dst, options)
     _assert_path_within(dest_file, dst)
     _copy_file(source, dest_file, overwrite=True)

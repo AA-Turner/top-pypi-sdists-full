@@ -11439,8 +11439,8 @@ class Sum(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.Indica
 
 class KnowSureThing(QuantConnect.Indicators.Indicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
-    This indicator creates a moving average (middle band) with an upper band and lower band
-    fixed at k standard deviations above and below the moving average.
+    This indicator computes the Know Sure Thing (KST) momentum oscillator: the weighted sum of four
+    smoothed rates of change over increasing periods, with a moving average of the sum as the signal line.
     """
 
     @property

@@ -72,7 +72,14 @@ class TestBulkUnregisteredAgentsResponse(unittest.TestCase):
                             ], 
                         source_classes = [
                             'cloud'
-                            ], ), 
+                            ], 
+                        evidence_levels = [
+                            'full'
+                            ], 
+                        first_seen_after = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        first_seen_before = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        created_after = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        created_before = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), ), 
                     agent_ids = [
                         ''
                         ], 
@@ -120,7 +127,14 @@ class TestBulkUnregisteredAgentsResponse(unittest.TestCase):
                             ], 
                         source_classes = [
                             'cloud'
-                            ], ), 
+                            ], 
+                        evidence_levels = [
+                            'full'
+                            ], 
+                        first_seen_after = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        first_seen_before = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        created_after = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        created_before = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), ), 
                     agent_ids = [
                         ''
                         ], 

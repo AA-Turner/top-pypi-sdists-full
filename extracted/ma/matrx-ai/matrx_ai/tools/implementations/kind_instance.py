@@ -180,6 +180,12 @@ def _store_row(row: dict[str, Any], arm: Any) -> Any:
     return row_ns
 
 
+def _row_org_id(row: Any, ctx: ToolContext) -> str | None:
+    """The organization a change to an EXISTING instance acts in: the record's own."""
+    own = getattr(row, "organization_id", None)
+    return str(own) if own else ctx_org_id(ctx)
+
+
 def _from_store(row: Any) -> Any | None:
     """The arm a resolved row came from, or ``None`` for a legacy row."""
     return getattr(row, "_store_arm", None)
@@ -270,20 +276,25 @@ async def _resolve_instance(
     instance_id = (instance_id or "").strip()
     if not instance_id or not is_uuid(instance_id):
         return None, err("validation", "instance_id must be a kind_instance UUID.")
-    arm = await _store_arm(ctx)
-    if arm is not None:
+    arm = _kind_record_arm()
+    if arm is not None and ctx_user_id(ctx):
         # THE STORE ARM. The read door is the viewer gate and the write door is the editor
-        # gate, so there is no second access check here to drift from them.
-        found = await arm.get(
-            user_id=ctx_user_id(ctx), organization_id=ctx_org_id(ctx), record_id=instance_id
+        # gate, so there is no second access check here to drift from them. The record is
+        # looked up in every organization the person belongs to (its OWN organization
+        # decides, not the active one); a miss falls through to today's table below.
+        found = await arm.get_anywhere(
+            user_id=ctx_user_id(ctx),
+            record_id=instance_id,
+            preferred_organization_id=ctx_org_id(ctx),
         )
-        if found is None or found.get("deleted_at") is not None:
-            return None, err(
-                "not_found",
-                f"Instance {instance_id} was not found, or you do not have access to it.",
-                "Check the id, or ask the owner to share the instance with you.",
-            )
-        return _store_row(found, arm), None
+        if found is not None:
+            if found.get("deleted_at") is not None:
+                return None, err(
+                    "not_found",
+                    f"Instance {instance_id} was not found, or you do not have access to it.",
+                    "Check the id, or ask the owner to share the instance with you.",
+                )
+            return _store_row(found, arm), None
     from matrx_ai.tools.person_session import as_the_person
 
     KindInstance = get_db_model("KindInstance")
@@ -494,18 +505,24 @@ async def instance_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return err("validation", "status must be one of: pending, passed, failed.")
             filters["validation_status"] = status
 
-        arm = await _store_arm(ctx)
+        # Every organization the person belongs to answers - the active one never narrows a
+        # list. Organizations on the record store answer through it; the rest through
+        # today's table (which is not organization-scoped here). De-duplicated by id.
+        arm = _kind_record_arm()
+        rows = []
         if arm is not None:
             rows = [
                 _store_row(found, arm)
-                for found in await arm.list(
-                    user_id=user_id, organization_id=ctx_org_id(ctx), match=filters
-                )
+                for found in await arm.list_everywhere(user_id=user_id, match=filters)
                 if found.get("deleted_at") is None
             ]
-        else:
-            KindInstance = get_db_model("KindInstance")
-            rows = [r for r in await KindInstance.filter(**filters).all() if r.deleted_at is None]
+        KindInstance = get_db_model("KindInstance")
+        seen_ids = {str(r.id) for r in rows}
+        rows += [
+            r
+            for r in await KindInstance.filter(**filters).all()
+            if r.deleted_at is None and str(r.id) not in seen_ids
+        ]
         rows.sort(key=lambda r: str(r.updated_at or ""), reverse=True)
         total = len(rows)
         page = rows[offset : offset + limit]
@@ -661,13 +678,13 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 store_updates["validation_status"] = "passed" if checked else "pending"
             await arm.update(
                 user_id=ctx_user_id(ctx),
-                organization_id=ctx_org_id(ctx),
+                organization_id=_row_org_id(row, ctx),
                 record_id=str(row.id),
                 values=store_updates,
                 system=_STORE_SYSTEM["update"],
             )
             found = await arm.get(
-                user_id=ctx_user_id(ctx), organization_id=ctx_org_id(ctx), record_id=str(row.id)
+                user_id=ctx_user_id(ctx), organization_id=_row_org_id(row, ctx), record_id=str(row.id)
             )
             fresh = _store_row(found, arm) if found is not None else None
         else:
@@ -717,7 +734,7 @@ async def instance_delete(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if arm is not None:
             answer = await arm.delete(
                 user_id=ctx_user_id(ctx),
-                organization_id=ctx_org_id(ctx),
+                organization_id=_row_org_id(row, ctx),
                 record_id=str(row.id),
                 system=_STORE_SYSTEM["delete"],
             )

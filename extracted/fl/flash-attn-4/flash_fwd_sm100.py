@@ -135,7 +135,9 @@ class DescaleTensors(NamedTuple):
     v_descale: Optional[cute.Tensor] = None
 
     def __new_from_mlir_values__(self, values):
-        return DescaleTensors(*((*values, None, None, None)[:3]))
+        # only the present members were extracted: put each value back in its own slot
+        values = iter(values)
+        return DescaleTensors(*(None if t is None else next(values) for t in self))
 
 
 class FlashAttentionForwardSm100:
@@ -1619,7 +1621,7 @@ class FlashAttentionForwardSm100:
                 )
                 if const_expr(self.is_split_kv and block_info.pack_split_idx):
                     split_idx = split_idx & 0xFFFF
-                if self.process_work_tile(seqlen, n_block_min, n_block_max):
+                if self.process_work_tile(block_info, seqlen, n_block_min, n_block_max):
                     n_block_first = n_block_max - 1 if n_block_max > 0 else 0
                     page_idx = (
                         mPageTable[batch_idx, n_block_first]
@@ -1844,7 +1846,7 @@ class FlashAttentionForwardSm100:
                     num_splits=num_splits,
                 )
                 block_iter_count = n_block_max - n_block_min
-                process_tile = self.process_work_tile(seqlen, n_block_min, n_block_max)
+                process_tile = self.process_work_tile(block_info, seqlen, n_block_min, n_block_max)
 
             if process_tile and is_leader_cta:
                 for stage in cutlass.range_constexpr(self.q_stage):
@@ -2224,7 +2226,7 @@ class FlashAttentionForwardSm100:
                 has_work = tile_block_count > Int32(0)
             else:
                 tile_block_count = n_block_max - n_block_min
-                has_work = self.process_work_tile(seqlen, n_block_min, n_block_max)
+                has_work = self.process_work_tile(block_info, seqlen, n_block_min, n_block_max)
 
             softmax_step = partial(
                 self.softmax_step,
@@ -2670,7 +2672,7 @@ class FlashAttentionForwardSm100:
                 has_work = total_block_count > Int32(0)
             else:
                 total_block_count = n_block_max - n_block_min
-                has_work = self.process_work_tile(seqlen, n_block_min, n_block_max)
+                has_work = self.process_work_tile(block_info, seqlen, n_block_min, n_block_max)
 
             if has_work:
                 # Ignore first signal from softmax as no correction is required
@@ -2768,6 +2770,8 @@ class FlashAttentionForwardSm100:
                         mO_cur,
                         gO_stage,
                         gmem_tiled_copy_O,
+                        # TMA KV loads a dummy tile when seqlen_k == 0 (see correction_epilogue)
+                        zero_fill=seqlen.seqlen_k == 0 if const_expr(self.use_tma_KV) else False,
                     )
                     # Signal for the next work tile that O buffers in tmem are already read, so
                     # mma warp can write to them
@@ -2947,6 +2951,7 @@ class FlashAttentionForwardSm100:
         mO_cur: Optional[cute.Tensor] = None,
         gO: Optional[cute.Tensor] = None,
         gmem_tiled_copy_O: Optional[cute.TiledCopy] = None,
+        zero_fill: bool | Boolean = False,
     ):
         """Apply final scaling and transformation to attention output before writing to global memory.
 
@@ -3003,11 +3008,20 @@ class FlashAttentionForwardSm100:
             tOtO_t2r_i = tOtO_t2r[None, 0, 0, i]
             tOsO_r2s_i = tOsO_s2r[None, 0, 0, i]
             tOrO_frg = cute.make_rmem_tensor(tOcO_t2r[None, 0, 0, i].shape, self.pv_acc_dtype)
-            cute.copy(tiled_tmem_load, tOtO_t2r_i, tOrO_frg)
-            for j in cutlass.range(0, cute.size(tOrO_frg), 2, unroll_full=True):
-                tOrO_frg[j], tOrO_frg[j + 1] = cute.arch.mul_packed_f32x2(
-                    (tOrO_frg[j], tOrO_frg[j + 1]), (scale, scale)
-                )
+            if const_expr(zero_fill is True):
+                # Empty tile: O accumulator was never written, so write zeros directly
+                # rather than scaling whatever the TMEM columns happen to hold.
+                tOrO_frg.fill(0.0)
+            elif zero_fill:
+                # Run time (seqlen_k == 0 with TMA KV): the fully masked dummy block still loaded
+                # a KV tile, and P = 0 times a NaN V row is NaN; scaling by 0 would keep it.
+                tOrO_frg.fill(0.0)
+            else:
+                cute.copy(tiled_tmem_load, tOtO_t2r_i, tOrO_frg)
+                for j in cutlass.range(0, cute.size(tOrO_frg), 2, unroll_full=True):
+                    tOrO_frg[j], tOrO_frg[j + 1] = cute.arch.mul_packed_f32x2(
+                        (tOrO_frg[j], tOrO_frg[j + 1]), (scale, scale)
+                    )
             copy_utils.cvt_copy(tiled_smem_store, tOrO_frg, tOsO_r2s_i)
         cute.arch.fence_view_async_shared()
 
@@ -3102,7 +3116,7 @@ class FlashAttentionForwardSm100:
                 split_idx = split_idx & 0xFFFF
 
             if const_expr(self.use_block_sparsity) or self.process_work_tile(
-                seqlen, n_block_min, n_block_max
+                block_info, seqlen, n_block_min, n_block_max
             ):
                 if const_expr(self.is_split_kv):
                     mO_cur = seqlen.offset_batch_Q(mO, batch_idx, dim=3)[None, None, head_idx, split_idx]
@@ -3379,12 +3393,13 @@ class FlashAttentionForwardSm100:
     @cute.jit
     def process_work_tile(
         self,
+        block_info: BlockInfo,
         seqlen_info: SeqlenInfoQK,
         n_block_min: Int32,
         n_block_max: Int32,
     ):
         is_varlen_q = seqlen_info.has_cu_seqlens_q or seqlen_info.has_seqused_q
-        process_work_tile_k = const_expr(not self.is_split_kv) or n_block_min < n_block_max
+        process_work_tile_k = block_info.has_kv_work(n_block_min, n_block_max)
         if const_expr(is_varlen_q and not self.use_varlen_scheduler):
             process_work_tile_q = seqlen_info.seqlen_q > 0
         else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 4.6.1
+Version: 4.7.0
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>
@@ -31,12 +31,15 @@ Requires-Dist: Django>=5.2
 Requires-Dist: dnspython>=2.0.0
 Requires-Dist: httpx>=0.27.0 ; extra == "atlassian"
 Requires-Dist: celery>=5.0.0 ; extra == "celery"
+Requires-Dist: django-crontask[redis]>=2.0.0 ; extra == "crontask"
+Requires-Dist: redis>=5.0.1 ; extra == "crontask"
 Requires-Dist: confluent-kafka>=2.0.0 ; extra == "kafka"
 Requires-Dist: psutil>=7.2.0 ; extra == "psutil"
 Requires-Dist: aio-pika>=9.0.0 ; extra == "rabbitmq"
-Requires-Dist: redis>=4.2.0 ; extra == "redis"
+Requires-Dist: redis>=5.0.1 ; extra == "redis"
 Requires-Dist: httpx>=0.27.0 ; extra == "rss"
 Requires-Dist: feedparser>=6.0.0 ; extra == "rss"
+Requires-Dist: threadmill[redis]>=0.7.3 ; extra == "threadmill"
 Project-URL: Changelog, https://github.com/codingjoe/django-health-check/releases
 Project-URL: Documentation, https://codingjoe.dev/django-health-check/
 Project-URL: Funding, https://github.com/sponsors/codingjoe
@@ -46,11 +49,13 @@ Project-URL: Releasenotes, https://github.com/codingjoe/django-health-check/rele
 Project-URL: Source, https://github.com/codingjoe/django-health-check
 Provides-Extra: atlassian
 Provides-Extra: celery
+Provides-Extra: crontask
 Provides-Extra: kafka
 Provides-Extra: psutil
 Provides-Extra: rabbitmq
 Provides-Extra: redis
 Provides-Extra: rss
+Provides-Extra: threadmill
 
 <p align="center">
   <picture>

@@ -206,7 +206,8 @@ class Telemetry(Namespace[M]):
             since: Start of the window, zone-aware. Defaults to seven days
                 before ``until``.
             until: End of the window, zone-aware. Defaults to now.
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:
@@ -286,7 +287,8 @@ class Telemetry(Namespace[M]):
             since: Start of the window, zone-aware. Defaults to seven days
                 before ``until``.
             until: End of the window, zone-aware. Defaults to now.
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:
@@ -848,7 +850,8 @@ class PipelineRuns(Collection[M]):
             since: Start of the window, zone-aware. Defaults to seven days
                 before ``until``.
             until: End of the window, zone-aware. Defaults to now.
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:

@@ -310,8 +310,7 @@ class SNSClient(AioBaseClient):
         self, **kwargs: Unpack[GetDataProtectionPolicyInputTypeDef]
     ) -> GetDataProtectionPolicyResponseTypeDef:
         """
-        Retrieves the specified inline <code>DataProtectionPolicy</code> document that
-        is stored in the specified Amazon SNS topic.
+        Amazon SNS message data protection is no longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sns/client/get_data_protection_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/client/#get_data_protection_policy)
@@ -509,8 +508,7 @@ class SNSClient(AioBaseClient):
         self, **kwargs: Unpack[PutDataProtectionPolicyInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Adds or updates an inline policy document that is stored in the specified
-        Amazon SNS topic.
+        Amazon SNS message data protection is no longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sns/client/put_data_protection_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/client/#put_data_protection_policy)

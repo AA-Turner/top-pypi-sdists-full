@@ -880,8 +880,12 @@ class DevTools:
             Field(
                 default=None,
                 description=(
-                    "set_tool: require user approval before every call to this "
-                    "tool (adds/removes an unconditional security-policy rule)"
+                    "set_tool: toggle the tool's unconditional security-policy "
+                    "rule. In a require-approval list gated=true adds it (every "
+                    "call needs approval); in an allow list that rule approves "
+                    "the tool, so gated=true removes it. Conditional rules are "
+                    "left in place and still apply. gated=true is refused while "
+                    "an allow list's unconditional '*' rule approves every tool"
                 ),
             ),
         ] = None,
@@ -892,8 +896,14 @@ class DevTools:
                 default=None,
                 description=(
                     "set_policy: the full policy object "
-                    "{wait_seconds, approval_ttl_minutes, rules, version, "
-                    "schema_version}"
+                    "{rule_effect, wait_seconds, approval_ttl_minutes, "
+                    "event_decisions_enabled, rules, version, "
+                    "schema_version}. Replaces the WHOLE document: a field "
+                    "you omit reverts to its default, so send back an "
+                    "edited copy of get_policy rather than a fragment "
+                    "(omitting event_decisions_enabled switches the "
+                    "event-bus approval channel off; omitting rule_effect "
+                    "while the stored policy is an allow list is refused)"
                 ),
             ),
         ] = None,
@@ -923,10 +933,8 @@ class DevTools:
         """Manage ha-mcp server settings and the Tools/Policies/Backups surfaces (developer mode).
 
         Drives everything the web settings UI can change: the Server
-        Settings matrix (list/set/reset), the Tools tab (enable/disable/pin,
-        LLM-API exposure, and the per-tool security gate), the Tool Security
-        Policies editor (get_policy/set_policy), and the auto-backup config
-        (get_backup_config/set_backup_config). Use ha_dev_manage_server for
+        Settings matrix, the Tools tab, the Tool Security Policies editor,
+        and the auto-backup config. Use ha_dev_manage_server for
         the live approval queue and to restart.
 
         When NOT to use: for HA entity/automation configuration use the
@@ -1009,7 +1017,8 @@ class DevTools:
                     f"'setting' is required for action={action!r}",
                 )
             )
-        # set/reset only; 'list' returned above, and reads are never gated.
+        # set/reset only; 'list' returned above, and reads never need
+        # security-policy access.
         _guard_security_policy_setting(setting)
 
         from ..config import (
@@ -1087,27 +1096,21 @@ class DevTools:
         return load_tool_metadata_cache()
 
     @staticmethod
-    def _gated_tool_names() -> set[str] | None:
-        """Tool names carrying the bare unconditional gate (the Tools-tab toggle).
+    def _load_policy_or_none() -> Any | None:
+        """The stored policy, or ``None`` when ``tool_policy.json`` is unreadable.
 
-        The Tools-tab per-tool gate toggle manages only the bare rule (no
-        predicates); conditional rules are authored in the Policies tab. Keying
-        this on the bare rule keeps the reported toggle state consistent with
-        what set_tool(gated=...) writes.
-
-        Returns ``None`` when ``tool_policy.json`` is unreadable — the caller
-        must surface that (a silent ``set()`` would render every tool
-        ``gated=False``, indistinguishable from a clean no-gates policy, while
-        the sibling actions raise CONFIG_INVALID for the same file).
+        ``None`` must be surfaced by the caller: a silent empty policy would
+        render every tool ``gated=False``, indistinguishable from a clean
+        no-gates policy, while the sibling actions raise CONFIG_INVALID for the
+        same file.
         """
         from ..policy.persistence import load_policy
         from ..utils.data_paths import get_data_dir
 
         try:
-            policy = load_policy(get_data_dir())
+            return load_policy(get_data_dir())
         except ValueError:
             return None
-        return {rule.tool_name for rule in policy.rules if not rule.when}
 
     async def _list_tool_states(self) -> dict[str, Any]:
         """List every tool with its state / LLM-API / gate + lock flags.
@@ -1131,13 +1134,15 @@ class DevTools:
             states.setdefault(name, "pinned")
         env_pinned = env_pinned_tools()
         overrides = load_llm_api_overrides()
-        gated = self._gated_tool_names()
+        from ..policy.model import Policy, bare_rule_gates
+
+        policy = self._load_policy_or_none()
         warnings: list[str] = []
-        if gated is None:
+        if policy is None:
             # Degrade rather than fail the whole listing: states/exposure stay
             # useful for troubleshooting, but the gate column must not read as
             # a clean no-gates policy.
-            gated = set()
+            policy = Policy()
             warnings.append(
                 "tool_policy.json is invalid; 'gated' is reported as false "
                 "for every tool. Call get_policy for the parse error."
@@ -1168,7 +1173,7 @@ class DevTools:
                     ],
                     overrides,
                 ),
-                "gated": t["name"] in gated,
+                "gated": bare_rule_gates(policy, t["name"]),
                 "env_pinned": t["name"] in env_pinned,
                 "mandatory": t["name"] in mandatory,
                 "bps_locked": t["name"] in bps_locked,
@@ -1225,9 +1230,10 @@ class DevTools:
             raise_tool_error(
                 create_error_response(
                     ErrorCode.VALIDATION_INVALID_PARAMETER,
-                    "tool='*' is a policy wildcard, not a specific tool; it "
-                    "would gate every tool. Use set_policy to author a wildcard "
-                    "rule deliberately.",
+                    "tool='*' is a policy wildcard, not a specific tool; its "
+                    "rule would gate (or, in an allow list, approve) every "
+                    "tool. Use set_policy to author a wildcard rule "
+                    "deliberately.",
                 )
             )
         if not any(v is not None for v in (state, llm_api, gated)):
@@ -1302,6 +1308,7 @@ class DevTools:
         gate_changed); raises ToolError on the first invalid field.
         """
         from ..config import get_global_settings
+        from ..policy.model import bare_rule_gates
         from ..policy.persistence import load_policy
         from ..settings_ui._persistence import env_pinned_tools
         from ..utils.data_paths import get_data_dir
@@ -1332,6 +1339,21 @@ class DevTools:
                     )
                 )
             new_policy, changed = self._apply_gate_to_policy(policy, tool, gate_val)
+            if bare_rule_gates(new_policy, tool) != gate_val:
+                # Only an allow list's bare `*` rule, which approves every
+                # tool, leaves the toggle without effect.
+                raise_tool_error(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        "An unconditional '*' rule in this allow list approves "
+                        f"every tool, so {tool} cannot be gated.",
+                        suggestions=[
+                            "Remove the '*' rule with no conditions first "
+                            "(set_policy, or the Tool Security Policies tab), "
+                            "then retry.",
+                        ],
+                    )
+                )
             plan["gate_val"] = gate_val
             plan["new_policy"] = new_policy
             plan["gate_changed"] = changed
@@ -1416,10 +1438,11 @@ class DevTools:
     def _commit_gate(self, plan: dict[str, Any], data: dict[str, Any]) -> list[str]:
         """Persist the gate portion of a set_tool plan; returns any warnings."""
         from ..config import get_global_settings
+        from ..policy.model import bare_rule_gates
         from ..policy.persistence import load_policy, save_policy
         from ..utils.data_paths import get_data_dir
 
-        data["gated"] = bool(plan["gate_val"])
+        data["gated"] = bare_rule_gates(plan["new_policy"], data["tool"])
         data["policy_rules_changed"] = plan["gate_changed"]
         if plan["gate_changed"]:
             data_dir = get_data_dir()
@@ -1524,16 +1547,19 @@ class DevTools:
         """Return (policy, changed) after adding/removing the bare gate rule.
 
         Pure (no I/O): manages only the bare unconditional rule (when == [])
-        for ``tool``; predicate-bearing rules are preserved.
+        for ``tool``; predicate-bearing rules are preserved. Under an allow
+        list the bare rule approves the tool, so gating removes it.
         """
         from ..policy.model import Rule
 
+        want_bare = gated != (policy.rule_effect == "allow")
         has_bare = any(r.tool_name == tool and not r.when for r in policy.rules)
-        if gated and not has_bare:
+        if want_bare and not has_bare:
             # Insert before the first wildcard rule (mirrors the web UI's
-            # wildcardInsertIndex): find_matching_rule() is first-match, so a
-            # gate appended after a `*` rule would never supply this tool's
-            # remember_minutes / matched_rule.
+            # wildcardInsertIndex): in a require-approval list
+            # find_matching_rule() is first-match, so a gate appended after a
+            # `*` rule would never supply this tool's remember_minutes /
+            # matched_rule. An allow list does not depend on the order.
             rules = list(policy.rules)
             insert_at = next(
                 (i for i, r in enumerate(rules) if r.tool_name == "*"), len(rules)
@@ -1541,7 +1567,7 @@ class DevTools:
             rules.insert(insert_at, Rule(tool_name=tool))
             updated = policy.model_copy(update={"rules": rules})
             return updated, True
-        if not gated and has_bare:
+        if not want_bare and has_bare:
             updated = policy.model_copy(
                 update={
                     "rules": [r for r in policy.rules if r.tool_name != tool or r.when]
@@ -1819,8 +1845,7 @@ class DevTools:
                 description=(
                     "info: deployment/version report; update_source: point the "
                     "ha_mcp_tools component's separate in-process server at a "
-                    "channel or pip spec and reinstall it (never changes the "
-                    "server serving this connection, unless embedded); "
+                    "channel or pip spec and reinstall it; "
                     "restart: restart this server; list_pending: list tool calls "
                     "blocked on a security-policy approval; approve / deny: decide "
                     "one blocked call by token"
@@ -1841,13 +1866,10 @@ class DevTools:
                 description=(
                     "Explicit pip requirement for update_source — a version pin "
                     "(ha-mcp==7.9.0) or a GitHub tarball URL such as "
-                    "https://github.com/homeassistant-ai/ha-mcp/archive/refs/"
-                    "pull/<PR>/head.tar.gz. The bare name 'clear' "
-                    "(case-insensitive) is reserved: it clears the override "
-                    "and falls back to the release channel instead of being "
-                    "treated as a requirement (pin a specific version, e.g. "
-                    "'clear==2.0.0', if you genuinely need that PyPI "
-                    "package). An empty string also clears but some MCP "
+                    "https://github.com/homeassistant-ai/ha-mcp/archive/refs/pull/<PR>/head.tar.gz."
+                    " The bare name 'clear' (case-insensitive) is reserved: it clears the "
+                    "override and falls back to the release channel instead of being "
+                    "treated as a requirement. An empty string also clears but some MCP "
                     "clients mangle it in transit — prefer 'clear'."
                 ),
             ),
@@ -1866,12 +1888,6 @@ class DevTools:
         update Home Assistant Apps (add-ons) or HACS packages use
         ha_manage_app / ha_manage_hacs.
 
-        When to use: development/testing workflows — inspecting how this
-        server is deployed, switching the in-process (custom component)
-        server to another release channel or an arbitrary pip spec such
-        as a PR tarball, and restarting the server so config or code
-        changes take effect.
-
         Caveats: update_source changes ONLY the ha_mcp_tools custom
         component's separate in-process server entry — it never updates
         the app (add-on), Docker, standalone, or PyPI server that may be
@@ -1886,21 +1902,12 @@ class DevTools:
         connection in embedded and app deployments (the reply
         arrives just before the server goes down) and supports those
         two deployments only (standalone processes must be restarted
-        externally). list_pending/approve/deny are exempt from policy
-        gating (gating queue management would deadlock approvals), so
-        approve/deny instead require the separate
-        'dev_tools_security_policy_access' setting — off by default,
-        because gated-call errors carry the approval token and an agent
-        could otherwise self-approve its own gated calls. Dev mode is a
-        trusted-operator feature; leave it off otherwise.
+        externally). approve/deny require the separate
+        'dev_tools_security_policy_access' setting, off by default.
 
         EXAMPLES:
-        ha_dev_manage_server("info")
-        ha_dev_manage_server("update_source", channel="dev")
         ha_dev_manage_server("update_source", pip_spec="https://github.com/homeassistant-ai/ha-mcp/archive/refs/pull/1234/head.tar.gz")
         ha_dev_manage_server("update_source", pip_spec="clear", channel="stable")
-        ha_dev_manage_server("restart")
-        ha_dev_manage_server("list_pending")
         ha_dev_manage_server("approve", token="abc123")
         """
         try:

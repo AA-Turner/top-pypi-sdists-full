@@ -1,6 +1,6 @@
 [project]
 name = "jcodemunch-mcp"
-version = "1.108.319"
+version = "1.108.320"
 description = "Token-efficient MCP server for source code exploration via tree-sitter AST parsing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,6 +54,17 @@ dependencies = [
     # are behavioral, not API. Revisit only with grammars vendored or the
     # download made opt-in AND README-disclosed.
     "tree-sitter-language-pack>=0.7.0,<1.0.0",
+    # F# is parsed by its own wheel, not the pack (#848, parser/grammar_pack.py
+    # STANDALONE_GRAMMARS): the pack's newest 0.x F# grammar spills every member
+    # after `static member val ... with get, set` out of the type body, and the
+    # fixed grammar ships only in the 1.x download generation refused above.
+    # Grammar compiled into abi3 wheels, no runtime download. EXACT pin: a new
+    # grammar moves F# symbol ids, so moving it is a PARSER_GENERATION event.
+    "tree-sitter-fsharp==0.3.12",
+    # The F# wheel's grammar is ABI 15, which a tree-sitter runtime older than
+    # 0.25 cannot load: `Language()` raises and F# indexes as empty. The pack
+    # carried that floor only transitively, and its own spec does not promise it.
+    "tree-sitter>=0.25",
     "pathspec>=0.12.0",
     "pyyaml>=6.0",
 ]
@@ -70,7 +81,7 @@ openai = ["openai>=1.0.0"]
 minimax = ["openai>=1.0.0"]
 zhipu = ["openai>=1.0.0"]
 dbt = ["pyyaml>=6.0"]
-http = ["uvicorn>=0.20.0", "starlette>=1.3.1", "anyio>=4.0.0"]
+http = ["uvicorn>=0.20.0", "starlette>=1.3.1", "anyio>=4.14.2"]
 watch = ["watchfiles>=1.0.0"]
 semantic = ["sentence-transformers>=2.2.0"]
 local-embed = ["onnxruntime>=1.16.0"]
@@ -81,7 +92,7 @@ keyring = ["keyring>=24.0"]
 bench = ["openai>=1.0.0", "anthropic>=0.40.0", "pyyaml>=6.0", "rich>=13.0", "jinja2>=3.1"]
 # `all` is a hand-maintained union of every extra above. When you add a new
 # extra or a new dependency to one, mirror it here (there is no auto-union).
-all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0", "openai>=1.0.0", "pyyaml>=6.0", "uvicorn>=0.20.0", "starlette>=1.3.1", "anyio>=4.0.0", "watchfiles>=1.0.0", "sentence-transformers>=2.2.0", "onnxruntime>=1.16.0", "sounddevice>=0.4.6", "numpy>=1.24.0", "Pillow>=10.0.0", "rich>=13.0", "jinja2>=3.1", "keyring>=24.0"]
+all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0", "openai>=1.0.0", "pyyaml>=6.0", "uvicorn>=0.20.0", "starlette>=1.3.1", "anyio>=4.14.2", "watchfiles>=1.0.0", "sentence-transformers>=2.2.0", "onnxruntime>=1.16.0", "sounddevice>=0.4.6", "numpy>=1.24.0", "Pillow>=10.0.0", "rich>=13.0", "jinja2>=3.1", "keyring>=24.0"]
 
 
 [project.scripts]

@@ -91,8 +91,11 @@ def mock_django_connection(disabled_features=None):
         result = MagicMock(name='mock_connection.ops.compiler()')
         # noinspection PyProtectedMember
         result.execute_sql.side_effect = NotSupportedError(
-            "Mock database tried to execute SQL for {} model.".format(
-                queryset.model._meta.object_name))
+            f"Mock database tried to execute SQL for {queryset.model._meta.object_name} model."
+        )
+        result.execute_returning_sql.side_effect = NotSupportedError(
+            f"Mock database tried to execute returning SQL for {queryset.model._meta.object_name} model."
+        )
         result.has_results.side_effect = result.execute_sql.side_effect
         return result
 
@@ -163,7 +166,7 @@ class MockOneToOneMap(MockMap):
             old_instance = old_instance_weak()
         if entry is None or old_instance is None:
             raise self.original.RelatedObjectDoesNotExist(
-                "Mock %s has no %s." % (
+                "Mock {} has no {}.".format(
                     owner.__name__,
                     self.original.related.get_accessor_name()
                 )
@@ -177,8 +180,7 @@ def find_all_models(models):
         yield model
         # noinspection PyProtectedMember
         for parent in model._meta.parents.keys():
-            for parent_model in find_all_models((parent,)):
-                yield parent_model
+            yield from find_all_models((parent,))
 
 
 def _patch_save(model, name):
@@ -388,7 +390,7 @@ class Mocker:
 
         if target_obj is None:
             mock_args = dict(new=MagicMock())
-        elif type(target_obj) == MethodType:
+        elif isinstance(target_obj, MethodType):
             mock_args = dict(new=MagicMock(autospec=True, side_effect=target_obj))
         else:
             mock_args = dict(new=PropertyMock(return_value=target_obj))
@@ -427,13 +429,13 @@ class ModelMocker(Mocker):
     default_methods = tuple(default_methods)
 
     def __init__(self, cls, *methods, **kwargs):
-        super(ModelMocker, self).__init__(cls, *(self.default_methods + methods), **kwargs)
+        super().__init__(cls, *(self.default_methods + methods), **kwargs)
 
         self.objects = MockSet(model=self.cls)
         self.objects.on('added', self._on_added)
 
     def __enter__(self):
-        result = super(ModelMocker, self).__enter__()
+        result = super().__enter__()
         return result
 
     def _obj_pk(self, obj):
@@ -459,15 +461,20 @@ class ModelMocker(Mocker):
         return []
 
     def _do_update(self, *args, **_):
-        _, _, pk_val, values, _, _ = args
-        objects = self.objects.filter(pk=pk_val)
-
-        if objects.exists():
-            attrs = {field.attname: value for field, _, value in values if value is not None}
-            self.objects.update(**attrs)
-            return True
+        use_new_behavior = django.VERSION >= (6, 0)
+        if use_new_behavior:
+            # TODO: We might need to implement support for `returning_fields`.
+            _base_qs, _using, pk_val, values, _update_fields, _forced_update, _returning_fields = args
         else:
-            return False
+            _base_qs, _using, pk_val, values, _update_fields, _forced_update = args
+
+        objects = self.objects.filter(pk=pk_val)
+        if not objects.exists():
+            return [] if use_new_behavior else False
+
+        attrs = {field.attname: value for field, _model, value in values if value is not None}
+        self.objects.update(**attrs)
+        return [()] if use_new_behavior else True
 
     def delete(self, *_args, **_kwargs):
         pk = self._obj_pk(self.objects[0])

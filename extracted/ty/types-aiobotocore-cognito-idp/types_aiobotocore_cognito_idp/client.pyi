@@ -48,6 +48,7 @@ from .type_defs import (
     AdminConfirmSignUpRequestTypeDef,
     AdminCreateUserRequestTypeDef,
     AdminCreateUserResponseTypeDef,
+    AdminDeleteSoftwareTokenRequestTypeDef,
     AdminDeleteUserAttributesRequestTypeDef,
     AdminDeleteUserRequestTypeDef,
     AdminDisableProviderForUserRequestTypeDef,
@@ -133,6 +134,8 @@ from .type_defs import (
     DescribeResourceServerResponseTypeDef,
     DescribeRiskConfigurationRequestTypeDef,
     DescribeRiskConfigurationResponseTypeDef,
+    DescribeTermsByClientRequestTypeDef,
+    DescribeTermsByClientResponseTypeDef,
     DescribeTermsRequestTypeDef,
     DescribeTermsResponseTypeDef,
     DescribeUserImportJobRequestTypeDef,
@@ -147,6 +150,8 @@ from .type_defs import (
     ForgetDeviceRequestTypeDef,
     ForgotPasswordRequestTypeDef,
     ForgotPasswordResponseTypeDef,
+    GetClientTokenRequestTypeDef,
+    GetClientTokenResponseTypeDef,
     GetCSVHeaderRequestTypeDef,
     GetCSVHeaderResponseTypeDef,
     GetDeviceRequestTypeDef,
@@ -409,6 +414,17 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_create_user.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#admin_create_user)
+        """
+
+    async def admin_delete_software_token(
+        self, **kwargs: Unpack[AdminDeleteSoftwareTokenRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a user's registered time-based one-time password (TOTP) multi-factor
+        authentication (MFA) factor, also known as a software token.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_delete_software_token.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#admin_delete_software_token)
         """
 
     async def admin_delete_user(
@@ -1027,6 +1043,17 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#describe_terms)
         """
 
+    async def describe_terms_by_client(
+        self, **kwargs: Unpack[DescribeTermsByClientRequestTypeDef]
+    ) -> DescribeTermsByClientResponseTypeDef:
+        """
+        Returns details for the terms documents that are associated with an app client,
+        identified by the app client ID, user pool ID, and terms name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/describe_terms_by_client.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#describe_terms_by_client)
+        """
+
     async def describe_user_import_job(
         self, **kwargs: Unpack[DescribeUserImportJobRequestTypeDef]
     ) -> DescribeUserImportJobResponseTypeDef:
@@ -1098,6 +1125,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_csv_header.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#get_csv_header)
+        """
+
+    async def get_client_token(
+        self, **kwargs: Unpack[GetClientTokenRequestTypeDef]
+    ) -> GetClientTokenResponseTypeDef:
+        """
+        Issues an access token for machine-to-machine (M2M) authorization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_client_token.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#get_client_token)
         """
 
     async def get_device(

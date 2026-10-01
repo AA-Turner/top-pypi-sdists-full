@@ -432,11 +432,13 @@ class TestMilestoneWriteOrderCmd:
     def test_refuses_shared_group_under_oracle_loop(
         self, config_file_with_gate_a: Path
     ) -> None:
-        """#2542: this repo is under oracle-loop control (an acceptance
-        driver is configured) — a proposed work order putting #762/#763 in
-        the same `{group: A}` cohort must be refused before it's ever
-        written, since both would author their JIT acceptance slice into
-        the SAME tests/acceptance/ms-N/manifest.yml concurrently
+        """#2542: this MILESTONE is under oracle-loop control — the repo
+        has an acceptance driver configured AND this milestone's Gate-A
+        contract already exists (#2785: both halves matter, not just the
+        repo-level driver config) — a proposed work order putting
+        #762/#763 in the same `{group: A}` cohort must be refused before
+        it's ever written, since both would author their JIT acceptance
+        slice into the SAME tests/acceptance/ms-N/manifest.yml concurrently
         (coord-portal#122)."""
         def get_issue(repo, number):
             return {
@@ -450,6 +452,7 @@ class TestMilestoneWriteOrderCmd:
         ]
         with patch("coord.github_ops.get_issue", side_effect=get_issue), \
              patch("coord.github_ops.get_open_issues", return_value=open_issues), \
+             patch("coord.github_ops.get_repo_file", return_value="# Contract\n"), \
              patch("coord.github_ops.update_issue_body") as mock_update:
             result = CliRunner().invoke(
                 main,
@@ -490,6 +493,92 @@ class TestMilestoneWriteOrderCmd:
             )
         assert result.exit_code == 0, result.output
         mock_update.assert_called_once()
+
+    def test_shared_group_with_driver_but_no_contract_still_writes(
+        self, config_file_with_gate_a: Path
+    ) -> None:
+        """#2785: the repo has an acceptance driver configured (so
+        `has_driver(repo)` is True), but THIS milestone has no Gate-A
+        contract at all — `tests/acceptance/ms-9/contract.md` 404s, the
+        same signal `gate_a_status` checks. That means there is no
+        `tests/acceptance/ms-9/manifest.yml` for two group members' JIT
+        slices to race on either, so #2542's shared-group refusal must NOT
+        fire — mirrors #1949 (ms-60, Store Service): a milestone with
+        ordinary parallel work sharing a repo with real oracle-loop
+        milestones must keep writing exactly as it could before #2542."""
+        def get_issue(repo, number):
+            return {
+                "number": 100, "title": "tracking", "body": "",
+                "state": "OPEN", "milestone": {"number": 9, "title": "M"},
+                "labels": [{"name": "epic"}],
+            }
+
+        open_issues = [
+            {"number": 762, "milestone": {"number": 9}},
+            {"number": 763, "milestone": {"number": 9}},
+        ]
+        with patch("coord.github_ops.get_issue", side_effect=get_issue), \
+             patch("coord.github_ops.get_open_issues", return_value=open_issues), \
+             patch(
+                 "coord.github_ops.get_repo_file",
+                 side_effect=RuntimeError("404"),
+             ), \
+             patch("coord.github_ops.add_issue_labels") as mock_add_labels, \
+             patch("coord.github_ops.update_issue_body") as mock_update:
+            result = CliRunner().invoke(
+                main,
+                ["milestone", "write-order", "api", "100", "--config",
+                 str(config_file_with_gate_a)],
+                input="- [ ] #762  {group: A}\n- [ ] #763  {group: A}\n",
+            )
+        assert result.exit_code == 0, result.output
+        mock_update.assert_called_once()
+
+    def test_transient_gate_a_read_aborts_rather_than_writing(
+        self, config_file_with_gate_a: Path
+    ) -> None:
+        """#2785 review (blocking finding): a rate-limited/transient Gate-A
+        read must NOT be silently folded into "contract confirmed absent" —
+        that would resolve `gate_a_satisfied=False` -> `oracle_loop=False`
+        and let a shared `{group: ...}` work order through for a milestone
+        that may genuinely be under oracle-loop control, reopening #2542's
+        manifest race exactly when GitHub is least reliable. The command
+        must abort instead of writing anything."""
+        from coord.github_ops import GhRateLimitError
+
+        def get_issue(repo, number):
+            return {
+                "number": 100, "title": "tracking", "body": "",
+                "state": "OPEN", "milestone": {"number": 9, "title": "M"},
+                "labels": [{"name": "epic"}],
+            }
+
+        open_issues = [
+            {"number": 762, "milestone": {"number": 9}},
+            {"number": 763, "milestone": {"number": 9}},
+        ]
+        with patch("coord.github_ops.get_issue", side_effect=get_issue), \
+             patch("coord.github_ops.get_open_issues", return_value=open_issues), \
+             patch(
+                 "coord.github_ops.get_repo_file",
+                 side_effect=GhRateLimitError(
+                     "gh api repos/acme/api/contents/tests/acceptance/ms-9/"
+                     "contract.md?ref=main failed: API rate limit exceeded "
+                     "for user ID 12345",
+                     secondary=True,
+                 ),
+             ), \
+             patch("coord.github_ops.update_issue_body") as mock_update:
+            result = CliRunner().invoke(
+                main,
+                ["milestone", "write-order", "api", "100", "--config",
+                 str(config_file_with_gate_a)],
+                input="- [ ] #762  {group: A}\n- [ ] #763  {group: A}\n",
+            )
+        assert result.exit_code == 1
+        assert "rate limit" in result.output.lower()
+        assert "does not exist" not in result.output
+        mock_update.assert_not_called()
 
 
 # ── `coord milestone chat` (#770 Phase 2 dispatch) ──────────────────────────

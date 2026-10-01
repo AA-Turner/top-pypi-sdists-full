@@ -224,6 +224,8 @@ class CanvasError(Exception):
 class Canvas:
     """base class for canvases."""
 
+    __slots__ = ("__dict__", "__weakref__", "_widget_info", "coords", "shortcuts")
+
     cacheable = True
 
     _finalized_error = CanvasError(
@@ -601,6 +603,8 @@ class BlankCanvas(Canvas):
     Only works as part of a composite canvas since it doesn't know its own size.
     """
 
+    __slots__ = ()
+
     def content(
         self,
         trim_left: int = 0,
@@ -733,6 +737,7 @@ class CompositeCanvas(Canvas):
 
         # tuples that define the unfinished cviews that are part of shards following the first shard.
         super().__init__()
+        self.depends_on: Sequence[AbstractWidget] | None = None
 
         if canv is None:
             self.shards: list[tuple[int, list[_CView]]] = []

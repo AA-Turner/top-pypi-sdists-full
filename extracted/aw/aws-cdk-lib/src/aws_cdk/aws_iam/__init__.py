@@ -15472,7 +15472,7 @@ class Role(
         # Grant read permissions (Get and List actions)
         browser.grant_read(user_role)
         
-        # Grant use permissions (Start, Update, Stop actions)
+        # Grant use permissions (Start, Update, Connect to the automation stream, and Stop actions)
         browser.grant_use(user_role)
         
         # Grant specific custom permissions
@@ -15930,7 +15930,7 @@ class ServicePrincipal(
         # Grant read permissions (Get and List actions)
         browser.grant_read(user_role)
         
-        # Grant use permissions (Start, Update, Stop actions)
+        # Grant use permissions (Start, Update, Connect to the automation stream, and Stop actions)
         browser.grant_use(user_role)
         
         # Grant specific custom permissions

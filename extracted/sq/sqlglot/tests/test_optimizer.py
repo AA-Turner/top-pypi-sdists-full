@@ -1,3 +1,5 @@
+import json
+import os
 import unittest
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
@@ -19,11 +21,14 @@ from sqlglot.schema import MappingSchema
 from tests.helpers import (
     TPCDS_SCHEMA,
     TPCH_SCHEMA,
+    _extract_meta,
     assert_logger_contains,
     load_sql_fixture_pairs,
     load_sql_fixtures,
     string_to_bool,
 )
+
+STRICT_SCHEMA = os.environ.get("STRICT_SCHEMA") == "1"
 
 
 def parse_and_optimize(func, sql, read_dialect, **kwargs):
@@ -37,7 +42,7 @@ def qualify_then_canonicalize(expression, **qualify_kwargs):
 def qualify_columns(expression, validate_qualify_columns=True, **kwargs):
     expression = optimizer.qualify.qualify(
         expression,
-        infer_schema=True,
+        infer_schema=not STRICT_SCHEMA,
         validate_qualify_columns=validate_qualify_columns,
         identify=False,
         **kwargs,
@@ -47,8 +52,10 @@ def qualify_columns(expression, validate_qualify_columns=True, **kwargs):
 
 def pushdown_projections(expression, **kwargs):
     expression = optimizer.qualify_tables.qualify_tables(expression)
-    expression = optimizer.qualify_columns.qualify_columns(expression, infer_schema=True, **kwargs)
-    expression = optimizer.pushdown_projections.pushdown_projections(expression, **kwargs)
+    expression = optimizer.qualify_columns.qualify_columns(
+        expression, infer_schema=not STRICT_SCHEMA, **kwargs
+    )
+    expression = optimizer.pushdown_projections.pushdown_projections(expression)
     return expression
 
 
@@ -213,8 +220,10 @@ class TestOptimizer(unittest.TestCase):
                 leave_tables_isolated = meta.get("leave_tables_isolated")
                 validate_qualify_columns = meta.get("validate_qualify_columns")
                 canonicalize_table_aliases = meta.get("canonicalize_table_aliases")
-
                 func_kwargs = kwargs.copy()
+
+                if schema := meta.get("schema"):
+                    func_kwargs["schema"] = json.loads(schema)
 
                 if leave_tables_isolated is not None:
                     func_kwargs["leave_tables_isolated"] = string_to_bool(leave_tables_isolated)
@@ -278,7 +287,7 @@ class TestOptimizer(unittest.TestCase):
         self.check_file(
             "optimizer",
             optimizer.optimize,
-            infer_schema=True,
+            infer_schema=not STRICT_SCHEMA,
             pretty=True,
             execute=True,
             schema=schema,
@@ -402,6 +411,95 @@ class TestOptimizer(unittest.TestCase):
         )
 
         self.check_file("normalize", normalize, schema=self.schema)
+
+    def test_qualify_columns_struct_field_and_source_alias(self):
+        schema = {
+            "customer": {
+                "id": "INT",
+                "address": "STRUCT<state TEXT, location STRUCT<state TEXT>>",
+            },
+            "addresses": {"id": "INT", "state": "TEXT"},
+            "other": {"id": "INT"},
+        }
+        qualified = qualify(
+            parse_one(
+                "SELECT c.address.state FROM customer AS c "
+                "JOIN addresses AS address ON c.id = address.id"
+            ),
+            schema=schema,
+            identify=False,
+        )
+        struct_field = exp.Dot.build([exp.column("address", table="c"), exp.to_identifier("state")])
+        self.assertEqual(qualified.find(exp.Dot), struct_field)
+
+        nested = qualify(
+            parse_one(
+                "SELECT c.address.location.state FROM customer AS c "
+                "CROSS JOIN addresses AS location"
+            ),
+            schema=schema,
+            identify=False,
+        )
+        self.assertEqual(
+            nested.find(exp.Dot),
+            exp.Dot.build(
+                [
+                    exp.column("address", table="c"),
+                    exp.to_identifier("location"),
+                    exp.to_identifier("state"),
+                ]
+            ),
+        )
+
+        correlated = qualify(
+            parse_one(
+                "SELECT (SELECT c.address.state FROM addresses AS address "
+                "WHERE address.id = c.id) FROM customer AS c"
+            ),
+            schema=schema,
+            identify=False,
+        )
+        self.assertEqual(correlated.find(exp.Dot), struct_field)
+
+        physical = qualify(
+            parse_one(
+                "SELECT db.address.state FROM db.address AS address "
+                "JOIN db.other AS db ON address.id = db.id"
+            ),
+            schema={
+                "db": {
+                    "address": {"id": "INT", "state": "TEXT"},
+                    "other": {"id": "INT"},
+                }
+            },
+            identify=False,
+        )
+        self.assertEqual(physical.find(exp.Column), exp.column("state", table="address"))
+
+    def test_qualify_correlated_shadowed_struct_path(self):
+        schema = {
+            "customer": {"address": "STRUCT<state TEXT>"},
+            "other": {"id": "INT"},
+            "addresses": {"id": "INT", "state": "TEXT"},
+        }
+        query = (
+            "SELECT (SELECT c.address.state FROM other AS c "
+            "JOIN addresses AS address ON c.id = address.id) AS state "
+            "FROM customer AS c"
+        )
+        qualified = qualify(parse_one(query), schema=schema, identify=False)
+
+        with duckdb.connect() as connection:
+            connection.execute("CREATE TABLE customer (address STRUCT(state TEXT))")
+            connection.execute("CREATE TABLE other (id INT)")
+            connection.execute("CREATE TABLE addresses (id INT, state TEXT)")
+            connection.execute("INSERT INTO customer VALUES ({'state': 'CA'})")
+            connection.execute("INSERT INTO other VALUES (1)")
+            connection.execute("INSERT INTO addresses VALUES (1, 'NY')")
+            self.assertEqual(
+                connection.execute(qualified.sql(dialect="duckdb")).fetchall(),
+                connection.execute(query).fetchall(),
+            )
 
     @patch("sqlglot.generator.logger")
     def test_qualify_columns(self, logger):
@@ -1280,6 +1378,11 @@ class TestOptimizer(unittest.TestCase):
         self.assertIn("Column 'nonexistent' could not be resolved", error_msg)
         self.assertNotIn(f"{ANSI_UNDERLINE}nonexistent{ANSI_RESET}", error_msg)
 
+    def test_extract_meta_schema_directive(self):
+        sql, meta = _extract_meta('# schema: {"t": {"a": "INT", "b": "TEXT"}}\nSELECT a FROM t')
+        self.assertEqual(sql, "SELECT a FROM t")
+        self.assertEqual(json.loads(meta["schema"]), {"t": {"a": "INT", "b": "TEXT"}})
+
     def test_normalize_identifiers(self):
         self.check_file(
             "normalize_identifiers",
@@ -1573,9 +1676,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             identify=False,
         )
         sql = expression.sql()
-        optimizer.pushdown_projections.pushdown_projections(
-            expression, schema=self.schema, journal=journal
-        )
+        optimizer.pushdown_projections.pushdown_projections(expression, journal=journal)
         self.assertEqual(
             expression.sql(), "SELECT t.a AS a FROM (SELECT x.a AS a FROM x AS x) AS t"
         )
@@ -1599,9 +1700,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             identify=False,
         )
         original = expression.copy()
-        optimizer.pushdown_projections.pushdown_projections(
-            expression, dialect="duckdb", journal=journal
-        )
+        optimizer.pushdown_projections.pushdown_projections(expression, journal=journal)
         group = expression.find(exp.CTE).this.args["group"]
         self.assertEqual([e.sql() for e in group.expressions], ["t.z", "1", "1"])
 
@@ -1965,8 +2064,9 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             optimizer.optimize(
                 "SELECT * FROM foo",
                 on_qualify=lambda table: table.replace(exp.to_table("bar")),
+                schema={"bar": {"a": "INT"}},
             ).sql(),
-            'SELECT * FROM "bar"',
+            'SELECT "bar"."a" AS "a" FROM "bar"',
         )
 
     def test_scope(self):
@@ -3187,9 +3287,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             ),
         ):
             with self.subTest(sql):
-                expression = optimizer.pushdown_projections.pushdown_projections(
-                    parse_one(sql), schema=self.schema
-                )
+                expression = optimizer.pushdown_projections.pushdown_projections(parse_one(sql))
                 self.assertEqual(expression.sql(), expected)
 
     def test_pushdown_projections_keeps_recursive_cte_self_referenced_columns(self):

@@ -126,9 +126,9 @@ class RawAgentClient:
                         raise BadRequestError(
                             headers=dict(_response.headers),
                             body=typing.cast(
-                                ErrorSchema,
+                                typing.Any,
                                 parse_obj_as(
-                                    type_=ErrorSchema,  # type: ignore
+                                    type_=typing.Any,  # type: ignore
                                     object_=_response.json(),
                                 ),
                             ),
@@ -285,9 +285,9 @@ class RawAgentClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -465,9 +465,9 @@ class AsyncRawAgentClient:
                         raise BadRequestError(
                             headers=dict(_response.headers),
                             body=typing.cast(
-                                ErrorSchema,
+                                typing.Any,
                                 parse_obj_as(
-                                    type_=ErrorSchema,  # type: ignore
+                                    type_=typing.Any,  # type: ignore
                                     object_=_response.json(),
                                 ),
                             ),
@@ -624,9 +624,9 @@ class AsyncRawAgentClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorSchema,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorSchema,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

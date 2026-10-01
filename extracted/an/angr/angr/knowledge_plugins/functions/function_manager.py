@@ -1,4 +1,4 @@
-# pylint:disable=raise-missing-from
+# pylint:disable=raise-missing-from,protected-access
 from __future__ import annotations
 
 import bisect
@@ -19,7 +19,7 @@ from archinfo.arch_soot import SootMethodDescriptor
 from cachetools import LRUCache
 from sortedcontainers import SortedDict, SortedItemsView, SortedKeysView, SortedList, SortedValuesView
 
-from angr.codenode import FuncNode, HookNode
+from angr.codenode import FuncNode
 from angr.errors import SimEngineError
 from angr.knowledge_plugins.plugin import KnowledgeBasePlugin
 from angr.protos import function_pb2
@@ -319,8 +319,8 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         # Temporarily disable eviction during copy
         new_dict._eviction_enabled = False
         # iterate over in-memory functions and copy them
-        for address in self.cached_keys:
-            function = super().__getitem__(address)
+        for address, function in self.data.items():
+            new_dict._list.add(address)
             super(SpillingFunctionDict, new_dict).__setitem__(address, function.copy())
             new_dict._lru_order[address] = None
 
@@ -337,6 +337,7 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
                     if value is not None:
                         dst_txn.put(key, value)
                         new_dict._spilled_keys.add(addr)
+                        new_dict._list.add(addr)
 
         new_dict._eviction_enabled = True
         return new_dict
@@ -428,7 +429,7 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         Set the maximum number of functions to keep in memory.
         """
         self._cache_limit = value
-        if self.cached_count > value + self._db_batch_size:
+        if self.cached_count > value:
             self._evict_lru()
 
     @property
@@ -483,7 +484,11 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         with self._db_store_lock:
             evicted_any = False
             while self.cached_count > self._cache_limit:
-                if self._evict_n(min(self._db_batch_size, self.cached_count)) == 0:
+                # evict in batches, but keep the most recently used half of the cache: callers may still be holding
+                # on to recently loaded functions (e.g. a small cache_limit with a large batch size would otherwise
+                # evict a function right after loading it)
+                n = min(self._db_batch_size, max(1, self.cached_count // 2))
+                if self._evict_n(n) == 0:
                     break
                 evicted_any = True
             return evicted_any
@@ -915,11 +920,8 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         """
         if self._kb is None or self._kb._project is None:
             return max_limit
-        limit = self._kb._project.get_function_cache_limit()
-        if limit is None:
-            return limit
-        limit = max(limit, 100)
-        return min(max_limit, limit)
+        project = self._kb._project
+        return project.get_function_cache_limit()
 
     def _generate_callmap_sif(self, filepath):
         """
@@ -1003,7 +1005,7 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         dst_func = self._function_map[function_addr]
         if syscall in (True, False):
             dst_func.is_syscall = syscall
-        dst_func._register_node(True, node)
+        dst_func.register_node(True, node)
 
     def _add_call_to(
         self,
@@ -1035,13 +1037,16 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
             from_node = self._kb._project.factory.snippet(from_node)
         if isinstance(retn_node, self.address_types):
             retn_node = self._kb._project.factory.snippet(retn_node)
+        if to_addr is not None:
+            # load or create the callee before fetching the caller: loading it may evict the caller, and a caller
+            # fetched earlier would then be mutated after it was written out
+            self.function(addr=to_addr, create=True, syscall=syscall)
         func = self._function_map[function_addr]
-        func._add_call_site(from_node.addr, to_addr, retn_node.addr if retn_node else None)
+        func.add_call_site(from_node.addr, to_addr, retn_node.addr if retn_node else None)
 
         if to_addr is not None:
-            self.function(addr=to_addr, create=True, syscall=syscall)
             dest_func_node = FuncNode(to_addr)
-            func._call_to(
+            func.call_to(
                 from_node,
                 dest_func_node,
                 retn_node,
@@ -1075,7 +1080,7 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
         if syscall in (True, False):
             src_func.is_syscall = syscall
 
-        src_func._fakeret_to(from_node, to_node, confirmed=confirmed, to_outside=to_outside)
+        src_func.fakeret_to(from_node, to_node, confirmed=confirmed, to_outside=to_outside)
 
         if to_outside and to_function_addr is not None:
             # mark it on the callgraph
@@ -1092,19 +1097,19 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
             from_node = self._kb._project.factory.snippet(from_node)
         if type(to_node) is int:  # pylint: disable=unidiomatic-typecheck
             to_node = self._kb._project.factory.snippet(to_node)
-        self._function_map[function_addr]._remove_fakeret(from_node, to_node)
+        self._function_map[function_addr].remove_fakeret(from_node, to_node)
 
     def _add_return_from(self, function_addr, from_node, to_node=None):  # pylint:disable=unused-argument
         if isinstance(from_node, self.address_types):  # pylint: disable=unidiomatic-typecheck
             from_node = self._kb._project.factory.snippet(from_node)
-        self._function_map[function_addr]._add_return_site(from_node)
+        self._function_map[function_addr].add_return_site(from_node)
 
     def _add_transition_to(self, function_addr, from_node, to_node, ins_addr=None, stmt_idx=None, is_exception=False):
         if isinstance(from_node, self.address_types):  # pylint: disable=unidiomatic-typecheck
             from_node = self._kb._project.factory.snippet(from_node)
         if isinstance(to_node, self.address_types):  # pylint: disable=unidiomatic-typecheck
             to_node = self._kb._project.factory.snippet(to_node)
-        self._function_map[function_addr]._transit_to(
+        self._function_map[function_addr].transit_to(
             from_node, to_node, ins_addr=ins_addr, stmt_idx=stmt_idx, is_exception=is_exception
         )
 
@@ -1120,7 +1125,7 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
                 # we cannot get the snippet, but we should at least tell the function that it's going to jump out here
                 self._function_map[function_addr].add_jumpout_site(from_node)
                 return
-        self._function_map[function_addr]._transit_to(
+        self._function_map[function_addr].transit_to(
             from_node,
             to_node,
             outside=True,
@@ -1146,7 +1151,7 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
             to_node = self._kb._project.factory.snippet(to_node)
         func = self._function_map[function_addr]
         src_funcnode = FuncNode(src_function_addr)
-        func._return_from_call(src_funcnode, to_node, to_outside=to_outside)
+        func.return_from_call(src_funcnode, to_node, to_outside=to_outside)
 
     #
     # Dict methods
@@ -1442,18 +1447,9 @@ class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, colle
             self.callgraph.add_node(func_addr)
         for func in self._function_map.values():
             if func.block_addrs_set:
-                for node in func.transition_graph:
-                    if isinstance(node, (HookNode, FuncNode)) and self.contains_addr(node.addr):
-                        self.callgraph.add_edge(func.addr, node.addr)
-                    else:
-                        inedges = func.transition_graph.in_edges(node, data=True)
-                        for _, _, data in inedges:
-                            if (
-                                data.get("type") == "transition"
-                                and data.get("outside") is True
-                                and self.contains_addr(node.addr)
-                            ):
-                                self.callgraph.add_edge(func.addr, node.addr)
+                for target in func.outgoing_function_targets():
+                    if self.contains_addr(target):
+                        self.callgraph.add_edge(func.addr, target)
 
     #
     # Non-returning function cache

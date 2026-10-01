@@ -160,9 +160,19 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksAllRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionSnapshotBinomialGreeksAll = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksAll',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksAllRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionSnapshotGreeksFirstOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotGreeksFirstOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksFirstOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionSnapshotBinomialGreeksFirstOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksFirstOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksFirstOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionSnapshotGreeksSecondOrder = channel.unary_stream(
@@ -170,9 +180,19 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksSecondOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionSnapshotBinomialGreeksSecondOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksSecondOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksSecondOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionSnapshotGreeksThirdOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotGreeksThirdOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksThirdOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionSnapshotBinomialGreeksThirdOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksThirdOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksThirdOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionHistoryEod = channel.unary_stream(
@@ -210,9 +230,19 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksEodRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionHistoryBinomialGreeksEod = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksEod',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksEodRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionHistoryGreeksAll = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksAll',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksAllRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionHistoryBinomialGreeksAll = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksAll',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksAllRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionHistoryTradeGreeksAll = channel.unary_stream(
@@ -220,9 +250,19 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksAllRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionHistoryBinomialTradeGreeksAll = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksAll',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksAllRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionHistoryGreeksFirstOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksFirstOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksFirstOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionHistoryBinomialGreeksFirstOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksFirstOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksFirstOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionHistoryTradeGreeksFirstOrder = channel.unary_stream(
@@ -230,9 +270,19 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksFirstOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionHistoryBinomialTradeGreeksFirstOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksFirstOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionHistoryGreeksSecondOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksSecondOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksSecondOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionHistoryBinomialGreeksSecondOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksSecondOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksSecondOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionHistoryTradeGreeksSecondOrder = channel.unary_stream(
@@ -240,14 +290,29 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksSecondOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionHistoryBinomialTradeGreeksSecondOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksSecondOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionHistoryGreeksThirdOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksThirdOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksThirdOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetOptionHistoryBinomialGreeksThirdOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksThirdOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksThirdOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetOptionHistoryTradeGreeksThirdOrder = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryTradeGreeksThirdOrder',
                 request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksThirdOrderRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetOptionHistoryBinomialTradeGreeksThirdOrder = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksThirdOrder',
+                request_serializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
         self.GetOptionHistoryGreeksImpliedVolatility = channel.unary_stream(
@@ -535,7 +600,19 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionSnapshotBinomialGreeksAll(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionSnapshotGreeksFirstOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionSnapshotBinomialGreeksFirstOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -547,7 +624,19 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionSnapshotBinomialGreeksSecondOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionSnapshotGreeksThirdOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionSnapshotBinomialGreeksThirdOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -595,7 +684,19 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionHistoryBinomialGreeksEod(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionHistoryGreeksAll(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionHistoryBinomialGreeksAll(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -607,7 +708,19 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionHistoryBinomialTradeGreeksAll(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionHistoryGreeksFirstOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionHistoryBinomialGreeksFirstOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -619,7 +732,19 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionHistoryBinomialTradeGreeksFirstOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionHistoryGreeksSecondOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionHistoryBinomialGreeksSecondOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -631,13 +756,31 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionHistoryBinomialTradeGreeksSecondOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionHistoryGreeksThirdOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetOptionHistoryBinomialGreeksThirdOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetOptionHistoryTradeGreeksThirdOrder(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetOptionHistoryBinomialTradeGreeksThirdOrder(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -927,9 +1070,19 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksAllRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionSnapshotBinomialGreeksAll': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionSnapshotBinomialGreeksAll,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksAllRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionSnapshotGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionSnapshotGreeksFirstOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksFirstOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionSnapshotBinomialGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionSnapshotBinomialGreeksFirstOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksFirstOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionSnapshotGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
@@ -937,9 +1090,19 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksSecondOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionSnapshotBinomialGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionSnapshotBinomialGreeksSecondOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksSecondOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionSnapshotGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionSnapshotGreeksThirdOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksThirdOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionSnapshotBinomialGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionSnapshotBinomialGreeksThirdOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksThirdOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionHistoryEod': grpc.unary_stream_rpc_method_handler(
@@ -977,9 +1140,19 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksEodRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionHistoryBinomialGreeksEod': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialGreeksEod,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksEodRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionHistoryGreeksAll': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionHistoryGreeksAll,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksAllRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionHistoryBinomialGreeksAll': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialGreeksAll,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksAllRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionHistoryTradeGreeksAll': grpc.unary_stream_rpc_method_handler(
@@ -987,9 +1160,19 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksAllRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionHistoryBinomialTradeGreeksAll': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialTradeGreeksAll,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksAllRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionHistoryGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionHistoryGreeksFirstOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksFirstOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionHistoryBinomialGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialGreeksFirstOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksFirstOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionHistoryTradeGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
@@ -997,9 +1180,19 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksFirstOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionHistoryBinomialTradeGreeksFirstOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialTradeGreeksFirstOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionHistoryGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionHistoryGreeksSecondOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksSecondOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionHistoryBinomialGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialGreeksSecondOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksSecondOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionHistoryTradeGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
@@ -1007,14 +1200,29 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksSecondOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionHistoryBinomialTradeGreeksSecondOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialTradeGreeksSecondOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionHistoryGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionHistoryGreeksThirdOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryGreeksThirdOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
+            'GetOptionHistoryBinomialGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialGreeksThirdOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksThirdOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
             'GetOptionHistoryTradeGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
                     servicer.GetOptionHistoryTradeGreeksThirdOrder,
                     request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksThirdOrderRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetOptionHistoryBinomialTradeGreeksThirdOrder': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetOptionHistoryBinomialTradeGreeksThirdOrder,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetOptionHistoryGreeksImpliedVolatility': grpc.unary_stream_rpc_method_handler(
@@ -1834,6 +2042,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionSnapshotBinomialGreeksAll(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksAll',
+            v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksAllRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionSnapshotGreeksFirstOrder(request,
             target,
             options=(),
@@ -1849,6 +2084,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotGreeksFirstOrder',
             v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksFirstOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionSnapshotBinomialGreeksFirstOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksFirstOrder',
+            v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksFirstOrderRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,
@@ -1888,6 +2150,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionSnapshotBinomialGreeksSecondOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksSecondOrder',
+            v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksSecondOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionSnapshotGreeksThirdOrder(request,
             target,
             options=(),
@@ -1903,6 +2192,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotGreeksThirdOrder',
             v3grpc_dot_endpoints__pb2.OptionSnapshotGreeksThirdOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionSnapshotBinomialGreeksThirdOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionSnapshotBinomialGreeksThirdOrder',
+            v3grpc_dot_endpoints__pb2.OptionSnapshotBinomialGreeksThirdOrderRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,
@@ -2104,6 +2420,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionHistoryBinomialGreeksEod(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksEod',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksEodRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionHistoryGreeksAll(request,
             target,
             options=(),
@@ -2119,6 +2462,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksAll',
             v3grpc_dot_endpoints__pb2.OptionHistoryGreeksAllRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionHistoryBinomialGreeksAll(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksAll',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksAllRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,
@@ -2158,6 +2528,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionHistoryBinomialTradeGreeksAll(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksAll',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksAllRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionHistoryGreeksFirstOrder(request,
             target,
             options=(),
@@ -2173,6 +2570,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksFirstOrder',
             v3grpc_dot_endpoints__pb2.OptionHistoryGreeksFirstOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionHistoryBinomialGreeksFirstOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksFirstOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksFirstOrderRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,
@@ -2212,6 +2636,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionHistoryBinomialTradeGreeksFirstOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksFirstOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionHistoryGreeksSecondOrder(request,
             target,
             options=(),
@@ -2227,6 +2678,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryGreeksSecondOrder',
             v3grpc_dot_endpoints__pb2.OptionHistoryGreeksSecondOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionHistoryBinomialGreeksSecondOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksSecondOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksSecondOrderRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,
@@ -2266,6 +2744,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionHistoryBinomialTradeGreeksSecondOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksSecondOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionHistoryGreeksThirdOrder(request,
             target,
             options=(),
@@ -2293,6 +2798,33 @@ class BetaThetaTerminal(object):
             _registered_method=True)
 
     @staticmethod
+    def GetOptionHistoryBinomialGreeksThirdOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialGreeksThirdOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialGreeksThirdOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetOptionHistoryTradeGreeksThirdOrder(request,
             target,
             options=(),
@@ -2308,6 +2840,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryTradeGreeksThirdOrder',
             v3grpc_dot_endpoints__pb2.OptionHistoryTradeGreeksThirdOrderRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetOptionHistoryBinomialTradeGreeksThirdOrder(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetOptionHistoryBinomialTradeGreeksThirdOrder',
+            v3grpc_dot_endpoints__pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,

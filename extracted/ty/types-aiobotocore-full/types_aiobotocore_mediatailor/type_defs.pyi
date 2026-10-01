@@ -28,7 +28,10 @@ from .literals import (
     AdsInteractionExcludeEventTypeType,
     AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
+    ApsRegionType,
+    BeaconEventTypeType,
     ChannelStateType,
+    ClientSideBeaconingModeType,
     CompressionMethodType,
     EventNameType,
     FillPolicyType,
@@ -84,9 +87,17 @@ __all__ = (
     "AudienceMediaUnionTypeDef",
     "AvailMatchingCriteriaTypeDef",
     "AvailSuppressionTypeDef",
+    "AwsServiceRequestConfigurationOutputTypeDef",
+    "AwsServiceRequestConfigurationTypeDef",
+    "AwsServiceRequestConfigurationUnionTypeDef",
+    "BeaconingConfigurationOutputTypeDef",
+    "BeaconingConfigurationTypeDef",
+    "BeaconingConfigurationUnionTypeDef",
     "BumperTypeDef",
     "CdnConfigurationTypeDef",
     "ChannelTypeDef",
+    "ClientSideBeaconingConfigurationOutputTypeDef",
+    "ClientSideBeaconingConfigurationTypeDef",
     "ClipRangeTypeDef",
     "ConcurrentExecutorConfigurationOutputTypeDef",
     "ConcurrentExecutorConfigurationTypeDef",
@@ -255,8 +266,12 @@ __all__ = (
     "UpdateSourceLocationResponseTypeDef",
     "UpdateVodSourceRequestTypeDef",
     "UpdateVodSourceResponseTypeDef",
+    "VastRequestConfigurationOutputTypeDef",
+    "VastRequestConfigurationTypeDef",
+    "VastRequestConfigurationUnionTypeDef",
     "VastResponseTypeDef",
     "VodSourceTypeDef",
+    "YieldOptimizationConfigurationTypeDef",
 )
 
 class SecretsManagerAccessTokenConfigurationTypeDef(TypedDict):
@@ -341,6 +356,43 @@ class AvailSuppressionTypeDef(TypedDict):
     Mode: NotRequired[ModeType]
     Value: NotRequired[str]
     FillPolicy: NotRequired[FillPolicyType]
+
+AwsServiceRequestConfigurationOutputTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+    },
+)
+AwsServiceRequestConfigurationTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+    },
+)
+
+class ClientSideBeaconingConfigurationOutputTypeDef(TypedDict):
+    ReportingMode: ClientSideBeaconingModeType
+    AdditionalEventTypes: NotRequired[list[BeaconEventTypeType]]
+
+class ClientSideBeaconingConfigurationTypeDef(TypedDict):
+    ReportingMode: ClientSideBeaconingModeType
+    AdditionalEventTypes: NotRequired[Sequence[BeaconEventTypeType]]
 
 class BumperTypeDef(TypedDict):
     EndUrl: NotRequired[str]
@@ -480,6 +532,18 @@ HttpRequestConfigurationOutputTypeDef = TypedDict(
         "Headers": NotRequired[dict[str, str]],
     },
 )
+VastRequestConfigurationOutputTypeDef = TypedDict(
+    "VastRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+    },
+)
 
 class GetChannelPolicyRequestTypeDef(TypedDict):
     ChannelName: str
@@ -505,6 +569,12 @@ class GetPlaybackConfigurationRequestTypeDef(TypedDict):
 class HlsConfigurationTypeDef(TypedDict):
     ManifestEndpointPrefix: NotRequired[str]
     DualStackManifestEndpointPrefix: NotRequired[str]
+
+class YieldOptimizationConfigurationTypeDef(TypedDict):
+    MinimumUnfilledDuration: int
+    PublisherId: str
+    Region: ApsRegionType
+    OpenRtbTemplate: str
 
 class GetPrefetchScheduleRequestTypeDef(TypedDict):
     Name: str
@@ -637,6 +707,19 @@ class UpdateProgramTransitionTypeDef(TypedDict):
     ScheduledStartTimeMillis: NotRequired[int]
     DurationMillis: NotRequired[int]
 
+VastRequestConfigurationTypeDef = TypedDict(
+    "VastRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+    },
+)
+
 class AccessConfigurationTypeDef(TypedDict):
     AccessType: NotRequired[AccessTypeType]
     SecretsManagerAccessTokenConfiguration: NotRequired[
@@ -668,6 +751,16 @@ class RecurringConsumptionOutputTypeDef(TypedDict):
 class RecurringConsumptionTypeDef(TypedDict):
     RetrievedAdExpirationSeconds: NotRequired[int]
     AvailMatchingCriteria: NotRequired[Sequence[AvailMatchingCriteriaTypeDef]]
+
+AwsServiceRequestConfigurationUnionTypeDef = Union[
+    AwsServiceRequestConfigurationTypeDef, AwsServiceRequestConfigurationOutputTypeDef
+]
+
+class BeaconingConfigurationOutputTypeDef(TypedDict):
+    ClientSide: NotRequired[ClientSideBeaconingConfigurationOutputTypeDef]
+
+class BeaconingConfigurationTypeDef(TypedDict):
+    ClientSide: NotRequired[ClientSideBeaconingConfigurationTypeDef]
 
 class ConcurrentExecutorConfigurationOutputTypeDef(TypedDict):
     Runtime: Literal["JSONATA"]
@@ -954,6 +1047,10 @@ class UpdateProgramScheduleConfigurationTypeDef(TypedDict):
     Transition: NotRequired[UpdateProgramTransitionTypeDef]
     ClipRange: NotRequired[ClipRangeTypeDef]
 
+VastRequestConfigurationUnionTypeDef = Union[
+    VastRequestConfigurationTypeDef, VastRequestConfigurationOutputTypeDef
+]
+
 class CreateSourceLocationRequestTypeDef(TypedDict):
     HttpConfiguration: HttpConfigurationTypeDef
     SourceLocationName: str
@@ -1019,6 +1116,9 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
 AdDecisionServerConfigurationUnionTypeDef = Union[
     AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
 ]
+BeaconingConfigurationUnionTypeDef = Union[
+    BeaconingConfigurationTypeDef, BeaconingConfigurationOutputTypeDef
+]
 ConcurrentExecutorConfigurationUnionTypeDef = Union[
     ConcurrentExecutorConfigurationTypeDef, ConcurrentExecutorConfigurationOutputTypeDef
 ]
@@ -1028,9 +1128,11 @@ class FunctionTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
+    AwsServiceRequestConfiguration: NotRequired[AwsServiceRequestConfigurationOutputTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
+    VastRequestConfiguration: NotRequired[VastRequestConfigurationOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
@@ -1039,9 +1141,11 @@ class GetFunctionResponseTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    AwsServiceRequestConfiguration: AwsServiceRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1051,9 +1155,11 @@ class PutFunctionResponseTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    AwsServiceRequestConfiguration: AwsServiceRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1197,9 +1303,11 @@ class PutFunctionRequestTypeDef(TypedDict):
     FunctionType: FunctionTypeType
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationUnionTypeDef]
+    AwsServiceRequestConfiguration: NotRequired[AwsServiceRequestConfigurationUnionTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
+    VastRequestConfiguration: NotRequired[VastRequestConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
 class ListChannelsResponseTypeDef(TypedDict):
@@ -1249,9 +1357,11 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    YieldOptimizationConfiguration: YieldOptimizationConfigurationTypeDef
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    BeaconingConfiguration: BeaconingConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PlaybackConfigurationTypeDef(TypedDict):
@@ -1279,9 +1389,11 @@ class PlaybackConfigurationTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
+    YieldOptimizationConfiguration: NotRequired[YieldOptimizationConfigurationTypeDef]
     FunctionMapping: NotRequired[dict[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+    BeaconingConfiguration: NotRequired[BeaconingConfigurationOutputTypeDef]
 
 class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     Name: str
@@ -1301,9 +1413,11 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
+    YieldOptimizationConfiguration: NotRequired[YieldOptimizationConfigurationTypeDef]
     FunctionMapping: NotRequired[Mapping[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+    BeaconingConfiguration: NotRequired[BeaconingConfigurationUnionTypeDef]
 
 class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     AdDecisionServerUrl: str
@@ -1330,9 +1444,11 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    YieldOptimizationConfiguration: YieldOptimizationConfigurationTypeDef
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    BeaconingConfiguration: BeaconingConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePrefetchScheduleResponseTypeDef(TypedDict):

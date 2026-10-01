@@ -110,27 +110,18 @@ class ResourceEnvironment:
         :param account: The AWS Account ID that this resource belongs to. Since this can be a Token (for example, when the account is CloudFormation's ``AWS::AccountId`` intrinsic), make sure to use ``Token.compareStrings()`` instead of comparing the values with direct string equality.
         :param region: The AWS Region that this resource belongs to. Since this can be a Token (for example, when the region is CloudFormation's ``AWS::Region`` intrinsic), make sure to use ``Token.compareStrings()`` instead of comparing the values with direct string equality.
 
-        :exampleMetadata: nofixture infused
+        :exampleMetadata: fixture=_generated
 
         Example::
 
-            from aws_cdk.aws_iam import AddToResourcePolicyResult
-            from aws_cdk import CfnResource
-            from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
-            from constructs import Construct, IConstruct
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import interfaces
             
-            # scope: Construct
-            @jsii.implements(IResourcePolicyFactory)
-            class MyFactory:
-                def for_resource(self, resource):
-                    return {
-                        "env": resource.env,
-                        def add_to_resource_policy(self, statement):
-                            # custom implementation to add the statement to the resource policy
-                            return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
-                    }
-            
-            ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
+            resource_environment = interfaces.ResourceEnvironment(
+                account="account",
+                region="region"
+            )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5aaa43a6d0a198f8a3f9e8ab7ee8ce8d940df80e550839a285b920b7d6e816f)
@@ -297,6 +288,7 @@ __all__ = [
     "aws_entityresolution",
     "aws_events",
     "aws_eventschemas",
+    "aws_eventsv2",
     "aws_evidently",
     "aws_evs",
     "aws_finspace",
@@ -314,6 +306,7 @@ __all__ = [
     "aws_greengrassv2",
     "aws_groundstation",
     "aws_guardduty",
+    "aws_healthagent",
     "aws_healthimaging",
     "aws_healthlake",
     "aws_iam",
@@ -378,6 +371,7 @@ __all__ = [
     "aws_networkfirewall",
     "aws_networkflowmonitor",
     "aws_networkmanager",
+    "aws_networkmonitor",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
@@ -400,6 +394,7 @@ __all__ = [
     "aws_pcaconnectorscep",
     "aws_pcs",
     "aws_personalize",
+    "aws_pi",
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
@@ -610,6 +605,7 @@ if typing.TYPE_CHECKING:
     from . import aws_entityresolution as aws_entityresolution
     from . import aws_events as aws_events
     from . import aws_eventschemas as aws_eventschemas
+    from . import aws_eventsv2 as aws_eventsv2
     from . import aws_evidently as aws_evidently
     from . import aws_evs as aws_evs
     from . import aws_finspace as aws_finspace
@@ -627,6 +623,7 @@ if typing.TYPE_CHECKING:
     from . import aws_greengrassv2 as aws_greengrassv2
     from . import aws_groundstation as aws_groundstation
     from . import aws_guardduty as aws_guardduty
+    from . import aws_healthagent as aws_healthagent
     from . import aws_healthimaging as aws_healthimaging
     from . import aws_healthlake as aws_healthlake
     from . import aws_iam as aws_iam
@@ -691,6 +688,7 @@ if typing.TYPE_CHECKING:
     from . import aws_networkfirewall as aws_networkfirewall
     from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
+    from . import aws_networkmonitor as aws_networkmonitor
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
     from . import aws_notificationscontacts as aws_notificationscontacts
@@ -713,6 +711,7 @@ if typing.TYPE_CHECKING:
     from . import aws_pcaconnectorscep as aws_pcaconnectorscep
     from . import aws_pcs as aws_pcs
     from . import aws_personalize as aws_personalize
+    from . import aws_pi as aws_pi
     from . import aws_pinpoint as aws_pinpoint
     from . import aws_pinpointemail as aws_pinpointemail
     from . import aws_pipes as aws_pipes
@@ -921,6 +920,7 @@ _SUBMODULES = {
     "aws_entityresolution",
     "aws_events",
     "aws_eventschemas",
+    "aws_eventsv2",
     "aws_evidently",
     "aws_evs",
     "aws_finspace",
@@ -938,6 +938,7 @@ _SUBMODULES = {
     "aws_greengrassv2",
     "aws_groundstation",
     "aws_guardduty",
+    "aws_healthagent",
     "aws_healthimaging",
     "aws_healthlake",
     "aws_iam",
@@ -1002,6 +1003,7 @@ _SUBMODULES = {
     "aws_networkfirewall",
     "aws_networkflowmonitor",
     "aws_networkmanager",
+    "aws_networkmonitor",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
@@ -1024,6 +1026,7 @@ _SUBMODULES = {
     "aws_pcaconnectorscep",
     "aws_pcs",
     "aws_personalize",
+    "aws_pi",
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",

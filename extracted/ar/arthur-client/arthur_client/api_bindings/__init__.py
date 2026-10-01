@@ -196,6 +196,7 @@ from arthur_client.api_bindings.models.detection import Detection
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
 from arthur_client.api_bindings.models.discovery_denied_scope import DiscoveryDeniedScope
+from arthur_client.api_bindings.models.discovery_device_coverage import DiscoveryDeviceCoverage
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
 from arthur_client.api_bindings.models.discovery_run import DiscoveryRun
 from arthur_client.api_bindings.models.discovery_run_list import DiscoveryRunList
@@ -223,6 +224,7 @@ from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.eval_config import EvalConfig
 from arthur_client.api_bindings.models.eval_type import EvalType
 from arthur_client.api_bindings.models.evidence import Evidence
+from arthur_client.api_bindings.models.evidence_level import EvidenceLevel
 from arthur_client.api_bindings.models.evidence_response import EvidenceResponse
 from arthur_client.api_bindings.models.example_config import ExampleConfig
 from arthur_client.api_bindings.models.examples_config import ExamplesConfig

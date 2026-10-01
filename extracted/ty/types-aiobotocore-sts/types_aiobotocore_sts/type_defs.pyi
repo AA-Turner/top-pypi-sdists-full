@@ -101,6 +101,7 @@ class GetSessionTokenRequestTypeDef(TypedDict):
     DurationSeconds: NotRequired[int]
     SerialNumber: NotRequired[str]
     TokenCode: NotRequired[str]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class AssumeRoleWithSAMLRequestTypeDef(TypedDict):
     RoleArn: str
@@ -109,6 +110,7 @@ class AssumeRoleWithSAMLRequestTypeDef(TypedDict):
     PolicyArns: NotRequired[Sequence[PolicyDescriptorTypeTypeDef]]
     Policy: NotRequired[str]
     DurationSeconds: NotRequired[int]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class AssumeRoleWithWebIdentityRequestTypeDef(TypedDict):
     RoleArn: str
@@ -118,11 +120,13 @@ class AssumeRoleWithWebIdentityRequestTypeDef(TypedDict):
     PolicyArns: NotRequired[Sequence[PolicyDescriptorTypeTypeDef]]
     Policy: NotRequired[str]
     DurationSeconds: NotRequired[int]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class AssumeRootRequestTypeDef(TypedDict):
     TargetPrincipal: str
     TaskPolicyArn: PolicyDescriptorTypeTypeDef
     DurationSeconds: NotRequired[int]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class AssumeRoleRequestTypeDef(TypedDict):
     RoleArn: str
@@ -137,6 +141,7 @@ class AssumeRoleRequestTypeDef(TypedDict):
     TokenCode: NotRequired[str]
     SourceIdentity: NotRequired[str]
     ProvidedContexts: NotRequired[Sequence[ProvidedContextTypeDef]]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class GetFederationTokenRequestTypeDef(TypedDict):
     Name: str
@@ -144,6 +149,7 @@ class GetFederationTokenRequestTypeDef(TypedDict):
     PolicyArns: NotRequired[Sequence[PolicyDescriptorTypeTypeDef]]
     DurationSeconds: NotRequired[int]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    MinimumSessionTokenSize: NotRequired[int]
 
 class GetWebIdentityTokenRequestTypeDef(TypedDict):
     Audience: Sequence[str]
@@ -156,6 +162,8 @@ class AssumeRoleResponseTypeDef(TypedDict):
     AssumedRoleUser: AssumedRoleUserTypeDef
     PackedPolicySize: int
     SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssumeRoleWithSAMLResponseTypeDef(TypedDict):
@@ -168,6 +176,8 @@ class AssumeRoleWithSAMLResponseTypeDef(TypedDict):
     Audience: str
     NameQualifier: str
     SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssumeRoleWithWebIdentityResponseTypeDef(TypedDict):
@@ -178,11 +188,15 @@ class AssumeRoleWithWebIdentityResponseTypeDef(TypedDict):
     Provider: str
     Audience: str
     SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssumeRootResponseTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
     SourceIdentity: str
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DecodeAuthorizationMessageResponseTypeDef(TypedDict):
@@ -207,6 +221,8 @@ class GetDelegatedAccessTokenResponseTypeDef(TypedDict):
 
 class GetSessionTokenResponseTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetWebIdentityTokenResponseTypeDef(TypedDict):
@@ -218,4 +234,6 @@ class GetFederationTokenResponseTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
     FederatedUser: FederatedUserTypeDef
     PackedPolicySize: int
+    SessionTokenUtilization: int
+    SessionTokenSize: int
     ResponseMetadata: ResponseMetadataTypeDef

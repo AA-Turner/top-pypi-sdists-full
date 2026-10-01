@@ -78,6 +78,7 @@ from .literals import (
     NotebookTypeType,
     NotificationRoleType,
     NotificationTypeType,
+    NotifyOnStateType,
     OAuth2GrantTypeType,
     OpenLineageRunStateType,
     OverallDeploymentStatusType,
@@ -662,6 +663,9 @@ __all__ = (
     "NotebookRunErrorTypeDef",
     "NotebookRunSummaryTypeDef",
     "NotebookSummaryTypeDef",
+    "NotificationConfigOutputTypeDef",
+    "NotificationConfigTypeDef",
+    "NotificationConfigUnionTypeDef",
     "NotificationOutputTypeDef",
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
@@ -2174,6 +2178,10 @@ class NotebookRunErrorTypeDef(TypedDict):
     message: str
 
 
+class NotificationConfigOutputTypeDef(TypedDict):
+    notifyOn: list[NotifyOnStateType]
+
+
 class StorageConfigTypeDef(TypedDict):
     projectS3Path: NotRequired[str]
     kmsKeyArn: NotRequired[str]
@@ -2848,6 +2856,10 @@ class NotInExpressionTypeDef(TypedDict):
 class NotLikeExpressionTypeDef(TypedDict):
     columnName: str
     value: str
+
+
+class NotificationConfigTypeDef(TypedDict):
+    notifyOn: Sequence[NotifyOnStateType]
 
 
 NotificationResourceTypeDef = TypedDict(
@@ -5023,6 +5035,7 @@ RowFilterExpressionTypeDef = TypedDict(
         "notLike": NotRequired[NotLikeExpressionTypeDef],
     },
 )
+NotificationConfigUnionTypeDef = Union[NotificationConfigTypeDef, NotificationConfigOutputTypeDef]
 
 
 class TopicTypeDef(TypedDict):
@@ -5850,6 +5863,7 @@ GetNotebookRunOutputTypeDef = TypedDict(
         "timeoutConfiguration": TimeoutConfigTypeDef,
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "storageConfiguration": StorageConfigTypeDef,
+        "notificationConfiguration": NotificationConfigOutputTypeDef,
         "triggerSource": TriggerSourceTypeDef,
         "error": NotebookRunErrorTypeDef,
         "createdAt": datetime,
@@ -5878,6 +5892,7 @@ StartNotebookRunOutputTypeDef = TypedDict(
         "timeoutConfiguration": TimeoutConfigTypeDef,
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "storageConfiguration": StorageConfigTypeDef,
+        "notificationConfiguration": NotificationConfigOutputTypeDef,
         "triggerSource": TriggerSourceTypeDef,
         "error": NotebookRunErrorTypeDef,
         "createdAt": datetime,
@@ -6248,20 +6263,6 @@ class EventSummaryTypeDef(TypedDict):
     openLineageRunEventSummary: NotRequired[OpenLineageRunEventSummaryTypeDef]
 
 
-class StartNotebookRunInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    notebookIdentifier: str
-    scheduleIdentifier: NotRequired[str]
-    computeConfiguration: NotRequired[ComputeConfigTypeDef]
-    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
-    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
-    triggerSource: NotRequired[TriggerSourceTypeDef]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
-
-
 RowFilterOutputTypeDef = TypedDict(
     "RowFilterOutputTypeDef",
     {
@@ -6278,6 +6279,23 @@ RowFilterTypeDef = TypedDict(
         "or": NotRequired[Sequence[Mapping[str, Any]]],
     },
 )
+
+
+class StartNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: str
+    scheduleIdentifier: NotRequired[str]
+    computeConfiguration: NotRequired[ComputeConfigTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
+    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
+    notificationConfiguration: NotRequired[NotificationConfigUnionTypeDef]
+    triggerSource: NotRequired[TriggerSourceTypeDef]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
 NotificationOutputTypeDef = TypedDict(
     "NotificationOutputTypeDef",
     {

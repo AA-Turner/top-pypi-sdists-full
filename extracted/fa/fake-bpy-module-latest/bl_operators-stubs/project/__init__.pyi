@@ -302,9 +302,10 @@ class PROJECT_OT_SaveProject(_bpy_types.Operator):
         """
 
 class ProjectConfig:
-    """ProjectConfig(schema_version: int, name: str, variables: list[bl_operators.project.ProjectVariable] | None = None, asset_libraries: list[bl_operators.project.AssetLibraryDefinition] | None = None)"""
+    """ProjectConfig(schema_version: int, name: str, variables: list[bl_operators.project.ProjectVariable] | None = None, asset_libraries: list[bl_operators.project.AssetLibraryDefinition] | None = None, ocio_config: str = )"""
 
     asset_libraries: typing.Any
+    ocio_config: typing.Any
     variables: typing.Any
 
     @staticmethod

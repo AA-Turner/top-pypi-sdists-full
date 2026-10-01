@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate-language-data
-Version: 2026.10
+Version: 2026.11
 Summary: Language definitions for Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -16,13 +16,13 @@ Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Utilities

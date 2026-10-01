@@ -6904,6 +6904,778 @@ class CfnFlowEntitlementProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowMediaStreamRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnFlowMediaStream(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowMediaStream",
+):
+    '''Resource schema for AWS::MediaConnect::FlowMediaStream.
+
+    A media stream represents a single track or stream of media containing video, audio, or ancillary data that is transported using the SMPTE 2110 JPEG XS or CDI protocol.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html
+    :cloudformationResource: AWS::MediaConnect::FlowMediaStream
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediaconnect as mediaconnect
+        
+        cfn_flow_media_stream = mediaconnect.CfnFlowMediaStream(self, "MyCfnFlowMediaStream",
+            flow_arn="flowArn",
+            media_stream_id=123,
+            media_stream_name="mediaStreamName",
+            media_stream_type="mediaStreamType",
+        
+            # the properties below are optional
+            attributes=mediaconnect.CfnFlowMediaStream.MediaStreamAttributesProperty(
+                fmtp=mediaconnect.CfnFlowMediaStream.FmtpProperty(
+                    channel_order="channelOrder",
+                    colorimetry="colorimetry",
+                    exact_framerate="exactFramerate",
+                    par="par",
+                    range="range",
+                    scan_mode="scanMode",
+                    tcs="tcs"
+                ),
+                lang="lang"
+            ),
+            clock_rate=123,
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            video_format="videoFormat"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        flow_arn: builtins.str,
+        media_stream_id: jsii.Number,
+        media_stream_name: builtins.str,
+        media_stream_type: builtins.str,
+        attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowMediaStream.MediaStreamAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        clock_rate: typing.Optional[jsii.Number] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        video_format: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaConnect::FlowMediaStream``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow that the media stream belongs to.
+        :param media_stream_id: A unique identifier for the media stream.
+        :param media_stream_name: A name that helps you distinguish one media stream from another.
+        :param media_stream_type: The type of media stream.
+        :param attributes: Attributes that are related to the media stream.
+        :param clock_rate: The sample rate (in Hz) for the stream. If the media stream type is video or ancillary data, set this value to 90000. If the media stream type is audio, set this value to either 48000 or 96000.
+        :param description: A description that can help you quickly identify what your media stream is used for.
+        :param tags: The key-value pairs that can be used to tag and organize the media stream.
+        :param video_format: The resolution of the video. Required for a video media stream and rejected for other media stream types.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__129affb5031d89a9bbd6492f117e3ed3a4986e8472506985a65e9d2f0a1a097b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFlowMediaStreamProps(
+            flow_arn=flow_arn,
+            media_stream_id=media_stream_id,
+            media_stream_name=media_stream_name,
+            media_stream_type=media_stream_type,
+            attributes=attributes,
+            clock_rate=clock_rate,
+            description=description,
+            tags=tags,
+            video_format=video_format,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFlowMediaStream")
+    @builtins.classmethod
+    def arn_for_flow_media_stream(
+        cls,
+        resource: "_aws_mediaconnect_6374326e.IFlowMediaStreamRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__35d019e5728d288e9a15dbbe160f61addcf13a8af5c7d8d0068db7657827596d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFlowMediaStream", [resource]))
+
+    @jsii.member(jsii_name="isCfnFlowMediaStream")
+    @builtins.classmethod
+    def is_cfn_flow_media_stream(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFlowMediaStream.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18d1e3f3e08b367c4e0a8b3b24626b0cd4688f57c43d3fe61755e4689c17dd1a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlowMediaStream", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a4bc6af14e5a93dc2a2b6e082e702dd9b7e04263ed7cde5a4de07da3fe34ff1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__249ac7c10d57223752a0ac81e0d3f574df3b0726937ae6cd41d1393de1867ec5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the media stream, composed of the flow ARN followed by /mediaStream/ and the media stream name.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFmt")
+    def attr_fmt(self) -> jsii.Number:
+        '''The format type number (sometimes referred to as RTP payload type) of the media stream.
+
+        MediaConnect assigns this value to the media stream.
+
+        :cloudformationAttribute: Fmt
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrFmt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowMediaStreamRef")
+    def flow_media_stream_ref(
+        self,
+    ) -> "_aws_mediaconnect_6374326e.FlowMediaStreamReference":
+        '''A reference to a FlowMediaStream resource.'''
+        return typing.cast("_aws_mediaconnect_6374326e.FlowMediaStreamReference", jsii.get(self, "flowMediaStreamRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowArn")
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow that the media stream belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "flowArn"))
+
+    @flow_arn.setter
+    def flow_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0daccd9a15efcf6aec7b717e6ab4f48ae24123bf4c3e1bd1c79ccce45af46865)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaStreamId")
+    def media_stream_id(self) -> jsii.Number:
+        '''A unique identifier for the media stream.'''
+        return typing.cast(jsii.Number, jsii.get(self, "mediaStreamId"))
+
+    @media_stream_id.setter
+    def media_stream_id(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b70a37c746bd7ecd324ed23c812fb2f514398076c1075ce4873b49f9f580d76)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mediaStreamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaStreamName")
+    def media_stream_name(self) -> builtins.str:
+        '''A name that helps you distinguish one media stream from another.'''
+        return typing.cast(builtins.str, jsii.get(self, "mediaStreamName"))
+
+    @media_stream_name.setter
+    def media_stream_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6946091c46515da7495b76e9e1ee7005f2a9803718700a6bad1a8e4555b3ee5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mediaStreamName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaStreamType")
+    def media_stream_type(self) -> builtins.str:
+        '''The type of media stream.'''
+        return typing.cast(builtins.str, jsii.get(self, "mediaStreamType"))
+
+    @media_stream_type.setter
+    def media_stream_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2d4ca12b08bb6922e8aa5669e0fd1c77ed6f8634a00c6b91f1441d1f337b3f02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mediaStreamType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributes")
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.MediaStreamAttributesProperty"]]:
+        '''Attributes that are related to the media stream.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.MediaStreamAttributesProperty"]], jsii.get(self, "attributes"))
+
+    @attributes.setter
+    def attributes(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.MediaStreamAttributesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__338e79bb1161034c195b283f21e9065e9a5de8a5b4a9c48eeff461fe167e0e87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clockRate")
+    def clock_rate(self) -> typing.Optional[jsii.Number]:
+        '''The sample rate (in Hz) for the stream.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "clockRate"))
+
+    @clock_rate.setter
+    def clock_rate(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__41044b80a81d80c938a42742ee4312d090519a8bf9ca1fdaf830c57b5eb0cf67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clockRate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description that can help you quickly identify what your media stream is used for.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53e08b9c3b93af08d5077845dd24782c5d54e88811215ae2844d8616f4fa9283)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The key-value pairs that can be used to tag and organize the media stream.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d1dbdaa7b6578149374cce7ec3e19c7fec326f3a754e96b5886f0efcd52bb3d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="videoFormat")
+    def video_format(self) -> typing.Optional[builtins.str]:
+        '''The resolution of the video.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "videoFormat"))
+
+    @video_format.setter
+    def video_format(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66250f35104662e765230748b58ea79a983735a32569b34c09330f2c7989c9be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "videoFormat", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowMediaStream.FmtpProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "channel_order": "channelOrder",
+            "colorimetry": "colorimetry",
+            "exact_framerate": "exactFramerate",
+            "par": "par",
+            "range": "range",
+            "scan_mode": "scanMode",
+            "tcs": "tcs",
+        },
+    )
+    class FmtpProperty:
+        def __init__(
+            self,
+            *,
+            channel_order: typing.Optional[builtins.str] = None,
+            colorimetry: typing.Optional[builtins.str] = None,
+            exact_framerate: typing.Optional[builtins.str] = None,
+            par: typing.Optional[builtins.str] = None,
+            range: typing.Optional[builtins.str] = None,
+            scan_mode: typing.Optional[builtins.str] = None,
+            tcs: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A set of parameters that define the media stream.
+
+            :param channel_order: The format of the audio channel. Can only be specified for an audio media stream.
+            :param colorimetry: The format used for the representation of color.
+            :param exact_framerate: The frame rate for the video stream, in frames/second. For example: 60000/1001.
+            :param par: The pixel aspect ratio (PAR) of the video.
+            :param range: The encoding range of the video.
+            :param scan_mode: The type of compression that was used to smooth the video's appearance.
+            :param tcs: The transfer characteristic system (TCS) that is used in the video.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                fmtp_property = mediaconnect.CfnFlowMediaStream.FmtpProperty(
+                    channel_order="channelOrder",
+                    colorimetry="colorimetry",
+                    exact_framerate="exactFramerate",
+                    par="par",
+                    range="range",
+                    scan_mode="scanMode",
+                    tcs="tcs"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f412e1d6ed0c13521f8580c617a78716f7d0e4cb3df1abe2ac39c606eef89483)
+                check_type(argname="argument channel_order", value=channel_order, expected_type=type_hints["channel_order"])
+                check_type(argname="argument colorimetry", value=colorimetry, expected_type=type_hints["colorimetry"])
+                check_type(argname="argument exact_framerate", value=exact_framerate, expected_type=type_hints["exact_framerate"])
+                check_type(argname="argument par", value=par, expected_type=type_hints["par"])
+                check_type(argname="argument range", value=range, expected_type=type_hints["range"])
+                check_type(argname="argument scan_mode", value=scan_mode, expected_type=type_hints["scan_mode"])
+                check_type(argname="argument tcs", value=tcs, expected_type=type_hints["tcs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if channel_order is not None:
+                self._values["channel_order"] = channel_order
+            if colorimetry is not None:
+                self._values["colorimetry"] = colorimetry
+            if exact_framerate is not None:
+                self._values["exact_framerate"] = exact_framerate
+            if par is not None:
+                self._values["par"] = par
+            if range is not None:
+                self._values["range"] = range
+            if scan_mode is not None:
+                self._values["scan_mode"] = scan_mode
+            if tcs is not None:
+                self._values["tcs"] = tcs
+
+        @builtins.property
+        def channel_order(self) -> typing.Optional[builtins.str]:
+            '''The format of the audio channel.
+
+            Can only be specified for an audio media stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-channelorder
+            '''
+            result = self._values.get("channel_order")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def colorimetry(self) -> typing.Optional[builtins.str]:
+            '''The format used for the representation of color.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-colorimetry
+            '''
+            result = self._values.get("colorimetry")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def exact_framerate(self) -> typing.Optional[builtins.str]:
+            '''The frame rate for the video stream, in frames/second.
+
+            For example: 60000/1001.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-exactframerate
+            '''
+            result = self._values.get("exact_framerate")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def par(self) -> typing.Optional[builtins.str]:
+            '''The pixel aspect ratio (PAR) of the video.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-par
+            '''
+            result = self._values.get("par")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def range(self) -> typing.Optional[builtins.str]:
+            '''The encoding range of the video.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-range
+            '''
+            result = self._values.get("range")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scan_mode(self) -> typing.Optional[builtins.str]:
+            '''The type of compression that was used to smooth the video's appearance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-scanmode
+            '''
+            result = self._values.get("scan_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tcs(self) -> typing.Optional[builtins.str]:
+            '''The transfer characteristic system (TCS) that is used in the video.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-fmtp.html#cfn-mediaconnect-flowmediastream-fmtp-tcs
+            '''
+            result = self._values.get("tcs")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FmtpProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowMediaStream.MediaStreamAttributesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fmtp": "fmtp", "lang": "lang"},
+    )
+    class MediaStreamAttributesProperty:
+        def __init__(
+            self,
+            *,
+            fmtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowMediaStream.FmtpProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lang: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Attributes that are related to the media stream.
+
+            :param fmtp: A set of parameters that define the media stream.
+            :param lang: The audio language, in a format that is recognized by the receiver. Can only be specified for an audio media stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-mediastreamattributes.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                media_stream_attributes_property = mediaconnect.CfnFlowMediaStream.MediaStreamAttributesProperty(
+                    fmtp=mediaconnect.CfnFlowMediaStream.FmtpProperty(
+                        channel_order="channelOrder",
+                        colorimetry="colorimetry",
+                        exact_framerate="exactFramerate",
+                        par="par",
+                        range="range",
+                        scan_mode="scanMode",
+                        tcs="tcs"
+                    ),
+                    lang="lang"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__112ac16021886d36545a4ac13806fae1b06c18a1a503445e85dae8cf12896ab9)
+                check_type(argname="argument fmtp", value=fmtp, expected_type=type_hints["fmtp"])
+                check_type(argname="argument lang", value=lang, expected_type=type_hints["lang"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if fmtp is not None:
+                self._values["fmtp"] = fmtp
+            if lang is not None:
+                self._values["lang"] = lang
+
+        @builtins.property
+        def fmtp(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.FmtpProperty"]]:
+            '''A set of parameters that define the media stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-mediastreamattributes.html#cfn-mediaconnect-flowmediastream-mediastreamattributes-fmtp
+            '''
+            result = self._values.get("fmtp")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.FmtpProperty"]], result)
+
+        @builtins.property
+        def lang(self) -> typing.Optional[builtins.str]:
+            '''The audio language, in a format that is recognized by the receiver.
+
+            Can only be specified for an audio media stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowmediastream-mediastreamattributes.html#cfn-mediaconnect-flowmediastream-mediastreamattributes-lang
+            '''
+            result = self._values.get("lang")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaStreamAttributesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowMediaStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flow_arn": "flowArn",
+        "media_stream_id": "mediaStreamId",
+        "media_stream_name": "mediaStreamName",
+        "media_stream_type": "mediaStreamType",
+        "attributes": "attributes",
+        "clock_rate": "clockRate",
+        "description": "description",
+        "tags": "tags",
+        "video_format": "videoFormat",
+    },
+)
+class CfnFlowMediaStreamProps:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        media_stream_id: jsii.Number,
+        media_stream_name: builtins.str,
+        media_stream_type: builtins.str,
+        attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowMediaStream.MediaStreamAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        clock_rate: typing.Optional[jsii.Number] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        video_format: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowMediaStream``.
+
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow that the media stream belongs to.
+        :param media_stream_id: A unique identifier for the media stream.
+        :param media_stream_name: A name that helps you distinguish one media stream from another.
+        :param media_stream_type: The type of media stream.
+        :param attributes: Attributes that are related to the media stream.
+        :param clock_rate: The sample rate (in Hz) for the stream. If the media stream type is video or ancillary data, set this value to 90000. If the media stream type is audio, set this value to either 48000 or 96000.
+        :param description: A description that can help you quickly identify what your media stream is used for.
+        :param tags: The key-value pairs that can be used to tag and organize the media stream.
+        :param video_format: The resolution of the video. Required for a video media stream and rejected for other media stream types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_media_stream_props = mediaconnect.CfnFlowMediaStreamProps(
+                flow_arn="flowArn",
+                media_stream_id=123,
+                media_stream_name="mediaStreamName",
+                media_stream_type="mediaStreamType",
+            
+                # the properties below are optional
+                attributes=mediaconnect.CfnFlowMediaStream.MediaStreamAttributesProperty(
+                    fmtp=mediaconnect.CfnFlowMediaStream.FmtpProperty(
+                        channel_order="channelOrder",
+                        colorimetry="colorimetry",
+                        exact_framerate="exactFramerate",
+                        par="par",
+                        range="range",
+                        scan_mode="scanMode",
+                        tcs="tcs"
+                    ),
+                    lang="lang"
+                ),
+                clock_rate=123,
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                video_format="videoFormat"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0504328a81a3eab3fbeaef99e2165f916136d263996597ca95cb39b31b2a7286)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument media_stream_id", value=media_stream_id, expected_type=type_hints["media_stream_id"])
+            check_type(argname="argument media_stream_name", value=media_stream_name, expected_type=type_hints["media_stream_name"])
+            check_type(argname="argument media_stream_type", value=media_stream_type, expected_type=type_hints["media_stream_type"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument clock_rate", value=clock_rate, expected_type=type_hints["clock_rate"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument video_format", value=video_format, expected_type=type_hints["video_format"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "media_stream_id": media_stream_id,
+            "media_stream_name": media_stream_name,
+            "media_stream_type": media_stream_type,
+        }
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if clock_rate is not None:
+            self._values["clock_rate"] = clock_rate
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if video_format is not None:
+            self._values["video_format"] = video_format
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow that the media stream belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def media_stream_id(self) -> jsii.Number:
+        '''A unique identifier for the media stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-mediastreamid
+        '''
+        result = self._values.get("media_stream_id")
+        assert result is not None, "Required property 'media_stream_id' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def media_stream_name(self) -> builtins.str:
+        '''A name that helps you distinguish one media stream from another.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-mediastreamname
+        '''
+        result = self._values.get("media_stream_name")
+        assert result is not None, "Required property 'media_stream_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def media_stream_type(self) -> builtins.str:
+        '''The type of media stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-mediastreamtype
+        '''
+        result = self._values.get("media_stream_type")
+        assert result is not None, "Required property 'media_stream_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.MediaStreamAttributesProperty"]]:
+        '''Attributes that are related to the media stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowMediaStream.MediaStreamAttributesProperty"]], result)
+
+    @builtins.property
+    def clock_rate(self) -> typing.Optional[jsii.Number]:
+        '''The sample rate (in Hz) for the stream.
+
+        If the media stream type is video or ancillary data, set this value to 90000. If the media stream type is audio, set this value to either 48000 or 96000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-clockrate
+        '''
+        result = self._values.get("clock_rate")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description that can help you quickly identify what your media stream is used for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The key-value pairs that can be used to tag and organize the media stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def video_format(self) -> typing.Optional[builtins.str]:
+        '''The resolution of the video.
+
+        Required for a video media stream and rejected for other media stream types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowmediastream.html#cfn-mediaconnect-flowmediastream-videoformat
+        '''
+        result = self._values.get("video_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowMediaStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediaconnect_6374326e.IFlowOutputRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFlowOutput(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15608,6 +16380,7 @@ class CfnRouterOutput(
         
         # automatic: Any
         # default_: Any
+        # public_: Any
         
         cfn_router_output = mediaconnect.CfnRouterOutput(self, "MyCfnRouterOutput",
             configuration=mediaconnect.CfnRouterOutput.RouterOutputConfigurationProperty(
@@ -15653,6 +16426,22 @@ class CfnRouterOutput(
                         rist=mediaconnect.CfnRouterOutput.RistRouterOutputConfigurationProperty(
                             destination_address="destinationAddress",
                             destination_port=123
+                        ),
+                        rtmp_push=mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                            application_name="applicationName",
+                            destination_address="destinationAddress",
+                            destination_port=123,
+                            stream_name="streamName",
+        
+                            # the properties below are optional
+                            tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                                encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                                    public=public_
+                                ),
+        
+                                # the properties below are optional
+                                encryption_type="encryptionType"
+                            )
                         ),
                         rtp=mediaconnect.CfnRouterOutput.RtpRouterOutputConfigurationProperty(
                             destination_address="destinationAddress",
@@ -16912,6 +17701,7 @@ class CfnRouterOutput(
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
                 # automatic: Any
+                # public_: Any
                 
                 router_output_configuration_property = mediaconnect.CfnRouterOutput.RouterOutputConfigurationProperty(
                     media_connect_flow=mediaconnect.CfnRouterOutput.MediaConnectFlowRouterOutputConfigurationProperty(
@@ -16956,6 +17746,22 @@ class CfnRouterOutput(
                             rist=mediaconnect.CfnRouterOutput.RistRouterOutputConfigurationProperty(
                                 destination_address="destinationAddress",
                                 destination_port=123
+                            ),
+                            rtmp_push=mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                                application_name="applicationName",
+                                destination_address="destinationAddress",
+                                destination_port=123,
+                                stream_name="streamName",
+                
+                                # the properties below are optional
+                                tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                                    encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                                        public=public_
+                                    ),
+                
+                                    # the properties below are optional
+                                    encryption_type="encryptionType"
+                                )
                             ),
                             rtp=mediaconnect.CfnRouterOutput.RtpRouterOutputConfigurationProperty(
                                 destination_address="destinationAddress",
@@ -17059,6 +17865,7 @@ class CfnRouterOutput(
         jsii_struct_bases=[],
         name_mapping={
             "rist": "rist",
+            "rtmp_push": "rtmpPush",
             "rtp": "rtp",
             "srt_caller": "srtCaller",
             "srt_listener": "srtListener",
@@ -17069,12 +17876,14 @@ class CfnRouterOutput(
             self,
             *,
             rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RistRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_push: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.RtpRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router output using the RIST (Reliable Internet Stream Transport) protocol, including the destination address and port.
+            :param rtmp_push: The configuration settings for a router output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified. These settings include the destination address and port, the application and stream names, and optional TLS encryption configuration.
             :param rtp: The configuration settings for a router output using the RTP (Real-Time Transport Protocol) protocol, including the destination address and port, and forward error correction state.
             :param srt_caller: The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in caller mode, including the destination address and port, minimum latency, stream ID, and encryption key configuration.
             :param srt_listener: The configuration settings for a router output using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and encryption key configuration.
@@ -17088,10 +17897,28 @@ class CfnRouterOutput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # public_: Any
+                
                 router_output_protocol_configuration_property = mediaconnect.CfnRouterOutput.RouterOutputProtocolConfigurationProperty(
                     rist=mediaconnect.CfnRouterOutput.RistRouterOutputConfigurationProperty(
                         destination_address="destinationAddress",
                         destination_port=123
+                    ),
+                    rtmp_push=mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                        application_name="applicationName",
+                        destination_address="destinationAddress",
+                        destination_port=123,
+                        stream_name="streamName",
+                
+                        # the properties below are optional
+                        tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                            encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                                public=public_
+                            ),
+                
+                            # the properties below are optional
+                            encryption_type="encryptionType"
+                        )
                     ),
                     rtp=mediaconnect.CfnRouterOutput.RtpRouterOutputConfigurationProperty(
                         destination_address="destinationAddress",
@@ -17131,12 +17958,15 @@ class CfnRouterOutput(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__562d01ca7d13c69f8bd962654080b4d33fa8642743ff71dd15962ebd61569f3d)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
+                check_type(argname="argument rtmp_push", value=rtmp_push, expected_type=type_hints["rtmp_push"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
                 check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rist is not None:
                 self._values["rist"] = rist
+            if rtmp_push is not None:
+                self._values["rtmp_push"] = rtmp_push
             if rtp is not None:
                 self._values["rtp"] = rtp
             if srt_caller is not None:
@@ -17154,6 +17984,19 @@ class CfnRouterOutput(
             '''
             result = self._values.get("rist")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RistRouterOutputConfigurationProperty"]], result)
+
+        @builtins.property
+        def rtmp_push(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty"]]:
+            '''The configuration settings for a router output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified.
+
+            These settings include the destination address and port, the application and stream names, and optional TLS encryption configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-routeroutputprotocolconfiguration.html#cfn-mediaconnect-routeroutput-routeroutputprotocolconfiguration-rtmppush
+            '''
+            result = self._values.get("rtmp_push")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
@@ -17196,6 +18039,151 @@ class CfnRouterOutput(
 
         def __repr__(self) -> str:
             return "RouterOutputProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "destination_address": "destinationAddress",
+            "destination_port": "destinationPort",
+            "stream_name": "streamName",
+            "tls_encryption": "tlsEncryption",
+        },
+    )
+    class RtmpPushRouterOutputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            destination_address: builtins.str,
+            destination_port: jsii.Number,
+            stream_name: builtins.str,
+            tls_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.TlsEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration settings for a router output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified.
+
+            These settings include the destination address and port, the application and stream names, and optional TLS encryption configuration.
+
+            :param application_name: The name of the RTMP application on the destination server. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://destinationAddress/applicationName/streamName.
+            :param destination_address: The IP address or hostname of the destination RTMP server that the router output pushes the stream to. Provide only the server address; specify the application and stream names separately.
+            :param destination_port: The TCP port on the destination RTMP server. For RTMP, valid values range from 1024 to 65535. For RTMPS (RTMP over TLS), valid values are 443 or 1024 to 65535. RTMP typically uses port 1935, and RTMPS typically uses port 443.
+            :param stream_name: The name of the RTMP stream that the output publishes to the destination application. The stream name forms the final segment of the RTMP URL path.
+            :param tls_encryption: The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                rtmp_push_router_output_configuration_property = mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                    application_name="applicationName",
+                    destination_address="destinationAddress",
+                    destination_port=123,
+                    stream_name="streamName",
+                
+                    # the properties below are optional
+                    tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                        encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                            public=public_
+                        ),
+                
+                        # the properties below are optional
+                        encryption_type="encryptionType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__198f23d67173c6263ad21c07330d89c91ac75488b59649fbc83ef4438bf1093b)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument destination_address", value=destination_address, expected_type=type_hints["destination_address"])
+                check_type(argname="argument destination_port", value=destination_port, expected_type=type_hints["destination_port"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+                check_type(argname="argument tls_encryption", value=tls_encryption, expected_type=type_hints["tls_encryption"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "destination_address": destination_address,
+                "destination_port": destination_port,
+                "stream_name": stream_name,
+            }
+            if tls_encryption is not None:
+                self._values["tls_encryption"] = tls_encryption
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application on the destination server.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://destinationAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_address(self) -> builtins.str:
+            '''The IP address or hostname of the destination RTMP server that the router output pushes the stream to.
+
+            Provide only the server address; specify the application and stream names separately.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration-destinationaddress
+            '''
+            result = self._values.get("destination_address")
+            assert result is not None, "Required property 'destination_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_port(self) -> jsii.Number:
+            '''The TCP port on the destination RTMP server.
+
+            For RTMP, valid values range from 1024 to 65535. For RTMPS (RTMP over TLS), valid values are 443 or 1024 to 65535. RTMP typically uses port 1935, and RTMPS typically uses port 443.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration-destinationport
+            '''
+            result = self._values.get("destination_port")
+            assert result is not None, "Required property 'destination_port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream that the output publishes to the destination application.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tls_encryption(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.TlsEncryptionProperty"]]:
+            '''The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration.html#cfn-mediaconnect-routeroutput-rtmppushrouteroutputconfiguration-tlsencryption
+            '''
+            result = self._values.get("tls_encryption")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.TlsEncryptionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushRouterOutputConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -17679,12 +18667,30 @@ class CfnRouterOutput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # public_: Any
+                
                 standard_router_output_configuration_property = mediaconnect.CfnRouterOutput.StandardRouterOutputConfigurationProperty(
                     network_interface_arn="networkInterfaceArn",
                     protocol_configuration=mediaconnect.CfnRouterOutput.RouterOutputProtocolConfigurationProperty(
                         rist=mediaconnect.CfnRouterOutput.RistRouterOutputConfigurationProperty(
                             destination_address="destinationAddress",
                             destination_port=123
+                        ),
+                        rtmp_push=mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                            application_name="applicationName",
+                            destination_address="destinationAddress",
+                            destination_port=123,
+                            stream_name="streamName",
+                
+                            # the properties below are optional
+                            tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                                encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                                    public=public_
+                                ),
+                
+                                # the properties below are optional
+                                encryption_type="encryptionType"
+                            )
                         ),
                         rtp=mediaconnect.CfnRouterOutput.RtpRouterOutputConfigurationProperty(
                             destination_address="destinationAddress",
@@ -17778,6 +18784,143 @@ class CfnRouterOutput(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"public": "public"},
+    )
+    class TlsEncryptionConfigurationProperty:
+        def __init__(self, *, public: typing.Any) -> None:
+            '''The configuration settings for TLS encryption.
+
+            :param public: The TLS encryption configuration for destinations that present a certificate from a publicly trusted certificate authority. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-tlsencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                tls_encryption_configuration_property = mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                    public=public_
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__179d959cb48515f6fd98b592f514bd911883d38eb457959e039680cfa3af020d)
+                check_type(argname="argument public", value=public, expected_type=type_hints["public"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "public": public,
+            }
+
+        @builtins.property
+        def public(self) -> typing.Any:
+            '''The TLS encryption configuration for destinations that present a certificate from a publicly trusted certificate authority.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-tlsencryptionconfiguration.html#cfn-mediaconnect-routeroutput-tlsencryptionconfiguration-public
+            '''
+            result = self._values.get("public")
+            assert result is not None, "Required property 'public' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TlsEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.TlsEncryptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_configuration": "encryptionConfiguration",
+            "encryption_type": "encryptionType",
+        },
+    )
+    class TlsEncryptionProperty:
+        def __init__(
+            self,
+            *,
+            encryption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.TlsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :param encryption_configuration: The configuration settings for TLS encryption.
+            :param encryption_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-tlsencryption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                tls_encryption_property = mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                    encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                        public=public_
+                    ),
+                
+                    # the properties below are optional
+                    encryption_type="encryptionType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4baf5647e5e6fab96add0fc8d370479207150c3a0a185888c4f81ab4969634e6)
+                check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_configuration": encryption_configuration,
+            }
+            if encryption_type is not None:
+                self._values["encryption_type"] = encryption_type
+
+        @builtins.property
+        def encryption_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.TlsEncryptionConfigurationProperty"]:
+            '''The configuration settings for TLS encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-tlsencryption.html#cfn-mediaconnect-routeroutput-tlsencryption-encryptionconfiguration
+            '''
+            result = self._values.get("encryption_configuration")
+            assert result is not None, "Required property 'encryption_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.TlsEncryptionConfigurationProperty"], result)
+
+        @builtins.property
+        def encryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-tlsencryption.html#cfn-mediaconnect-routeroutput-tlsencryption-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TlsEncryptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutputProps",
@@ -17835,6 +18978,7 @@ class CfnRouterOutputProps:
             
             # automatic: Any
             # default_: Any
+            # public_: Any
             
             cfn_router_output_props = mediaconnect.CfnRouterOutputProps(
                 configuration=mediaconnect.CfnRouterOutput.RouterOutputConfigurationProperty(
@@ -17880,6 +19024,22 @@ class CfnRouterOutputProps:
                             rist=mediaconnect.CfnRouterOutput.RistRouterOutputConfigurationProperty(
                                 destination_address="destinationAddress",
                                 destination_port=123
+                            ),
+                            rtmp_push=mediaconnect.CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty(
+                                application_name="applicationName",
+                                destination_address="destinationAddress",
+                                destination_port=123,
+                                stream_name="streamName",
+            
+                                # the properties below are optional
+                                tls_encryption=mediaconnect.CfnRouterOutput.TlsEncryptionProperty(
+                                    encryption_configuration=mediaconnect.CfnRouterOutput.TlsEncryptionConfigurationProperty(
+                                        public=public_
+                                    ),
+            
+                                    # the properties below are optional
+                                    encryption_type="encryptionType"
+                                )
                             ),
                             rtp=mediaconnect.CfnRouterOutput.RtpRouterOutputConfigurationProperty(
                                 destination_address="destinationAddress",
@@ -18097,6 +19257,8 @@ __all__ = [
     "CfnFlow",
     "CfnFlowEntitlement",
     "CfnFlowEntitlementProps",
+    "CfnFlowMediaStream",
+    "CfnFlowMediaStreamProps",
     "CfnFlowOutput",
     "CfnFlowOutputProps",
     "CfnFlowProps",
@@ -18956,6 +20118,137 @@ def _typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f0
     encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__129affb5031d89a9bbd6492f117e3ed3a4986e8472506985a65e9d2f0a1a097b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    flow_arn: builtins.str,
+    media_stream_id: jsii.Number,
+    media_stream_name: builtins.str,
+    media_stream_type: builtins.str,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowMediaStream.MediaStreamAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    clock_rate: typing.Optional[jsii.Number] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    video_format: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35d019e5728d288e9a15dbbe160f61addcf13a8af5c7d8d0068db7657827596d(
+    resource: _aws_mediaconnect_6374326e.IFlowMediaStreamRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18d1e3f3e08b367c4e0a8b3b24626b0cd4688f57c43d3fe61755e4689c17dd1a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a4bc6af14e5a93dc2a2b6e082e702dd9b7e04263ed7cde5a4de07da3fe34ff1(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__249ac7c10d57223752a0ac81e0d3f574df3b0726937ae6cd41d1393de1867ec5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0daccd9a15efcf6aec7b717e6ab4f48ae24123bf4c3e1bd1c79ccce45af46865(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b70a37c746bd7ecd324ed23c812fb2f514398076c1075ce4873b49f9f580d76(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6946091c46515da7495b76e9e1ee7005f2a9803718700a6bad1a8e4555b3ee5b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d4ca12b08bb6922e8aa5669e0fd1c77ed6f8634a00c6b91f1441d1f337b3f02(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__338e79bb1161034c195b283f21e9065e9a5de8a5b4a9c48eeff461fe167e0e87(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowMediaStream.MediaStreamAttributesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41044b80a81d80c938a42742ee4312d090519a8bf9ca1fdaf830c57b5eb0cf67(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53e08b9c3b93af08d5077845dd24782c5d54e88811215ae2844d8616f4fa9283(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1dbdaa7b6578149374cce7ec3e19c7fec326f3a754e96b5886f0efcd52bb3d9(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66250f35104662e765230748b58ea79a983735a32569b34c09330f2c7989c9be(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f412e1d6ed0c13521f8580c617a78716f7d0e4cb3df1abe2ac39c606eef89483(
+    *,
+    channel_order: typing.Optional[builtins.str] = None,
+    colorimetry: typing.Optional[builtins.str] = None,
+    exact_framerate: typing.Optional[builtins.str] = None,
+    par: typing.Optional[builtins.str] = None,
+    range: typing.Optional[builtins.str] = None,
+    scan_mode: typing.Optional[builtins.str] = None,
+    tcs: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__112ac16021886d36545a4ac13806fae1b06c18a1a503445e85dae8cf12896ab9(
+    *,
+    fmtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowMediaStream.FmtpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lang: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0504328a81a3eab3fbeaef99e2165f916136d263996597ca95cb39b31b2a7286(
+    *,
+    flow_arn: builtins.str,
+    media_stream_id: jsii.Number,
+    media_stream_name: builtins.str,
+    media_stream_type: builtins.str,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowMediaStream.MediaStreamAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    clock_rate: typing.Optional[jsii.Number] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    video_format: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20287,9 +21580,21 @@ def _typecheckingstub__195e2aba5e342493ec27f8f63f43810db21ee1b303be1cfa962c7f9a4
 def _typecheckingstub__562d01ca7d13c69f8bd962654080b4d33fa8642743ff71dd15962ebd61569f3d(
     *,
     rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RistRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RtmpPushRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RtpRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtCallerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.SrtListenerRouterOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__198f23d67173c6263ad21c07330d89c91ac75488b59649fbc83ef4438bf1093b(
+    *,
+    application_name: builtins.str,
+    destination_address: builtins.str,
+    destination_port: jsii.Number,
+    stream_name: builtins.str,
+    tls_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.TlsEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20343,6 +21648,21 @@ def _typecheckingstub__010befd5e2660537f2f9db5cecf3b56ab325c13eace710cabb8f4ab0c
     network_interface_arn: builtins.str,
     protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.RouterOutputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     protocol: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__179d959cb48515f6fd98b592f514bd911883d38eb457959e039680cfa3af020d(
+    *,
+    public: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4baf5647e5e6fab96add0fc8d370479207150c3a0a185888c4f81ab4969634e6(
+    *,
+    encryption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.TlsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

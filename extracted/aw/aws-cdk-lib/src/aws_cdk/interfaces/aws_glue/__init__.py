@@ -251,6 +251,55 @@ class ConnectionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_glue.ConnectionTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={"connection_type_arn": "connectionTypeArn"},
+)
+class ConnectionTypeReference:
+    def __init__(self, *, connection_type_arn: builtins.str) -> None:
+        '''A reference to a ConnectionType resource.
+
+        :param connection_type_arn: The ConnectionTypeArn of the ConnectionType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_glue as interfaces_glue
+            
+            connection_type_reference = interfaces_glue.ConnectionTypeReference(
+                connection_type_arn="connectionTypeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec4b9247a8aa2a5ea13fb42b422837b6534d7bdb249597cc280badd03a923cfd)
+            check_type(argname="argument connection_type_arn", value=connection_type_arn, expected_type=type_hints["connection_type_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_type_arn": connection_type_arn,
+        }
+
+    @builtins.property
+    def connection_type_arn(self) -> builtins.str:
+        '''The ConnectionTypeArn of the ConnectionType resource.'''
+        result = self._values.get("connection_type_arn")
+        assert result is not None, "Required property 'connection_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.CrawlerReference",
     jsii_struct_bases=[],
     name_mapping={"crawler_name": "crawlerName"},
@@ -722,6 +771,51 @@ class _IConnectionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnectionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.IConnectionTypeRef")
+class IConnectionTypeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectionType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionTypeRef")
+    def connection_type_ref(self) -> "ConnectionTypeReference":
+        '''(experimental) A reference to a ConnectionType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectionTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectionType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_glue.IConnectionTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionTypeRef")
+    def connection_type_ref(self) -> "ConnectionTypeReference":
+        '''(experimental) A reference to a ConnectionType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionTypeReference", jsii.get(self, "connectionTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectionTypeRef).__jsii_proxy_class__ = lambda : _IConnectionTypeRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.ICrawlerRef")
@@ -2108,13 +2202,28 @@ class MLTransformReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.PartitionReference",
     jsii_struct_bases=[],
-    name_mapping={"partition_id": "partitionId"},
+    name_mapping={
+        "catalog_id": "catalogId",
+        "database_name": "databaseName",
+        "identifier_partition_input_values": "identifierPartitionInputValues",
+        "table_name": "tableName",
+    },
 )
 class PartitionReference:
-    def __init__(self, *, partition_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        catalog_id: builtins.str,
+        database_name: builtins.str,
+        identifier_partition_input_values: builtins.str,
+        table_name: builtins.str,
+    ) -> None:
         '''A reference to a Partition resource.
 
-        :param partition_id: The Id of the Partition resource.
+        :param catalog_id: The CatalogId of the Partition resource.
+        :param database_name: The DatabaseName of the Partition resource.
+        :param identifier_partition_input_values: The IdentifierPartitionInputValues of the Partition resource.
+        :param table_name: The TableName of the Partition resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2125,21 +2234,51 @@ class PartitionReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             partition_reference = interfaces_glue.PartitionReference(
-                partition_id="partitionId"
+                catalog_id="catalogId",
+                database_name="databaseName",
+                identifier_partition_input_values="identifierPartitionInputValues",
+                table_name="tableName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a9698059eb8899c746fb237350793d2faff1bdfa61b71f202add91131734519)
-            check_type(argname="argument partition_id", value=partition_id, expected_type=type_hints["partition_id"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument identifier_partition_input_values", value=identifier_partition_input_values, expected_type=type_hints["identifier_partition_input_values"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "partition_id": partition_id,
+            "catalog_id": catalog_id,
+            "database_name": database_name,
+            "identifier_partition_input_values": identifier_partition_input_values,
+            "table_name": table_name,
         }
 
     @builtins.property
-    def partition_id(self) -> builtins.str:
-        '''The Id of the Partition resource.'''
-        result = self._values.get("partition_id")
-        assert result is not None, "Required property 'partition_id' is missing"
+    def catalog_id(self) -> builtins.str:
+        '''The CatalogId of the Partition resource.'''
+        result = self._values.get("catalog_id")
+        assert result is not None, "Required property 'catalog_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The DatabaseName of the Partition resource.'''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identifier_partition_input_values(self) -> builtins.str:
+        '''The IdentifierPartitionInputValues of the Partition resource.'''
+        result = self._values.get("identifier_partition_input_values")
+        assert result is not None, "Required property 'identifier_partition_input_values' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the Partition resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2824,6 +2963,7 @@ __all__ = [
     "CatalogReference",
     "ClassifierReference",
     "ConnectionReference",
+    "ConnectionTypeReference",
     "CrawlerReference",
     "CustomEntityTypeReference",
     "DataCatalogEncryptionSettingsReference",
@@ -2834,6 +2974,7 @@ __all__ = [
     "ICatalogRef",
     "IClassifierRef",
     "IConnectionRef",
+    "IConnectionTypeRef",
     "ICrawlerRef",
     "ICustomEntityTypeRef",
     "IDataCatalogEncryptionSettingsRef",
@@ -2905,6 +3046,13 @@ def _typecheckingstub__d0c23f5314f51a17152319ab80f389d2f1b18975384c84d1d2931ac1a
     *,
     catalog_id: builtins.str,
     connection_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec4b9247a8aa2a5ea13fb42b422837b6534d7bdb249597cc280badd03a923cfd(
+    *,
+    connection_type_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2990,7 +3138,10 @@ def _typecheckingstub__b3f1a2f7b4f39bcc3b7be922b88fffd5ccf9f63df878ae375f85fa002
 
 def _typecheckingstub__5a9698059eb8899c746fb237350793d2faff1bdfa61b71f202add91131734519(
     *,
-    partition_id: builtins.str,
+    catalog_id: builtins.str,
+    database_name: builtins.str,
+    identifier_partition_input_values: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3084,5 +3235,5 @@ def _typecheckingstub__05490662a534e7ac737a01a3e54258abf2c5d6dd3a563391b841bd656
     """Type checking stubs"""
     pass
 
-for cls in [IBlueprintRef, ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ISessionRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IUserDefinedFunctionRef, IWorkflowRef]:
+for cls in [IBlueprintRef, ICatalogRef, IClassifierRef, IConnectionRef, IConnectionTypeRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ISessionRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IUserDefinedFunctionRef, IWorkflowRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

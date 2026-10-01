@@ -10109,6 +10109,374 @@ class CfnInstanceSnapshotProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lightsail_3214a409.IKeyPairRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnKeyPair(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnKeyPair",
+):
+    '''Resource Type definition for AWS::Lightsail::KeyPair.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-keypair.html
+    :cloudformationResource: AWS::Lightsail::KeyPair
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lightsail as lightsail
+        
+        cfn_key_pair = lightsail.CfnKeyPair(self, "MyCfnKeyPair",
+            key_pair_name="keyPairName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        key_pair_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lightsail::KeyPair``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param key_pair_name: The name of the key pair.
+        :param tags: The tag keys and optional values to add to the resource during create.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de5915f9e23e1868659886e639b248e213643d569a2f52ca411bdf027141b21a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnKeyPairProps(key_pair_name=key_pair_name, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForKeyPair")
+    @builtins.classmethod
+    def arn_for_key_pair(
+        cls,
+        resource: "_aws_lightsail_3214a409.IKeyPairRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c9917a1cb5340c1a3004339e658d2bdb7664be1908ce31129ced19227b1d4de)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForKeyPair", [resource]))
+
+    @jsii.member(jsii_name="isCfnKeyPair")
+    @builtins.classmethod
+    def is_cfn_key_pair(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnKeyPair.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3cb4170375af6a0a4bae7c2c88e6fcff95338bb6cdd058b438f3c01f992ea17)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKeyPair", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__596cfa5178c7f1f33a0b71050d88ea89e291ff85574f56a3c6e20022b63d2d54)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1dce8d2bb6a4cb3913d42a96ad9923437af848f6c4419719a9e670eb5cda19f9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the key pair was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFingerprint")
+    def attr_fingerprint(self) -> builtins.str:
+        '''The RSA fingerprint of the key pair.
+
+        :cloudformationAttribute: Fingerprint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFingerprint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKeyPairArn")
+    def attr_key_pair_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the key pair.
+
+        :cloudformationAttribute: KeyPairArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKeyPairArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocation")
+    def attr_location(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: Location
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLocation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The Lightsail resource type (KeyPair).
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportCode")
+    def attr_support_code(self) -> builtins.str:
+        '''The support code.
+
+        Include this code in your email to support when you have questions about a key pair in Lightsail.
+
+        :cloudformationAttribute: SupportCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSupportCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPairRef")
+    def key_pair_ref(self) -> "_aws_lightsail_3214a409.KeyPairReference":
+        '''A reference to a KeyPair resource.'''
+        return typing.cast("_aws_lightsail_3214a409.KeyPairReference", jsii.get(self, "keyPairRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPairName")
+    def key_pair_name(self) -> builtins.str:
+        '''The name of the key pair.'''
+        return typing.cast(builtins.str, jsii.get(self, "keyPairName"))
+
+    @key_pair_name.setter
+    def key_pair_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__769632cf1db2d42cc5505537d5f29755d34d683293d85226d30fc006503dd5dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyPairName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tag keys and optional values to add to the resource during create.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4d18e0ec604bf567e089a801f765ca7d229c81f93a30be9a58ef80ba61832af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lightsail.CfnKeyPair.ResourceLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "availability_zone": "availabilityZone",
+            "region_name": "regionName",
+        },
+    )
+    class ResourceLocationProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone: typing.Optional[builtins.str] = None,
+            region_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param availability_zone: The Availability Zone. Follows the format us-east-2a (case-sensitive).
+            :param region_name: The AWS Region name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-keypair-resourcelocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lightsail as lightsail
+                
+                resource_location_property = lightsail.CfnKeyPair.ResourceLocationProperty(
+                    availability_zone="availabilityZone",
+                    region_name="regionName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__affa4b1e5550c663aa08380ba4e2cc37d9b6c3c3e617548c8a30e16b98bd861b)
+                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+                check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone is not None:
+                self._values["availability_zone"] = availability_zone
+            if region_name is not None:
+                self._values["region_name"] = region_name
+
+        @builtins.property
+        def availability_zone(self) -> typing.Optional[builtins.str]:
+            '''The Availability Zone.
+
+            Follows the format us-east-2a (case-sensitive).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-keypair-resourcelocation.html#cfn-lightsail-keypair-resourcelocation-availabilityzone
+            '''
+            result = self._values.get("availability_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region_name(self) -> typing.Optional[builtins.str]:
+            '''The AWS Region name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-keypair-resourcelocation.html#cfn-lightsail-keypair-resourcelocation-regionname
+            '''
+            result = self._values.get("region_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnKeyPairProps",
+    jsii_struct_bases=[],
+    name_mapping={"key_pair_name": "keyPairName", "tags": "tags"},
+)
+class CfnKeyPairProps:
+    def __init__(
+        self,
+        *,
+        key_pair_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnKeyPair``.
+
+        :param key_pair_name: The name of the key pair.
+        :param tags: The tag keys and optional values to add to the resource during create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-keypair.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lightsail as lightsail
+            
+            cfn_key_pair_props = lightsail.CfnKeyPairProps(
+                key_pair_name="keyPairName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4bf4b6e3931e5328888991088d2ea24061cc4047c5e0dffd34a5b5a50640c265)
+            check_type(argname="argument key_pair_name", value=key_pair_name, expected_type=type_hints["key_pair_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_pair_name": key_pair_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def key_pair_name(self) -> builtins.str:
+        '''The name of the key pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-keypair.html#cfn-lightsail-keypair-keypairname
+        '''
+        result = self._values.get("key_pair_name")
+        assert result is not None, "Required property 'key_pair_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tag keys and optional values to add to the resource during create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-keypair.html#cfn-lightsail-keypair-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnKeyPairProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lightsail_3214a409.ILoadBalancerRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnLoadBalancer(
     _aws_cdk_0cae9daa.CfnResource,
@@ -11315,6 +11683,8 @@ __all__ = [
     "CfnInstanceProps",
     "CfnInstanceSnapshot",
     "CfnInstanceSnapshotProps",
+    "CfnKeyPair",
+    "CfnKeyPairProps",
     "CfnLoadBalancer",
     "CfnLoadBalancerProps",
     "CfnLoadBalancerTlsCertificate",
@@ -12825,6 +13195,68 @@ def _typecheckingstub__6f1052e16aac1d4fd5f262850ea34d03d3d58f217a43f29522c8119d4
     *,
     instance_name: builtins.str,
     instance_snapshot_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de5915f9e23e1868659886e639b248e213643d569a2f52ca411bdf027141b21a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    key_pair_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c9917a1cb5340c1a3004339e658d2bdb7664be1908ce31129ced19227b1d4de(
+    resource: _aws_lightsail_3214a409.IKeyPairRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3cb4170375af6a0a4bae7c2c88e6fcff95338bb6cdd058b438f3c01f992ea17(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__596cfa5178c7f1f33a0b71050d88ea89e291ff85574f56a3c6e20022b63d2d54(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dce8d2bb6a4cb3913d42a96ad9923437af848f6c4419719a9e670eb5cda19f9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__769632cf1db2d42cc5505537d5f29755d34d683293d85226d30fc006503dd5dd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4d18e0ec604bf567e089a801f765ca7d229c81f93a30be9a58ef80ba61832af(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__affa4b1e5550c663aa08380ba4e2cc37d9b6c3c3e617548c8a30e16b98bd861b(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bf4b6e3931e5328888991088d2ea24061cc4047c5e0dffd34a5b5a50640c265(
+    *,
+    key_pair_name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

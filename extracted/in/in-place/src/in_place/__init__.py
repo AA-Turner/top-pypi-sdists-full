@@ -21,7 +21,7 @@ from typing import IO, TYPE_CHECKING, Any, AnyStr, Literal, Union, overload
 if TYPE_CHECKING:
     from typing_extensions import Buffer
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __author__ = "John Thorvald Wodder II"
 __author_email__ = "inplace@varonathe.org"
 __license__ = "MIT"
@@ -289,17 +289,19 @@ def copystats(from_file: str, to_file: str) -> None:
     Copy stat info from ``from_file`` to ``to_file`` using `shutil.copystat`.
     If possible, also copy the user and/or group ownership information.
     """
-    shutil.copystat(from_file, to_file)
+    # Changing owner clears the setuid & setgid permission bits, so permissions
+    # need to be copied *after* uid & gid.
     if hasattr(os, "chown"):
         st = os.stat(from_file)
         # Based on GNU sed's behavior:
         try:
             os.chown(to_file, st.st_uid, st.st_gid)
-        except IOError:
+        except OSError:
             try:
                 os.chown(to_file, -1, st.st_gid)
-            except IOError:
+            except OSError:
                 pass
+    shutil.copystat(from_file, to_file)
 
 
 def try_unlink(path: str) -> None:

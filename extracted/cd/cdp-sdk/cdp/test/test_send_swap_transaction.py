@@ -12,6 +12,9 @@ from cdp.actions.evm.swap.types import (
     InlineSendSwapTransactionOptions,
     QuoteBasedSendSwapTransactionOptions,
     QuoteSwapResult,
+    SwapAllowanceIssue,
+    SwapBalanceIssue,
+    SwapIssues,
 )
 
 
@@ -43,6 +46,27 @@ def create_mock_swap_response(response_data: dict) -> MagicMock:
         mock.permit2.hash = permit2_data.get("hash")
     else:
         mock.permit2 = None
+
+    # Mock issues
+    issues_data = response_data.get("issues")
+    if issues_data is not None:
+        mock.issues = MagicMock()
+        mock.issues.allowance = None
+        mock.issues.balance = None
+        mock.issues.simulation_incomplete = issues_data.get("simulationIncomplete", False)
+        if issues_data.get("allowance"):
+            mock.issues.allowance = MagicMock(
+                current_allowance=issues_data["allowance"].get("currentAllowance"),
+                spender=issues_data["allowance"].get("spender"),
+            )
+        if issues_data.get("balance"):
+            mock.issues.balance = MagicMock(
+                token=issues_data["balance"].get("token"),
+                current_balance=issues_data["balance"].get("currentBalance"),
+                required_balance=issues_data["balance"].get("requiredBalance"),
+            )
+    else:
+        mock.issues = None
 
     return mock
 
@@ -85,15 +109,8 @@ def mock_api_clients():
             },
         },
         "issues": {
-            "allowance": {
-                "currentAllowance": "0",
-                "spender": "0x0000000000000000000000000000000000000000",
-            },
-            "balance": {
-                "token": "0x0000000000000000000000000000000000000000",
-                "currentBalance": "0",
-                "requiredBalance": "0",
-            },
+            "allowance": None,
+            "balance": None,
             "simulationIncomplete": False,
         },
         "transaction": {
@@ -262,6 +279,133 @@ async def test_send_swap_transaction_converts_amount_types(mock_api_clients):
 
     assert isinstance(result, AccountSwapResult)
     assert result.transaction_hash == "0xmocked_transaction_hash"
+
+
+@pytest.mark.asyncio
+async def test_send_swap_transaction_fails_closed_on_allowance_issues(mock_api_clients, mock_quote):
+    """Test that send_swap_transaction refuses to broadcast when the quote has allowance issues."""
+    mock_quote.issues = SwapIssues(
+        allowance=SwapAllowanceIssue(
+            current_allowance="0",
+            spender="0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        )
+    )
+
+    swap_options = QuoteBasedSendSwapTransactionOptions(
+        address="0x742d35Cc6634C0532925a3b844Bc9e7595f12345",
+        swap_quote=mock_quote,
+    )
+
+    with pytest.raises(ValueError, match="Insufficient token allowance for swap"):
+        await send_swap_transaction(mock_api_clients, swap_options)
+
+    mock_api_clients.evm_accounts.send_evm_transaction.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_swap_transaction_fails_closed_on_balance_issues(mock_api_clients, mock_quote):
+    """Test that send_swap_transaction refuses to broadcast when the quote has balance issues."""
+    mock_quote.issues = SwapIssues(
+        balance=SwapBalanceIssue(
+            token="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            current_balance="900000",
+            required_balance="1000000",
+        )
+    )
+
+    swap_options = QuoteBasedSendSwapTransactionOptions(
+        address="0x742d35Cc6634C0532925a3b844Bc9e7595f12345",
+        swap_quote=mock_quote,
+    )
+
+    with pytest.raises(ValueError, match="Insufficient token balance for swap"):
+        await send_swap_transaction(mock_api_clients, swap_options)
+
+    mock_api_clients.evm_accounts.send_evm_transaction.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_swap_transaction_allows_incomplete_simulation(mock_api_clients, mock_quote):
+    """Test that send_swap_transaction still broadcasts when the simulation is incomplete.
+
+    simulation_incomplete only means the transaction could not be validated,
+    not that the trade will revert, so the execute path deliberately does not
+    fail closed on it.
+    """
+    mock_quote.issues = SwapIssues(simulation_incomplete=True)
+
+    swap_options = QuoteBasedSendSwapTransactionOptions(
+        address="0x742d35Cc6634C0532925a3b844Bc9e7595f12345",
+        swap_quote=mock_quote,
+    )
+
+    result = await send_swap_transaction(mock_api_clients, swap_options)
+
+    assert isinstance(result, AccountSwapResult)
+    assert result.transaction_hash == "0xmocked_transaction_hash"
+    mock_api_clients.evm_accounts.send_evm_transaction.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_swap_transaction_inline_params_fails_closed_on_balance_issues(
+    mock_api_clients,
+):
+    """Test that inline swap params fail closed when the created quote has balance issues."""
+    mock_response = MagicMock()
+    mock_response_data = {
+        "liquidityAvailable": True,
+        "toAmount": "500000000000000",
+        "minToAmount": "495000000000000",
+        "blockNumber": "123456",
+        "fromToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "toToken": "0x4200000000000000000000000000000000000006",
+        "fromAmount": "1000000",
+        "fees": {
+            "gasFee": {
+                "amount": "1000000000000000",
+                "token": "0x0000000000000000000000000000000000000000",
+            },
+            "protocolFee": {
+                "amount": "0",
+                "token": "0x0000000000000000000000000000000000000000",
+            },
+        },
+        "issues": {
+            "allowance": None,
+            "balance": {
+                "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                "currentBalance": "900000",
+                "requiredBalance": "1000000",
+            },
+            "simulationIncomplete": False,
+        },
+        "transaction": {
+            "to": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+            "data": "0xabc123def456",
+            "value": "0",
+            "gas": "200000",
+            "gasPrice": "20000000000",
+        },
+        "permit2": None,
+    }
+    mock_response.read = AsyncMock(return_value=json.dumps(mock_response_data).encode("utf-8"))
+    mock_api_clients.evm_swaps.create_evm_swap_quote_without_preload_content = AsyncMock(
+        return_value=mock_response
+    )
+
+    swap_options = InlineSendSwapTransactionOptions(
+        address="0x742d35Cc6634C0532925a3b844Bc9e7595f12345",
+        network="base",
+        from_token="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        to_token="0x4200000000000000000000000000000000000006",
+        from_amount="1000000",
+        taker="0x742d35Cc6634C0532925a3b844Bc9e7595f12345",
+    )
+
+    with pytest.raises(ValueError, match="Insufficient token balance for swap"):
+        await send_swap_transaction(mock_api_clients, swap_options)
+
+    mock_api_clients.evm_accounts.send_evm_transaction.assert_not_called()
 
 
 @pytest.mark.asyncio

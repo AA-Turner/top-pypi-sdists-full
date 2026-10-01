@@ -3915,6 +3915,328 @@ class CfnRegistration(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IRegistrationAttachmentRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRegistrationAttachment(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRegistrationAttachment",
+):
+    '''Resource Type definition for AWS::SMSVOICE::RegistrationAttachment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html
+    :cloudformationResource: AWS::SMSVOICE::RegistrationAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_smsvoice as smsvoice
+        
+        cfn_registration_attachment = smsvoice.CfnRegistrationAttachment(self, "MyCfnRegistrationAttachment",
+            attachment_body="attachmentBody",
+            attachment_url="attachmentUrl",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        attachment_body: typing.Optional[builtins.str] = None,
+        attachment_url: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SMSVOICE::RegistrationAttachment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param attachment_body: The registration file to upload. The maximum file size is 1500KB and valid file extensions are PDF, JPEG and PNG.
+        :param attachment_url: A URL to the required registration file. For example, the URL to an MMS/shortcode form.
+        :param tags: An array of tags (key and value pairs) to associate with the registration attachment.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f2548847e71904236b2f65e144a6616ab1a48c7c113bcc9453723ea9e6729cc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRegistrationAttachmentProps(
+            attachment_body=attachment_body, attachment_url=attachment_url, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRegistrationAttachment")
+    @builtins.classmethod
+    def arn_for_registration_attachment(
+        cls,
+        resource: "_aws_smsvoice_61a140be.IRegistrationAttachmentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__29da71a82af0cb53adfde855f05f6ecb34453dbc5378ca9579a8b6d81dc31171)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegistrationAttachment", [resource]))
+
+    @jsii.member(jsii_name="isCfnRegistrationAttachment")
+    @builtins.classmethod
+    def is_cfn_registration_attachment(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegistrationAttachment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f255a8949ea21317bff8a0f587b9fc545f1e7d96f216745e9fd5617df43902f8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistrationAttachment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5174063d4d396982eb271d0f063642f332eec523078d86345aa38b81530159e2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d3f3816ed7a3cc1e136d4ee26d9241a222ffc3f91200972f17ce4bc632fd6d6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAttachmentStatus")
+    def attr_attachment_status(self) -> builtins.str:
+        '''The status of the registration attachment.
+
+        :cloudformationAttribute: AttachmentStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAttachmentStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time when the registration attachment was created, in UNIX epoch time format.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationAttachmentArn")
+    def attr_registration_attachment_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the registration attachment.
+
+        :cloudformationAttribute: RegistrationAttachmentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationAttachmentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationAttachmentId")
+    def attr_registration_attachment_id(self) -> builtins.str:
+        '''The unique identifier for the registration attachment.
+
+        :cloudformationAttribute: RegistrationAttachmentId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationAttachmentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUploadedAttachmentUrl")
+    def attr_uploaded_attachment_url(self) -> builtins.str:
+        '''The URL to the document that was uploaded as the registration attachment, as returned by the service.
+
+        :cloudformationAttribute: UploadedAttachmentUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUploadedAttachmentUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationAttachmentRef")
+    def registration_attachment_ref(
+        self,
+    ) -> "_aws_smsvoice_61a140be.RegistrationAttachmentReference":
+        '''A reference to a RegistrationAttachment resource.'''
+        return typing.cast("_aws_smsvoice_61a140be.RegistrationAttachmentReference", jsii.get(self, "registrationAttachmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attachmentBody")
+    def attachment_body(self) -> typing.Optional[builtins.str]:
+        '''The registration file to upload.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attachmentBody"))
+
+    @attachment_body.setter
+    def attachment_body(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db3c94f2e9a9c5128dbb18f4b77b18df1e392ed62ac700119e2d9a8232bf56e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attachmentBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attachmentUrl")
+    def attachment_url(self) -> typing.Optional[builtins.str]:
+        '''A URL to the required registration file.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attachmentUrl"))
+
+    @attachment_url.setter
+    def attachment_url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9d4e94ff065d4ecdc24d68d5cab16ce269f90788d893c3f042b93acd24a891b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attachmentUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) to associate with the registration attachment.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c15e8c10d248bd2d814100eed02eafb988276fcfe7fe32f0eea9bf6af993bb43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRegistrationAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "attachment_body": "attachmentBody",
+        "attachment_url": "attachmentUrl",
+        "tags": "tags",
+    },
+)
+class CfnRegistrationAttachmentProps:
+    def __init__(
+        self,
+        *,
+        attachment_body: typing.Optional[builtins.str] = None,
+        attachment_url: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRegistrationAttachment``.
+
+        :param attachment_body: The registration file to upload. The maximum file size is 1500KB and valid file extensions are PDF, JPEG and PNG.
+        :param attachment_url: A URL to the required registration file. For example, the URL to an MMS/shortcode form.
+        :param tags: An array of tags (key and value pairs) to associate with the registration attachment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_smsvoice as smsvoice
+            
+            cfn_registration_attachment_props = smsvoice.CfnRegistrationAttachmentProps(
+                attachment_body="attachmentBody",
+                attachment_url="attachmentUrl",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b604d1866e560af0ab94813fae3bf1e668f35a82854bc7e25d40edc1cf6f4469)
+            check_type(argname="argument attachment_body", value=attachment_body, expected_type=type_hints["attachment_body"])
+            check_type(argname="argument attachment_url", value=attachment_url, expected_type=type_hints["attachment_url"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if attachment_body is not None:
+            self._values["attachment_body"] = attachment_body
+        if attachment_url is not None:
+            self._values["attachment_url"] = attachment_url
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def attachment_body(self) -> typing.Optional[builtins.str]:
+        '''The registration file to upload.
+
+        The maximum file size is 1500KB and valid file extensions are PDF, JPEG and PNG.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html#cfn-smsvoice-registrationattachment-attachmentbody
+        '''
+        result = self._values.get("attachment_body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def attachment_url(self) -> typing.Optional[builtins.str]:
+        '''A URL to the required registration file.
+
+        For example, the URL to an MMS/shortcode form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html#cfn-smsvoice-registrationattachment-attachmenturl
+        '''
+        result = self._values.get("attachment_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) to associate with the registration attachment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html#cfn-smsvoice-registrationattachment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRegistrationAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_smsvoice.CfnRegistrationProps",
     jsii_struct_bases=[],
@@ -4534,6 +4856,292 @@ class CfnSenderIdProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IVerifiedDestinationNumberRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnVerifiedDestinationNumber(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnVerifiedDestinationNumber",
+):
+    '''A destination phone number that has been registered for verification with AWS End User Messaging SMS.
+
+    A newly created number is in PENDING status; it becomes VERIFIED only after the recipient supplies the one-time code out of band.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-verifieddestinationnumber.html
+    :cloudformationResource: AWS::SMSVOICE::VerifiedDestinationNumber
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_smsvoice as smsvoice
+        
+        cfn_verified_destination_number = smsvoice.CfnVerifiedDestinationNumber(self, "MyCfnVerifiedDestinationNumber",
+            destination_phone_number="destinationPhoneNumber",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        destination_phone_number: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SMSVOICE::VerifiedDestinationNumber``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param destination_phone_number: The verified destination phone number, in E.164 format.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec9a14530a5403d5098da3b9b9c1f454f8e7bd3e73f71aa397842859720c378f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnVerifiedDestinationNumberProps(
+            destination_phone_number=destination_phone_number, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForVerifiedDestinationNumber")
+    @builtins.classmethod
+    def arn_for_verified_destination_number(
+        cls,
+        resource: "_aws_smsvoice_61a140be.IVerifiedDestinationNumberRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a9e59a7f130f4b99e2fe2f3416e571586d15140f9d0ab9418dc3b0eca598953)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVerifiedDestinationNumber", [resource]))
+
+    @jsii.member(jsii_name="isCfnVerifiedDestinationNumber")
+    @builtins.classmethod
+    def is_cfn_verified_destination_number(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVerifiedDestinationNumber.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f520993a754c31f087fa033006e43bb1c9bde716a5fc18f599e4d6eb1c36c24)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVerifiedDestinationNumber", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fab969a19559251de05bddca556f5bb73912caf3b57c1857ca01eaa36db8d3bb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7600a80b376c0657a3d0b5acdf0369127d8731a10647d6ac79c2fca8d0805d7a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time when the verified destination phone number was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the verified destination phone number.
+
+        PENDING means the phone number has not been verified yet; VERIFIED means it is verified and can receive messages.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVerifiedDestinationNumberArn")
+    def attr_verified_destination_number_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the verified destination phone number.
+
+        :cloudformationAttribute: VerifiedDestinationNumberArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVerifiedDestinationNumberArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVerifiedDestinationNumberId")
+    def attr_verified_destination_number_id(self) -> builtins.str:
+        '''The unique identifier for the verified destination phone number.
+
+        :cloudformationAttribute: VerifiedDestinationNumberId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVerifiedDestinationNumberId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="verifiedDestinationNumberRef")
+    def verified_destination_number_ref(
+        self,
+    ) -> "_aws_smsvoice_61a140be.VerifiedDestinationNumberReference":
+        '''A reference to a VerifiedDestinationNumber resource.'''
+        return typing.cast("_aws_smsvoice_61a140be.VerifiedDestinationNumberReference", jsii.get(self, "verifiedDestinationNumberRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationPhoneNumber")
+    def destination_phone_number(self) -> builtins.str:
+        '''The verified destination phone number, in E.164 format.'''
+        return typing.cast(builtins.str, jsii.get(self, "destinationPhoneNumber"))
+
+    @destination_phone_number.setter
+    def destination_phone_number(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e95adacd3e781e8f7cc7152fbc0fe3f6035e93e891d7794c6abc5663d03bc5bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationPhoneNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bdb849ef6c066bcdc8b6901bbb1f0c6618e69a80037522c1dbbbd4d4e138ec6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnVerifiedDestinationNumberProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination_phone_number": "destinationPhoneNumber",
+        "tags": "tags",
+    },
+)
+class CfnVerifiedDestinationNumberProps:
+    def __init__(
+        self,
+        *,
+        destination_phone_number: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVerifiedDestinationNumber``.
+
+        :param destination_phone_number: The verified destination phone number, in E.164 format.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-verifieddestinationnumber.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_smsvoice as smsvoice
+            
+            cfn_verified_destination_number_props = smsvoice.CfnVerifiedDestinationNumberProps(
+                destination_phone_number="destinationPhoneNumber",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4af9becb7789727402c73078c0e25fcd3b08da67f6721a022f41bebb2fd9f7d5)
+            check_type(argname="argument destination_phone_number", value=destination_phone_number, expected_type=type_hints["destination_phone_number"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_phone_number": destination_phone_number,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination_phone_number(self) -> builtins.str:
+        '''The verified destination phone number, in E.164 format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-verifieddestinationnumber.html#cfn-smsvoice-verifieddestinationnumber-destinationphonenumber
+        '''
+        result = self._values.get("destination_phone_number")
+        assert result is not None, "Required property 'destination_phone_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-verifieddestinationnumber.html#cfn-smsvoice-verifieddestinationnumber-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVerifiedDestinationNumberProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnConfigurationSet",
     "CfnConfigurationSetProps",
@@ -4546,11 +5154,15 @@ __all__ = [
     "CfnProtectConfiguration",
     "CfnProtectConfigurationProps",
     "CfnRegistration",
+    "CfnRegistrationAttachment",
+    "CfnRegistrationAttachmentProps",
     "CfnRegistrationProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
     "CfnSenderId",
     "CfnSenderIdProps",
+    "CfnVerifiedDestinationNumber",
+    "CfnVerifiedDestinationNumberProps",
 ]
 
 publication.publish()
@@ -5229,6 +5841,68 @@ def _typecheckingstub__0de3a386bc17686613bb0d4a803268cc8b14795c97eb344e3da4ee1bf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8f2548847e71904236b2f65e144a6616ab1a48c7c113bcc9453723ea9e6729cc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    attachment_body: typing.Optional[builtins.str] = None,
+    attachment_url: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29da71a82af0cb53adfde855f05f6ecb34453dbc5378ca9579a8b6d81dc31171(
+    resource: _aws_smsvoice_61a140be.IRegistrationAttachmentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f255a8949ea21317bff8a0f587b9fc545f1e7d96f216745e9fd5617df43902f8(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5174063d4d396982eb271d0f063642f332eec523078d86345aa38b81530159e2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d3f3816ed7a3cc1e136d4ee26d9241a222ffc3f91200972f17ce4bc632fd6d6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db3c94f2e9a9c5128dbb18f4b77b18df1e392ed62ac700119e2d9a8232bf56e0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9d4e94ff065d4ecdc24d68d5cab16ce269f90788d893c3f042b93acd24a891b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c15e8c10d248bd2d814100eed02eafb988276fcfe7fe32f0eea9bf6af993bb43(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b604d1866e560af0ab94813fae3bf1e668f35a82854bc7e25d40edc1cf6f4469(
+    *,
+    attachment_body: typing.Optional[builtins.str] = None,
+    attachment_url: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f851ff8771accd3084396c6e77e11ac606347d216750884220cfa1c77f949ab8(
     *,
     registration_type: builtins.str,
@@ -5350,6 +6024,60 @@ def _typecheckingstub__e4efc3bfced2a81fa707bcebc646c7b881da4e547ba3c3005837a6b50
     iso_country_code: builtins.str,
     sender_id: builtins.str,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec9a14530a5403d5098da3b9b9c1f454f8e7bd3e73f71aa397842859720c378f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    destination_phone_number: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a9e59a7f130f4b99e2fe2f3416e571586d15140f9d0ab9418dc3b0eca598953(
+    resource: _aws_smsvoice_61a140be.IVerifiedDestinationNumberRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f520993a754c31f087fa033006e43bb1c9bde716a5fc18f599e4d6eb1c36c24(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fab969a19559251de05bddca556f5bb73912caf3b57c1857ca01eaa36db8d3bb(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7600a80b376c0657a3d0b5acdf0369127d8731a10647d6ac79c2fca8d0805d7a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e95adacd3e781e8f7cc7152fbc0fe3f6035e93e891d7794c6abc5663d03bc5bd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdb849ef6c066bcdc8b6901bbb1f0c6618e69a80037522c1dbbbd4d4e138ec6c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4af9becb7789727402c73078c0e25fcd3b08da67f6721a022f41bebb2fd9f7d5(
+    *,
+    destination_phone_number: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

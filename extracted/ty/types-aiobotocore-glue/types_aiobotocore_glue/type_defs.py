@@ -119,6 +119,7 @@ from .literals import (
     PropertyLocationType,
     PropertyTypeType,
     QuoteCharType,
+    RecommendationModeType,
     RecrawlBehaviorType,
     RegistryStatusType,
     ResourceActionType,
@@ -144,9 +145,11 @@ from .literals import (
     StartingPositionType,
     StatementStateType,
     StatisticEvaluationLevelType,
+    SubObjectSourceTypeType,
     TableAttributesType,
     TableOptimizerEventTypeType,
     TableOptimizerTypeType,
+    TableResourceShareTypeType,
     TargetFormatType,
     TaskRunSortColumnTypeType,
     TaskStatusTypeType,
@@ -881,6 +884,8 @@ __all__ = (
     "IntegrationPartitionTypeDef",
     "IntegrationResourcePropertyFilterTypeDef",
     "IntegrationResourcePropertyTypeDef",
+    "IntegrationTablePropertiesFilterTypeDef",
+    "IntegrationTablePropertiesTypeDef",
     "IntegrationTypeDef",
     "ItemErrorTypeDef",
     "IterableFormEntryTypeDef",
@@ -970,6 +975,8 @@ __all__ = (
     "ListGlossaryTermsResponseTypeDef",
     "ListIntegrationResourcePropertiesRequestTypeDef",
     "ListIntegrationResourcePropertiesResponseTypeDef",
+    "ListIntegrationTablePropertiesRequestTypeDef",
+    "ListIntegrationTablePropertiesResponseTypeDef",
     "ListIterableFormsRequestPaginateTypeDef",
     "ListIterableFormsRequestTypeDef",
     "ListIterableFormsResponseTypeDef",
@@ -1340,6 +1347,7 @@ __all__ = (
     "StorageDescriptorUnionTypeDef",
     "StreamingDataPreviewOptionsTypeDef",
     "StringColumnStatisticsDataTypeDef",
+    "SubObjectStatisticsTypeDef",
     "SupportedDialectTypeDef",
     "TableErrorTypeDef",
     "TableIdentifierTypeDef",
@@ -2862,6 +2870,7 @@ class DeleteColumnStatisticsForTableRequestTypeDef(TypedDict):
 class DeleteColumnStatisticsTaskSettingsRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 
 class DeleteConnectionRequestTypeDef(TypedDict):
@@ -3283,11 +3292,13 @@ class GetColumnStatisticsTaskRunsRequestTypeDef(TypedDict):
     TableName: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    CatalogID: NotRequired[str]
 
 
 class GetColumnStatisticsTaskSettingsRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 
 class GetConnectionRequestTypeDef(TypedDict):
@@ -3796,6 +3807,11 @@ class IntegrationPartitionTypeDef(TypedDict):
 
 
 class IntegrationResourcePropertyFilterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Sequence[str]]
+
+
+class IntegrationTablePropertiesFilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Sequence[str]]
 
@@ -4350,6 +4366,7 @@ class StartColumnStatisticsTaskRunRequestTypeDef(TypedDict):
 class StartColumnStatisticsTaskRunScheduleRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 
 class StartCrawlerRequestTypeDef(TypedDict):
@@ -4413,11 +4430,13 @@ class TimestampedInclusionAnnotationTypeDef(TypedDict):
 class StopColumnStatisticsTaskRunRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 
 class StopColumnStatisticsTaskRunScheduleRequestTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
+    CatalogID: NotRequired[str]
 
 
 class StopCrawlerRequestTypeDef(TypedDict):
@@ -4446,6 +4465,14 @@ class StopTriggerRequestTypeDef(TypedDict):
 class StopWorkflowRunRequestTypeDef(TypedDict):
     Name: str
     RunId: str
+
+
+class SubObjectStatisticsTypeDef(TypedDict):
+    SourceType: NotRequired[SubObjectSourceTypeType]
+    GlueVersionId: NotRequired[str]
+    PartitionCount: NotRequired[int]
+    FileCount: NotRequired[int]
+    TotalFileBytes: NotRequired[int]
 
 
 class TableIdentifierTypeDef(TypedDict):
@@ -5875,6 +5902,7 @@ class GetTablesRequestTypeDef(TypedDict):
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
     AuditContext: NotRequired[AuditContextTypeDef]
+    ResourceShareType: NotRequired[TableResourceShareTypeType]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
 
@@ -6482,6 +6510,7 @@ class GetTablesRequestPaginateTypeDef(TypedDict):
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
     AuditContext: NotRequired[AuditContextTypeDef]
+    ResourceShareType: NotRequired[TableResourceShareTypeType]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -7024,17 +7053,25 @@ class TargetTableConfigOutputTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
     PartitionSpec: NotRequired[list[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
+    IntegrationArn: NotRequired[str]
 
 
 class TargetTableConfigTypeDef(TypedDict):
     UnnestSpec: NotRequired[UnnestSpecType]
     PartitionSpec: NotRequired[Sequence[IntegrationPartitionTypeDef]]
     TargetTableName: NotRequired[str]
+    IntegrationArn: NotRequired[str]
 
 
 class ListIntegrationResourcePropertiesRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     Filters: NotRequired[Sequence[IntegrationResourcePropertyFilterTypeDef]]
+    MaxRecords: NotRequired[int]
+
+
+class ListIntegrationTablePropertiesRequestTypeDef(TypedDict):
+    Marker: NotRequired[str]
+    Filters: NotRequired[Sequence[IntegrationTablePropertiesFilterTypeDef]]
     MaxRecords: NotRequired[int]
 
 
@@ -7332,6 +7369,7 @@ UpsertRedshiftTargetOptionsUnionTypeDef = Union[
 
 class ViewDefinitionInputTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
+    IsManaged: NotRequired[bool]
     Definer: NotRequired[str]
     Representations: NotRequired[Sequence[ViewRepresentationInputTypeDef]]
     ViewVersionId: NotRequired[int]
@@ -7340,10 +7378,13 @@ class ViewDefinitionInputTypeDef(TypedDict):
     LastRefreshType: NotRequired[LastRefreshTypeType]
     SubObjects: NotRequired[Sequence[str]]
     SubObjectVersionIds: NotRequired[Sequence[int]]
+    SubObjectsStatistics: NotRequired[Sequence[SubObjectStatisticsTypeDef]]
+    SparkPipelineInfo: NotRequired[Mapping[str, str]]
 
 
 class ViewDefinitionTypeDef(TypedDict):
     IsProtected: NotRequired[bool]
+    IsManaged: NotRequired[bool]
     Definer: NotRequired[str]
     ViewVersionId: NotRequired[int]
     ViewVersionToken: NotRequired[str]
@@ -7351,7 +7392,9 @@ class ViewDefinitionTypeDef(TypedDict):
     LastRefreshType: NotRequired[LastRefreshTypeType]
     SubObjects: NotRequired[list[str]]
     SubObjectVersionIds: NotRequired[list[int]]
+    SubObjectsStatistics: NotRequired[list[SubObjectStatisticsTypeDef]]
     Representations: NotRequired[list[ViewRepresentationTypeDef]]
+    SparkPipelineInfo: NotRequired[dict[str, str]]
 
 
 ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
@@ -7761,6 +7804,7 @@ class CrawlerTypeDef(TypedDict):
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
     LakeFormationConfiguration: NotRequired[LakeFormationConfigurationTypeDef]
+    CatalogId: NotRequired[str]
 
 
 CrawlerTargetsUnionTypeDef = Union[CrawlerTargetsTypeDef, CrawlerTargetsOutputTypeDef]
@@ -7884,6 +7928,7 @@ class DataQualityRuleRecommendationRunDescriptionTypeDef(TypedDict):
     StartedOn: NotRequired[datetime]
     DataSource: NotRequired[DataSourceOutputTypeDef]
     CreatedRulesetName: NotRequired[str]
+    RecommendationMode: NotRequired[RecommendationModeType]
 
 
 class DataQualityRulesetEvaluationRunDescriptionTypeDef(TypedDict):
@@ -7909,6 +7954,7 @@ class GetDataQualityRuleRecommendationRunResponseTypeDef(TypedDict):
     CreatedRulesetName: str
     DataQualitySecurityConfiguration: str
     AdditionalRunOptions: DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef
+    RecommendationMode: RecommendationModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8704,6 +8750,13 @@ class GetIntegrationTablePropertiesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class IntegrationTablePropertiesTypeDef(TypedDict):
+    ResourceArn: str
+    TableName: str
+    SourceTableConfig: NotRequired[SourceTableConfigOutputTypeDef]
+    TargetTableConfig: NotRequired[TargetTableConfigOutputTypeDef]
+
+
 TargetTableConfigUnionTypeDef = Union[TargetTableConfigTypeDef, TargetTableConfigOutputTypeDef]
 
 
@@ -9208,6 +9261,7 @@ class CreateCrawlerRequestTypeDef(TypedDict):
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    CatalogId: NotRequired[str]
 
 
 class UpdateCrawlerRequestTypeDef(TypedDict):
@@ -9225,6 +9279,7 @@ class UpdateCrawlerRequestTypeDef(TypedDict):
     LakeFormationConfiguration: NotRequired[LakeFormationConfigurationTypeDef]
     Configuration: NotRequired[str]
     CrawlerSecurityConfiguration: NotRequired[str]
+    CatalogId: NotRequired[str]
 
 
 class GetCatalogResponseTypeDef(TypedDict):
@@ -9489,6 +9544,12 @@ TableOptimizerTypeDef = TypedDict(
     },
 )
 IcebergSchemaUnionTypeDef = Union[IcebergSchemaTypeDef, IcebergSchemaOutputTypeDef]
+
+
+class ListIntegrationTablePropertiesResponseTypeDef(TypedDict):
+    IntegrationTablePropertiesList: list[IntegrationTablePropertiesTypeDef]
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateIntegrationTablePropertiesRequestTypeDef(TypedDict):
@@ -10064,6 +10125,7 @@ class StartDataQualityRuleRecommendationRunRequestTypeDef(TypedDict):
     DataQualitySecurityConfiguration: NotRequired[str]
     ClientToken: NotRequired[str]
     AdditionalRunOptions: NotRequired[DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef]
+    RecommendationMode: NotRequired[RecommendationModeType]
 
 
 class StartDataQualityRulesetEvaluationRunRequestTypeDef(TypedDict):
@@ -10169,6 +10231,7 @@ class TableInputTypeDef(TypedDict):
     TableType: NotRequired[str]
     Parameters: NotRequired[Mapping[str, str]]
     TargetTable: NotRequired[TableIdentifierTypeDef]
+    FederatedTable: NotRequired[FederatedTableTypeDef]
     ViewDefinition: NotRequired[ViewDefinitionInputTypeDef]
 
 

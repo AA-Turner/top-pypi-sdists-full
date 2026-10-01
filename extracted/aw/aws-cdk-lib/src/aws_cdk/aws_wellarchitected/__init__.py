@@ -77,6 +77,1375 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wellarchitected_baeb38e4.IAgentContextRef)
+class CfnAgentContext(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentContext",
+):
+    '''Resource schema for AWS::WellArchitected::AgentContext.
+
+    An Agent Context provides supplemental application context (free-form content) within an Agent Profile, used to improve the quality of Well-Architected Agent recommendations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html
+    :cloudformationResource: AWS::WellArchitected::AgentContext
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wellarchitected as wellarchitected
+        
+        # content: Any
+        
+        cfn_agent_context = wellarchitected.CfnAgentContext(self, "MyCfnAgentContext",
+            content=content,
+            context_type="contextType",
+            profile_arn="profileArn",
+            title="title"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        content: typing.Any,
+        context_type: builtins.str,
+        profile_arn: builtins.str,
+        title: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::WellArchitected::AgentContext``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content: The free-form content of the Agent Context, supplied as an arbitrary JSON object.
+        :param context_type: The type of the Agent Context.
+        :param profile_arn: The Amazon Resource Name (ARN) of the parent Agent Profile that owns this context. Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+        :param title: The title of the Agent Context.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81681e3ace156397c8ea8e52ccf199e9b2f81f5aa0321cd54d89d696f383c253)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAgentContextProps(
+            content=content,
+            context_type=context_type,
+            profile_arn=profile_arn,
+            title=title,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAgentContext")
+    @builtins.classmethod
+    def arn_for_agent_context(
+        cls,
+        resource: "_aws_wellarchitected_baeb38e4.IAgentContextRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fbca3890d5d4341b100cec573f005d69c22a6dce33a7613968d8f48036421eae)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAgentContext", [resource]))
+
+    @jsii.member(jsii_name="isCfnAgentContext")
+    @builtins.classmethod
+    def is_cfn_agent_context(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAgentContext.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4fd097851756dc8360cc5a57ac5d389c5885c951f07796600b47c396cbdf845e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAgentContext", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96dcf6509fb82fede14e832603e3ced6335f5d3630ebe0a5bcf3d9d6999ee771)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__02fea02afc5ea61a009a088fa07b209cfaf5b1be6a7299b91cd778ab8731f028)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentContextRef")
+    def agent_context_ref(
+        self,
+    ) -> "_aws_wellarchitected_baeb38e4.AgentContextReference":
+        '''A reference to a AgentContext resource.'''
+        return typing.cast("_aws_wellarchitected_baeb38e4.AgentContextReference", jsii.get(self, "agentContextRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationType")
+    def attr_application_type(self) -> builtins.str:
+        '''Type of the application described by this context.
+
+        Mirrors the value stored in ``Content.applicationType`` and is surfaced as a typed read-only attribute by the service for discoverability.
+
+        :cloudformationAttribute: ApplicationType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The synthetic Amazon Resource Name (ARN) of the Agent Context, composed of the parent profile ARN and the context id.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the context was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The identifier of the system or user that created this context.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCriticality")
+    def attr_criticality(self) -> builtins.str:
+        '''Business criticality of the application described by this context.
+
+        Mirrors the value stored in ``Content.criticality`` and is surfaced as a typed read-only attribute by the service for discoverability.
+
+        :cloudformationAttribute: Criticality
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCriticality"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The service-generated unique identifier of the Agent Context.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedAt")
+    def attr_last_modified_at(self) -> builtins.str:
+        '''The timestamp when the context was last modified.
+
+        :cloudformationAttribute: LastModifiedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedBy")
+    def attr_last_modified_by(self) -> builtins.str:
+        '''The identifier of the system or user that last modified this context.
+
+        :cloudformationAttribute: LastModifiedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(self) -> typing.Any:
+        '''The free-form content of the Agent Context, supplied as an arbitrary JSON object.'''
+        return typing.cast(typing.Any, jsii.get(self, "content"))
+
+    @content.setter
+    def content(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70bfe37d66e34560523fb029287e5483ed6a0ea95bbe5385bc1986df8747c373)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contextType")
+    def context_type(self) -> builtins.str:
+        '''The type of the Agent Context.'''
+        return typing.cast(builtins.str, jsii.get(self, "contextType"))
+
+    @context_type.setter
+    def context_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bdc791b36d3739f17a8fe8093f46ed775d8a470dda3c4330027c2bc58311957)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contextType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="profileArn")
+    def profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the parent Agent Profile that owns this context.'''
+        return typing.cast(builtins.str, jsii.get(self, "profileArn"))
+
+    @profile_arn.setter
+    def profile_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1459733f40e82421bc20f2d5418332299ab13779f9f790349371f64b8d4ff75d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> builtins.str:
+        '''The title of the Agent Context.'''
+        return typing.cast(builtins.str, jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7dda9b051e4062617090bb40ba359733ea3382d24248aea236e2cac53f02f2b0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentContextProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "context_type": "contextType",
+        "profile_arn": "profileArn",
+        "title": "title",
+    },
+)
+class CfnAgentContextProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Any,
+        context_type: builtins.str,
+        profile_arn: builtins.str,
+        title: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnAgentContext``.
+
+        :param content: The free-form content of the Agent Context, supplied as an arbitrary JSON object.
+        :param context_type: The type of the Agent Context.
+        :param profile_arn: The Amazon Resource Name (ARN) of the parent Agent Profile that owns this context. Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+        :param title: The title of the Agent Context.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wellarchitected as wellarchitected
+            
+            # content: Any
+            
+            cfn_agent_context_props = wellarchitected.CfnAgentContextProps(
+                content=content,
+                context_type="contextType",
+                profile_arn="profileArn",
+                title="title"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4c665a5f64ab5102f47f3c011b3a1da7fce6e4e588b5e853ee1ed4f3553c308)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument context_type", value=context_type, expected_type=type_hints["context_type"])
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "context_type": context_type,
+            "profile_arn": profile_arn,
+            "title": title,
+        }
+
+    @builtins.property
+    def content(self) -> typing.Any:
+        '''The free-form content of the Agent Context, supplied as an arbitrary JSON object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html#cfn-wellarchitected-agentcontext-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def context_type(self) -> builtins.str:
+        '''The type of the Agent Context.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html#cfn-wellarchitected-agentcontext-contexttype
+        '''
+        result = self._values.get("context_type")
+        assert result is not None, "Required property 'context_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the parent Agent Profile that owns this context.
+
+        Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html#cfn-wellarchitected-agentcontext-profilearn
+        '''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''The title of the Agent Context.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentcontext.html#cfn-wellarchitected-agentcontext-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgentContextProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wellarchitected_baeb38e4.IAgentGoalRef)
+class CfnAgentGoal(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentGoal",
+):
+    '''Resource schema for AWS::WellArchitected::AgentGoal.
+
+    An Agent Goal expresses a Well-Architected objective (a title, optional description, and the pillars it targets) within an Agent Profile, used to focus Well-Architected Agent recommendations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html
+    :cloudformationResource: AWS::WellArchitected::AgentGoal
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wellarchitected as wellarchitected
+        
+        cfn_agent_goal = wellarchitected.CfnAgentGoal(self, "MyCfnAgentGoal",
+            pillars=["pillars"],
+            profile_arn="profileArn",
+            title="title",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        pillars: typing.Sequence[builtins.str],
+        profile_arn: builtins.str,
+        title: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::WellArchitected::AgentGoal``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param pillars: The list of Well-Architected pillars this goal targets.
+        :param profile_arn: The Amazon Resource Name (ARN) of the parent Agent Profile that owns this goal. Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+        :param title: The title of the Agent Goal.
+        :param description: A description of the Agent Goal.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55de3d1cc593fb9b361a12e4dd4bbef37817602bae776db0f3532c226eba7886)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAgentGoalProps(
+            pillars=pillars,
+            profile_arn=profile_arn,
+            title=title,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAgentGoal")
+    @builtins.classmethod
+    def arn_for_agent_goal(
+        cls,
+        resource: "_aws_wellarchitected_baeb38e4.IAgentGoalRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e871166928aba6a56619c99784fe3cd75f18b91748df5d42fdc483150494449f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAgentGoal", [resource]))
+
+    @jsii.member(jsii_name="isCfnAgentGoal")
+    @builtins.classmethod
+    def is_cfn_agent_goal(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAgentGoal.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f21c82c977bb5c868a8ed4371a2a44dfe37f0f9a2656cda4442cb60f14cf899)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAgentGoal", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__613c468a94499e397290911aa4b94432ec182091023b79f037ea7b84d132786b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a67b5a77e6b7c9703ee321592e2548435212a3078e4eff7a27b3c1dac93a5bb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentGoalRef")
+    def agent_goal_ref(self) -> "_aws_wellarchitected_baeb38e4.AgentGoalReference":
+        '''A reference to a AgentGoal resource.'''
+        return typing.cast("_aws_wellarchitected_baeb38e4.AgentGoalReference", jsii.get(self, "agentGoalRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The synthetic Amazon Resource Name (ARN) of the Agent Goal, composed of the parent profile ARN and the goal id.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the goal was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The identifier of the system or user that created this goal.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The service-generated unique identifier of the Agent Goal.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedAt")
+    def attr_last_modified_at(self) -> builtins.str:
+        '''The timestamp when the goal was last modified.
+
+        :cloudformationAttribute: LastModifiedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedBy")
+    def attr_last_modified_by(self) -> builtins.str:
+        '''The identifier of the system or user that last modified this goal.
+
+        :cloudformationAttribute: LastModifiedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pillars")
+    def pillars(self) -> typing.List[builtins.str]:
+        '''The list of Well-Architected pillars this goal targets.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "pillars"))
+
+    @pillars.setter
+    def pillars(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a3c7550b72e6bb323f7cf80eaeafdad6d5e18708f9a45dba429616f6c099333)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pillars", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="profileArn")
+    def profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the parent Agent Profile that owns this goal.'''
+        return typing.cast(builtins.str, jsii.get(self, "profileArn"))
+
+    @profile_arn.setter
+    def profile_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87400f76ec0a5232771dcc83a79b967ae67c64c9a75fd7056d27f18a74f4963d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> builtins.str:
+        '''The title of the Agent Goal.'''
+        return typing.cast(builtins.str, jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af825698b9e6a6575888c0275091e442c421db91bfc1ff6ceb0e16e3cec86b9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the Agent Goal.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__42b26f6dc329a9a38393a1135de46857854dfe558e56aadc2c5db7600bacd041)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentGoalProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "pillars": "pillars",
+        "profile_arn": "profileArn",
+        "title": "title",
+        "description": "description",
+    },
+)
+class CfnAgentGoalProps:
+    def __init__(
+        self,
+        *,
+        pillars: typing.Sequence[builtins.str],
+        profile_arn: builtins.str,
+        title: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAgentGoal``.
+
+        :param pillars: The list of Well-Architected pillars this goal targets.
+        :param profile_arn: The Amazon Resource Name (ARN) of the parent Agent Profile that owns this goal. Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+        :param title: The title of the Agent Goal.
+        :param description: A description of the Agent Goal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wellarchitected as wellarchitected
+            
+            cfn_agent_goal_props = wellarchitected.CfnAgentGoalProps(
+                pillars=["pillars"],
+                profile_arn="profileArn",
+                title="title",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c3cd8aa31dcbadc2981b979e04b0cfb0a721c75483aa979d70ae038931710bfd)
+            check_type(argname="argument pillars", value=pillars, expected_type=type_hints["pillars"])
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pillars": pillars,
+            "profile_arn": profile_arn,
+            "title": title,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def pillars(self) -> typing.List[builtins.str]:
+        '''The list of Well-Architected pillars this goal targets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html#cfn-wellarchitected-agentgoal-pillars
+        '''
+        result = self._values.get("pillars")
+        assert result is not None, "Required property 'pillars' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the parent Agent Profile that owns this goal.
+
+        Pass ``!Ref`` of the parent AWS::WellArchitected::AgentProfile to flow its ARN here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html#cfn-wellarchitected-agentgoal-profilearn
+        '''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''The title of the Agent Goal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html#cfn-wellarchitected-agentgoal-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the Agent Goal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentgoal.html#cfn-wellarchitected-agentgoal-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgentGoalProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wellarchitected_baeb38e4.IAgentProfileRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAgentProfile(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentProfile",
+):
+    '''Resource Type definition for AWS::WellArchitected::AgentProfile.
+
+    An Agent Profile defines the execution role, account/region scope (via aggregation configuration access roles), and Well-Architected pillar focus used to generate Well-Architected Agent recommendations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html
+    :cloudformationResource: AWS::WellArchitected::AgentProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wellarchitected as wellarchitected
+        
+        cfn_agent_profile = wellarchitected.CfnAgentProfile(self, "MyCfnAgentProfile",
+            aggregation_configuration=[wellarchitected.CfnAgentProfile.AggregationConfigurationProperty(
+                access_role_arn="accessRoleArn",
+                account_id="accountId",
+                regions=["regions"]
+            )],
+            execution_role_arn="executionRoleArn",
+            name="name",
+            pillars=["pillars"],
+        
+            # the properties below are optional
+            business_overview="businessOverview",
+            deletion_protection=False,
+            description="description",
+            display_name="displayName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        aggregation_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentProfile.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        pillars: typing.Sequence[builtins.str],
+        business_overview: typing.Optional[builtins.str] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::WellArchitected::AgentProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param aggregation_configuration: The aggregation configuration entries (account, regions, access role) associated with this profile.
+        :param execution_role_arn: The ARN of the IAM role assumed to execute recommendation actions.
+        :param name: The name of the profile. Unique within the account and used as the last component of the ARN.
+        :param pillars: The list of Well-Architected pillars to focus on.
+        :param business_overview: A business overview for the profile used to improve recommendation quality.
+        :param deletion_protection: Whether deletion protection is enabled for the profile. When enabled, the profile cannot be deleted until deletion protection is disabled.
+        :param description: A description of the profile.
+        :param display_name: The human-readable display name of the profile.
+        :param tags: Key-value pairs to associate with the Agent Profile.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__10faa3291b36321cacda7ad4194a5efac47008efa6a628b8bf39b89e24af8f32)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAgentProfileProps(
+            aggregation_configuration=aggregation_configuration,
+            execution_role_arn=execution_role_arn,
+            name=name,
+            pillars=pillars,
+            business_overview=business_overview,
+            deletion_protection=deletion_protection,
+            description=description,
+            display_name=display_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAgentProfile")
+    @builtins.classmethod
+    def arn_for_agent_profile(
+        cls,
+        resource: "_aws_wellarchitected_baeb38e4.IAgentProfileRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aee0e5186ed5acefee3c2bacf6b5248a4e01beb7e6b8d089ac54e06995db9acf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAgentProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnAgentProfile")
+    @builtins.classmethod
+    def is_cfn_agent_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAgentProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__139fddd0ad99e052aa41c58176cb31d7710ef00441782111f1c7e20c2cbde525)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAgentProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f2d673fea96050d6bb63dc914b5fffb8158fab60ab59402f25bc037c6a881b9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f7481109f0608da6ca2637c6b60ef4df4e75df6ae50ae76deb5ed88f4cf46b19)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentProfileRef")
+    def agent_profile_ref(
+        self,
+    ) -> "_aws_wellarchitected_baeb38e4.AgentProfileReference":
+        '''A reference to a AgentProfile resource.'''
+        return typing.cast("_aws_wellarchitected_baeb38e4.AgentProfileReference", jsii.get(self, "agentProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Agent Profile.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the profile was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The identifier of the system or user that created this profile.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedAt")
+    def attr_last_modified_at(self) -> builtins.str:
+        '''The timestamp when the profile was last modified.
+
+        :cloudformationAttribute: LastModifiedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedBy")
+    def attr_last_modified_by(self) -> builtins.str:
+        '''The identifier of the system or user that last modified this profile.
+
+        :cloudformationAttribute: LastModifiedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aggregationConfiguration")
+    def aggregation_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentProfile.AggregationConfigurationProperty"]]]:
+        '''The aggregation configuration entries (account, regions, access role) associated with this profile.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentProfile.AggregationConfigurationProperty"]]], jsii.get(self, "aggregationConfiguration"))
+
+    @aggregation_configuration.setter
+    def aggregation_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentProfile.AggregationConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__25c3f4277f30e955385818013a3827823865d8ba480e2b80e00e6f75dcbec0b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aggregationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role assumed to execute recommendation actions.'''
+        return typing.cast(builtins.str, jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8aeb223ffb2d543b85835c68e66e6f5bb20e5f599e3a874b8e35747edc7c4989)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the profile.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f54cba5f03af4ad51574d87c4489f69e97ea953354a36c7ea0c310b0d242784b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pillars")
+    def pillars(self) -> typing.List[builtins.str]:
+        '''The list of Well-Architected pillars to focus on.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "pillars"))
+
+    @pillars.setter
+    def pillars(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c403a4a4999f17a99aa255d49f69cd3db5cf0ed652b19a8d5cf8a294f5f14fbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pillars", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="businessOverview")
+    def business_overview(self) -> typing.Optional[builtins.str]:
+        '''A business overview for the profile used to improve recommendation quality.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "businessOverview"))
+
+    @business_overview.setter
+    def business_overview(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f61cad91ed0985b7a4e471503e6f32c515f97159d5e3e4bf8c428cdbb7fdd90e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "businessOverview", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether deletion protection is enabled for the profile.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de0c9c43743f663604bb4bfed5071e28bde5e666514a464693c72909d7f249af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3253e5f6834b09f815fc897849506c22224d796173a09fb205e2d8b3e1f1b7d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The human-readable display name of the profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d3e9101a998fe588cb10854673489f38abe5d9f25645238fe262b8043cf8082)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Key-value pairs to associate with the Agent Profile.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30045613be335302f7135583d3edce8ee595eb2830775366269bed96ccc2b8b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentProfile.AggregationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_role_arn": "accessRoleArn",
+            "account_id": "accountId",
+            "regions": "regions",
+        },
+    )
+    class AggregationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            access_role_arn: builtins.str,
+            account_id: builtins.str,
+            regions: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Defines an account, its in-scope regions, and the access role used to reach resources in that account.
+
+            :param access_role_arn: The ARN of the IAM role used to access resources in this account.
+            :param account_id: The target AWS account ID.
+            :param regions: The target regions in the account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-agentprofile-aggregationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wellarchitected as wellarchitected
+                
+                aggregation_configuration_property = wellarchitected.CfnAgentProfile.AggregationConfigurationProperty(
+                    access_role_arn="accessRoleArn",
+                    account_id="accountId",
+                    regions=["regions"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cea919d7e1fbaff2539b73e0223ff6b295019088ba1d80681800ea10ee0821ec)
+                check_type(argname="argument access_role_arn", value=access_role_arn, expected_type=type_hints["access_role_arn"])
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_role_arn": access_role_arn,
+                "account_id": account_id,
+                "regions": regions,
+            }
+
+        @builtins.property
+        def access_role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role used to access resources in this account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-agentprofile-aggregationconfiguration.html#cfn-wellarchitected-agentprofile-aggregationconfiguration-accessrolearn
+            '''
+            result = self._values.get("access_role_arn")
+            assert result is not None, "Required property 'access_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def account_id(self) -> builtins.str:
+            '''The target AWS account ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-agentprofile-aggregationconfiguration.html#cfn-wellarchitected-agentprofile-aggregationconfiguration-accountid
+            '''
+            result = self._values.get("account_id")
+            assert result is not None, "Required property 'account_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def regions(self) -> typing.List[builtins.str]:
+            '''The target regions in the account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wellarchitected-agentprofile-aggregationconfiguration.html#cfn-wellarchitected-agentprofile-aggregationconfiguration-regions
+            '''
+            result = self._values.get("regions")
+            assert result is not None, "Required property 'regions' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AggregationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wellarchitected.CfnAgentProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aggregation_configuration": "aggregationConfiguration",
+        "execution_role_arn": "executionRoleArn",
+        "name": "name",
+        "pillars": "pillars",
+        "business_overview": "businessOverview",
+        "deletion_protection": "deletionProtection",
+        "description": "description",
+        "display_name": "displayName",
+        "tags": "tags",
+    },
+)
+class CfnAgentProfileProps:
+    def __init__(
+        self,
+        *,
+        aggregation_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentProfile.AggregationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        pillars: typing.Sequence[builtins.str],
+        business_overview: typing.Optional[builtins.str] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAgentProfile``.
+
+        :param aggregation_configuration: The aggregation configuration entries (account, regions, access role) associated with this profile.
+        :param execution_role_arn: The ARN of the IAM role assumed to execute recommendation actions.
+        :param name: The name of the profile. Unique within the account and used as the last component of the ARN.
+        :param pillars: The list of Well-Architected pillars to focus on.
+        :param business_overview: A business overview for the profile used to improve recommendation quality.
+        :param deletion_protection: Whether deletion protection is enabled for the profile. When enabled, the profile cannot be deleted until deletion protection is disabled.
+        :param description: A description of the profile.
+        :param display_name: The human-readable display name of the profile.
+        :param tags: Key-value pairs to associate with the Agent Profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wellarchitected as wellarchitected
+            
+            cfn_agent_profile_props = wellarchitected.CfnAgentProfileProps(
+                aggregation_configuration=[wellarchitected.CfnAgentProfile.AggregationConfigurationProperty(
+                    access_role_arn="accessRoleArn",
+                    account_id="accountId",
+                    regions=["regions"]
+                )],
+                execution_role_arn="executionRoleArn",
+                name="name",
+                pillars=["pillars"],
+            
+                # the properties below are optional
+                business_overview="businessOverview",
+                deletion_protection=False,
+                description="description",
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__01b622a60244016b24be3ae5776d6fb28f75e4d33d59d50b255f7015b4be5ba9)
+            check_type(argname="argument aggregation_configuration", value=aggregation_configuration, expected_type=type_hints["aggregation_configuration"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument pillars", value=pillars, expected_type=type_hints["pillars"])
+            check_type(argname="argument business_overview", value=business_overview, expected_type=type_hints["business_overview"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aggregation_configuration": aggregation_configuration,
+            "execution_role_arn": execution_role_arn,
+            "name": name,
+            "pillars": pillars,
+        }
+        if business_overview is not None:
+            self._values["business_overview"] = business_overview
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def aggregation_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentProfile.AggregationConfigurationProperty"]]]:
+        '''The aggregation configuration entries (account, regions, access role) associated with this profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-aggregationconfiguration
+        '''
+        result = self._values.get("aggregation_configuration")
+        assert result is not None, "Required property 'aggregation_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentProfile.AggregationConfigurationProperty"]]], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role assumed to execute recommendation actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        assert result is not None, "Required property 'execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the profile.
+
+        Unique within the account and used as the last component of the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def pillars(self) -> typing.List[builtins.str]:
+        '''The list of Well-Architected pillars to focus on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-pillars
+        '''
+        result = self._values.get("pillars")
+        assert result is not None, "Required property 'pillars' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def business_overview(self) -> typing.Optional[builtins.str]:
+        '''A business overview for the profile used to improve recommendation quality.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-businessoverview
+        '''
+        result = self._values.get("business_overview")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether deletion protection is enabled for the profile.
+
+        When enabled, the profile cannot be deleted until deletion protection is disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The human-readable display name of the profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Key-value pairs to associate with the Agent Profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wellarchitected-agentprofile.html#cfn-wellarchitected-agentprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgentProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wellarchitected_baeb38e4.ILensRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLens(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2150,6 +3519,12 @@ class CfnWorkloadProps:
 
 
 __all__ = [
+    "CfnAgentContext",
+    "CfnAgentContextProps",
+    "CfnAgentGoal",
+    "CfnAgentGoalProps",
+    "CfnAgentProfile",
+    "CfnAgentProfileProps",
     "CfnLens",
     "CfnLensProps",
     "CfnProfile",
@@ -2161,6 +3536,265 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__81681e3ace156397c8ea8e52ccf199e9b2f81f5aa0321cd54d89d696f383c253(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    content: typing.Any,
+    context_type: builtins.str,
+    profile_arn: builtins.str,
+    title: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbca3890d5d4341b100cec573f005d69c22a6dce33a7613968d8f48036421eae(
+    resource: _aws_wellarchitected_baeb38e4.IAgentContextRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fd097851756dc8360cc5a57ac5d389c5885c951f07796600b47c396cbdf845e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96dcf6509fb82fede14e832603e3ced6335f5d3630ebe0a5bcf3d9d6999ee771(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02fea02afc5ea61a009a088fa07b209cfaf5b1be6a7299b91cd778ab8731f028(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70bfe37d66e34560523fb029287e5483ed6a0ea95bbe5385bc1986df8747c373(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bdc791b36d3739f17a8fe8093f46ed775d8a470dda3c4330027c2bc58311957(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1459733f40e82421bc20f2d5418332299ab13779f9f790349371f64b8d4ff75d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7dda9b051e4062617090bb40ba359733ea3382d24248aea236e2cac53f02f2b0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4c665a5f64ab5102f47f3c011b3a1da7fce6e4e588b5e853ee1ed4f3553c308(
+    *,
+    content: typing.Any,
+    context_type: builtins.str,
+    profile_arn: builtins.str,
+    title: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55de3d1cc593fb9b361a12e4dd4bbef37817602bae776db0f3532c226eba7886(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    pillars: typing.Sequence[builtins.str],
+    profile_arn: builtins.str,
+    title: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e871166928aba6a56619c99784fe3cd75f18b91748df5d42fdc483150494449f(
+    resource: _aws_wellarchitected_baeb38e4.IAgentGoalRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f21c82c977bb5c868a8ed4371a2a44dfe37f0f9a2656cda4442cb60f14cf899(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__613c468a94499e397290911aa4b94432ec182091023b79f037ea7b84d132786b(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a67b5a77e6b7c9703ee321592e2548435212a3078e4eff7a27b3c1dac93a5bb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a3c7550b72e6bb323f7cf80eaeafdad6d5e18708f9a45dba429616f6c099333(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87400f76ec0a5232771dcc83a79b967ae67c64c9a75fd7056d27f18a74f4963d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af825698b9e6a6575888c0275091e442c421db91bfc1ff6ceb0e16e3cec86b9e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42b26f6dc329a9a38393a1135de46857854dfe558e56aadc2c5db7600bacd041(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3cd8aa31dcbadc2981b979e04b0cfb0a721c75483aa979d70ae038931710bfd(
+    *,
+    pillars: typing.Sequence[builtins.str],
+    profile_arn: builtins.str,
+    title: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10faa3291b36321cacda7ad4194a5efac47008efa6a628b8bf39b89e24af8f32(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    aggregation_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentProfile.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    pillars: typing.Sequence[builtins.str],
+    business_overview: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aee0e5186ed5acefee3c2bacf6b5248a4e01beb7e6b8d089ac54e06995db9acf(
+    resource: _aws_wellarchitected_baeb38e4.IAgentProfileRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__139fddd0ad99e052aa41c58176cb31d7710ef00441782111f1c7e20c2cbde525(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f2d673fea96050d6bb63dc914b5fffb8158fab60ab59402f25bc037c6a881b9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7481109f0608da6ca2637c6b60ef4df4e75df6ae50ae76deb5ed88f4cf46b19(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25c3f4277f30e955385818013a3827823865d8ba480e2b80e00e6f75dcbec0b7(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAgentProfile.AggregationConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aeb223ffb2d543b85835c68e66e6f5bb20e5f599e3a874b8e35747edc7c4989(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f54cba5f03af4ad51574d87c4489f69e97ea953354a36c7ea0c310b0d242784b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c403a4a4999f17a99aa255d49f69cd3db5cf0ed652b19a8d5cf8a294f5f14fbb(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f61cad91ed0985b7a4e471503e6f32c515f97159d5e3e4bf8c428cdbb7fdd90e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de0c9c43743f663604bb4bfed5071e28bde5e666514a464693c72909d7f249af(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3253e5f6834b09f815fc897849506c22224d796173a09fb205e2d8b3e1f1b7d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d3e9101a998fe588cb10854673489f38abe5d9f25645238fe262b8043cf8082(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30045613be335302f7135583d3edce8ee595eb2830775366269bed96ccc2b8b8(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cea919d7e1fbaff2539b73e0223ff6b295019088ba1d80681800ea10ee0821ec(
+    *,
+    access_role_arn: builtins.str,
+    account_id: builtins.str,
+    regions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01b622a60244016b24be3ae5776d6fb28f75e4d33d59d50b255f7015b4be5ba9(
+    *,
+    aggregation_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentProfile.AggregationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    pillars: typing.Sequence[builtins.str],
+    business_overview: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__3d5f05029933d22227863cbb8f7c95ab990d5661e937e3dc1e679d930c79e4e3(
     scope: _constructs_77d1e7e8.Construct,

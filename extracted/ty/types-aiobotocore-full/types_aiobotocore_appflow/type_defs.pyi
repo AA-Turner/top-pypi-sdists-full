@@ -403,6 +403,7 @@ class ZendeskMetadataTypeDef(TypedDict):
 class ConnectorOAuthRequestTypeDef(TypedDict):
     authCode: NotRequired[str]
     redirectUri: NotRequired[str]
+    codeVerifier: NotRequired[str]
 
 class ConnectorOperatorTypeDef(TypedDict):
     Amplitude: NotRequired[Literal["BETWEEN"]]
@@ -445,7 +446,8 @@ class SingularConnectorProfileCredentialsTypeDef(TypedDict):
 
 class SnowflakeConnectorProfileCredentialsTypeDef(TypedDict):
     username: str
-    password: str
+    password: NotRequired[str]
+    privateKey: NotRequired[str]
 
 class TrendmicroConnectorProfileCredentialsTypeDef(TypedDict):
     apiSecretKey: str

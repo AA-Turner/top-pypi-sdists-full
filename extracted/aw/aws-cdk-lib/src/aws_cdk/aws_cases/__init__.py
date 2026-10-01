@@ -3353,6 +3353,509 @@ class CfnLayoutProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cases_06da68ef.IRelatedItemRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRelatedItem(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cases.CfnRelatedItem",
+):
+    '''Resource Type definition for AWS::Cases::RelatedItem.
+
+    Creates a related item (comments) and associates it with a case.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html
+    :cloudformationResource: AWS::Cases::RelatedItem
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cases as cases
+        
+        cfn_related_item = cases.CfnRelatedItem(self, "MyCfnRelatedItem",
+            case_id="caseId",
+            content=cases.CfnRelatedItem.RelatedItemContentProperty(
+                comment=cases.CfnRelatedItem.CommentContentProperty(
+                    body="body",
+                    content_type="contentType"
+                )
+            ),
+            domain_id="domainId",
+            type="type",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        case_id: builtins.str,
+        content: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRelatedItem.RelatedItemContentProperty", typing.Dict[builtins.str, typing.Any]]],
+        domain_id: builtins.str,
+        type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Cases::RelatedItem``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param case_id: A unique identifier of the case.
+        :param content: Represents the content of a related item.
+        :param domain_id: The unique identifier of the Cases domain.
+        :param type: The type of a related item.
+        :param tags: A list of tags on the related item.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__25f31f05fe991f6adda96107280a0ec5b0fdd650bbbcfec8eca588769d895652)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRelatedItemProps(
+            case_id=case_id, content=content, domain_id=domain_id, type=type, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRelatedItem")
+    @builtins.classmethod
+    def arn_for_related_item(
+        cls,
+        resource: "_aws_cases_06da68ef.IRelatedItemRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08146994bc55792c535eec6707e82e17835c9e92e0e951f866dc09550f2868ac)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRelatedItem", [resource]))
+
+    @jsii.member(jsii_name="isCfnRelatedItem")
+    @builtins.classmethod
+    def is_cfn_related_item(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRelatedItem.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3811779d07ceeca9dd7e3706a942042fd629a946a3f7b1625b65930df3a495c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRelatedItem", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__727aff7b48408151396bd08c125a86254c8ee3d44aac0df73b442e02b522330f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e52cf2368246da093b16ec3afb6cf921997fd9af3ddc01ded2f3481b96a0b461)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRelatedItemArn")
+    def attr_related_item_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the related item.
+
+        :cloudformationAttribute: RelatedItemArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRelatedItemArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRelatedItemId")
+    def attr_related_item_id(self) -> builtins.str:
+        '''The unique identifier of the related item.
+
+        :cloudformationAttribute: RelatedItemId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRelatedItemId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="relatedItemRef")
+    def related_item_ref(self) -> "_aws_cases_06da68ef.RelatedItemReference":
+        '''A reference to a RelatedItem resource.'''
+        return typing.cast("_aws_cases_06da68ef.RelatedItemReference", jsii.get(self, "relatedItemRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="caseId")
+    def case_id(self) -> builtins.str:
+        '''A unique identifier of the case.'''
+        return typing.cast(builtins.str, jsii.get(self, "caseId"))
+
+    @case_id.setter
+    def case_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eec567b8db6027e3099b1ecc94f29087fd1d256eb5175ff03d16a980971be21a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caseId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.RelatedItemContentProperty"]:
+        '''Represents the content of a related item.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.RelatedItemContentProperty"], jsii.get(self, "content"))
+
+    @content.setter
+    def content(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.RelatedItemContentProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cac78103afb6b1756c92c05c14f9b1bb2e98f958f7d30efeebc594d69dfb3340)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''The unique identifier of the Cases domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @domain_id.setter
+    def domain_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9aa6bda7f45a9723c770c368dddcd58badd42fe1876d8f4639de808aee2bf971)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of a related item.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c79df87399736f26a095357113d2bf15ba9c64521a640696ec00990ad50cfb81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags on the related item.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__207126e42c042b04f4f68d9656d11f124d417dbcdb89741c055e3f48dfb7550d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cases.CfnRelatedItem.CommentContentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"body": "body", "content_type": "contentType"},
+    )
+    class CommentContentProperty:
+        def __init__(self, *, body: builtins.str, content_type: builtins.str) -> None:
+            '''Represents a comment.
+
+            :param body: Text in the body of a comment.
+            :param content_type: Type of the text in the comment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-relateditem-commentcontent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cases as cases
+                
+                comment_content_property = cases.CfnRelatedItem.CommentContentProperty(
+                    body="body",
+                    content_type="contentType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0211fbe8284dda3a5fcf6e4aef9aa344da7cf02019255ebd89ea4ccc0a9c16a1)
+                check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "body": body,
+                "content_type": content_type,
+            }
+
+        @builtins.property
+        def body(self) -> builtins.str:
+            '''Text in the body of a comment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-relateditem-commentcontent.html#cfn-cases-relateditem-commentcontent-body
+            '''
+            result = self._values.get("body")
+            assert result is not None, "Required property 'body' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_type(self) -> builtins.str:
+            '''Type of the text in the comment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-relateditem-commentcontent.html#cfn-cases-relateditem-commentcontent-contenttype
+            '''
+            result = self._values.get("content_type")
+            assert result is not None, "Required property 'content_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CommentContentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cases.CfnRelatedItem.RelatedItemContentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comment": "comment"},
+    )
+    class RelatedItemContentProperty:
+        def __init__(
+            self,
+            *,
+            comment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRelatedItem.CommentContentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents the content of a related item.
+
+            :param comment: Represents a comment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-relateditem-relateditemcontent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cases as cases
+                
+                related_item_content_property = cases.CfnRelatedItem.RelatedItemContentProperty(
+                    comment=cases.CfnRelatedItem.CommentContentProperty(
+                        body="body",
+                        content_type="contentType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7702a6e3a2f922cc10678992be5d4e77f802f22f7cadc17d5314cf9a42449e26)
+                check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if comment is not None:
+                self._values["comment"] = comment
+
+        @builtins.property
+        def comment(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.CommentContentProperty"]]:
+            '''Represents a comment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-relateditem-relateditemcontent.html#cfn-cases-relateditem-relateditemcontent-comment
+            '''
+            result = self._values.get("comment")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.CommentContentProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RelatedItemContentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cases.CfnRelatedItemProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "case_id": "caseId",
+        "content": "content",
+        "domain_id": "domainId",
+        "type": "type",
+        "tags": "tags",
+    },
+)
+class CfnRelatedItemProps:
+    def __init__(
+        self,
+        *,
+        case_id: builtins.str,
+        content: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRelatedItem.RelatedItemContentProperty", typing.Dict[builtins.str, typing.Any]]],
+        domain_id: builtins.str,
+        type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRelatedItem``.
+
+        :param case_id: A unique identifier of the case.
+        :param content: Represents the content of a related item.
+        :param domain_id: The unique identifier of the Cases domain.
+        :param type: The type of a related item.
+        :param tags: A list of tags on the related item.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cases as cases
+            
+            cfn_related_item_props = cases.CfnRelatedItemProps(
+                case_id="caseId",
+                content=cases.CfnRelatedItem.RelatedItemContentProperty(
+                    comment=cases.CfnRelatedItem.CommentContentProperty(
+                        body="body",
+                        content_type="contentType"
+                    )
+                ),
+                domain_id="domainId",
+                type="type",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b19b0bb1a51c09c557807552b48fc830a2c6df1446f5c21fe9bf4f6e9735322)
+            check_type(argname="argument case_id", value=case_id, expected_type=type_hints["case_id"])
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "case_id": case_id,
+            "content": content,
+            "domain_id": domain_id,
+            "type": type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def case_id(self) -> builtins.str:
+        '''A unique identifier of the case.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html#cfn-cases-relateditem-caseid
+        '''
+        result = self._values.get("case_id")
+        assert result is not None, "Required property 'case_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.RelatedItemContentProperty"]:
+        '''Represents the content of a related item.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html#cfn-cases-relateditem-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRelatedItem.RelatedItemContentProperty"], result)
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The unique identifier of the Cases domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html#cfn-cases-relateditem-domainid
+        '''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of a related item.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html#cfn-cases-relateditem-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags on the related item.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-relateditem.html#cfn-cases-relateditem-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRelatedItemProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cases_06da68ef.ITemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTemplate(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4073,6 +4576,8 @@ __all__ = [
     "CfnFieldProps",
     "CfnLayout",
     "CfnLayoutProps",
+    "CfnRelatedItem",
+    "CfnRelatedItemProps",
     "CfnTemplate",
     "CfnTemplateProps",
 ]
@@ -4556,6 +5061,99 @@ def _typecheckingstub__7fd3424821bfebd52d96fdfb554e9999528562965d811208bffae5714
     content: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLayout.LayoutContentProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     domain_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25f31f05fe991f6adda96107280a0ec5b0fdd650bbbcfec8eca588769d895652(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    case_id: builtins.str,
+    content: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRelatedItem.RelatedItemContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    domain_id: builtins.str,
+    type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08146994bc55792c535eec6707e82e17835c9e92e0e951f866dc09550f2868ac(
+    resource: _aws_cases_06da68ef.IRelatedItemRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3811779d07ceeca9dd7e3706a942042fd629a946a3f7b1625b65930df3a495c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__727aff7b48408151396bd08c125a86254c8ee3d44aac0df73b442e02b522330f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e52cf2368246da093b16ec3afb6cf921997fd9af3ddc01ded2f3481b96a0b461(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eec567b8db6027e3099b1ecc94f29087fd1d256eb5175ff03d16a980971be21a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cac78103afb6b1756c92c05c14f9b1bb2e98f958f7d30efeebc594d69dfb3340(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRelatedItem.RelatedItemContentProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9aa6bda7f45a9723c770c368dddcd58badd42fe1876d8f4639de808aee2bf971(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c79df87399736f26a095357113d2bf15ba9c64521a640696ec00990ad50cfb81(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__207126e42c042b04f4f68d9656d11f124d417dbcdb89741c055e3f48dfb7550d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0211fbe8284dda3a5fcf6e4aef9aa344da7cf02019255ebd89ea4ccc0a9c16a1(
+    *,
+    body: builtins.str,
+    content_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7702a6e3a2f922cc10678992be5d4e77f802f22f7cadc17d5314cf9a42449e26(
+    *,
+    comment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRelatedItem.CommentContentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b19b0bb1a51c09c557807552b48fc830a2c6df1446f5c21fe9bf4f6e9735322(
+    *,
+    case_id: builtins.str,
+    content: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRelatedItem.RelatedItemContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    domain_id: builtins.str,
+    type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

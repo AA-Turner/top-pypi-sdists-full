@@ -59,6 +59,7 @@ from raindrop.handoff import TraceContext
 from raindrop.interaction import Interaction
 from raindrop.local_debugger import UNSET
 from raindrop.models import Attachment, PartialTrackAIEvent
+from raindrop.prompt_tools import ToolsInput
 from raindrop.subagent import SubagentRun
 
 
@@ -285,9 +286,14 @@ class Raindrop:
         attachments: Optional[List[Attachment]] = None,
         convo_id: Optional[str] = None,
         model: Optional[str] = None,
+        tools: Optional[ToolsInput] = None,
     ) -> Interaction:
         """Start an interaction bound to this client (and bind the current
-        execution context to this client's project for span routing)."""
+        execution context to this client's project for span routing).
+
+        ``tools`` records the tool list as ``ai.prompt.tools`` on model spans
+        started inside the interaction; see ``raindrop.analytics.prompt_tools``.
+        """
         return _analytics.begin(
             user_id=user_id,
             event=event,
@@ -298,7 +304,19 @@ class Raindrop:
             convo_id=convo_id,
             model=model,
             state=self._state,
+            tools=tools,
         )
+
+    def prompt_tools(
+        self, tools: ToolsInput, *, source: Optional[str] = None
+    ) -> ContextManager[None]:
+        """Record ``tools`` as ``ai.prompt.tools`` on model spans in the block.
+
+        Same as ``raindrop.analytics.prompt_tools``; the override is
+        context-scoped, not client-scoped, so it applies regardless of which
+        client the spans route to.
+        """
+        return _analytics.prompt_tools(tools, source=source)
 
     def resume_interaction(self, event_id: str | None = None) -> Interaction:
         return _analytics.resume_interaction(event_id, state=self._state)

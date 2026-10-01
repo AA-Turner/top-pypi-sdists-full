@@ -1740,7 +1740,7 @@ class Session:
         ----------
         hostname, ssh_key_path, extra_ssh_opts, shell_prefix:
             Forwarded to :func:`make_ssh_run_cmd`. ``shell_prefix`` defaults
-            to the claude-code/gemini-cli/codex base image layout; override for
+            to the claude-code/codex base image layout; override for
             other images.
         flow:
             Name of the flow to run (default: ``"login"``).

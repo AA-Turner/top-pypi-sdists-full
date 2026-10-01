@@ -1,14 +1,16 @@
 [package]
 name = "temporalio-common-wasm"
-version = "0.7.0"
+version = "1.0.0"
 edition = "2024"
+rust-version = "1.88.0"
 authors = ["Temporal Technologies Inc. <sdk@temporal.io>"]
 license-file = "LICENSE.txt"
 description = "WASM-safe shared functionality for the Temporal Rust workflow surface"
 homepage = "https://temporal.io/"
-repository = "https://github.com/temporalio/sdk-core"
+repository = "https://github.com/temporalio/sdk-rust"
 keywords = ["temporal", "workflow"]
 categories = ["development-tools"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -45,7 +47,7 @@ tracing-core = "0.1"
 url = "2.5"
 [dependencies.temporalio-protos]
 path = "../protos"
-version = "0.7"
+version = "~0.9.0"
 
 [lints]
 workspace = true

@@ -48,7 +48,7 @@ headless-spec = [
     "PyYAML >= 6,<7",
 ]
 idp-oidc = [
-    "oauthlib >= 3.3.0,<4",
+    "oauthlib >= 4.0.0,<5",
     "pyjwt[crypto] >= 2.0,<3",
 ]
 mfa = [
@@ -65,7 +65,7 @@ steam = [
     "python3-openid >= 3.0.8,<4",
 ]
 socialaccount = [
-    "oauthlib >= 3.3.0,<4",
+    "oauthlib >= 4.0.0,<5",
     "requests >= 2.0.0,<3",
     "pyjwt[crypto] >= 2.0,<3",
 ]

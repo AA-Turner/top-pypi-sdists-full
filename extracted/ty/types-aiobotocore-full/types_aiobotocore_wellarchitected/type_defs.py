@@ -1413,6 +1413,7 @@ AgentRecommendationSummaryTypeDef = TypedDict(
         "roi": RoiTypeDef,
         "createdBy": str,
         "createdAt": datetime,
+        "generationId": NotRequired[str],
         "updateReason": NotRequired[str],
         "numberOfResources": NotRequired[int],
         "awsServices": NotRequired[list[str]],
@@ -1986,6 +1987,7 @@ GetAgentRecommendationResponseTypeDef = TypedDict(
     {
         "recommendationArn": str,
         "profileArn": str,
+        "generationId": str,
         "title": str,
         "description": str,
         "type": RecommendationTypeType,

@@ -119,7 +119,7 @@ def _emit_child_session_span(session_id: str, package: str) -> None:
         pass  # OTel not available, skip silently
 
 
-_TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled}
+_TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled, Status.timeout}
 
 
 def workspace_credentials_env(creds: WorkspaceRepoCredentialsResponse) -> dict[str, str]:

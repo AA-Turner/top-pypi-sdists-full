@@ -2383,7 +2383,8 @@ class CfnConfigurationRecorder(
                     # the properties below are optional
                     description="description"
                 )]
-            )
+            ),
+            started_on_create=False
         )
     '''
 
@@ -2396,6 +2397,7 @@ class CfnConfigurationRecorder(
         name: typing.Optional[builtins.str] = None,
         recording_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationRecorder.RecordingGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         recording_mode: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationRecorder.RecordingModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        started_on_create: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Config::ConfigurationRecorder``.
 
@@ -2405,6 +2407,7 @@ class CfnConfigurationRecorder(
         :param name: The name of the configuration recorder. AWS Config automatically assigns the name of "default" when creating the configuration recorder. You cannot change the name of the configuration recorder after it has been created. To change the configuration recorder name, you must delete it and create a new configuration recorder with a new name.
         :param recording_group: Specifies which resource types AWS Config records for configuration changes. .. epigraph:: *High Number of AWS Config Evaluations* You may notice increased activity in your account during your initial month recording with AWS Config when compared to subsequent months. During the initial bootstrapping process, AWS Config runs evaluations on all the resources in your account that you have selected for AWS Config to record. If you are running ephemeral workloads, you may see increased activity from AWS Config as it records configuration changes associated with creating and deleting these temporary resources. An *ephemeral workload* is a temporary use of computing resources that are loaded and run when needed. Examples include Amazon Elastic Compute Cloud ( Amazon EC2 ) Spot Instances, Amazon EMR jobs, and AWS Auto Scaling . If you want to avoid the increased activity from running ephemeral workloads, you can run these types of workloads in a separate account with AWS Config turned off to avoid increased configuration recording and rule evaluations.
         :param recording_mode: Specifies the default recording frequency for the configuration recorder. AWS Config supports *Continuous recording* and *Daily recording* . - Continuous recording allows you to record configuration changes continuously whenever a change occurs. - Daily recording allows you to receive a configuration item (CI) representing the most recent state of your resources over the last 24-hour period, only if it’s different from the previous CI recorded. .. epigraph:: *Some resource types require continuous recording* AWS Firewall Manager depends on continuous recording to monitor your resources. If you are using Firewall Manager, it is recommended that you set the recording frequency to Continuous. You can also override the recording frequency for specific resource types.
+        :param started_on_create: Defaults to 'true'. Controls whether the recorder starts recording after the create operation. Set this to 'false' for development and testing purposes. Default: - true
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cc1fca38c04598953e44108edff915ed0a33e7e99e047d1bffcbd31ac2e3b03)
@@ -2415,6 +2418,7 @@ class CfnConfigurationRecorder(
             name=name,
             recording_group=recording_group,
             recording_mode=recording_mode,
+            started_on_create=started_on_create,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2468,6 +2472,15 @@ class CfnConfigurationRecorder(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the Configuration Recorder.
+
+        :cloudformationAttribute: ResourceARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2554,6 +2567,24 @@ class CfnConfigurationRecorder(
             type_hints = cached_type_hints(_typecheckingstub__79c601a52da19c88133151b63852ca6a6ba71894cd962c2e118e75d604e83fe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recordingMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="startedOnCreate")
+    def started_on_create(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Defaults to 'true'.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "startedOnCreate"))
+
+    @started_on_create.setter
+    def started_on_create(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c3d623dafef61fd8e6e84f90f531d6ac59f667e1f08fc3cc9404711bd1b02a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "startedOnCreate", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConfigurationRecorder.ExclusionByResourceTypesProperty",
@@ -3181,6 +3212,7 @@ class CfnConfigurationRecorder(
         "name": "name",
         "recording_group": "recordingGroup",
         "recording_mode": "recordingMode",
+        "started_on_create": "startedOnCreate",
     },
 )
 class CfnConfigurationRecorderProps:
@@ -3191,6 +3223,7 @@ class CfnConfigurationRecorderProps:
         name: typing.Optional[builtins.str] = None,
         recording_group: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationRecorder.RecordingGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         recording_mode: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfigurationRecorder.RecordingModeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        started_on_create: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConfigurationRecorder``.
 
@@ -3198,6 +3231,7 @@ class CfnConfigurationRecorderProps:
         :param name: The name of the configuration recorder. AWS Config automatically assigns the name of "default" when creating the configuration recorder. You cannot change the name of the configuration recorder after it has been created. To change the configuration recorder name, you must delete it and create a new configuration recorder with a new name.
         :param recording_group: Specifies which resource types AWS Config records for configuration changes. .. epigraph:: *High Number of AWS Config Evaluations* You may notice increased activity in your account during your initial month recording with AWS Config when compared to subsequent months. During the initial bootstrapping process, AWS Config runs evaluations on all the resources in your account that you have selected for AWS Config to record. If you are running ephemeral workloads, you may see increased activity from AWS Config as it records configuration changes associated with creating and deleting these temporary resources. An *ephemeral workload* is a temporary use of computing resources that are loaded and run when needed. Examples include Amazon Elastic Compute Cloud ( Amazon EC2 ) Spot Instances, Amazon EMR jobs, and AWS Auto Scaling . If you want to avoid the increased activity from running ephemeral workloads, you can run these types of workloads in a separate account with AWS Config turned off to avoid increased configuration recording and rule evaluations.
         :param recording_mode: Specifies the default recording frequency for the configuration recorder. AWS Config supports *Continuous recording* and *Daily recording* . - Continuous recording allows you to record configuration changes continuously whenever a change occurs. - Daily recording allows you to receive a configuration item (CI) representing the most recent state of your resources over the last 24-hour period, only if it’s different from the previous CI recorded. .. epigraph:: *Some resource types require continuous recording* AWS Firewall Manager depends on continuous recording to monitor your resources. If you are using Firewall Manager, it is recommended that you set the recording frequency to Continuous. You can also override the recording frequency for specific resource types.
+        :param started_on_create: Defaults to 'true'. Controls whether the recorder starts recording after the create operation. Set this to 'false' for development and testing purposes. Default: - true
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-configurationrecorder.html
         :exampleMetadata: fixture=_generated
@@ -3235,7 +3269,8 @@ class CfnConfigurationRecorderProps:
                         # the properties below are optional
                         description="description"
                     )]
-                )
+                ),
+                started_on_create=False
             )
         '''
         if __debug__:
@@ -3244,6 +3279,7 @@ class CfnConfigurationRecorderProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument recording_group", value=recording_group, expected_type=type_hints["recording_group"])
             check_type(argname="argument recording_mode", value=recording_mode, expected_type=type_hints["recording_mode"])
+            check_type(argname="argument started_on_create", value=started_on_create, expected_type=type_hints["started_on_create"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role_arn": role_arn,
         }
@@ -3253,6 +3289,8 @@ class CfnConfigurationRecorderProps:
             self._values["recording_group"] = recording_group
         if recording_mode is not None:
             self._values["recording_mode"] = recording_mode
+        if started_on_create is not None:
+            self._values["started_on_create"] = started_on_create
 
     @builtins.property
     def role_arn(self) -> builtins.str:
@@ -3324,6 +3362,21 @@ class CfnConfigurationRecorderProps:
         '''
         result = self._values.get("recording_mode")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfigurationRecorder.RecordingModeProperty"]], result)
+
+    @builtins.property
+    def started_on_create(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Defaults to 'true'.
+
+        Controls whether the recorder starts recording after the create operation. Set this to 'false' for development and testing purposes.
+
+        :default: - true
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-configurationrecorder.html#cfn-config-configurationrecorder-startedoncreate
+        '''
+        result = self._values.get("started_on_create")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4533,14 +4586,6 @@ class CfnDeliveryChannel(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -15820,6 +15865,7 @@ def _typecheckingstub__8cc1fca38c04598953e44108edff915ed0a33e7e99e047d1bffcbd31a
     name: typing.Optional[builtins.str] = None,
     recording_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationRecorder.RecordingGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     recording_mode: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationRecorder.RecordingModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    started_on_create: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15862,6 +15908,12 @@ def _typecheckingstub__0e1878a10e77a1aa31c809535803af7748be10257943ccb0147e9c083
 
 def _typecheckingstub__79c601a52da19c88133151b63852ca6a6ba71894cd962c2e118e75d604e83fe5(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConfigurationRecorder.RecordingModeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c3d623dafef61fd8e6e84f90f531d6ac59f667e1f08fc3cc9404711bd1b02a4(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15914,6 +15966,7 @@ def _typecheckingstub__68cc2049b8c095672250d1c12a5af6fc05b3421a6c23124f87e5e31e2
     name: typing.Optional[builtins.str] = None,
     recording_group: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationRecorder.RecordingGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     recording_mode: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationRecorder.RecordingModeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    started_on_create: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

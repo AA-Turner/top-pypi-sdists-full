@@ -59,6 +59,19 @@ class DownloadCompleteParams:
 
 
 @dataclass
+class BaseInfo:
+    """BaseInfo."""
+
+    children: Any | None = None
+    client_window: Any | None = None
+    context: Any | None = None
+    original_opener: Any | None = None
+    url: str | None = None
+    user_context: Any | None = None
+    parent: Any | None = None
+
+
+@dataclass
 class Info:
     """Info."""
 
@@ -118,6 +131,17 @@ class XPathLocator:
 @dataclass
 class BaseNavigationInfo:
     """BaseNavigationInfo."""
+
+    context: Any | None = None
+    navigation: Any | None = None
+    timestamp: Any | None = None
+    url: str | None = None
+    user_context: Any | None = None
+
+
+@dataclass
+class NavigationInfo:
+    """NavigationInfo."""
 
     context: Any | None = None
     navigation: Any | None = None
@@ -339,6 +363,7 @@ class StartScreencastParameters:
     """StartScreencastParameters."""
 
     context: Any | None = None
+    destination_folder: str | None = None
     mime_type: str | None = None
     video: Any | None = None
     audio: bool | None = None
@@ -382,6 +407,20 @@ class TraverseHistoryParameters:
 
     context: Any | None = None
     delta: Any | None = None
+
+
+@dataclass
+class ContextCreatedParameters:
+    """ContextCreatedParameters."""
+
+    has_planned_navigation: bool | None = None
+    children: Any | None = None
+    client_window: Any | None = None
+    context: Any | None = None
+    original_opener: Any | None = None
+    url: str | None = None
+    user_context: Any | None = None
+    parent: Any | None = None
 
 
 @dataclass
@@ -750,6 +789,7 @@ class BrowsingContext:
     def start_screencast(
         self,
         context: Any | None = None,
+        destination_folder: str | None = None,
         mime_type: str | None = None,
         video: Any | None = None,
         audio: bool | None = None,
@@ -760,6 +800,7 @@ class BrowsingContext:
 
         params = {
             "context": context,
+            "destinationFolder": destination_folder,
             "mimeType": mime_type,
             "video": video,
             "audio": audio,
@@ -852,7 +893,7 @@ class BrowsingContext:
 
 # Event Info Type Aliases
 # Event: browsingContext.contextCreated
-ContextCreated = globals().get('Info', dict)  # Fallback to dict if type not defined
+ContextCreated = globals().get('ContextCreatedParameters', dict)  # Fallback to dict if type not defined
 
 # Event: browsingContext.contextDestroyed
 ContextDestroyed = globals().get('Info', dict)  # Fallback to dict if type not defined

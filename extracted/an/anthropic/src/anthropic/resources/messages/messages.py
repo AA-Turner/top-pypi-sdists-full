@@ -86,6 +86,8 @@ DEPRECATED_MODELS = {
     "claude-sonnet-4-0": "June 15th, 2026",
     "claude-sonnet-4-20250514": "June 15th, 2026",
     "claude-mythos-preview": "June 30th, 2026",
+    "claude-sonnet-4-5": "November 30th, 2026",
+    "claude-sonnet-4-5-20250929": "November 30th, 2026",
 }
 
 MODELS_TO_WARN_WITH_THINKING_ENABLED = ["claude-opus-4-6", "claude-mythos-preview"]
@@ -1045,7 +1047,10 @@ class Messages(SyncAPIResource):
                 "tools": tools,
             },
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=Message,
             stream=stream or False,
@@ -1561,7 +1566,10 @@ class Messages(SyncAPIResource):
                 "tools": tools,
             },
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MessageTokensCount,
         )
@@ -2521,7 +2529,10 @@ class AsyncMessages(AsyncAPIResource):
                 "tools": tools,
             },
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=Message,
             stream=stream or False,
@@ -3036,7 +3047,10 @@ class AsyncMessages(AsyncAPIResource):
                 "tools": tools,
             },
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MessageTokensCount,
         )

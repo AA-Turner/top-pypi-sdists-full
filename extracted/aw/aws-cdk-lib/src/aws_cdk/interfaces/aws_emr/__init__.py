@@ -499,13 +499,19 @@ class InstanceFleetConfigReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_emr.InstanceGroupConfigReference",
     jsii_struct_bases=[],
-    name_mapping={"instance_group_config_id": "instanceGroupConfigId"},
+    name_mapping={"instance_group_id": "instanceGroupId", "job_flow_id": "jobFlowId"},
 )
 class InstanceGroupConfigReference:
-    def __init__(self, *, instance_group_config_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        instance_group_id: builtins.str,
+        job_flow_id: builtins.str,
+    ) -> None:
         '''A reference to a InstanceGroupConfig resource.
 
-        :param instance_group_config_id: The Id of the InstanceGroupConfig resource.
+        :param instance_group_id: The InstanceGroupId of the InstanceGroupConfig resource.
+        :param job_flow_id: The JobFlowId of the InstanceGroupConfig resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -516,21 +522,31 @@ class InstanceGroupConfigReference:
             from aws_cdk.interfaces import aws_emr as interfaces_emr
             
             instance_group_config_reference = interfaces_emr.InstanceGroupConfigReference(
-                instance_group_config_id="instanceGroupConfigId"
+                instance_group_id="instanceGroupId",
+                job_flow_id="jobFlowId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2e30f6fa847b8c87ef7ee08003bc534b03a5fe699d12bbffc55fbfd68d6628a)
-            check_type(argname="argument instance_group_config_id", value=instance_group_config_id, expected_type=type_hints["instance_group_config_id"])
+            check_type(argname="argument instance_group_id", value=instance_group_id, expected_type=type_hints["instance_group_id"])
+            check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_group_config_id": instance_group_config_id,
+            "instance_group_id": instance_group_id,
+            "job_flow_id": job_flow_id,
         }
 
     @builtins.property
-    def instance_group_config_id(self) -> builtins.str:
-        '''The Id of the InstanceGroupConfig resource.'''
-        result = self._values.get("instance_group_config_id")
-        assert result is not None, "Required property 'instance_group_config_id' is missing"
+    def instance_group_id(self) -> builtins.str:
+        '''The InstanceGroupId of the InstanceGroupConfig resource.'''
+        result = self._values.get("instance_group_id")
+        assert result is not None, "Required property 'instance_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_flow_id(self) -> builtins.str:
+        '''The JobFlowId of the InstanceGroupConfig resource.'''
+        result = self._values.get("job_flow_id")
+        assert result is not None, "Required property 'job_flow_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -870,7 +886,8 @@ def _typecheckingstub__eab7877a2d45d234b1d3068bffb62e7ebde897f5a905ade3c3ea3d070
 
 def _typecheckingstub__e2e30f6fa847b8c87ef7ee08003bc534b03a5fe699d12bbffc55fbfd68d6628a(
     *,
-    instance_group_config_id: builtins.str,
+    instance_group_id: builtins.str,
+    job_flow_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

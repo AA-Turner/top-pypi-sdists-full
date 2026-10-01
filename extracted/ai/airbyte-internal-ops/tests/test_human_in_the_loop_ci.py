@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from airbyte_ops_mcp import slack_posting
+from airbyte_ops_mcp import human_in_the_loop_ci, slack_posting
 from airbyte_ops_mcp.human_in_the_loop import (
     APPROVAL_REQUEST_SUMMARY_MAX_LENGTH,
     HITL_MESSAGE_MAX_LENGTH,
@@ -63,6 +65,25 @@ def _get_element_by_action_id(actions_block: dict, action_id: str) -> dict | Non
         if element.get("action_id") == action_id:
             return element
     return None
+
+
+@pytest.mark.unit
+def test_load_roster_requires_nonempty_fresh_members(tmp_path: Path) -> None:
+    generated_at = datetime.now(timezone.utc).isoformat()
+    empty_roster_file = tmp_path / "empty-roster.json"
+    empty_roster_file.write_text(
+        json.dumps({"generated_at": generated_at, "count": 0, "members": []})
+    )
+
+    with pytest.raises(RuntimeError, match="members"):
+        human_in_the_loop_ci._load_roster(str(empty_roster_file))
+
+    members = [{"slack_id": "U123"}]
+    roster_file = tmp_path / "roster.json"
+    roster_file.write_text(
+        json.dumps({"generated_at": generated_at, "count": 1, "members": members})
+    )
+    assert human_in_the_loop_ci._load_roster(str(roster_file)) == members
 
 
 @pytest.mark.unit

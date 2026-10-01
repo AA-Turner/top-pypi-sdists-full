@@ -602,12 +602,12 @@ class DataConnection(BaseDataConnection):
             return [self]
         else:
 
-            def cpy(new_id):
+            def copy_with_id(new_id):
                 child = copy.copy(self)
                 child.id = new_id
                 return child
 
-            return [cpy(id) for id in self.id]
+            return [copy_with_id(id) for id in self.id]
 
     def _to_dict(self) -> dict:
         """Convert a DataConnection object to a dictionary representation.

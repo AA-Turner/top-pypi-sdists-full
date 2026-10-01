@@ -297,8 +297,7 @@ class Experiment(ABC):
                 raise ValueError(f"[AOT-biomaps] Field {field.get_name_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
             self.AcousticFields[i].field = field.field[min_t:max_t, :, :]
 
-    def add_noise(self, y=None, noiseType='gaussian', snr_dB=20.0, noiseLvl=0.1,
-                dataToUse=None, m=1, withTumor=True, keep_nonnegative=False, show_log=True):
+    def add_noise(self, y=None, noiseType='gaussian', snr_dB=20.0, noiseLvl=0.1, dataToUse=None, m=1, withTumor=True, keep_nonnegative=False, noiseScope='global', show_log=True):
         """
         Add noise to AO signals with various noise models.
 
@@ -321,6 +320,13 @@ class Experiment(ABC):
             keep_nonnegative (bool): If True, shift each signal by its minimum BEFORE
                 adding noise, so that the requested SNR is preserved (the SNR is then
                 defined w.r.t. the shifted signal).
+            noiseScope (str): Noise level definition for gaussian noise.
+                'global' (default): sigma_n is computed once from the RMS of ALL
+                signals, so the same absolute noise level is applied to every signal
+                (mimics detector noise). The effective per-signal SNR then varies
+                with signal amplitude; snr_dB is defined w.r.t. the global RMS.
+                'per_signal': sigma_n is proportional to each signal's own RMS,
+                so every signal has the same nominal SNR (original behavior).
             show_log (bool): If True, displays progress bar.
 
         Returns:
@@ -355,6 +361,17 @@ class Experiment(ABC):
             mean_signal = np.mean(dataToUse, axis=0)
             amplitude_real = np.std(mean_signal)
 
+        # Pre-compute sigma_n for gaussian noise according to noiseScope
+        if noiseType.lower() == 'gaussian':
+            if noiseScope == 'global':
+                # One common noise level from the global RMS of all signals
+                global_power = np.mean(signals**2)
+                sigma_n_global = np.sqrt(global_power / 10**(snr_dB / 10.0))
+            elif noiseScope == 'per_signal':
+                sigma_n_global = None  # computed per signal inside the loop
+            else:
+                raise ValueError("[AOT-biomaps] noiseScope must be 'global' or 'per_signal'.")
+
         noiseSignals = np.zeros_like(signals)
         n_signals = signals.shape[1]
 
@@ -367,9 +384,13 @@ class Experiment(ABC):
                 signal = signal - np.min(signal)
 
             if noiseType.lower() == 'gaussian':
-                # sigma_n = RMS(signal) * 10^(-snr_dB/20)
-                signal_power = np.mean(signal**2)
-                sigma_n = np.sqrt(signal_power / 10**(snr_dB / 10.0))
+                if sigma_n_global is None:
+                    # per-signal SNR: sigma_n proportional to this signal's RMS
+                    signal_power = np.mean(signal**2)
+                    sigma_n = np.sqrt(signal_power / 10**(snr_dB / 10.0))
+                else:
+                    # global noise level, identical for all signals
+                    sigma_n = sigma_n_global
                 noise = np.random.normal(0, sigma_n, signal.shape)
                 noisy_signal = signal + noise
             elif noiseType.lower() == 'poisson':
@@ -390,6 +411,7 @@ class Experiment(ABC):
             noiseSignals[:, i] = noisy_signal
 
         return noiseSignals
+    
     def reduce_dims(self, mode='avg'):
         """
         Reduces the T, X, Z dimensions of a numpy array (T, X, Z) by a factor of 2 using CuPy pooling.

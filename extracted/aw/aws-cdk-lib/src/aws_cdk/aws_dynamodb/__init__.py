@@ -1786,273 +1786,6 @@ class CapacityMode(enum.Enum):
     '''Autoscaled.'''
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IBackupRef)
-class CfnBackup(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnBackup",
-):
-    '''Creates an on-demand backup of a DynamoDB table.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html
-    :cloudformationResource: AWS::DynamoDB::Backup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_dynamodb as dynamodb
-        
-        cfn_backup = dynamodb.CfnBackup(self, "MyCfnBackup",
-            backup_name="backupName",
-            table_name="tableName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        backup_name: builtins.str,
-        table_name: builtins.str,
-    ) -> None:
-        '''Create a new ``AWS::DynamoDB::Backup``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param backup_name: The name for the backup.
-        :param table_name: The name of the table to back up.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__293688f2435f852ea975e7818aa1a8371789502883e966f44b3c1575874650b8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnBackupProps(backup_name=backup_name, table_name=table_name)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForBackup")
-    @builtins.classmethod
-    def arn_for_backup(
-        cls,
-        resource: "_aws_dynamodb_948f46d7.IBackupRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__63997dc78a443a8a8cbd8b8a49428cdbfe40a088da1a097d220b0c64974277db)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackup", [resource]))
-
-    @jsii.member(jsii_name="isCfnBackup")
-    @builtins.classmethod
-    def is_cfn_backup(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnBackup.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__2f677df4d050c92922043a44711cab73db3eecde816c77805174c22abaa93a87)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackup", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5ea169a085bb009816d8e737f2fc73d11cdca793b84552cbe8e80c6986fe75b7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4ada2e447a88d9faae4723bf9cdbc3a194192c23c498f7dded71920e7985ac96)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupArn")
-    def attr_backup_arn(self) -> builtins.str:
-        '''The ARN associated with the backup.
-
-        :cloudformationAttribute: BackupArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBackupArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupCreationDateTime")
-    def attr_backup_creation_date_time(self) -> builtins.str:
-        '''The time at which the backup was created.
-
-        :cloudformationAttribute: BackupCreationDateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBackupCreationDateTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupId")
-    def attr_backup_id(self) -> builtins.str:
-        '''The identifier portion of the backup ARN (server-generated).
-
-        :cloudformationAttribute: BackupId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBackupId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupSizeBytes")
-    def attr_backup_size_bytes(self) -> jsii.Number:
-        '''The size of the backup in bytes.
-
-        :cloudformationAttribute: BackupSizeBytes
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrBackupSizeBytes"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupStatus")
-    def attr_backup_status(self) -> builtins.str:
-        '''The current state of the backup.
-
-        :cloudformationAttribute: BackupStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBackupStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBackupType")
-    def attr_backup_type(self) -> builtins.str:
-        '''The type of backup (USER, SYSTEM, or AWS_BACKUP).
-
-        :cloudformationAttribute: BackupType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBackupType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupRef")
-    def backup_ref(self) -> "_aws_dynamodb_948f46d7.BackupReference":
-        '''A reference to a Backup resource.'''
-        return typing.cast("_aws_dynamodb_948f46d7.BackupReference", jsii.get(self, "backupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupName")
-    def backup_name(self) -> builtins.str:
-        '''The name for the backup.'''
-        return typing.cast(builtins.str, jsii.get(self, "backupName"))
-
-    @backup_name.setter
-    def backup_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__cfe49689ac343403186d433f668a68c97e182979fec6b0287614e0fb9694538a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableName")
-    def table_name(self) -> builtins.str:
-        '''The name of the table to back up.'''
-        return typing.cast(builtins.str, jsii.get(self, "tableName"))
-
-    @table_name.setter
-    def table_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__333d31b3f1ea816baec75f5b82b6c90b040987d214be1845e187196833809c51)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnBackupProps",
-    jsii_struct_bases=[],
-    name_mapping={"backup_name": "backupName", "table_name": "tableName"},
-)
-class CfnBackupProps:
-    def __init__(self, *, backup_name: builtins.str, table_name: builtins.str) -> None:
-        '''Properties for defining a ``CfnBackup``.
-
-        :param backup_name: The name for the backup.
-        :param table_name: The name of the table to back up.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dynamodb as dynamodb
-            
-            cfn_backup_props = dynamodb.CfnBackupProps(
-                backup_name="backupName",
-                table_name="tableName"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e68839b541f03bf92709fa93fe4db06ff43f22f1f0ba6d659848811cca193b50)
-            check_type(argname="argument backup_name", value=backup_name, expected_type=type_hints["backup_name"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_name": backup_name,
-            "table_name": table_name,
-        }
-
-    @builtins.property
-    def backup_name(self) -> builtins.str:
-        '''The name for the backup.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html#cfn-dynamodb-backup-backupname
-        '''
-        result = self._values.get("backup_name")
-        assert result is not None, "Required property 'backup_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_name(self) -> builtins.str:
-        '''The name of the table to back up.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-backup.html#cfn-dynamodb-backup-tablename
-        '''
-        result = self._values.get("table_name")
-        assert result is not None, "Required property 'table_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBackupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IGlobalTableRef)
 class CfnGlobalTable(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2316,6 +2049,24 @@ class CfnGlobalTable(
                 # the properties below are optional
                 attribute_name="attributeName"
             ),
+            vector_indexes=[dynamodb.CfnGlobalTable.VectorIndexProperty(
+                dimensions=123,
+                distance_function="distanceFunction",
+                index_name="indexName",
+                projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                ),
+                vector_attribute=dynamodb.CfnGlobalTable.VectorAttributeProperty(
+                    attribute_name="attributeName"
+                ),
+        
+                # the properties below are optional
+                search_schema=[dynamodb.CfnGlobalTable.SearchSchemaElementProperty(
+                    attribute_name="attributeName",
+                    search_schema_element_type="searchSchemaElementType"
+                )]
+            )],
             warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
                 read_units_per_second=123,
                 write_units_per_second=123
@@ -2363,6 +2114,7 @@ class CfnGlobalTable(
         stream_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_on_demand_throughput_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_provisioned_throughput_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2386,6 +2138,7 @@ class CfnGlobalTable(
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
+        :param vector_indexes: 
         :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
         :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
         :param write_provisioned_throughput_settings: Specifies an auto scaling policy for write capacity. This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
@@ -2410,6 +2163,7 @@ class CfnGlobalTable(
             stream_specification=stream_specification,
             table_name=table_name,
             time_to_live_specification=time_to_live_specification,
+            vector_indexes=vector_indexes,
             warm_throughput=warm_throughput,
             write_on_demand_throughput_settings=write_on_demand_throughput_settings,
             write_provisioned_throughput_settings=write_provisioned_throughput_settings,
@@ -2773,6 +2527,23 @@ class CfnGlobalTable(
             type_hints = cached_type_hints(_typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vectorIndexes")
+    def vector_indexes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorIndexProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorIndexProperty"]]]], jsii.get(self, "vectorIndexes"))
+
+    @vector_indexes.setter
+    def vector_indexes(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3babd439783fc7d1acd9ce1c7761670b268c94a389dd02a22c2b63de51d6d5ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vectorIndexes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="warmThroughput")
@@ -4859,6 +4630,77 @@ class CfnGlobalTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.SearchSchemaElementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attribute_name": "attributeName",
+            "search_schema_element_type": "searchSchemaElementType",
+        },
+    )
+    class SearchSchemaElementProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            search_schema_element_type: builtins.str,
+        ) -> None:
+            '''
+            :param attribute_name: 
+            :param search_schema_element_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-searchschemaelement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                search_schema_element_property = dynamodb.CfnGlobalTable.SearchSchemaElementProperty(
+                    attribute_name="attributeName",
+                    search_schema_element_type="searchSchemaElementType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d6b033653408a7b035ba292359aeabcbf06eddc41c00e8793ba03788e44bd423)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument search_schema_element_type", value=search_schema_element_type, expected_type=type_hints["search_schema_element_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "search_schema_element_type": search_schema_element_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-searchschemaelement.html#cfn-dynamodb-globaltable-searchschemaelement-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def search_schema_element_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-searchschemaelement.html#cfn-dynamodb-globaltable-searchschemaelement-searchschemaelementtype
+            '''
+            result = self._values.get("search_schema_element_type")
+            assert result is not None, "Required property 'search_schema_element_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SearchSchemaElementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.StreamSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={"stream_view_type": "streamViewType"},
@@ -5111,6 +4953,203 @@ class CfnGlobalTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.VectorAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attribute_name": "attributeName"},
+    )
+    class VectorAttributeProperty:
+        def __init__(self, *, attribute_name: builtins.str) -> None:
+            '''
+            :param attribute_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                vector_attribute_property = dynamodb.CfnGlobalTable.VectorAttributeProperty(
+                    attribute_name="attributeName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fea18d028df2731933947f8b05ea720514fd90385317e6ec754262f5119f0ad3)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorattribute.html#cfn-dynamodb-globaltable-vectorattribute-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.VectorIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dimensions": "dimensions",
+            "distance_function": "distanceFunction",
+            "index_name": "indexName",
+            "projection": "projection",
+            "vector_attribute": "vectorAttribute",
+            "search_schema": "searchSchema",
+        },
+    )
+    class VectorIndexProperty:
+        def __init__(
+            self,
+            *,
+            dimensions: jsii.Number,
+            distance_function: builtins.str,
+            index_name: builtins.str,
+            projection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+            vector_attribute: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.VectorAttributeProperty", typing.Dict[builtins.str, typing.Any]]],
+            search_schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.SearchSchemaElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param dimensions: 
+            :param distance_function: 
+            :param index_name: 
+            :param projection: 
+            :param vector_attribute: 
+            :param search_schema: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                vector_index_property = dynamodb.CfnGlobalTable.VectorIndexProperty(
+                    dimensions=123,
+                    distance_function="distanceFunction",
+                    index_name="indexName",
+                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                    vector_attribute=dynamodb.CfnGlobalTable.VectorAttributeProperty(
+                        attribute_name="attributeName"
+                    ),
+                
+                    # the properties below are optional
+                    search_schema=[dynamodb.CfnGlobalTable.SearchSchemaElementProperty(
+                        attribute_name="attributeName",
+                        search_schema_element_type="searchSchemaElementType"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ae959f72c7bbd63f93073bcf5e3c3b427b84f8e55ff93ebd0770bccff731bf41)
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+                check_type(argname="argument distance_function", value=distance_function, expected_type=type_hints["distance_function"])
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+                check_type(argname="argument vector_attribute", value=vector_attribute, expected_type=type_hints["vector_attribute"])
+                check_type(argname="argument search_schema", value=search_schema, expected_type=type_hints["search_schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dimensions": dimensions,
+                "distance_function": distance_function,
+                "index_name": index_name,
+                "projection": projection,
+                "vector_attribute": vector_attribute,
+            }
+            if search_schema is not None:
+                self._values["search_schema"] = search_schema
+
+        @builtins.property
+        def dimensions(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-dimensions
+            '''
+            result = self._values.get("dimensions")
+            assert result is not None, "Required property 'dimensions' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def distance_function(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-distancefunction
+            '''
+            result = self._values.get("distance_function")
+            assert result is not None, "Required property 'distance_function' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ProjectionProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ProjectionProperty"], result)
+
+        @builtins.property
+        def vector_attribute(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorAttributeProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-vectorattribute
+            '''
+            result = self._values.get("vector_attribute")
+            assert result is not None, "Required property 'vector_attribute' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorAttributeProperty"], result)
+
+        @builtins.property
+        def search_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.SearchSchemaElementProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-vectorindex.html#cfn-dynamodb-globaltable-vectorindex-searchschema
+            '''
+            result = self._values.get("search_schema")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.SearchSchemaElementProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WarmThroughputProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5337,6 +5376,7 @@ class CfnGlobalTable(
         "stream_specification": "streamSpecification",
         "table_name": "tableName",
         "time_to_live_specification": "timeToLiveSpecification",
+        "vector_indexes": "vectorIndexes",
         "warm_throughput": "warmThroughput",
         "write_on_demand_throughput_settings": "writeOnDemandThroughputSettings",
         "write_provisioned_throughput_settings": "writeProvisionedThroughputSettings",
@@ -5361,6 +5401,7 @@ class CfnGlobalTableProps:
         stream_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_on_demand_throughput_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_provisioned_throughput_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5382,6 +5423,7 @@ class CfnGlobalTableProps:
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
+        :param vector_indexes: 
         :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
         :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
         :param write_provisioned_throughput_settings: Specifies an auto scaling policy for write capacity. This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
@@ -5587,6 +5629,24 @@ class CfnGlobalTableProps:
                     # the properties below are optional
                     attribute_name="attributeName"
                 ),
+                vector_indexes=[dynamodb.CfnGlobalTable.VectorIndexProperty(
+                    dimensions=123,
+                    distance_function="distanceFunction",
+                    index_name="indexName",
+                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                    vector_attribute=dynamodb.CfnGlobalTable.VectorAttributeProperty(
+                        attribute_name="attributeName"
+                    ),
+            
+                    # the properties below are optional
+                    search_schema=[dynamodb.CfnGlobalTable.SearchSchemaElementProperty(
+                        attribute_name="attributeName",
+                        search_schema_element_type="searchSchemaElementType"
+                    )]
+                )],
                 warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
                     read_units_per_second=123,
                     write_units_per_second=123
@@ -5630,6 +5690,7 @@ class CfnGlobalTableProps:
             check_type(argname="argument stream_specification", value=stream_specification, expected_type=type_hints["stream_specification"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
             check_type(argname="argument time_to_live_specification", value=time_to_live_specification, expected_type=type_hints["time_to_live_specification"])
+            check_type(argname="argument vector_indexes", value=vector_indexes, expected_type=type_hints["vector_indexes"])
             check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
             check_type(argname="argument write_on_demand_throughput_settings", value=write_on_demand_throughput_settings, expected_type=type_hints["write_on_demand_throughput_settings"])
             check_type(argname="argument write_provisioned_throughput_settings", value=write_provisioned_throughput_settings, expected_type=type_hints["write_provisioned_throughput_settings"])
@@ -5664,6 +5725,8 @@ class CfnGlobalTableProps:
             self._values["table_name"] = table_name
         if time_to_live_specification is not None:
             self._values["time_to_live_specification"] = time_to_live_specification
+        if vector_indexes is not None:
+            self._values["vector_indexes"] = vector_indexes
         if warm_throughput is not None:
             self._values["warm_throughput"] = warm_throughput
         if write_on_demand_throughput_settings is not None:
@@ -5867,6 +5930,16 @@ class CfnGlobalTableProps:
         '''
         result = self._values.get("time_to_live_specification")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.TimeToLiveSpecificationProperty"]], result)
+
+    @builtins.property
+    def vector_indexes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorIndexProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-vectorindexes
+        '''
+        result = self._values.get("vector_indexes")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.VectorIndexProperty"]]]], result)
 
     @builtins.property
     def warm_throughput(
@@ -6080,6 +6153,24 @@ class CfnTable(
                 # the properties below are optional
                 attribute_name="attributeName"
             ),
+            vector_indexes=[dynamodb.CfnTable.VectorIndexProperty(
+                dimensions=123,
+                distance_function="distanceFunction",
+                index_name="indexName",
+                projection=dynamodb.CfnTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                ),
+                vector_attribute=dynamodb.CfnTable.VectorAttributeProperty(
+                    attribute_name="attributeName"
+                ),
+        
+                # the properties below are optional
+                search_schema=[dynamodb.CfnTable.SearchSchemaElementProperty(
+                    attribute_name="attributeName",
+                    search_schema_element_type="searchSchemaElementType"
+                )]
+            )],
             warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
                 read_units_per_second=123,
                 write_units_per_second=123
@@ -6111,6 +6202,7 @@ class CfnTable(
         table_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DynamoDB::Table``.
@@ -6136,6 +6228,7 @@ class CfnTable(
         :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param time_to_live_specification: Specifies the Time to Live (TTL) settings for the table. .. epigraph:: For detailed information about the limits in DynamoDB, see `Limits in Amazon DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the Amazon DynamoDB Developer Guide.
+        :param vector_indexes: 
         :param warm_throughput: Represents the warm throughput (in read units per second and write units per second) for creating a table.
         '''
         if __debug__:
@@ -6162,6 +6255,7 @@ class CfnTable(
             table_name=table_name,
             tags=tags,
             time_to_live_specification=time_to_live_specification,
+            vector_indexes=vector_indexes,
             warm_throughput=warm_throughput,
         )
 
@@ -6636,6 +6730,23 @@ class CfnTable(
             type_hints = cached_type_hints(_typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vectorIndexes")
+    def vector_indexes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorIndexProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorIndexProperty"]]]], jsii.get(self, "vectorIndexes"))
+
+    @vector_indexes.setter
+    def vector_indexes(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__738ead5c21074a6c7f2ebb789d2b1fda8505dbe8d78a769c2c7f6fcf6e47ce25)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vectorIndexes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="warmThroughput")
@@ -8145,6 +8256,77 @@ class CfnTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.SearchSchemaElementProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attribute_name": "attributeName",
+            "search_schema_element_type": "searchSchemaElementType",
+        },
+    )
+    class SearchSchemaElementProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            search_schema_element_type: builtins.str,
+        ) -> None:
+            '''
+            :param attribute_name: 
+            :param search_schema_element_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-searchschemaelement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                search_schema_element_property = dynamodb.CfnTable.SearchSchemaElementProperty(
+                    attribute_name="attributeName",
+                    search_schema_element_type="searchSchemaElementType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fe0f5bc80fbbaa91de89a63434462b73c68326997c1cb20ec347c5cfc26c7da3)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument search_schema_element_type", value=search_schema_element_type, expected_type=type_hints["search_schema_element_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "search_schema_element_type": search_schema_element_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-searchschemaelement.html#cfn-dynamodb-table-searchschemaelement-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def search_schema_element_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-searchschemaelement.html#cfn-dynamodb-table-searchschemaelement-searchschemaelementtype
+            '''
+            result = self._values.get("search_schema_element_type")
+            assert result is not None, "Required property 'search_schema_element_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SearchSchemaElementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.StreamSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8340,6 +8522,206 @@ class CfnTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.VectorAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attribute_name": "attributeName"},
+    )
+    class VectorAttributeProperty:
+        def __init__(self, *, attribute_name: builtins.str) -> None:
+            '''
+            :param attribute_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                vector_attribute_property = dynamodb.CfnTable.VectorAttributeProperty(
+                    attribute_name="attributeName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__45480f23a4fe7657b01f944d27a4594ecafa6d6126e1d09ea62d279151125488)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorattribute.html#cfn-dynamodb-table-vectorattribute-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.VectorIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dimensions": "dimensions",
+            "distance_function": "distanceFunction",
+            "index_name": "indexName",
+            "projection": "projection",
+            "vector_attribute": "vectorAttribute",
+            "search_schema": "searchSchema",
+        },
+    )
+    class VectorIndexProperty:
+        def __init__(
+            self,
+            *,
+            dimensions: jsii.Number,
+            distance_function: builtins.str,
+            index_name: builtins.str,
+            projection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+            vector_attribute: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.VectorAttributeProperty", typing.Dict[builtins.str, typing.Any]]],
+            search_schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.SearchSchemaElementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param dimensions: 
+            :param distance_function: 
+            :param index_name: 
+            :param projection: Represents attributes that are copied (projected) from the table into an index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+            :param vector_attribute: 
+            :param search_schema: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                vector_index_property = dynamodb.CfnTable.VectorIndexProperty(
+                    dimensions=123,
+                    distance_function="distanceFunction",
+                    index_name="indexName",
+                    projection=dynamodb.CfnTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                    vector_attribute=dynamodb.CfnTable.VectorAttributeProperty(
+                        attribute_name="attributeName"
+                    ),
+                
+                    # the properties below are optional
+                    search_schema=[dynamodb.CfnTable.SearchSchemaElementProperty(
+                        attribute_name="attributeName",
+                        search_schema_element_type="searchSchemaElementType"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3e52e3dfb8e9c72d29f8d17a3e758803e0cbcead09f2363f7e1b4eda9cbcf745)
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+                check_type(argname="argument distance_function", value=distance_function, expected_type=type_hints["distance_function"])
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+                check_type(argname="argument vector_attribute", value=vector_attribute, expected_type=type_hints["vector_attribute"])
+                check_type(argname="argument search_schema", value=search_schema, expected_type=type_hints["search_schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dimensions": dimensions,
+                "distance_function": distance_function,
+                "index_name": index_name,
+                "projection": projection,
+                "vector_attribute": vector_attribute,
+            }
+            if search_schema is not None:
+                self._values["search_schema"] = search_schema
+
+        @builtins.property
+        def dimensions(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-dimensions
+            '''
+            result = self._values.get("dimensions")
+            assert result is not None, "Required property 'dimensions' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def distance_function(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-distancefunction
+            '''
+            result = self._values.get("distance_function")
+            assert result is not None, "Required property 'distance_function' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.ProjectionProperty"]:
+            '''Represents attributes that are copied (projected) from the table into an index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.ProjectionProperty"], result)
+
+        @builtins.property
+        def vector_attribute(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorAttributeProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-vectorattribute
+            '''
+            result = self._values.get("vector_attribute")
+            assert result is not None, "Required property 'vector_attribute' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorAttributeProperty"], result)
+
+        @builtins.property
+        def search_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SearchSchemaElementProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html#cfn-dynamodb-table-vectorindex-searchschema
+            '''
+            result = self._values.get("search_schema")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SearchSchemaElementProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.WarmThroughputProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8438,6 +8820,7 @@ class CfnTable(
         "table_name": "tableName",
         "tags": "tags",
         "time_to_live_specification": "timeToLiveSpecification",
+        "vector_indexes": "vectorIndexes",
         "warm_throughput": "warmThroughput",
     },
 )
@@ -8464,6 +8847,7 @@ class CfnTableProps:
         table_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         time_to_live_specification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_indexes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.VectorIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         warm_throughput: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTable``.
@@ -8487,6 +8871,7 @@ class CfnTableProps:
         :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param time_to_live_specification: Specifies the Time to Live (TTL) settings for the table. .. epigraph:: For detailed information about the limits in DynamoDB, see `Limits in Amazon DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the Amazon DynamoDB Developer Guide.
+        :param vector_indexes: 
         :param warm_throughput: Represents the warm throughput (in read units per second and write units per second) for creating a table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
@@ -8633,6 +9018,24 @@ class CfnTableProps:
                     # the properties below are optional
                     attribute_name="attributeName"
                 ),
+                vector_indexes=[dynamodb.CfnTable.VectorIndexProperty(
+                    dimensions=123,
+                    distance_function="distanceFunction",
+                    index_name="indexName",
+                    projection=dynamodb.CfnTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                    vector_attribute=dynamodb.CfnTable.VectorAttributeProperty(
+                        attribute_name="attributeName"
+                    ),
+            
+                    # the properties below are optional
+                    search_schema=[dynamodb.CfnTable.SearchSchemaElementProperty(
+                        attribute_name="attributeName",
+                        search_schema_element_type="searchSchemaElementType"
+                    )]
+                )],
                 warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
                     read_units_per_second=123,
                     write_units_per_second=123
@@ -8660,6 +9063,7 @@ class CfnTableProps:
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument time_to_live_specification", value=time_to_live_specification, expected_type=type_hints["time_to_live_specification"])
+            check_type(argname="argument vector_indexes", value=vector_indexes, expected_type=type_hints["vector_indexes"])
             check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_schema": key_schema,
@@ -8700,6 +9104,8 @@ class CfnTableProps:
             self._values["tags"] = tags
         if time_to_live_specification is not None:
             self._values["time_to_live_specification"] = time_to_live_specification
+        if vector_indexes is not None:
+            self._values["vector_indexes"] = vector_indexes
         if warm_throughput is not None:
             self._values["warm_throughput"] = warm_throughput
 
@@ -8964,6 +9370,16 @@ class CfnTableProps:
         '''
         result = self._values.get("time_to_live_specification")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.TimeToLiveSpecificationProperty"]], result)
+
+    @builtins.property
+    def vector_indexes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorIndexProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-vectorindexes
+        '''
+        result = self._values.get("vector_indexes")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.VectorIndexProperty"]]]], result)
 
     @builtins.property
     def warm_throughput(
@@ -19922,8 +20338,6 @@ __all__ = [
     "BillingMode",
     "Capacity",
     "CapacityMode",
-    "CfnBackup",
-    "CfnBackupProps",
     "CfnGlobalTable",
     "CfnGlobalTableProps",
     "CfnTable",
@@ -20005,60 +20419,6 @@ def _typecheckingstub__ac96235cd17326a35c953f2d45a5b2b8c2323302d2f4fad1870f10eb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__293688f2435f852ea975e7818aa1a8371789502883e966f44b3c1575874650b8(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    backup_name: builtins.str,
-    table_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__63997dc78a443a8a8cbd8b8a49428cdbfe40a088da1a097d220b0c64974277db(
-    resource: _aws_dynamodb_948f46d7.IBackupRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f677df4d050c92922043a44711cab73db3eecde816c77805174c22abaa93a87(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ea169a085bb009816d8e737f2fc73d11cdca793b84552cbe8e80c6986fe75b7(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ada2e447a88d9faae4723bf9cdbc3a194192c23c498f7dded71920e7985ac96(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cfe49689ac343403186d433f668a68c97e182979fec6b0287614e0fb9694538a(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__333d31b3f1ea816baec75f5b82b6c90b040987d214be1845e187196833809c51(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e68839b541f03bf92709fa93fe4db06ff43f22f1f0ba6d659848811cca193b50(
-    *,
-    backup_name: builtins.str,
-    table_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b30f832c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -20078,6 +20438,7 @@ def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b
     stream_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_on_demand_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_provisioned_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20195,6 +20556,12 @@ def _typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8feca
 
 def _typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGlobalTable.TimeToLiveSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3babd439783fc7d1acd9ce1c7761670b268c94a389dd02a22c2b63de51d6d5ed(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGlobalTable.VectorIndexProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20387,6 +20754,14 @@ def _typecheckingstub__ea2cb67b1629904043fec37c484f260e58078624f7b496fe52fc2201d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d6b033653408a7b035ba292359aeabcbf06eddc41c00e8793ba03788e44bd423(
+    *,
+    attribute_name: builtins.str,
+    search_schema_element_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bf486381a1dcd1491dcd25b2b304b74893e1088d27adcc55317833f7618f698e(
     *,
     stream_view_type: builtins.str,
@@ -20408,6 +20783,25 @@ def _typecheckingstub__dcf0cf3bffc007a79dfc055873ae7915dea668a00f7752d51c421f918
     *,
     enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     attribute_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fea18d028df2731933947f8b05ea720514fd90385317e6ec754262f5119f0ad3(
+    *,
+    attribute_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae959f72c7bbd63f93073bcf5e3c3b427b84f8e55ff93ebd0770bccff731bf41(
+    *,
+    dimensions: jsii.Number,
+    distance_function: builtins.str,
+    index_name: builtins.str,
+    projection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    vector_attribute: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.VectorAttributeProperty, typing.Dict[builtins.str, typing.Any]]],
+    search_schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.SearchSchemaElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20451,6 +20845,7 @@ def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2
     stream_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_on_demand_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_provisioned_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20481,6 +20876,7 @@ def _typecheckingstub__9c4a83992df200bfde2ccfe129994eeacab105432a2509473861feb73
     table_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20640,6 +21036,12 @@ def _typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__738ead5c21074a6c7f2ebb789d2b1fda8505dbe8d78a769c2c7f6fcf6e47ce25(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.VectorIndexProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.WarmThroughputProperty]],
 ) -> None:
@@ -20782,6 +21184,14 @@ def _typecheckingstub__23b0abf52d7df3f9a3b741c39275e55783b349db0f08ac16d13c3d832
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fe0f5bc80fbbaa91de89a63434462b73c68326997c1cb20ec347c5cfc26c7da3(
+    *,
+    attribute_name: builtins.str,
+    search_schema_element_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72(
     *,
     stream_view_type: builtins.str,
@@ -20795,6 +21205,25 @@ def _typecheckingstub__5d786558ff9ca543f7d0799e61bed247b8ecf13464a91bfd641c90c6a
     *,
     enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     attribute_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45480f23a4fe7657b01f944d27a4594ecafa6d6126e1d09ea62d279151125488(
+    *,
+    attribute_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e52e3dfb8e9c72d29f8d17a3e758803e0cbcead09f2363f7e1b4eda9cbcf745(
+    *,
+    dimensions: jsii.Number,
+    distance_function: builtins.str,
+    index_name: builtins.str,
+    projection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    vector_attribute: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.VectorAttributeProperty, typing.Dict[builtins.str, typing.Any]]],
+    search_schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.SearchSchemaElementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20828,6 +21257,7 @@ def _typecheckingstub__0b7f8e29621d526383ce725f2daafbe00b52cfe2381995edac86b72a6
     table_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     time_to_live_specification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_indexes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.VectorIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

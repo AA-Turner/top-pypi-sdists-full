@@ -48,6 +48,11 @@ class ConversationType(StrEnum):
     AUTO = "auto"
     # Internal test / system runs (e.g. tool_testing).
     SYSTEM = "system"
+    # A mandate candidate's shadow leg (Mandate Candidates, PLAN §2.7): the same input as a real
+    # run, re-run under the candidate holder, persisted so both chats can be opened from the pair —
+    # and HIDDEN from every chat list (matrx-frontend chat.conversation_lane → 'hidden'). Set by the
+    # candidate executor when AppContext.metadata["mandate_candidate"] is present.
+    MANDATE_CANDIDATE = "mandate_candidate"
 
 
 # Every type that is NOT a normal user-facing conversation. The UI uses this to
@@ -119,6 +124,11 @@ def is_internal_conversation(ctx: object | None) -> bool:
     if ctx is None:
         return False
     if getattr(ctx, "is_internal_agent", False):
+        return True
+    # A mandate candidate's run is internal on every door (PLAN §2.7, P14): no
+    # labeling call, no post-finalize ingest — whatever type the fork stamped.
+    metadata = getattr(ctx, "metadata", None)
+    if isinstance(metadata, dict) and metadata.get("mandate_candidate"):
         return True
     return (
         getattr(ctx, "conversation_type", ConversationType.STANDARD.value)

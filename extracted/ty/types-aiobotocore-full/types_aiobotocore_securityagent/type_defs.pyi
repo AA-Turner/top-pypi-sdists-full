@@ -50,6 +50,7 @@ from .literals import (
     ResourceTypeType,
     RiskLevelType,
     RiskTypeType,
+    ScopeDecisionType,
     SecurityRequirementArtifactFormatType,
     SecurityRequirementPackImportStatusType,
     SecurityRequirementPackStatusType,
@@ -64,6 +65,7 @@ from .literals import (
     ThreatStatusType,
     ValidationModeType,
     ValidationStatusType,
+    WebhookActionType,
 )
 
 if sys.version_info >= (3, 12):
@@ -75,6 +77,7 @@ __all__ = (
     "AWSResourcesOutputTypeDef",
     "AWSResourcesTypeDef",
     "AWSResourcesUnionTypeDef",
+    "ActorMessageTypeDef",
     "ActorOutputTypeDef",
     "ActorTypeDef",
     "AddArtifactInputTypeDef",
@@ -89,6 +92,10 @@ __all__ = (
     "AssetsTypeDef",
     "AssetsUnionTypeDef",
     "AuthenticationTypeDef",
+    "AzureDevOpsIntegrationInputTypeDef",
+    "AzureDevOpsRepositoryMetadataTypeDef",
+    "AzureDevOpsRepositoryResourceTypeDef",
+    "AzureDevOpsResourceCapabilitiesTypeDef",
     "BatchCreateSecurityRequirementResultTypeDef",
     "BatchCreateSecurityRequirementsInputTypeDef",
     "BatchCreateSecurityRequirementsOutputTypeDef",
@@ -134,12 +141,15 @@ __all__ = (
     "BatchSecurityRequirementErrorTypeDef",
     "BatchUpdateSecurityRequirementsInputTypeDef",
     "BatchUpdateSecurityRequirementsOutputTypeDef",
+    "BitbucketDataCenterIntegrationInputTypeDef",
     "BitbucketIntegrationInputTypeDef",
     "BitbucketRepositoryMetadataTypeDef",
     "BitbucketRepositoryResourceTypeDef",
     "BitbucketResourceCapabilitiesTypeDef",
     "BlobTypeDef",
+    "CaCertificateSourceTypeDef",
     "CategoryTypeDef",
+    "CiCdConfigurationTypeDef",
     "CloudWatchLogTypeDef",
     "CodeLocationTypeDef",
     "CodeRemediationTaskDetailsTypeDef",
@@ -235,6 +245,9 @@ __all__ = (
     "IntegratedResourceTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationSummaryTypeDef",
+    "ListActorMessagesInputPaginateTypeDef",
+    "ListActorMessagesInputTypeDef",
+    "ListActorMessagesOutputTypeDef",
     "ListAgentSpacesInputPaginateTypeDef",
     "ListAgentSpacesInputTypeDef",
     "ListAgentSpacesOutputTypeDef",
@@ -322,7 +335,12 @@ __all__ = (
     "ProviderInputTypeDef",
     "ProviderResourceCapabilitiesTypeDef",
     "ReportDestinationTypeDef",
+    "ReportFiltersOutputTypeDef",
+    "ReportFiltersTypeDef",
+    "ReportFiltersUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "ScopeChangeTypeDef",
+    "ScopeResultTypeDef",
     "SecurityRequirementArtifactTypeDef",
     "SecurityRequirementPackSummaryTypeDef",
     "SecurityRequirementSummaryTypeDef",
@@ -355,6 +373,7 @@ __all__ = (
     "ThreatModelTypeDef",
     "ThreatSummaryTypeDef",
     "ThreatTypeDef",
+    "TrustedCaCertificateTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateAgentSpaceInputTypeDef",
     "UpdateAgentSpaceOutputTypeDef",
@@ -364,6 +383,8 @@ __all__ = (
     "UpdateCodeReviewOutputTypeDef",
     "UpdateFindingInputTypeDef",
     "UpdateIntegratedResourcesInputTypeDef",
+    "UpdateIntegrationInputTypeDef",
+    "UpdateIntegrationOutputTypeDef",
     "UpdatePentestInputTypeDef",
     "UpdatePentestOutputTypeDef",
     "UpdatePrivateConnectionCertificateInputTypeDef",
@@ -398,6 +419,12 @@ class VpcConfigTypeDef(TypedDict):
     vpcArn: NotRequired[str]
     securityGroupArns: NotRequired[Sequence[str]]
     subnetArns: NotRequired[Sequence[str]]
+
+class ActorMessageTypeDef(TypedDict):
+    sender: NotRequired[str]
+    subject: NotRequired[str]
+    body: NotRequired[str]
+    receivedAt: NotRequired[datetime]
 
 class AuthenticationTypeDef(TypedDict):
     providerType: NotRequired[AuthenticationProviderTypeType]
@@ -457,6 +484,28 @@ class IntegratedRepositoryTypeDef(TypedDict):
 
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]
+
+class AzureDevOpsIntegrationInputTypeDef(TypedDict):
+    code: str
+    state: str
+    organizationName: str
+
+class AzureDevOpsRepositoryMetadataTypeDef(TypedDict):
+    name: str
+    providerResourceId: str
+    organization: str
+    project: NotRequired[str]
+    projectId: NotRequired[str]
+    accessType: NotRequired[AccessTypeType]
+
+class AzureDevOpsRepositoryResourceTypeDef(TypedDict):
+    name: str
+    organization: str
+    project: NotRequired[str]
+
+class AzureDevOpsResourceCapabilitiesTypeDef(TypedDict):
+    leaveComments: NotRequired[bool]
+    remediateCode: NotRequired[bool]
 
 class BatchCreateSecurityRequirementResultTypeDef(TypedDict):
     packId: str
@@ -583,6 +632,11 @@ class UpdateSecurityRequirementEntryTypeDef(TypedDict):
     evaluation: NotRequired[str]
     remediation: NotRequired[str]
 
+class BitbucketDataCenterIntegrationInputTypeDef(TypedDict):
+    targetUrl: str
+    code: str
+    state: str
+
 class BitbucketIntegrationInputTypeDef(TypedDict):
     installationId: str
     workspace: str
@@ -603,9 +657,17 @@ class BitbucketResourceCapabilitiesTypeDef(TypedDict):
     leaveComments: NotRequired[bool]
     remediateCode: NotRequired[bool]
 
+class CaCertificateSourceTypeDef(TypedDict):
+    inlinePem: NotRequired[str]
+    artifactId: NotRequired[str]
+    s3Location: NotRequired[str]
+
 class CategoryTypeDef(TypedDict):
     name: NotRequired[str]
     isPrimary: NotRequired[bool]
+
+class CiCdConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
 
 class CloudWatchLogTypeDef(TypedDict):
     logGroup: NotRequired[str]
@@ -650,6 +712,12 @@ class ExecutionContextTypeDef(TypedDict):
     context: NotRequired[str]
     timestamp: NotRequired[datetime]
 
+class ReportDestinationTypeDef(TypedDict):
+    integrationId: str
+    containerId: str
+    parentId: NotRequired[str]
+    documentId: NotRequired[str]
+
 class StepTypeDef(TypedDict):
     name: NotRequired[StepNameType]
     status: NotRequired[StepStatusType]
@@ -662,6 +730,16 @@ class CodeReviewSummaryTypeDef(TypedDict):
     title: str
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+
+class ReportFiltersOutputTypeDef(TypedDict):
+    riskLevels: NotRequired[list[RiskLevelType]]
+    confidenceLevels: NotRequired[list[ConfidenceLevelType]]
+    statuses: NotRequired[list[FindingStatusType]]
+    riskTypes: NotRequired[list[RiskTypeType]]
+    findingTypes: NotRequired[list[str]]
+    taskStatuses: NotRequired[list[TaskExecutionStatusType]]
+    annotationNotes: NotRequired[bool]
+    complianceReport: NotRequired[bool]
 
 class ConfluenceDocumentMetadataTypeDef(TypedDict):
     name: str
@@ -719,12 +797,6 @@ ThreatAnchorShapeTypeDef = TypedDict(
 class ThreatEvidenceShapeTypeDef(TypedDict):
     packageId: NotRequired[str]
     path: NotRequired[str]
-
-class ReportDestinationTypeDef(TypedDict):
-    integrationId: str
-    containerId: str
-    parentId: NotRequired[str]
-    documentId: NotRequired[str]
 
 class CustomHeaderTypeDef(TypedDict):
     name: NotRequired[str]
@@ -862,6 +934,10 @@ class HttpVerificationTypeDef(TypedDict):
 
 class InitiateProviderRegistrationInputTypeDef(TypedDict):
     provider: ProviderType
+    targetUrl: NotRequired[str]
+    organizationName: NotRequired[str]
+    clientId: NotRequired[str]
+    clientSecret: NotRequired[str]
 
 class IntegrationFilterTypeDef(TypedDict):
     provider: NotRequired[ProviderType]
@@ -874,12 +950,20 @@ class IntegrationSummaryTypeDef(TypedDict):
     providerType: ProviderTypeType
     displayName: str
     targetUrl: NotRequired[str]
+    webhookUrl: NotRequired[str]
     privateConnectionName: NotRequired[str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListActorMessagesInputTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    actorIdentifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListAgentSpacesInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
@@ -971,6 +1055,7 @@ class ListPentestJobsForPentestInputTypeDef(TypedDict):
     agentSpaceId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    jobType: NotRequired[JobTypeType]
 
 class PentestJobSummaryTypeDef(TypedDict):
     pentestJobId: str
@@ -979,6 +1064,8 @@ class PentestJobSummaryTypeDef(TypedDict):
     status: NotRequired[JobStatusType]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    jobType: NotRequired[JobTypeType]
+    reportUrl: NotRequired[str]
 
 class ListPentestsInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1125,6 +1212,17 @@ class NetworkTrafficRuleTypeDef(TypedDict):
     pattern: NotRequired[str]
     networkTrafficRuleType: NotRequired[Literal["URL"]]
 
+class ScopeChangeTypeDef(TypedDict):
+    integrationId: str
+    providerResourceId: str
+    headCommitSha: str
+    baseCommitSha: NotRequired[str]
+    triggerRunId: NotRequired[str]
+
+class ScopeResultTypeDef(TypedDict):
+    decision: ScopeDecisionType
+    reason: str
+
 class SelfManagedInputTypeDef(TypedDict):
     resourceConfigurationId: str
     certificate: NotRequired[str]
@@ -1140,17 +1238,21 @@ class ServiceManagedInputTypeDef(TypedDict):
     certificate: NotRequired[str]
     dnsResolution: NotRequired[ResourceConfigDnsResolutionType]
 
+class ReportFiltersTypeDef(TypedDict):
+    riskLevels: NotRequired[Sequence[RiskLevelType]]
+    confidenceLevels: NotRequired[Sequence[ConfidenceLevelType]]
+    statuses: NotRequired[Sequence[FindingStatusType]]
+    riskTypes: NotRequired[Sequence[RiskTypeType]]
+    findingTypes: NotRequired[Sequence[str]]
+    taskStatuses: NotRequired[Sequence[TaskExecutionStatusType]]
+    annotationNotes: NotRequired[bool]
+    complianceReport: NotRequired[bool]
+
 class StartCodeRemediationInputTypeDef(TypedDict):
     agentSpaceId: str
     findingIds: Sequence[str]
     pentestJobId: NotRequired[str]
     codeReviewJobId: NotRequired[str]
-
-class StartPentestJobInputTypeDef(TypedDict):
-    agentSpaceId: str
-    pentestId: str
-    jobType: NotRequired[JobTypeType]
-    selectedFindingIds: NotRequired[Sequence[str]]
 
 class StartThreatModelJobInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1193,6 +1295,10 @@ class UpdateFindingInputTypeDef(TypedDict):
     reasoning: NotRequired[str]
     status: NotRequired[FindingStatusType]
     customerNote: NotRequired[str]
+
+class UpdateIntegrationInputTypeDef(TypedDict):
+    integrationId: str
+    webhookAction: WebhookActionType
 
 class UpdatePrivateConnectionCertificateInputTypeDef(TypedDict):
     privateConnectionName: str
@@ -1355,6 +1461,7 @@ class GetIntegrationOutputTypeDef(TypedDict):
     displayName: str
     kmsKeyId: str
     targetUrl: str
+    webhookUrl: str
     privateConnectionName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1380,6 +1487,11 @@ class InitiateProviderRegistrationOutputTypeDef(TypedDict):
     redirectTo: str
     csrfState: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListActorMessagesOutputTypeDef(TypedDict):
+    messages: list[ActorMessageTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
@@ -1417,6 +1529,12 @@ class StartThreatModelJobOutputTypeDef(TypedDict):
 
 class UpdateApplicationResponseTypeDef(TypedDict):
     applicationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateIntegrationOutputTypeDef(TypedDict):
+    integrationId: str
+    webhookUrl: str
+    secret: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 UpdatePrivateConnectionCertificateOutputTypeDef = TypedDict(
@@ -1518,6 +1636,9 @@ class BatchGetSecurityRequirementsOutputTypeDef(TypedDict):
 class BatchUpdateSecurityRequirementsInputTypeDef(TypedDict):
     packId: str
     securityRequirements: Sequence[UpdateSecurityRequirementEntryTypeDef]
+
+class TrustedCaCertificateTypeDef(TypedDict):
+    source: CaCertificateSourceTypeDef
 
 class LogLocationTypeDef(TypedDict):
     logType: NotRequired[Literal["CLOUDWATCH"]]
@@ -1684,24 +1805,29 @@ class ProviderInputTypeDef(TypedDict):
     gitlab: NotRequired[GitLabIntegrationInputTypeDef]
     bitbucket: NotRequired[BitbucketIntegrationInputTypeDef]
     confluence: NotRequired[ConfluenceIntegrationInputTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsIntegrationInputTypeDef]
+    bitbucketDataCenter: NotRequired[BitbucketDataCenterIntegrationInputTypeDef]
 
 class IntegratedResourceMetadataTypeDef(TypedDict):
     githubRepository: NotRequired[GitHubRepositoryMetadataTypeDef]
     gitlabRepository: NotRequired[GitLabRepositoryMetadataTypeDef]
     bitbucketRepository: NotRequired[BitbucketRepositoryMetadataTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentMetadataTypeDef]
+    azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryMetadataTypeDef]
 
 class IntegratedResourceTypeDef(TypedDict):
     githubRepository: NotRequired[GitHubRepositoryResourceTypeDef]
     gitlabRepository: NotRequired[GitLabRepositoryResourceTypeDef]
     bitbucketRepository: NotRequired[BitbucketRepositoryResourceTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentResourceTypeDef]
+    azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryResourceTypeDef]
 
 class ProviderResourceCapabilitiesTypeDef(TypedDict):
     github: NotRequired[GitHubResourceCapabilitiesTypeDef]
     gitlab: NotRequired[GitLabResourceCapabilitiesTypeDef]
     bitbucket: NotRequired[BitbucketResourceCapabilitiesTypeDef]
     confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesTypeDef]
 
 class VerificationDetailsTypeDef(TypedDict):
     method: NotRequired[DomainVerificationMethodType]
@@ -1721,6 +1847,12 @@ class ListIntegrationsOutputTypeDef(TypedDict):
     integrationSummaries: list[IntegrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ListActorMessagesInputPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    actorIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAgentSpacesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1795,6 +1927,7 @@ class ListPentestJobTasksInputPaginateTypeDef(TypedDict):
 class ListPentestJobsForPentestInputPaginateTypeDef(TypedDict):
     pentestId: str
     agentSpaceId: str
+    jobType: NotRequired[JobTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPentestsInputPaginateTypeDef(TypedDict):
@@ -1915,9 +2048,18 @@ class NetworkTrafficConfigTypeDef(TypedDict):
     rules: NotRequired[Sequence[NetworkTrafficRuleTypeDef]]
     customHeaders: NotRequired[Sequence[CustomHeaderTypeDef]]
 
+class StartPentestJobInputTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    jobType: NotRequired[JobTypeType]
+    selectedFindingIds: NotRequired[Sequence[str]]
+    scopeChanges: NotRequired[Sequence[ScopeChangeTypeDef]]
+
 class PrivateConnectionModeTypeDef(TypedDict):
     serviceManaged: NotRequired[ServiceManagedInputTypeDef]
     selfManaged: NotRequired[SelfManagedInputTypeDef]
+
+ReportFiltersUnionTypeDef = Union[ReportFiltersTypeDef, ReportFiltersOutputTypeDef]
 
 class VerificationScriptTypeDef(TypedDict):
     scriptType: NotRequired[str]
@@ -2017,6 +2159,7 @@ class AssetsOutputTypeDef(TypedDict):
     documents: NotRequired[list[DocumentInfoTypeDef]]
     sourceCode: NotRequired[list[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
 
 class AssetsTypeDef(TypedDict):
     endpoints: NotRequired[Sequence[EndpointTypeDef]]
@@ -2024,6 +2167,7 @@ class AssetsTypeDef(TypedDict):
     documents: NotRequired[Sequence[DocumentInfoTypeDef]]
     sourceCode: NotRequired[Sequence[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[Sequence[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[Sequence[TrustedCaCertificateTypeDef]]
 
 class CodeReviewJobTypeDef(TypedDict):
     codeReviewJobId: NotRequired[str]
@@ -2041,6 +2185,7 @@ class CodeReviewJobTypeDef(TypedDict):
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2060,6 +2205,7 @@ class ThreatModelJobTypeDef(TypedDict):
     scopeDocs: NotRequired[list[DocumentInfoTypeDef]]
     errorInformation: NotRequired[ErrorInformationTypeDef]
     systemOverview: NotRequired[str]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
 
 CreateIntegrationInputTypeDef = TypedDict(
     "CreateIntegrationInputTypeDef",
@@ -2151,12 +2297,18 @@ class PentestJobTypeDef(TypedDict):
     networkTrafficConfig: NotRequired[NetworkTrafficConfigOutputTypeDef]
     errorInformation: NotRequired[ErrorInformationTypeDef]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
+    trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]
     maxTaskHours: NotRequired[float]
     jobType: NotRequired[JobTypeType]
     selectedFindingIds: NotRequired[list[str]]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportUrl: NotRequired[str]
+    scopeResult: NotRequired[ScopeResultTypeDef]
+    scopeChanges: NotRequired[list[ScopeChangeTypeDef]]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2253,6 +2405,8 @@ class CodeReviewTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersOutputTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2268,6 +2422,8 @@ class CreateCodeReviewOutputTypeDef(TypedDict):
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
     maxTaskHours: float
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePentestOutputTypeDef(TypedDict):
@@ -2280,6 +2436,9 @@ class CreatePentestOutputTypeDef(TypedDict):
     serviceRole: str
     logConfig: CloudWatchLogTypeDef
     agentSpaceId: str
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
+    cicdConfiguration: CiCdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateThreatModelOutputTypeDef(TypedDict):
@@ -2293,6 +2452,7 @@ class CreateThreatModelOutputTypeDef(TypedDict):
     logConfig: CloudWatchLogTypeDef
     createdAt: datetime
     updatedAt: datetime
+    reportDestination: ReportDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PentestTypeDef(TypedDict):
@@ -2309,6 +2469,9 @@ class PentestTypeDef(TypedDict):
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersOutputTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2321,6 +2484,7 @@ class ThreatModelTypeDef(TypedDict):
     scopeDocs: NotRequired[list[DocumentInfoTypeDef]]
     serviceRole: NotRequired[str]
     logConfig: NotRequired[CloudWatchLogTypeDef]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2336,6 +2500,8 @@ class UpdateCodeReviewOutputTypeDef(TypedDict):
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
     maxTaskHours: float
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePentestOutputTypeDef(TypedDict):
@@ -2348,6 +2514,9 @@ class UpdatePentestOutputTypeDef(TypedDict):
     serviceRole: str
     logConfig: CloudWatchLogTypeDef
     agentSpaceId: str
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
+    cicdConfiguration: CiCdConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateThreatModelOutputTypeDef(TypedDict):
@@ -2361,6 +2530,7 @@ class UpdateThreatModelOutputTypeDef(TypedDict):
     logConfig: CloudWatchLogTypeDef
     createdAt: datetime
     updatedAt: datetime
+    reportDestination: ReportDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 AssetsUnionTypeDef = Union[AssetsTypeDef, AssetsOutputTypeDef]
@@ -2434,6 +2604,8 @@ class CreateCodeReviewInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class CreatePentestInputTypeDef(TypedDict):
     title: str
@@ -2447,6 +2619,9 @@ class CreatePentestInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
 
 class CreateThreatModelInputTypeDef(TypedDict):
     title: str
@@ -2468,6 +2643,8 @@ class UpdateCodeReviewInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class UpdatePentestInputTypeDef(TypedDict):
     pentestId: str
@@ -2482,6 +2659,9 @@ class UpdatePentestInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
+    cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
 
 class UpdateThreatModelInputTypeDef(TypedDict):
     threatModelId: str
@@ -2492,3 +2672,4 @@ class UpdateThreatModelInputTypeDef(TypedDict):
     scopeDocs: NotRequired[Sequence[DocumentInfoTypeDef]]
     serviceRole: NotRequired[str]
     logConfig: NotRequired[CloudWatchLogTypeDef]
+    reportDestination: NotRequired[ReportDestinationTypeDef]

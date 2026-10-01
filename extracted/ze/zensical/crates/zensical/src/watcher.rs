@@ -59,7 +59,15 @@ pub struct Watcher {
     /// File agent.
     _agent: Agent,
     /// Debounced source changes.
-    changes: Receiver<Vec<Change<Id, Source>>>,
+    changes: Receiver<Batch>,
+}
+
+/// Source changes and initial discovery completion are delivered together.
+pub struct Batch {
+    /// Debounced source changes.
+    pub changes: Vec<Change<Id, Source>>,
+    /// The initial documentation scan is completed by this batch.
+    pub sources_ready: bool,
 }
 
 /// One physical source root and its provider-relative identity context.
@@ -98,6 +106,36 @@ impl Watcher {
             ));
         }
 
+        // Resolve custom social layout directories before source mounts are
+        // finalized. They may live outside the project root, in which case
+        // they need their own provider-relative identity context.
+        let project_root =
+            config.path.parent().expect("configuration has parent");
+        let social_layout_dirs = config
+            .project
+            .plugins
+            .social
+            .config
+            .iter()
+            .filter(|plugin| plugin.config.enabled)
+            .map(|plugin| {
+                let path = Path::new(&plugin.config.cards_layout_dir);
+                let path = if path.is_absolute() {
+                    path.to_owned()
+                } else {
+                    project_root.join(path)
+                };
+                canonical_or_clone(&path)
+            })
+            .filter(|path| path.is_dir())
+            .collect::<BTreeSet<_>>();
+        for (index, directory) in social_layout_dirs.iter().enumerate() {
+            sources.push(SourceMount::new(
+                directory.clone(),
+                format!("plugins/social/{index}"),
+            ));
+        }
+
         // Add configuration file last, or we might run into overlapping paths.
         // Note that right now, we need to monitor the whole directory. We'll
         // integrate identification generation deeper into the file agent,
@@ -126,6 +164,7 @@ impl Watcher {
         // Normalize watched paths once, so path comparisons stay stable across
         // platforms and watcher backends (notably on Windows).
         let config_path = canonical_or_clone(&config.path);
+        let docs_path = canonical_or_clone(config.docs_root().as_path());
         let theme_dirs = config
             .theme_dirs
             .iter()
@@ -137,18 +176,29 @@ impl Watcher {
             .iter()
             .map(|(path, _)| canonical_or_clone(path))
             .collect::<BTreeSet<_>>();
-
         // Initialize file agent - we use a debounce interval of 20ms, which
         // should be sufficient to correctly determine rename events
         let agent = Agent::new(Duration::from_millis(20), serve, {
             let config = config.clone();
+            let mut discovered = false;
             move |results| {
                 let mut batch = Vec::new();
+                let mut sources_ready = false;
                 for res in results {
                     // For now, we just swallow errors from the file agent.
                     let Ok(event) = res else {
                         continue;
                     };
+
+                    // The root creation event is delivered with its complete
+                    // recursive scan, including when no documents are found.
+                    if !discovered
+                        && matches!(&event, Event::Create { kind: Kind::Folder, path }
+                            if canonical_or_clone(path) == docs_path)
+                    {
+                        discovered = true;
+                        sources_ready = true;
+                    }
 
                     // Skip anything other than files and symbolic links.
                     // Link events allow assets provided via editable installs
@@ -291,8 +341,8 @@ impl Watcher {
                         )
                 });
                 batch.append(&mut generated);
-                if !batch.is_empty() {
-                    changes.send(batch)?;
+                if sources_ready || !batch.is_empty() {
+                    changes.send(Batch { changes: batch, sources_ready })?;
                 }
                 Ok(())
             }
@@ -321,6 +371,13 @@ impl Watcher {
             }
         }
 
+        // Custom social card layouts are runtime inputs, just like Markdown
+        // and assets. Forward their changes into the retained workflow so
+        // cards and metadata can be derived again without restarting serve.
+        for directory in social_layout_dirs {
+            agent.watch(directory)?;
+        }
+
         // Watch files used by extensions
         for root in &config.api.roots {
             agent.watch(root)?;
@@ -345,7 +402,7 @@ impl Watcher {
     /// Receives the next debounced source-change batch.
     pub fn receive(
         &self, timeout: Duration,
-    ) -> std::result::Result<Vec<Change<Id, Source>>, RecvTimeoutError> {
+    ) -> std::result::Result<Batch, RecvTimeoutError> {
         self.changes.recv_timeout(timeout)
     }
 }
@@ -421,6 +478,21 @@ mod tests {
         assert_eq!(id.context(), ".");
         assert_eq!(id.location(), "guide/index.html");
         assert_eq!(id.as_uri().as_str(), "guide/index.html");
+    }
+
+    #[test]
+    fn external_plugin_sources_use_their_own_mount() {
+        let directory = tempdir().unwrap();
+        let layouts = directory.path().join("shared/layouts");
+        fs::create_dir_all(&layouts).unwrap();
+        let file = layouts.join("custom.yml");
+        let sources =
+            [SourceMount::new(layouts, String::from("plugins/social/0"))];
+
+        let id = to_id(&file, &sources).unwrap();
+
+        assert_eq!(id.context(), "plugins/social/0");
+        assert_eq!(id.location(), "custom.yml");
     }
 
     #[cfg(unix)]

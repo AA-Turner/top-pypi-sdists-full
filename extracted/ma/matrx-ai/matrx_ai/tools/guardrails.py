@@ -231,9 +231,12 @@ class GuardrailEngine:
                 )
                 return GuardrailResult(
                     blocked=True,
+                    # The agent is told to relay this to the person, so it names no
+                    # dollar figure (people see points; the package has no points
+                    # unit). The exact numbers are in the budget-block log above.
                     reason=(
-                        f"Estimated cost for '{tool_def.name}' (${tool_def.cost_cap_per_call:.2f}) "
-                        f"exceeds the remaining tree-wide budget for this request (${ctx.cost_budget_remaining:.2f})."
+                        f"Estimated cost for '{tool_def.name}' exceeds the remaining "
+                        "tree-wide budget for this request."
                     ),
                     error_type="cost_budget",
                     suggested_action="Use a less expensive tool or inform the user.",

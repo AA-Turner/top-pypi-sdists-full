@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -33,3 +33,8 @@ class FlashcardsBlockData(BaseModel):
 
     cards: list[FlashcardItem]
     is_complete: bool = False
+    # The set's own ``Title:`` line (before the first card). The text format
+    # had no title slot, so every set written in it was titled by the
+    # adapter's placeholder and saved as a deck named "Flashcards". Excluded
+    # from dumps when unset so untitled sets keep their established payload.
+    title: str | None = Field(default=None, exclude_if=lambda v: v is None)

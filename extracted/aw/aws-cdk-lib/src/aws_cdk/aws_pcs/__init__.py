@@ -1855,6 +1855,9 @@ class CfnComputeNodeGroup(
             ),
             purchase_option="purchaseOption",
             slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                gres_custom_settings=[{
+                    "gres_custom_settings_key": "gresCustomSettings"
+                }],
                 scale_down_idle_time_in_seconds=123,
                 slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                     parameter_name="parameterName",
@@ -2971,6 +2974,7 @@ class CfnComputeNodeGroup(
         jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.SlurmConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "gres_custom_settings": "gresCustomSettings",
             "scale_down_idle_time_in_seconds": "scaleDownIdleTimeInSeconds",
             "slurm_custom_settings": "slurmCustomSettings",
         },
@@ -2979,11 +2983,13 @@ class CfnComputeNodeGroup(
         def __init__(
             self,
             *,
+            gres_custom_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]] = None,
             scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
             slurm_custom_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SlurmCustomSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Additional options related to the Slurm scheduler.
 
+            :param gres_custom_settings: Additional Slurm gres.conf records for the compute node group. Each item is a map of gres.conf attribute names to values describing one gres.conf record (for example a GPU topology, MIG, MPS, or custom GRES entry). AWS PCS adds the NodeName= prefix and merges these records with the GPU record it derives from the instance type.
             :param scale_down_idle_time_in_seconds: The time before an idle node is scaled down.
             :param slurm_custom_settings: Additional Slurm-specific configuration that directly maps to Slurm settings.
 
@@ -2997,6 +3003,9 @@ class CfnComputeNodeGroup(
                 from aws_cdk import aws_pcs as pcs
                 
                 slurm_configuration_property = pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                    gres_custom_settings=[{
+                        "gres_custom_settings_key": "gresCustomSettings"
+                    }],
                     scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                         parameter_name="parameterName",
@@ -3006,13 +3015,27 @@ class CfnComputeNodeGroup(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__33800b7dfb5193bcd6bf17beca91a47b148b0349a0de5c1a62f72612ea620096)
+                check_type(argname="argument gres_custom_settings", value=gres_custom_settings, expected_type=type_hints["gres_custom_settings"])
                 check_type(argname="argument scale_down_idle_time_in_seconds", value=scale_down_idle_time_in_seconds, expected_type=type_hints["scale_down_idle_time_in_seconds"])
                 check_type(argname="argument slurm_custom_settings", value=slurm_custom_settings, expected_type=type_hints["slurm_custom_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if gres_custom_settings is not None:
+                self._values["gres_custom_settings"] = gres_custom_settings
             if scale_down_idle_time_in_seconds is not None:
                 self._values["scale_down_idle_time_in_seconds"] = scale_down_idle_time_in_seconds
             if slurm_custom_settings is not None:
                 self._values["slurm_custom_settings"] = slurm_custom_settings
+
+        @builtins.property
+        def gres_custom_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]]:
+            '''Additional Slurm gres.conf records for the compute node group. Each item is a map of gres.conf attribute names to values describing one gres.conf record (for example a GPU topology, MIG, MPS, or custom GRES entry). AWS PCS adds the NodeName= prefix and merges these records with the GPU record it derives from the instance type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-slurmconfiguration.html#cfn-pcs-computenodegroup-slurmconfiguration-grescustomsettings
+            '''
+            result = self._values.get("gres_custom_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]], result)
 
         @builtins.property
         def scale_down_idle_time_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3305,6 +3328,9 @@ class CfnComputeNodeGroupProps:
                 ),
                 purchase_option="purchaseOption",
                 slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                    gres_custom_settings=[{
+                        "gres_custom_settings_key": "gresCustomSettings"
+                    }],
                     scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
                         parameter_name="parameterName",
@@ -4585,6 +4611,7 @@ def _typecheckingstub__10a0b613063a66aec137ac196ed33210808edf1051b9b7e7511eee66b
 
 def _typecheckingstub__33800b7dfb5193bcd6bf17beca91a47b148b0349a0de5c1a62f72612ea620096(
     *,
+    gres_custom_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]]]] = None,
     scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
     slurm_custom_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SlurmCustomSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:

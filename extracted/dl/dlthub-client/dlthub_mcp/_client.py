@@ -117,6 +117,7 @@ def workspace() -> "Workspace[Sync]":
                 _refused = False
             # Current package
             import dlthub_sdk
+            from dlthub_mcp.version import USER_AGENT
 
             # Injected first, across both names: a config deployed with the
             # code may carry an api_key, and it must not outrank the identity
@@ -142,10 +143,11 @@ def workspace() -> "Workspace[Sync]":
                 )
             # Omitted rather than defaulted here: `connect` owns the default.
             base_url = setting("api_base_url", "RUNTIME__API_BASE_URL")
+            headers = {"User-Agent": USER_AGENT}
             runtime = (
-                dlthub_sdk.connect(token=token, base_url=base_url)
+                dlthub_sdk.connect(token=token, base_url=base_url, headers=headers)
                 if base_url
-                else dlthub_sdk.connect(token=token)
+                else dlthub_sdk.connect(token=token, headers=headers)
             )
             # Read off the environment, not off which source dlt's config drew
             # from: its provider chain feeds the environment in as well.

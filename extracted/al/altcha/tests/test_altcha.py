@@ -1,10 +1,12 @@
+import base64
 import datetime
 import hashlib
 import hmac
+import json
 import time
 import unittest
-import base64
-import json
+from collections.abc import Callable
+
 from altcha.altcha import (
     ChallengeOptions,
     Payload,
@@ -277,6 +279,44 @@ class TestALTCHA(unittest.TestCase):
         result, _ = verify_solution(payload_encoded, self.hmac_key, check_expires=False)
         self.assertFalse(result)
 
+    def _expired_payload_with_salt(
+        self, salt_for: Callable[[str, str], str]
+    ) -> Payload:
+        options = ChallengeOptions(
+            algorithm="SHA-256",
+            max_number=1000,
+            hmac_key=self.hmac_key,
+            expires=datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(minutes=1),
+            number=123,
+        )
+        challenge = create_challenge(options)
+        base, query = challenge.salt.split("?", 1)
+        original = query.split("expires=")[1].rstrip("&")
+        return Payload(
+            algorithm="SHA-256",
+            challenge=challenge.challenge,
+            number=123,
+            salt=salt_for(base, original),
+            signature=challenge.signature,
+        )
+
+    def test_verify_solution_duplicate_expires_rejected(self):
+        future = str(int(time.time()) + 3600)
+        payload = self._expired_payload_with_salt(
+            lambda base, orig: f"{base}?expires={future}&expires={orig}&"
+        )
+        result, _ = verify_solution(payload, self.hmac_key, check_expires=True)
+        self.assertFalse(result)
+
+    def test_verify_solution_reencoded_salt_rejected(self):
+        # A percent-encoded variant of the issued salt must not verify.
+        payload = self._expired_payload_with_salt(
+            lambda base, orig: f"{base}?expires=%{ord(orig[0]):02X}{orig[1:]}&"
+        )
+        result, _ = verify_solution(payload, self.hmac_key, check_expires=False)
+        self.assertFalse(result)
+
     def test_valid_signature(self):
         expire_time = int(time.time()) + 600  # 10 minutes from now
         verification_data = (
@@ -400,13 +440,13 @@ class TestALTCHA(unittest.TestCase):
         self.assertEqual(solution.number, 100, "Solution be 100")
 
     def test_hash_hex(self):
-        result = hash_hex("SHA-256", "testdata".encode())
-        self.assertEqual(result, hashlib.sha256("testdata".encode()).hexdigest())
+        result = hash_hex("SHA-256", b"testdata")
+        self.assertEqual(result, hashlib.sha256(b"testdata").hexdigest())
 
     def test_hmac_hex(self):
-        result = hmac_hex("SHA-256", "testdata".encode(), self.hmac_key)
+        result = hmac_hex("SHA-256", b"testdata", self.hmac_key)
         expected = hmac.new(
-            self.hmac_key.encode(), "testdata".encode(), hashlib.sha256
+            self.hmac_key.encode(), b"testdata", hashlib.sha256
         ).hexdigest()
         self.assertEqual(result, expected)
 

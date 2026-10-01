@@ -24,6 +24,7 @@ from typing import Any, Union
 from .literals import (
     BuildStateType,
     HookStateType,
+    ManagedMicrovmImageVersionStatusType,
     MicrovmImageStateType,
     MicrovmImageVersionStateType,
     MicrovmImageVersionStatusType,
@@ -196,6 +197,7 @@ class ManagedMicrovmImageVersionTypeDef(TypedDict):
     imageArn: str
     imageVersion: str
     createdAt: datetime
+    status: NotRequired[ManagedMicrovmImageVersionStatusType]
     updatedAt: NotRequired[datetime]
 
 class ListManagedMicrovmImagesInputTypeDef(TypedDict):

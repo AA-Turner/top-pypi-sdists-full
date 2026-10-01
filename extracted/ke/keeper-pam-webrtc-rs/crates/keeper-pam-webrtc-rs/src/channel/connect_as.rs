@@ -5,6 +5,7 @@ use hkdf::Hkdf;
 use p256::{ecdh::diffie_hellman, PublicKey as P256PublicKey, SecretKey as P256SecretKey};
 use serde::Deserialize;
 use sha2::Sha256;
+use std::time::Duration;
 
 // Structs for deserializing connect_as JSON payload
 #[derive(Deserialize, Debug, Default)]
@@ -23,6 +24,10 @@ pub(crate) struct ConnectAsUser {
     pub connect_database: Option<String>,
     pub distinguished_name: Option<String>,
     pub(crate) totp: Option<String>,
+    /// STS session token for DynamoDB KeeperDB sessions (PG-459). Only ever
+    /// merged into the KeeperDB credentials blob; never a guacd param.
+    #[serde(alias = "sessiontoken", alias = "sessionToken")]
+    pub(crate) session_token: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -153,28 +158,10 @@ fn encrypt_to_url_param(json: &str, key: &[u8]) -> Option<String> {
     Some(URL_SAFE_NO_PAD.encode(&wire))
 }
 
-/// Patches the `credentials=` base64 JSON blob in a KeeperDB auto-login URL with
-/// ConnectAs-supplied username, password, and/or connect_database. Only fields that
-/// are `Some` are updated; existing values are preserved for `None` fields. Returns
-/// the original URL unchanged if no `credentials=` param is found or decoding fails.
-///
-/// Handles two encoding modes produced by the Python gateway:
-///   - Plain: standard base64 (percent-encoded), `auth_key` is `None`
-///   - Symmetric: AES-256-GCM, URL-safe no-pad base64, `auth_key` is the 32-byte key.
-///     Wire format: `nonce(12) || ciphertext+gcm_tag(16)` matches Python's `_aes_gcm_encrypt`.
-pub(crate) fn patch_keeperdb_url_credentials(
-    url: &str,
-    username: Option<&str>,
-    password: Option<&str>,
-    connect_database: Option<&str>,
-    auth_key: Option<&[u8]>,
-) -> String {
-    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-
-    let (base, query) = match url.split_once('?') {
-        Some(parts) => parts,
-        None => return url.to_string(),
-    };
+/// Splits a KeeperDB auto-login URL into `(base, credentials, other_params)`;
+/// `None` if there is no `credentials=` param.
+fn split_url_credentials(url: &str) -> Option<(&str, &str, Vec<&str>)> {
+    let (base, query) = url.split_once('?')?;
 
     let mut creds_encoded: Option<&str> = None;
     let mut other_params: Vec<&str> = Vec::new();
@@ -186,7 +173,34 @@ pub(crate) fn patch_keeperdb_url_credentials(
         }
     }
 
-    let creds_encoded = match creds_encoded {
+    Some((base, creds_encoded?, other_params))
+}
+
+/// Patches the `credentials=` base64 JSON blob in a KeeperDB auto-login URL with
+/// ConnectAs-supplied username, password, and/or connect_database. Only fields that
+/// are `Some` are updated; existing values are preserved for `None` fields. Returns
+/// the original URL unchanged if no `credentials=` param is found or decoding fails.
+///
+/// `session_token` is written to `advanced_options.session_token` only when the
+/// blob's `advanced_options.driver` is `"dynamodb"`; it is ignored otherwise.
+///
+/// Handles two encoding modes produced by the Python gateway:
+///   - Plain: standard base64 (percent-encoded), `auth_key` is `None`
+///   - Symmetric: AES-256-GCM, URL-safe no-pad base64, `auth_key` is the 32-byte key.
+///     Wire format: `nonce(12) || ciphertext+gcm_tag(16)` matches Python's `_aes_gcm_encrypt`.
+///
+/// Staging the patched blob happens afterwards via [`stage_keeperdb_url_via_handoff`].
+pub(crate) fn patch_keeperdb_url_credentials(
+    url: &str,
+    username: Option<&str>,
+    password: Option<&str>,
+    connect_database: Option<&str>,
+    session_token: Option<&str>,
+    auth_key: Option<&[u8]>,
+) -> String {
+    use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+
+    let (base, creds_encoded, other_params) = match split_url_credentials(url) {
         Some(v) => v,
         None => return url.to_string(),
     };
@@ -237,6 +251,25 @@ pub(crate) fn patch_keeperdb_url_credentials(
     if let Some(db) = connect_database {
         creds["database"] = serde_json::Value::String(db.to_string());
     }
+    if let Some(token) = session_token {
+        match creds
+            .get_mut("advanced_options")
+            .and_then(|opts| opts.as_object_mut())
+        {
+            Some(opts)
+                if opts.get("driver").and_then(|driver| driver.as_str()) == Some("dynamodb") =>
+            {
+                opts.insert(
+                    "session_token".to_string(),
+                    serde_json::Value::String(token.to_string()),
+                );
+            }
+            // Never log the token itself.
+            _ => log::debug!(
+                "ConnectAs session token ignored: KeeperDB credentials blob is not a DynamoDB session"
+            ),
+        }
+    }
 
     let new_json = match serde_json::to_string(&creds) {
         Ok(s) => s,
@@ -266,6 +299,112 @@ pub(crate) fn patch_keeperdb_url_credentials(
         new_query.push_str(param);
     }
     format!("{}?{}", base, new_query)
+}
+
+/// `<scheme>://<authority>/api/auth/handoff`, derived from the Gateway-authored auto-login URL.
+fn derive_handoff_endpoint(url: &str) -> Option<String> {
+    let authority_start = url.find("://")? + 3;
+    let path_start = authority_start + url[authority_start..].find('/')?;
+    Some(format!("{}/api/auth/handoff", &url[..path_start]))
+}
+
+/// `<base>?handoff=<token>&<other params>`, percent-encoding the token like the
+/// Gateway's `quote(token, safe='')`.
+fn build_handoff_url(base: &str, token: &str, other_params: &[&str]) -> String {
+    let mut encoded_token = String::with_capacity(token.len());
+    for byte in token.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded_token.push(*byte as char)
+            }
+            _ => encoded_token.push_str(&format!("%{:02X}", byte)),
+        }
+    }
+    let mut url = format!("{}?handoff={}", base, encoded_token);
+    for param in other_params {
+        url.push('&');
+        url.push_str(param);
+    }
+    url
+}
+
+/// Stages the `credentials=` blob with KeeperDB's handoff endpoint (KDB-183) and
+/// returns the `?handoff=<token>` URL, or `None` to keep the original URL. Mirrors
+/// the Gateway's own pre-stage in `keeperdb_proc.py` (same endpoint, body, timeout).
+/// `auth_key` is only checked for presence: KeeperDB accepts Symmetric-mode blobs only.
+/// Never logs the blob, token, or URL.
+pub(crate) async fn stage_keeperdb_url_via_handoff(
+    url: &str,
+    auth_key: Option<&str>,
+    timeout: Duration,
+    channel_id: &str,
+    conversation_id: &str,
+) -> Option<String> {
+    auth_key?;
+    let (base, creds_value, other_params) = split_url_credentials(url)?;
+    let endpoint = derive_handoff_endpoint(url)?;
+
+    let client = reqwest::Client::new();
+    let response = match client
+        .post(&endpoint)
+        .json(&serde_json::json!({ "credentials": creds_value }))
+        .timeout(timeout)
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(e) => {
+            // Never `{}`-format the reqwest error: its Display includes the URL.
+            let kind = if e.is_timeout() {
+                "timeout"
+            } else if e.is_connect() {
+                "connect"
+            } else {
+                "request"
+            };
+            log::warn!(
+                "KeeperDB handoff staging failed ({}); using ?credentials= URL (channel_id: {}, conversation_id: {})",
+                kind, channel_id, conversation_id
+            );
+            return None;
+        }
+    };
+
+    let status = response.status();
+    if status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::METHOD_NOT_ALLOWED
+    {
+        log::info!(
+            "KeeperDB build does not support handoff ({}); using ?credentials= URL (channel_id: {}, conversation_id: {})",
+            status.as_u16(), channel_id, conversation_id
+        );
+        return None;
+    }
+    if !status.is_success() {
+        log::warn!(
+            "KeeperDB handoff staging returned HTTP {}; using ?credentials= URL (channel_id: {}, conversation_id: {})",
+            status.as_u16(), channel_id, conversation_id
+        );
+        return None;
+    }
+
+    let body: Option<serde_json::Value> = response.json().await.ok();
+    let token = match body.as_ref().and_then(|b| b.get("token")?.as_str()) {
+        Some(t) if !t.is_empty() => t,
+        _ => {
+            log::warn!(
+                "KeeperDB handoff staging response carried no token; using ?credentials= URL (channel_id: {}, conversation_id: {})",
+                channel_id, conversation_id
+            );
+            return None;
+        }
+    };
+
+    log::debug!(
+        "KeeperDB credentials staged via handoff (channel_id: {}, conversation_id: {})",
+        channel_id,
+        conversation_id
+    );
+    Some(build_handoff_url(base, token, &other_params))
 }
 
 #[cfg(test)]
@@ -320,6 +459,7 @@ mod tests {
             Some("s3cr3t"),
             Some("mydb"),
             None,
+            None,
         );
         let creds = decode_credentials(&patched);
         assert_eq!(creds["username"], "dbuser");
@@ -330,7 +470,8 @@ mod tests {
     #[test]
     fn patch_only_updates_some_fields() {
         let url = make_url("orig_user", "orig_pass", "orig_db");
-        let patched = patch_keeperdb_url_credentials(&url, Some("new_user"), None, None, None);
+        let patched =
+            patch_keeperdb_url_credentials(&url, Some("new_user"), None, None, None, None);
         let creds = decode_credentials(&patched);
         assert_eq!(creds["username"], "new_user");
         assert_eq!(creds["password"], "orig_pass");
@@ -340,7 +481,7 @@ mod tests {
     #[test]
     fn patch_preserves_other_query_params() {
         let url = make_url("", "", "");
-        let patched = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None);
+        let patched = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None, None);
         let query = patched.split_once('?').unwrap().1;
         let params: Vec<&str> = query.split('&').collect();
         assert!(params.contains(&"login"));
@@ -352,7 +493,7 @@ mod tests {
     #[test]
     fn patch_preserves_non_credential_json_fields() {
         let url = make_url("", "", "");
-        let patched = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None);
+        let patched = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None, None);
         let creds = decode_credentials(&patched);
         assert_eq!(creds["type"], "Postgres");
         assert_eq!(creds["host"], "db.example.com");
@@ -362,28 +503,28 @@ mod tests {
     #[test]
     fn patch_no_credentials_param_returns_url_unchanged() {
         let url = "http://127.0.0.1:8080/login?login&mode=dark&theme=dark&os=mac";
-        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None);
+        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None, None);
         assert_eq!(result, url);
     }
 
     #[test]
     fn patch_no_query_string_returns_url_unchanged() {
         let url = "http://127.0.0.1:8080/login";
-        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None);
+        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None, None);
         assert_eq!(result, url);
     }
 
     #[test]
     fn patch_invalid_base64_returns_url_unchanged() {
         let url = "http://127.0.0.1:8080/login?credentials=not-valid-base64!!!&mode=dark";
-        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None);
+        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None, None);
         assert_eq!(result, url);
     }
 
     #[test]
     fn patch_empty_credentials_value_returns_url_unchanged() {
         let url = "http://127.0.0.1:8080/login?credentials=&login&mode=dark";
-        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None);
+        let result = patch_keeperdb_url_credentials(url, Some("u"), Some("p"), None, None, None);
         assert_eq!(result, url);
     }
 
@@ -399,14 +540,14 @@ mod tests {
             "http://127.0.0.1:8080/login?credentials={}&mode=dark",
             encoded
         );
-        let result = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None);
+        let result = patch_keeperdb_url_credentials(&url, Some("u"), Some("p"), None, None, None);
         assert_eq!(result, url);
     }
 
     #[test]
     fn patch_all_none_returns_url_with_original_credentials() {
         let url = make_url("orig_user", "orig_pass", "orig_db");
-        let patched = patch_keeperdb_url_credentials(&url, None, None, None, None);
+        let patched = patch_keeperdb_url_credentials(&url, None, None, None, None, None);
         let creds = decode_credentials(&patched);
         assert_eq!(creds["username"], "orig_user");
         assert_eq!(creds["password"], "orig_pass");
@@ -436,6 +577,7 @@ mod tests {
             ca_username.as_deref(),
             ca_password.as_deref(),
             ca_connect_database.as_deref(),
+            None,
             None,
         );
 
@@ -538,6 +680,7 @@ mod tests {
             Some("root"),
             Some("s3cr3t!"),
             Some("mydb"),
+            None,
             Some(&key),
         );
         assert_ne!(
@@ -614,5 +757,460 @@ mod tests {
         let param = URL_SAFE_NO_PAD.encode(&wire);
         // Exceeds the inflate cap -> None (patch leaves the URL unchanged).
         assert!(decrypt_and_parse(&param, Some(&key)).is_none());
+    }
+
+    // --- DynamoDB session token (PG-459) ---
+
+    fn make_url_from_json(creds: serde_json::Value) -> String {
+        let encoded = BASE64_STANDARD
+            .encode(creds.to_string().as_bytes())
+            .replace('+', "%2B")
+            .replace('/', "%2F")
+            .replace('=', "%3D");
+        format!(
+            "http://127.0.0.1:8080/login?credentials={}&login&mode=dark",
+            encoded
+        )
+    }
+
+    fn dynamodb_creds() -> serde_json::Value {
+        serde_json::json!({
+            "type": "DynamoDB",
+            "username": "",
+            "password": "",
+            "host": "dynamodb.us-east-1.amazonaws.com",
+            "advanced_options": {"driver": "dynamodb"}
+        })
+    }
+
+    #[test]
+    fn patch_merges_session_token_into_dynamodb_advanced_options() {
+        let url = make_url_from_json(dynamodb_creds());
+        let patched = patch_keeperdb_url_credentials(
+            &url,
+            Some("AKIAEXAMPLE"),
+            Some("secret-key"),
+            None,
+            Some("sts-session-token"),
+            None,
+        );
+        let creds = decode_credentials(&patched);
+        assert_eq!(creds["username"], "AKIAEXAMPLE");
+        assert_eq!(creds["password"], "secret-key");
+        assert_eq!(creds["advanced_options"]["driver"], "dynamodb");
+        assert_eq!(
+            creds["advanced_options"]["session_token"],
+            "sts-session-token"
+        );
+        // Never leaks to the top level of the blob.
+        assert!(creds.get("session_token").is_none());
+    }
+
+    #[test]
+    fn patch_session_token_overrides_existing_and_keeps_other_options() {
+        let mut blob = dynamodb_creds();
+        blob["advanced_options"]["session_token"] = "stale".into();
+        blob["advanced_options"]["endpoint_url"] = "http://localhost:4566".into();
+        let url = make_url_from_json(blob);
+        let patched = patch_keeperdb_url_credentials(&url, None, None, None, Some("fresh"), None);
+        let creds = decode_credentials(&patched);
+        assert_eq!(creds["advanced_options"]["session_token"], "fresh");
+        assert_eq!(
+            creds["advanced_options"]["endpoint_url"],
+            "http://localhost:4566"
+        );
+    }
+
+    #[test]
+    fn patch_encrypted_dynamodb_blob_merges_session_token() {
+        let key = [11u8; 32];
+        let url = format!(
+            "http://127.0.0.1:8080/login?credentials={}&login",
+            encrypt_to_url_param(&dynamodb_creds().to_string(), &key).unwrap()
+        );
+        let patched = patch_keeperdb_url_credentials(
+            &url,
+            Some("AKIAEXAMPLE"),
+            Some("secret-key"),
+            None,
+            Some("sts-session-token"),
+            Some(&key),
+        );
+        let creds = decrypt_and_parse(&creds_param(&patched), Some(&key)).unwrap();
+        assert_eq!(creds["username"], "AKIAEXAMPLE");
+        assert_eq!(
+            creds["advanced_options"]["session_token"],
+            "sts-session-token"
+        );
+    }
+
+    #[test]
+    fn patch_ignores_session_token_for_non_dynamodb_driver() {
+        let url = make_url_from_json(serde_json::json!({
+            "type": "MSSQL",
+            "username": "",
+            "advanced_options": {"driver": "mssql", "auth_mode": "aad_token"}
+        }));
+        let patched = patch_keeperdb_url_credentials(&url, None, None, None, Some("tok"), None);
+        let creds = decode_credentials(&patched);
+        assert!(creds["advanced_options"].get("session_token").is_none());
+        assert_eq!(creds["advanced_options"]["driver"], "mssql");
+    }
+
+    #[test]
+    fn patch_ignores_session_token_without_advanced_options() {
+        let url = make_url("", "", "");
+        let patched = patch_keeperdb_url_credentials(&url, None, None, None, Some("tok"), None);
+        let creds = decode_credentials(&patched);
+        assert!(creds.get("advanced_options").is_none());
+        assert!(creds.get("session_token").is_none());
+    }
+
+    #[test]
+    fn connect_as_user_deserializes_session_token_aliases() {
+        let a: ConnectAsUser = serde_json::from_str(r#"{"sessionToken":"camel"}"#).unwrap();
+        assert_eq!(a.session_token.as_deref(), Some("camel"));
+        let b: ConnectAsUser = serde_json::from_str(r#"{"sessiontoken":"joined"}"#).unwrap();
+        assert_eq!(b.session_token.as_deref(), Some("joined"));
+        let c: ConnectAsUser = serde_json::from_str(r#"{"session_token":"snake"}"#).unwrap();
+        assert_eq!(c.session_token.as_deref(), Some("snake"));
+        let d: ConnectAsUser = serde_json::from_str(r#"{"username":"u"}"#).unwrap();
+        assert!(d.session_token.is_none());
+    }
+
+    // --- KeeperDB handoff staging (PG-459) ---
+    //
+    // Mock server: a raw `tokio::net::TcpListener` on 127.0.0.1:0 (no
+    // axum/wiremock — not a dependency of this crate). Accepts one
+    // connection, reads the request (headers + `Content-Length` body),
+    // captures it, writes a canned HTTP/1.1 response, closes.
+
+    /// Reads one HTTP/1.1 request (headers + `Content-Length` body) off `stream`
+    /// and returns the raw bytes.
+    async fn read_http_request(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
+        use tokio::io::AsyncReadExt;
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let mut headers_end = None;
+        loop {
+            let n = stream.read(&mut chunk).await.unwrap();
+            if n == 0 {
+                break;
+            }
+            buf.extend_from_slice(&chunk[..n]);
+            if headers_end.is_none() {
+                headers_end = buf
+                    .windows(4)
+                    .position(|w| w == b"\r\n\r\n")
+                    .map(|pos| pos + 4);
+            }
+            if let Some(end) = headers_end {
+                let content_length = String::from_utf8_lossy(&buf[..end])
+                    .lines()
+                    .find_map(|l| {
+                        l.to_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().to_string())
+                    })
+                    .and_then(|v| v.parse::<usize>().ok())
+                    .unwrap_or(0);
+                if buf.len() >= end + content_length {
+                    break;
+                }
+            }
+        }
+        buf
+    }
+
+    /// Parses a captured raw HTTP/1.1 request into `(method, path, json_body)`.
+    fn parse_mock_request(raw: &[u8]) -> (String, String, serde_json::Value) {
+        let text = String::from_utf8_lossy(raw);
+        let header_end = text.find("\r\n\r\n").expect("no header/body separator");
+        let request_line = text[..header_end]
+            .lines()
+            .next()
+            .expect("empty request line");
+        let mut parts = request_line.split_whitespace();
+        let method = parts.next().unwrap().to_string();
+        let path = parts.next().unwrap().to_string();
+        let body: serde_json::Value = serde_json::from_str(&text[header_end + 4..]).unwrap();
+        (method, path, body)
+    }
+
+    /// A canned `200 OK` HTTP/1.1 response with a JSON body.
+    fn http_200_json(body: &str) -> String {
+        format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        )
+    }
+
+    /// A canned HTTP/1.1 response with the given status and no body.
+    fn http_status(code: u16, reason: &str) -> String {
+        format!("HTTP/1.1 {} {}\r\nContent-Length: 0\r\n\r\n", code, reason)
+    }
+
+    /// Binds a mock handoff server on `127.0.0.1:0`, accepts exactly one
+    /// connection, captures the raw request, writes `response`, and closes.
+    /// Returns the bound port and a `JoinHandle` resolving to the captured
+    /// request bytes once the exchange completes. Shared by every test below
+    /// so the mock-server plumbing lives in one place.
+    async fn spawn_mock_handoff_server(
+        response: String,
+    ) -> (u16, tokio::task::JoinHandle<Vec<u8>>) {
+        use tokio::io::AsyncWriteExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let raw = read_http_request(&mut stream).await;
+            stream.write_all(response.as_bytes()).await.unwrap();
+            let _ = stream.shutdown().await;
+            raw
+        });
+        (port, handle)
+    }
+
+    /// Binds a listener that accepts a connection but never responds
+    /// (simulates a KeeperDB build that accepts the TCP connection and hangs)
+    /// — used for the timeout scenario. Returns the port; the accept task is
+    /// aborted by the caller once the test is done with it.
+    async fn spawn_accept_only_listener() -> (u16, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = tokio::spawn(async move {
+            let (_stream, _) = listener.accept().await.unwrap();
+            // Accept the connection but never respond or close — the caller's
+            // request should time out.
+            std::future::pending::<()>().await
+        });
+        (port, handle)
+    }
+
+    /// Stages `url` in Symmetric mode with the production timeout.
+    async fn stage(url: &str) -> Option<String> {
+        stage_keeperdb_url_via_handoff(
+            url,
+            Some("auth-key"),
+            Duration::from_secs(5),
+            "chan",
+            "conv",
+        )
+        .await
+    }
+
+    /// Builds an encrypted `credentials=` param and the full login URL around
+    /// it, given a mock server port and the trailing params to keep.
+    fn staged_url(port: u16, key: &[u8; 32], trailing: &str) -> (String, String) {
+        let creds_param =
+            encrypt_to_url_param(&serde_json::json!({"type": "Postgres"}).to_string(), key)
+                .unwrap();
+        (
+            format!(
+                "http://127.0.0.1:{}/login?credentials={}{}",
+                port, creds_param, trailing
+            ),
+            creds_param,
+        )
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_success_rewrites_url_and_posts_exact_blob() {
+        let key = [42u8; 32];
+        let (port, handle) =
+            spawn_mock_handoff_server(http_200_json(r#"{"token":"tok_123"}"#)).await;
+        let (url, creds_param) = staged_url(port, &key, "&login&mode=dark&theme=dark&os=mac");
+
+        let result = stage(&url).await.expect("expected a staged URL");
+
+        assert_eq!(
+            result,
+            format!(
+                "http://127.0.0.1:{}/login?handoff=tok_123&login&mode=dark&theme=dark&os=mac",
+                port
+            )
+        );
+
+        let raw = handle.await.unwrap();
+        let (method, path, body) = parse_mock_request(&raw);
+        assert_eq!(method, "POST");
+        assert_eq!(path, "/api/auth/handoff");
+        assert_eq!(body["credentials"], creds_param);
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_percent_encodes_reserved_chars_in_token() {
+        let key = [1u8; 32];
+        let (port, _handle) =
+            spawn_mock_handoff_server(http_200_json(r#"{"token":"a+b/c="}"#)).await;
+        let (url, _) = staged_url(port, &key, "&login");
+
+        let result = stage(&url).await.expect("expected a staged URL");
+
+        assert_eq!(
+            result,
+            format!("http://127.0.0.1:{}/login?handoff=a%2Bb%2Fc%3D&login", port)
+        );
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_non_200_status_keeps_original_url() {
+        let key = [2u8; 32];
+        for (code, reason) in [
+            (405, "Method Not Allowed"),
+            (404, "Not Found"),
+            (500, "Internal Server Error"),
+        ] {
+            let (port, _handle) = spawn_mock_handoff_server(http_status(code, reason)).await;
+            let (url, _) = staged_url(port, &key, "&login");
+
+            let result = stage(&url).await;
+            assert!(
+                result.is_none(),
+                "HTTP {} should keep the original URL",
+                code
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_bad_response_body_keeps_original_url() {
+        let key = [10u8; 32];
+        let non_json_body = "not json";
+        let non_json_response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}",
+            non_json_body.len(),
+            non_json_body
+        );
+        for response in [
+            http_200_json("{}"),
+            http_200_json(r#"{"token":""}"#),
+            non_json_response,
+        ] {
+            let (port, _handle) = spawn_mock_handoff_server(response).await;
+            let (url, _) = staged_url(port, &key, "&login");
+
+            let result = stage(&url).await;
+            assert!(
+                result.is_none(),
+                "bad response body should keep the original URL"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_connection_refused_returns_promptly() {
+        // Bind then immediately drop, so nothing is listening on this port.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+
+        let url = format!("http://127.0.0.1:{}/login?credentials=anything&login", port);
+
+        let start = std::time::Instant::now();
+        let result = stage(&url).await;
+        assert!(result.is_none());
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "connection-refused should fail promptly, not wait out the timeout"
+        );
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_times_out_without_waiting_full_timeout() {
+        let (port, accept_handle) = spawn_accept_only_listener().await;
+        let url = format!("http://127.0.0.1:{}/login?credentials=anything&login", port);
+
+        let start = std::time::Instant::now();
+        let result = stage_keeperdb_url_via_handoff(
+            &url,
+            Some("auth-key"),
+            Duration::from_millis(200),
+            "chan",
+            "conv",
+        )
+        .await;
+        let elapsed = start.elapsed();
+        assert!(result.is_none());
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "must respect the caller-supplied timeout, not the production 5s default"
+        );
+        accept_handle.abort();
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_nothing_to_stage_makes_no_request() {
+        // (query string, auth key): already-handoff form (Gateway pre-staged,
+        // e.g. Entra), no query string, no `credentials=` key, and Plain mode.
+        let cases = [
+            ("?handoff=already-staged&login", Some("auth-key")),
+            ("", Some("auth-key")),
+            ("?login&mode=dark", Some("auth-key")),
+            ("?credentials=anything&login", None),
+        ];
+        for (query, auth_key) in cases {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let accept_handle = tokio::spawn(async move { listener.accept().await });
+            let url = format!("http://127.0.0.1:{}/login{}", port, query);
+
+            let result = stage_keeperdb_url_via_handoff(
+                &url,
+                auth_key,
+                Duration::from_secs(5),
+                "chan",
+                "conv",
+            )
+            .await;
+            assert!(result.is_none());
+            assert!(
+                !accept_handle.is_finished(),
+                "no connection should have been attempted for {}",
+                query
+            );
+            accept_handle.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn stage_handoff_full_chain_dynamodb_session_token() {
+        let key = [77u8; 32];
+        let (port, handle) =
+            spawn_mock_handoff_server(http_200_json(r#"{"token":"tok_chain"}"#)).await;
+        let base_creds_param = encrypt_to_url_param(&dynamodb_creds().to_string(), &key).unwrap();
+        let base_url = format!(
+            "http://127.0.0.1:{}/login?credentials={}&login",
+            port, base_creds_param
+        );
+
+        // Merge ConnectAs values (as protocol.rs does) before staging.
+        let patched_url = patch_keeperdb_url_credentials(
+            &base_url,
+            Some("AKIAEXAMPLE"),
+            Some("secret-key"),
+            None,
+            Some("sts-session-token"),
+            Some(&key),
+        );
+
+        let result = stage(&patched_url).await.expect("expected a staged URL");
+        assert_eq!(
+            result,
+            format!("http://127.0.0.1:{}/login?handoff=tok_chain&login", port)
+        );
+
+        let raw = handle.await.unwrap();
+        let (_, _, body) = parse_mock_request(&raw);
+        let posted_creds_param = body["credentials"].as_str().unwrap();
+        let decrypted = decrypt_and_parse(posted_creds_param, Some(&key)).unwrap();
+        assert_eq!(decrypted["username"], "AKIAEXAMPLE");
+        assert_eq!(decrypted["password"], "secret-key");
+        assert_eq!(
+            decrypted["advanced_options"]["session_token"],
+            "sts-session-token"
+        );
+        assert_eq!(decrypted["advanced_options"]["driver"], "dynamodb");
     }
 }

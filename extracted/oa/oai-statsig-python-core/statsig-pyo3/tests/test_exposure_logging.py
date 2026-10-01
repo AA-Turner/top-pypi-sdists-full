@@ -277,6 +277,34 @@ def test_bulk_evaluate_delays_gate_exposure_until_token_logged(statsig_setup):
     assert events[0]["metadata"]["gate"] == "test_public"
 
 
+def test_bulk_evaluate_delays_dynamic_config_exposure_until_token_logged(statsig_setup):
+    statsig, mock_scrapi = statsig_setup
+    name = "test_custom_config"
+    result = statsig.bulk_evaluate(
+        StatsigUser("my_user"),
+        BulkEvaluationOptions(
+            feature_gate_filter=[],
+            dynamic_config_filter=[name],
+            experiment_filter=[],
+            layer_filter=[],
+        ),
+    )
+    config = result["dynamic_configs"][name]
+    assert config["value"]["header_text"] == "old user test"
+    token = config["exposureToken"]
+    assert token is not None
+
+    statsig.flush_events().wait()
+    assert mock_scrapi.get_logged_events() == []
+    assert statsig.log_delayed_exposure(token) is True
+    assert statsig.log_delayed_exposure(token) is False
+    statsig.flush_events().wait()
+    events = mock_scrapi.get_logged_events()
+    assert len(events) == 1
+    assert events[0]["eventName"] == "statsig::config_exposure"
+    assert events[0]["metadata"]["config"] == name
+
+
 def test_bulk_evaluate_release_drops_gate_token(statsig_setup):
     statsig, mock_scrapi = statsig_setup
 

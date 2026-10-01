@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uvloop
-Version: 0.22.1
+Version: 0.23.0
 Summary: Fast implementation of asyncio event loop on top of libuv
 Author-email: Yury Selivanov <yury@magic.io>
 License: MIT License
@@ -31,11 +31,13 @@ Requires-Dist: aiohttp>=3.10.5; extra == "test"
 Requires-Dist: flake8~=6.1; extra == "test"
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: pycodestyle~=2.11.0; extra == "test"
-Requires-Dist: pyOpenSSL~=25.3.0; extra == "test"
+Requires-Dist: pyOpenSSL~=25.3.0; python_version < "3.9" and extra == "test"
+Requires-Dist: pyOpenSSL~=26.4.0; python_version >= "3.9" and extra == "test"
 Requires-Dist: mypy>=0.800; extra == "test"
 Provides-Extra: dev
+Requires-Dist: packaging>=20; extra == "dev"
 Requires-Dist: setuptools>=60; extra == "dev"
-Requires-Dist: Cython~=3.0; extra == "dev"
+Requires-Dist: Cython~=3.1; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: Sphinx~=4.1.2; extra == "docs"
 Requires-Dist: sphinxcontrib-asyncio~=0.3.0; extra == "docs"

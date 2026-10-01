@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_connect.type_defs import ActionSummaryTypeDef
+    from types_aiobotocore_connect.type_defs import AIAgentTypeDef
 
-    data: ActionSummaryTypeDef = ...
+    data: AIAgentTypeDef = ...
     ```
 """
 
@@ -39,8 +39,10 @@ from .literals import (
     BehaviorTypeType,
     BooleanComparisonTypeType,
     ChannelType,
+    ChannelWorkloadBehaviorTypeType,
     ChatEventTypeType,
     ConfigurableNotificationPriorityType,
+    ConnectionTypeType,
     ContactFieldType,
     ContactFlowModuleStateType,
     ContactFlowModuleStatusType,
@@ -65,6 +67,7 @@ from .literals import (
     EmailHeaderTypeType,
     EndpointTypeType,
     EntityTypeType,
+    EvaluationFormAIVersionStatusType,
     EvaluationFormItemEnablementActionType,
     EvaluationFormItemEnablementOperatorType,
     EvaluationFormItemSourceValuesComparatorType,
@@ -141,6 +144,7 @@ from .literals import (
     QueueStatusType,
     QueueTypeType,
     QuickConnectTypeType,
+    RealTimeContactAnalysisExtractedInformationFailureCodeType,
     RealTimeContactAnalysisOutputTypeType,
     RealTimeContactAnalysisPostContactSummaryFailureCodeType,
     RealTimeContactAnalysisPostContactSummaryStatusType,
@@ -194,6 +198,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AIAgentTypeDef",
     "ActionSummaryTypeDef",
     "ActivateEvaluationFormRequestTypeDef",
     "ActivateEvaluationFormResponseTypeDef",
@@ -331,7 +336,9 @@ __all__ = (
     "CommonAttributeAndConditionTypeDef",
     "CompleteAttachedFileUploadRequestTypeDef",
     "ConditionTypeDef",
+    "ConnectionCredentialsTypeDef",
     "ConnectionDataTypeDef",
+    "ContactAnalysisReferenceTypeDef",
     "ContactAnalysisTypeDef",
     "ContactConfigurationTypeDef",
     "ContactDataRequestTypeDef",
@@ -460,6 +467,7 @@ __all__ = (
     "CreatedByInfoTypeDef",
     "CredentialsTypeDef",
     "CrossChannelBehaviorTypeDef",
+    "CrossChannelWorkloadBehaviorTypeDef",
     "CurrentMetricDataTypeDef",
     "CurrentMetricResultTypeDef",
     "CurrentMetricSortCriteriaTypeDef",
@@ -658,6 +666,8 @@ __all__ = (
     "EvaluationAutomationRuleCategoryTypeDef",
     "EvaluationContactLensAnswerAnalysisDetailsTypeDef",
     "EvaluationContactParticipantTypeDef",
+    "EvaluationFormAIVersionLifecycleTypeDef",
+    "EvaluationFormAIVersionSummaryTypeDef",
     "EvaluationFormAutoEvaluationConfigurationTypeDef",
     "EvaluationFormContentTypeDef",
     "EvaluationFormItemEnablementConditionOperandOutputTypeDef",
@@ -678,6 +688,7 @@ __all__ = (
     "EvaluationFormItemTypeDef",
     "EvaluationFormItemUnionTypeDef",
     "EvaluationFormLanguageConfigurationTypeDef",
+    "EvaluationFormMetricConfigurationTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionTypeDef",
     "EvaluationFormMultiSelectQuestionAutomationOptionUnionTypeDef",
@@ -792,6 +803,8 @@ __all__ = (
     "GetContactAttributesResponseTypeDef",
     "GetContactMetricsRequestTypeDef",
     "GetContactMetricsResponseTypeDef",
+    "GetCrossRegionRoutingRequestTypeDef",
+    "GetCrossRegionRoutingResponseTypeDef",
     "GetCurrentMetricDataRequestTypeDef",
     "GetCurrentMetricDataResponseTypeDef",
     "GetCurrentUserDataRequestTypeDef",
@@ -933,6 +946,9 @@ __all__ = (
     "ListEntitySecurityProfilesRequestPaginateTypeDef",
     "ListEntitySecurityProfilesRequestTypeDef",
     "ListEntitySecurityProfilesResponseTypeDef",
+    "ListEvaluationFormAIVersionsRequestPaginateTypeDef",
+    "ListEvaluationFormAIVersionsRequestTypeDef",
+    "ListEvaluationFormAIVersionsResponseTypeDef",
     "ListEvaluationFormVersionsRequestPaginateTypeDef",
     "ListEvaluationFormVersionsRequestTypeDef",
     "ListEvaluationFormVersionsResponseTypeDef",
@@ -1015,6 +1031,9 @@ __all__ = (
     "ListSecurityKeysRequestPaginateTypeDef",
     "ListSecurityKeysRequestTypeDef",
     "ListSecurityKeysResponseTypeDef",
+    "ListSecurityProfileAIAgentsRequestPaginateTypeDef",
+    "ListSecurityProfileAIAgentsRequestTypeDef",
+    "ListSecurityProfileAIAgentsResponseTypeDef",
     "ListSecurityProfileApplicationsRequestPaginateTypeDef",
     "ListSecurityProfileApplicationsRequestTypeDef",
     "ListSecurityProfileApplicationsResponseTypeDef",
@@ -1076,7 +1095,9 @@ __all__ = (
     "MatchCriteriaOutputTypeDef",
     "MatchCriteriaTypeDef",
     "MatchCriteriaUnionTypeDef",
+    "MediaConcurrencyOutputTypeDef",
     "MediaConcurrencyTypeDef",
+    "MediaConcurrencyUnionTypeDef",
     "MediaItemTypeDef",
     "MediaPlacementTypeDef",
     "MeetingFeaturesConfigurationTypeDef",
@@ -1161,6 +1182,10 @@ __all__ = (
     "PhoneNumberStatusTypeDef",
     "PhoneNumberSummaryTypeDef",
     "PostAcceptTimeoutConfigTypeDef",
+    "PreEvaluationFilterTypeDef",
+    "PreEvaluationFiltersOutputTypeDef",
+    "PreEvaluationFiltersTypeDef",
+    "PreEvaluationFiltersUnionTypeDef",
     "PredefinedAttributeConfigurationTypeDef",
     "PredefinedAttributeSearchCriteriaPaginatorTypeDef",
     "PredefinedAttributeSearchCriteriaTypeDef",
@@ -1209,11 +1234,13 @@ __all__ = (
     "RealTimeContactAnalysisAttachmentTypeDef",
     "RealTimeContactAnalysisCategoryDetailsTypeDef",
     "RealTimeContactAnalysisCharacterIntervalTypeDef",
+    "RealTimeContactAnalysisExtractedInformationValueTypeDef",
     "RealTimeContactAnalysisIssueDetectedTypeDef",
     "RealTimeContactAnalysisPointOfInterestTypeDef",
     "RealTimeContactAnalysisSegmentAttachmentsTypeDef",
     "RealTimeContactAnalysisSegmentCategoriesTypeDef",
     "RealTimeContactAnalysisSegmentEventTypeDef",
+    "RealTimeContactAnalysisSegmentExtractedInformationTypeDef",
     "RealTimeContactAnalysisSegmentIssuesTypeDef",
     "RealTimeContactAnalysisSegmentPostContactSummaryTypeDef",
     "RealTimeContactAnalysisSegmentTranscriptTypeDef",
@@ -1381,6 +1408,9 @@ __all__ = (
     "SegmentAttributeValueUnionTypeDef",
     "SendChatIntegrationEventRequestTypeDef",
     "SendChatIntegrationEventResponseTypeDef",
+    "SendInAppNotificationActionDefinitionOutputTypeDef",
+    "SendInAppNotificationActionDefinitionTypeDef",
+    "SendInAppNotificationActionDefinitionUnionTypeDef",
     "SendNotificationActionDefinitionOutputTypeDef",
     "SendNotificationActionDefinitionTypeDef",
     "SendNotificationActionDefinitionUnionTypeDef",
@@ -1508,6 +1538,7 @@ __all__ = (
     "UpdateContactRoutingDataRequestTypeDef",
     "UpdateContactScheduleRequestTypeDef",
     "UpdateContactTaskTemplateRequestTypeDef",
+    "UpdateCrossRegionRoutingRequestTypeDef",
     "UpdateDataTableAttributeRequestTypeDef",
     "UpdateDataTableAttributeResponseTypeDef",
     "UpdateDataTableMetadataRequestTypeDef",
@@ -1614,8 +1645,10 @@ __all__ = (
     "VoiceRecordingConfigurationTypeDef",
     "WebNotificationContentTypeDef",
     "WebNotificationSourceTypeDef",
+    "WebsocketTypeDef",
     "WidgetDestinationTypeDef",
     "WisdomInfoTypeDef",
+    "WorkloadTypeConcurrencyTypeDef",
     "WorkspaceAssociationSearchCriteriaPaginatorTypeDef",
     "WorkspaceAssociationSearchCriteriaTypeDef",
     "WorkspaceAssociationSearchFilterTypeDef",
@@ -1632,6 +1665,14 @@ __all__ = (
     "WorkspaceThemeTypeDef",
     "WorkspaceThemeTypographyTypeDef",
     "WorkspaceTypeDef",
+)
+
+AIAgentTypeDef = TypedDict(
+    "AIAgentTypeDef",
+    {
+        "Arn": NotRequired[str],
+        "Type": NotRequired[Literal["THIRD_PARTY"]],
+    },
 )
 
 class ActionSummaryTypeDef(TypedDict):
@@ -2141,6 +2182,18 @@ NumberConditionTypeDef = TypedDict(
     },
 )
 
+class ConnectionCredentialsTypeDef(TypedDict):
+    ConnectionToken: NotRequired[str]
+    Expiry: NotRequired[str]
+
+class ContactAnalysisReferenceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    Status: NotRequired[ReferenceStatusType]
+    Arn: NotRequired[str]
+    AnalyticsMode: NotRequired[AnalyticsModeType]
+    IsRedacted: NotRequired[bool]
+
 class ContactConfigurationTypeDef(TypedDict):
     ContactId: str
     ParticipantRole: NotRequired[ParticipantRoleType]
@@ -2549,6 +2602,9 @@ CrossChannelBehaviorTypeDef = TypedDict(
         "BehaviorType": BehaviorTypeType,
     },
 )
+
+class CrossChannelWorkloadBehaviorTypeDef(TypedDict):
+    ChannelWorkloadBehaviorType: NotRequired[ChannelWorkloadBehaviorTypeType]
 
 class CurrentMetricTypeDef(TypedDict):
     Name: NotRequired[CurrentMetricNameType]
@@ -3114,6 +3170,11 @@ class EvaluationContactParticipantTypeDef(TypedDict):
     ContactParticipantRole: NotRequired[ContactParticipantRoleType]
     ContactParticipantId: NotRequired[str]
 
+class EvaluationFormAIVersionLifecycleTypeDef(TypedDict):
+    Status: EvaluationFormAIVersionStatusType
+    StartOfLifeTime: datetime
+    EndOfLifeTime: NotRequired[datetime]
+
 EvaluationFormItemEnablementSourceTypeDef = TypedDict(
     "EvaluationFormItemEnablementSourceTypeDef",
     {
@@ -3128,6 +3189,10 @@ EvaluationFormItemEnablementSourceValueTypeDef = TypedDict(
         "RefId": NotRequired[str],
     },
 )
+
+class EvaluationFormMetricConfigurationTypeDef(TypedDict):
+    MetricType: Literal["BUSINESS_OUTCOME"]
+    MetricName: str
 
 class MultiSelectQuestionRuleCategoryAutomationOutputTypeDef(TypedDict):
     Category: str
@@ -3172,6 +3237,7 @@ class EvaluationFormSearchSummaryTypeDef(TypedDict):
     EvaluationFormLanguage: NotRequired[EvaluationFormLanguageCodeType]
     ContactInteractionType: NotRequired[ContactInteractionTypeType]
     Tags: NotRequired[dict[str, str]]
+    AIVersion: NotRequired[str]
 
 class SingleSelectQuestionRuleCategoryAutomationTypeDef(TypedDict):
     Category: str
@@ -3317,6 +3383,9 @@ class GetAttachedFileRequestTypeDef(TypedDict):
 class GetContactAttributesRequestTypeDef(TypedDict):
     InstanceId: str
     InitialContactId: str
+
+class GetCrossRegionRoutingRequestTypeDef(TypedDict):
+    InstanceId: str
 
 class GetEffectiveHoursOfOperationsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -3590,6 +3659,12 @@ class ListEntitySecurityProfilesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListEvaluationFormAIVersionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactInteractionType: ContactInteractionTypeType
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListEvaluationFormVersionsRequestTypeDef(TypedDict):
     InstanceId: str
     EvaluationFormId: str
@@ -3840,6 +3915,12 @@ class SecurityKeyTypeDef(TypedDict):
     AssociationId: NotRequired[str]
     Key: NotRequired[str]
     CreationTime: NotRequired[datetime]
+
+class ListSecurityProfileAIAgentsRequestTypeDef(TypedDict):
+    SecurityProfileId: str
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListSecurityProfileApplicationsRequestTypeDef(TypedDict):
     SecurityProfileId: str
@@ -4231,6 +4312,13 @@ class PhoneNumberQuickConnectConfigTypeDef(TypedDict):
 class PostAcceptTimeoutConfigTypeDef(TypedDict):
     DurationInSeconds: int
 
+class PreEvaluationFilterTypeDef(TypedDict):
+    ResourceType: Literal["CONTACT"]
+    FilterType: Literal["TAG"]
+    FilterKey: str
+    FilterValue: str
+    Operator: Literal["EQUALS"]
+
 class PredefinedAttributeConfigurationTypeDef(TypedDict):
     EnableValueValidationOnAssociation: NotRequired[bool]
     IsReadOnly: NotRequired[bool]
@@ -4314,8 +4402,8 @@ class ReleasePhoneNumberRequestTypeDef(TypedDict):
 class ReplicateInstanceRequestTypeDef(TypedDict):
     InstanceId: str
     ReplicaRegion: str
-    ReplicaAlias: str
     ClientToken: NotRequired[str]
+    ReplicaAlias: NotRequired[str]
 
 class ReplicationStatusSummaryTypeDef(TypedDict):
     Region: NotRequired[str]
@@ -4448,6 +4536,10 @@ class UploadUrlMetadataTypeDef(TypedDict):
     Url: NotRequired[str]
     UrlExpiry: NotRequired[str]
     HeadersToInclude: NotRequired[dict[str, str]]
+
+class WebsocketTypeDef(TypedDict):
+    Url: NotRequired[str]
+    ConnectionExpiry: NotRequired[str]
 
 class StartContactMediaProcessingRequestTypeDef(TypedDict):
     InstanceId: NotRequired[str]
@@ -4613,6 +4705,10 @@ class UpdateContactTaskTemplateRequestTypeDef(TypedDict):
     InstanceId: str
     TaskTemplateId: str
     ContactId: str
+
+class UpdateCrossRegionRoutingRequestTypeDef(TypedDict):
+    InstanceId: str
+    IsolatedAll: bool
 
 class UpdateDataTableMetadataRequestTypeDef(TypedDict):
     InstanceId: str
@@ -5011,6 +5107,10 @@ class GetContactAttributesResponseTypeDef(TypedDict):
     Attributes: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetCrossRegionRoutingResponseTypeDef(TypedDict):
+    IsolatedRegions: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetFlowAssociationResponseTypeDef(TypedDict):
     ResourceId: str
     FlowId: str
@@ -5035,6 +5135,13 @@ class ListApprovedOriginsResponseTypeDef(TypedDict):
 
 class ListLambdaFunctionsResponseTypeDef(TypedDict):
     LambdaFunctions: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListSecurityProfileAIAgentsResponseTypeDef(TypedDict):
+    AllowedAIAgents: list[AIAgentTypeDef]
+    LastModifiedTime: datetime
+    LastModifiedRegion: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -5065,13 +5172,6 @@ class SendChatIntegrationEventResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartAssistantContactResponseTypeDef(TypedDict):
-    ContactId: str
-    ParticipantId: str
-    ParticipantToken: str
-    ContinuedFromContactId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartChatContactResponseTypeDef(TypedDict):
     ContactId: str
     ParticipantId: str
     ParticipantToken: str
@@ -6099,19 +6199,6 @@ class UpdateQueueOutboundEmailConfigRequestTypeDef(TypedDict):
     QueueId: str
     OutboundEmailConfig: OutboundEmailConfigTypeDef
 
-class RuleSearchSummaryTypeDef(TypedDict):
-    Name: str
-    RuleId: str
-    RuleArn: str
-    TriggerEventSource: RuleTriggerEventSourceTypeDef
-    ActionSummaries: list[ActionSummaryTypeDef]
-    PublishStatus: RulePublishStatusType
-    CreatedTime: datetime
-    LastUpdatedTime: datetime
-    LastUpdatedBy: str
-    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
-    Tags: NotRequired[dict[str, str]]
-
 class ListSecurityProfileFlowModulesResponseTypeDef(TypedDict):
     AllowedFlowModules: list[FlowModuleTypeDef]
     LastModifiedTime: datetime
@@ -6151,10 +6238,10 @@ class GetFederationTokenResponseTypeDef(TypedDict):
     SignInUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class MediaConcurrencyTypeDef(TypedDict):
-    Channel: ChannelType
+class WorkloadTypeConcurrencyTypeDef(TypedDict):
+    WorkloadType: str
     Concurrency: int
-    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    CrossChannelWorkloadBehavior: NotRequired[CrossChannelWorkloadBehaviorTypeDef]
 
 class CurrentMetricDataTypeDef(TypedDict):
     Metric: NotRequired[CurrentMetricTypeDef]
@@ -6300,6 +6387,10 @@ class S3ConfigTypeDef(TypedDict):
 EvaluationAnswerDataUnionTypeDef = Union[
     EvaluationAnswerDataTypeDef, EvaluationAnswerDataOutputTypeDef
 ]
+
+class EvaluationFormAIVersionSummaryTypeDef(TypedDict):
+    AIVersionName: str
+    AIVersionLifecycle: EvaluationFormAIVersionLifecycleTypeDef
 
 class EvaluationFormItemEnablementExpressionOutputTypeDef(TypedDict):
     Source: EvaluationFormItemEnablementSourceTypeDef
@@ -6590,6 +6681,11 @@ class ListEntitySecurityProfilesRequestPaginateTypeDef(TypedDict):
     EntityArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListEvaluationFormAIVersionsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    ContactInteractionType: ContactInteractionTypeType
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListEvaluationFormVersionsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     EvaluationFormId: str
@@ -6710,6 +6806,11 @@ class ListRulesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSecurityKeysRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSecurityProfileAIAgentsRequestPaginateTypeDef(TypedDict):
+    SecurityProfileId: str
     InstanceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7150,6 +7251,12 @@ class NewSessionDetailsTypeDef(TypedDict):
 class NextContactMetadataTypeDef(TypedDict):
     QuickConnectContactData: NotRequired[QuickConnectContactDataTypeDef]
 
+class SendInAppNotificationActionDefinitionOutputTypeDef(TypedDict):
+    Content: dict[LocaleCodeType, str]
+    Recipient: NotificationRecipientTypeOutputTypeDef
+    Exclusion: NotRequired[NotificationRecipientTypeOutputTypeDef]
+    Priority: NotRequired[ConfigurableNotificationPriorityType]
+
 class SendNotificationActionDefinitionOutputTypeDef(TypedDict):
     DeliveryMethod: Literal["EMAIL"]
     Content: str
@@ -7196,6 +7303,12 @@ class PreviewOutputTypeDef(TypedDict):
 class PreviewTypeDef(TypedDict):
     PostAcceptTimeoutConfig: PostAcceptTimeoutConfigTypeDef
     AllowedUserActions: Sequence[AllowedUserActionType]
+
+class PreEvaluationFiltersOutputTypeDef(TypedDict):
+    AndConditions: NotRequired[list[PreEvaluationFilterTypeDef]]
+
+class PreEvaluationFiltersTypeDef(TypedDict):
+    AndConditions: NotRequired[Sequence[PreEvaluationFilterTypeDef]]
 
 class PredefinedAttributeTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -7267,6 +7380,7 @@ class ReferenceSummaryTypeDef(TypedDict):
     Number: NotRequired[NumberReferenceTypeDef]
     Date: NotRequired[DateReferenceTypeDef]
     Email: NotRequired[EmailReferenceTypeDef]
+    ContactAnalysis: NotRequired[ContactAnalysisReferenceTypeDef]
 
 class ReplicationConfigurationTypeDef(TypedDict):
     ReplicationStatusSummaryList: NotRequired[list[ReplicationStatusSummaryTypeDef]]
@@ -7335,6 +7449,16 @@ class StartAttachedFileUploadResponseTypeDef(TypedDict):
     FileStatus: FileStatusTypeType
     CreatedBy: CreatedByInfoTypeDef
     UploadUrlMetadata: UploadUrlMetadataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartChatContactResponseTypeDef(TypedDict):
+    ContactId: str
+    ParticipantId: str
+    ParticipantToken: str
+    ContinuedFromContactId: str
+    ConnectionCredentials: ConnectionCredentialsTypeDef
+    Websocket: WebsocketTypeDef
+    StreamingId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartContactRecordingRequestTypeDef(TypedDict):
@@ -7491,6 +7615,7 @@ class AgentInfoTypeDef(TypedDict):
     AgentInitiatedHoldDuration: NotRequired[int]
     StateTransitions: NotRequired[list[StateTransitionTypeDef]]
     VoiceEnhancementMode: NotRequired[VoiceEnhancementModeType]
+    ActiveRegion: NotRequired[str]
 
 class CreateParticipantRequestTypeDef(TypedDict):
     InstanceId: str
@@ -7775,35 +7900,17 @@ class SearchQueuesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class SearchRulesResponseTypeDef(TypedDict):
-    Rules: list[RuleSearchSummaryTypeDef]
-    ApproximateTotalCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class MediaConcurrencyOutputTypeDef(TypedDict):
+    Channel: ChannelType
+    Concurrency: NotRequired[int]
+    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    WorkloadTypeConcurrencies: NotRequired[list[WorkloadTypeConcurrencyTypeDef]]
 
-class RoutingProfileTypeDef(TypedDict):
-    InstanceId: NotRequired[str]
-    Name: NotRequired[str]
-    RoutingProfileArn: NotRequired[str]
-    RoutingProfileId: NotRequired[str]
-    Description: NotRequired[str]
-    MediaConcurrencies: NotRequired[list[MediaConcurrencyTypeDef]]
-    DefaultOutboundQueueId: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
-    NumberOfAssociatedQueues: NotRequired[int]
-    NumberOfAssociatedManualAssignmentQueues: NotRequired[int]
-    NumberOfAssociatedUsers: NotRequired[int]
-    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedRegion: NotRequired[str]
-    IsDefault: NotRequired[bool]
-    AssociatedQueueIds: NotRequired[list[str]]
-    AssociatedManualAssignmentQueueIds: NotRequired[list[str]]
-
-class UpdateRoutingProfileConcurrencyRequestTypeDef(TypedDict):
-    InstanceId: str
-    RoutingProfileId: str
-    MediaConcurrencies: Sequence[MediaConcurrencyTypeDef]
+class MediaConcurrencyTypeDef(TypedDict):
+    Channel: ChannelType
+    Concurrency: NotRequired[int]
+    CrossChannelBehavior: NotRequired[CrossChannelBehaviorTypeDef]
+    WorkloadTypeConcurrencies: NotRequired[Sequence[WorkloadTypeConcurrencyTypeDef]]
 
 class CurrentMetricResultTypeDef(TypedDict):
     Dimensions: NotRequired[DimensionsTypeDef]
@@ -7816,19 +7923,6 @@ class AssociateRoutingProfileQueuesRequestTypeDef(TypedDict):
     ManualAssignmentQueueConfigs: NotRequired[
         Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
     ]
-
-class CreateRoutingProfileRequestTypeDef(TypedDict):
-    InstanceId: str
-    Name: str
-    Description: str
-    DefaultOutboundQueueId: str
-    MediaConcurrencies: Sequence[MediaConcurrencyTypeDef]
-    QueueConfigs: NotRequired[Sequence[RoutingProfileQueueConfigTypeDef]]
-    ManualAssignmentQueueConfigs: NotRequired[
-        Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
-    ]
-    Tags: NotRequired[Mapping[str, str]]
-    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
 
 class UpdateRoutingProfileQueuesRequestTypeDef(TypedDict):
     InstanceId: str
@@ -7845,6 +7939,11 @@ class InstanceStorageConfigTypeDef(TypedDict):
 
 class EvaluationAnswerInputTypeDef(TypedDict):
     Value: NotRequired[EvaluationAnswerDataUnionTypeDef]
+
+class ListEvaluationFormAIVersionsResponseTypeDef(TypedDict):
+    AIVersionSummaries: list[EvaluationFormAIVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class EvaluationFormItemEnablementConditionOperandOutputTypeDef(TypedDict):
     Expression: NotRequired[EvaluationFormItemEnablementExpressionOutputTypeDef]
@@ -8138,6 +8237,12 @@ NextContactEntryTypeDef = TypedDict(
     },
 )
 
+class SendInAppNotificationActionDefinitionTypeDef(TypedDict):
+    Content: Mapping[LocaleCodeType, str]
+    Recipient: NotificationRecipientTypeUnionTypeDef
+    Exclusion: NotRequired[NotificationRecipientTypeUnionTypeDef]
+    Priority: NotRequired[ConfigurableNotificationPriorityType]
+
 class SendNotificationActionDefinitionTypeDef(TypedDict):
     DeliveryMethod: Literal["EMAIL"]
     Content: str
@@ -8158,6 +8263,24 @@ class AgentFirstOutputTypeDef(TypedDict):
     Preview: NotRequired[PreviewOutputTypeDef]
 
 PreviewUnionTypeDef = Union[PreviewTypeDef, PreviewOutputTypeDef]
+
+class RuleSearchSummaryTypeDef(TypedDict):
+    Name: str
+    RuleId: str
+    RuleArn: str
+    TriggerEventSource: RuleTriggerEventSourceTypeDef
+    ActionSummaries: list[ActionSummaryTypeDef]
+    PublishStatus: RulePublishStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    LastUpdatedBy: str
+    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersOutputTypeDef]
+    Tags: NotRequired[dict[str, str]]
+
+PreEvaluationFiltersUnionTypeDef = Union[
+    PreEvaluationFiltersTypeDef, PreEvaluationFiltersOutputTypeDef
+]
 
 class DescribePredefinedAttributeResponseTypeDef(TypedDict):
     PredefinedAttribute: PredefinedAttributeTypeDef
@@ -8225,6 +8348,10 @@ class RealTimeContactAnalysisSegmentTranscriptTypeDef(TypedDict):
     ContentType: NotRequired[str]
     Redaction: NotRequired[RealTimeContactAnalysisTranscriptItemRedactionTypeDef]
     Sentiment: NotRequired[RealTimeContactAnalysisSentimentLabelType]
+
+class RealTimeContactAnalysisExtractedInformationValueTypeDef(TypedDict):
+    Content: str
+    PointsOfInterest: list[RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef]
 
 class RealTimeContactAnalysisPointOfInterestTypeDef(TypedDict):
     TranscriptItems: NotRequired[
@@ -8305,6 +8432,8 @@ class StartChatContactRequestTypeDef(TypedDict):
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
     CustomerId: NotRequired[str]
     DisconnectOnCustomerExit: NotRequired[Sequence[Literal["AGENT"]]]
+    ConnectionTypes: NotRequired[Sequence[ConnectionTypeType]]
+    ChatStreamingConfiguration: NotRequired[ChatStreamingConfigurationTypeDef]
 
 class StartEmailContactRequestTypeDef(TypedDict):
     InstanceId: str
@@ -8695,6 +8824,7 @@ class RuleActionOutputTypeDef(TypedDict):
     EndAssociatedTasksAction: NotRequired[dict[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
     ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionOutputTypeDef]
+    SendInAppNotificationAction: NotRequired[SendInAppNotificationActionDefinitionOutputTypeDef]
 
 class UserSearchCriteriaPaginatorTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
@@ -8734,15 +8864,26 @@ class SearchContactsAdditionalTimeRangeTypeDef(TypedDict):
     Criteria: Sequence[SearchContactsAdditionalTimeRangeCriteriaTypeDef]
     MatchType: SearchContactsMatchTypeType
 
-class DescribeRoutingProfileResponseTypeDef(TypedDict):
-    RoutingProfile: RoutingProfileTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class RoutingProfileTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    Name: NotRequired[str]
+    RoutingProfileArn: NotRequired[str]
+    RoutingProfileId: NotRequired[str]
+    Description: NotRequired[str]
+    MediaConcurrencies: NotRequired[list[MediaConcurrencyOutputTypeDef]]
+    DefaultOutboundQueueId: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+    NumberOfAssociatedQueues: NotRequired[int]
+    NumberOfAssociatedManualAssignmentQueues: NotRequired[int]
+    NumberOfAssociatedUsers: NotRequired[int]
+    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+    IsDefault: NotRequired[bool]
+    AssociatedQueueIds: NotRequired[list[str]]
+    AssociatedManualAssignmentQueueIds: NotRequired[list[str]]
 
-class SearchRoutingProfilesResponseTypeDef(TypedDict):
-    RoutingProfiles: list[RoutingProfileTypeDef]
-    ApproximateTotalCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+MediaConcurrencyUnionTypeDef = Union[MediaConcurrencyTypeDef, MediaConcurrencyOutputTypeDef]
 
 class GetCurrentMetricDataResponseTypeDef(TypedDict):
     MetricResults: list[CurrentMetricResultTypeDef]
@@ -8926,6 +9067,9 @@ EvaluationFormMultiSelectQuestionAutomationOptionUnionTypeDef = Union[
     EvaluationFormMultiSelectQuestionAutomationOptionTypeDef,
     EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef,
 ]
+SendInAppNotificationActionDefinitionUnionTypeDef = Union[
+    SendInAppNotificationActionDefinitionTypeDef, SendInAppNotificationActionDefinitionOutputTypeDef
+]
 SendNotificationActionDefinitionUnionTypeDef = Union[
     SendNotificationActionDefinitionTypeDef, SendNotificationActionDefinitionOutputTypeDef
 ]
@@ -8942,6 +9086,12 @@ class OutboundStrategyConfigOutputTypeDef(TypedDict):
 
 class AgentFirstTypeDef(TypedDict):
     Preview: NotRequired[PreviewUnionTypeDef]
+
+class SearchRulesResponseTypeDef(TypedDict):
+    Rules: list[RuleSearchSummaryTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class GranularAccessControlConfigurationOutputTypeDef(TypedDict):
     DataTableAccessControlConfiguration: NotRequired[
@@ -8960,6 +9110,13 @@ class SearchQuickConnectsResponseTypeDef(TypedDict):
     ApproximateTotalCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class RealTimeContactAnalysisSegmentExtractedInformationTypeDef(TypedDict):
+    ExtractionDefinitionId: str
+    ExtractionDefinitionName: str
+    ExtractionDefinitionDisplayLabel: NotRequired[str]
+    ExtractedValues: NotRequired[list[RealTimeContactAnalysisExtractedInformationValueTypeDef]]
+    FailureCode: NotRequired[RealTimeContactAnalysisExtractedInformationFailureCodeType]
 
 class RealTimeContactAnalysisCategoryDetailsTypeDef(TypedDict):
     PointsOfInterest: list[RealTimeContactAnalysisPointOfInterestTypeDef]
@@ -9212,6 +9369,7 @@ class RuleTypeDef(TypedDict):
     LastUpdatedTime: datetime
     LastUpdatedBy: str
     RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
 
 class SearchUsersRequestPaginateTypeDef(TypedDict):
@@ -9259,6 +9417,34 @@ class SearchCriteriaTypeDef(TypedDict):
     ActiveRegions: NotRequired[Sequence[str]]
     ContactTags: NotRequired[ControlPlaneTagFilterTypeDef]
     AiAgents: NotRequired[AiAgentsCriteriaTypeDef]
+
+class DescribeRoutingProfileResponseTypeDef(TypedDict):
+    RoutingProfile: RoutingProfileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SearchRoutingProfilesResponseTypeDef(TypedDict):
+    RoutingProfiles: list[RoutingProfileTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateRoutingProfileRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    Description: str
+    DefaultOutboundQueueId: str
+    MediaConcurrencies: Sequence[MediaConcurrencyUnionTypeDef]
+    QueueConfigs: NotRequired[Sequence[RoutingProfileQueueConfigTypeDef]]
+    ManualAssignmentQueueConfigs: NotRequired[
+        Sequence[RoutingProfileManualAssignmentQueueConfigTypeDef]
+    ]
+    Tags: NotRequired[Mapping[str, str]]
+    AgentAvailabilityTimer: NotRequired[AgentAvailabilityTimerType]
+
+class UpdateRoutingProfileConcurrencyRequestTypeDef(TypedDict):
+    InstanceId: str
+    RoutingProfileId: str
+    MediaConcurrencies: Sequence[MediaConcurrencyUnionTypeDef]
 
 class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):
     Condition: EvaluationFormItemEnablementConditionOutputTypeDef
@@ -9496,6 +9682,7 @@ class EvaluationFormQuestionOutputTypeDef(TypedDict):
     Enablement: NotRequired[EvaluationFormItemEnablementConfigurationOutputTypeDef]
     Weight: NotRequired[float]
     ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationOutputTypeDef]
+    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
 
 EvaluationFormSingleSelectQuestionPropertiesUnionTypeDef = Union[
     EvaluationFormSingleSelectQuestionPropertiesTypeDef,
@@ -9575,6 +9762,7 @@ class CreateSecurityProfileRequestTypeDef(TypedDict):
     HierarchyRestrictedResources: NotRequired[Sequence[str]]
     AllowedAccessControlHierarchyGroupId: NotRequired[str]
     AllowedFlowModules: NotRequired[Sequence[FlowModuleTypeDef]]
+    AllowedAIAgents: NotRequired[Sequence[AIAgentTypeDef]]
     GranularAccessControlConfiguration: NotRequired[GranularAccessControlConfigurationUnionTypeDef]
 
 class UpdateSecurityProfileRequestTypeDef(TypedDict):
@@ -9588,6 +9776,7 @@ class UpdateSecurityProfileRequestTypeDef(TypedDict):
     HierarchyRestrictedResources: NotRequired[Sequence[str]]
     AllowedAccessControlHierarchyGroupId: NotRequired[str]
     AllowedFlowModules: NotRequired[Sequence[FlowModuleTypeDef]]
+    AllowedAIAgents: NotRequired[Sequence[AIAgentTypeDef]]
     GranularAccessControlConfiguration: NotRequired[GranularAccessControlConfigurationUnionTypeDef]
 
 class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
@@ -9597,6 +9786,7 @@ class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     Event: NotRequired[RealTimeContactAnalysisSegmentEventTypeDef]
     Attachments: NotRequired[RealTimeContactAnalysisSegmentAttachmentsTypeDef]
     PostContactSummary: NotRequired[RealTimeContactAnalysisSegmentPostContactSummaryTypeDef]
+    ExtractedInformation: NotRequired[RealTimeContactAnalysisSegmentExtractedInformationTypeDef]
 
 class ContactSearchSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -9719,6 +9909,7 @@ class RuleActionTypeDef(TypedDict):
     EndAssociatedTasksAction: NotRequired[Mapping[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
     ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionUnionTypeDef]
+    SendInAppNotificationAction: NotRequired[SendInAppNotificationActionDefinitionUnionTypeDef]
 
 class EvaluationFormMultiSelectQuestionPropertiesTypeDef(TypedDict):
     Options: Sequence[EvaluationFormMultiSelectQuestionOptionTypeDef]
@@ -9771,6 +9962,7 @@ class EvaluationFormContentTypeDef(TypedDict):
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
     ReviewConfiguration: NotRequired[EvaluationReviewConfigurationOutputTypeDef]
+    AIVersion: NotRequired[str]
 
 class EvaluationFormTypeDef(TypedDict):
     EvaluationFormId: str
@@ -9793,6 +9985,7 @@ class EvaluationFormTypeDef(TypedDict):
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
     LatestValidationStatus: NotRequired[EvaluationFormValidationStatusType]
     LastValidationTime: NotRequired[datetime]
+    AIVersion: NotRequired[str]
 
 class EvaluationTypeDef(TypedDict):
     EvaluationId: str
@@ -9845,7 +10038,9 @@ class CreateRuleRequestTypeDef(TypedDict):
     Function: str
     Actions: Sequence[RuleActionUnionTypeDef]
     PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
     ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 class UpdateRuleRequestTypeDef(TypedDict):
     RuleId: str
@@ -9854,6 +10049,7 @@ class UpdateRuleRequestTypeDef(TypedDict):
     Function: str
     Actions: Sequence[RuleActionUnionTypeDef]
     PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
 
 EvaluationFormQuestionTypePropertiesTypeDef = TypedDict(
     "EvaluationFormQuestionTypePropertiesTypeDef",
@@ -9917,6 +10113,7 @@ class EvaluationFormQuestionTypeDef(TypedDict):
     Enablement: NotRequired[EvaluationFormItemEnablementConfigurationUnionTypeDef]
     Weight: NotRequired[float]
     ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationUnionTypeDef]
+    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
 
 class BatchPutContactRequestTypeDef(TypedDict):
     InstanceId: str
@@ -9946,6 +10143,7 @@ class CreateEvaluationFormRequestTypeDef(TypedDict):
     ReviewConfiguration: NotRequired[EvaluationReviewConfigurationUnionTypeDef]
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
+    AIVersion: NotRequired[str]
 
 class UpdateEvaluationFormRequestTypeDef(TypedDict):
     InstanceId: str
@@ -9962,3 +10160,4 @@ class UpdateEvaluationFormRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     TargetConfiguration: NotRequired[EvaluationFormTargetConfigurationTypeDef]
     LanguageConfiguration: NotRequired[EvaluationFormLanguageConfigurationTypeDef]
+    AIVersion: NotRequired[str]

@@ -89,6 +89,17 @@ class _Tee:
             for ln in self.lines
             if ln.startswith(("   ", "  ")) and ("passed" in ln or "failed" in ln)
         ]
+        # F-35: the ids the tier printed for a non-zero pytest run, in the ONE
+        # form `_failed_id_lines` emits, so the console and this artifact are
+        # a single derivation. A pytest `FAILED` row sits at column 0 and the
+        # filter above never kept it: the artifact recorded `3 failed` and
+        # nothing that could say which three. Absent on a clean run -- no
+        # empty heading -- so "no failures" and "not recorded" read apart.
+        named = [
+            ln[len(_FAILED_ID_PREFIX) :]
+            for ln in self.lines
+            if ln.startswith(_FAILED_ID_PREFIX)
+        ]
         head = f"## {title}: {'PASS' if ok else 'FAIL'}\n\n"
         body = (
             "\n".join(rows) if len(rows) > 2 else "_no threshold verdicts in this run_"
@@ -98,7 +109,10 @@ class _Tee:
             if extra
             else ""
         )
-        return head + body + tail + "\n"
+        failed_block = (
+            ("\n\n**Failed:**\n\n```\n" + "\n".join(named) + "\n```") if named else ""
+        )
+        return head + body + tail + failed_block + "\n"
 
     def annotations(self) -> list[str]:
         return [
@@ -206,6 +220,64 @@ _SUMMARY = re.compile(
 )
 
 
+#: A pytest short-summary row, anchored at COLUMN 0 (F-35). An indented line
+#: that merely contains the word -- a traceback, an assertion string -- is not
+#: a row, and only the anchor tells them apart.
+_FAILED_ROW_RE = re.compile(r"^(FAILED|ERROR)\s+(\S+)")
+
+#: How many ids a tier prints before DISCLOSING the remainder. A silently
+#: shortened list would be F-35's own defect one layer down: a count is not a
+#: diagnosis, and neither is a list that stops without saying so.
+_FAILED_ID_CAP = 25
+
+#: The prefix every tier puts on the lines `summary_markdown` collects. A
+#: MARKER, not an indent: `_Tee` sees every printed line, including the raw
+#: pytest tail, and an indented traceback line can begin with `FAILED ` or
+#: `... `; nothing but `_failed_id_lines` prints a line beginning with this.
+_FAILED_ID_PREFIX = "   - "
+
+
+def _failed_rows(out: str) -> list[str]:
+    """Every column-0 `FAILED`/`ERROR` row of a pytest run, in order, ONE per id.
+
+    THE derivation. `_failed_ids` (the ids), `_failed_id_lines` (the console
+    and the summary artifact) and `_annotate_failure` (the Checks tab) all
+    read this list, so the three surfaces cannot disagree about which tests
+    failed or how many. pytest can print an id twice (a rerun plugin, a
+    duplicated summary section); the first row wins. `ERROR` counts: a test
+    that errored at setup did not run, which is worse than one that failed
+    (F-32's sdist guard).
+    """
+    rows: list[str] = []
+    seen: set[str] = set()
+    for ln in out.splitlines():
+        m = _FAILED_ROW_RE.match(ln)
+        if m and m.group(2) not in seen:
+            seen.add(m.group(2))
+            rows.append(ln.rstrip())
+    return rows
+
+
+def _failed_ids(out: str) -> list[str]:
+    """The test ids of `_failed_rows`, in order."""
+    return [_FAILED_ROW_RE.match(row).group(2) for row in _failed_rows(out)]
+
+
+def _failed_id_lines(out: str) -> list[str]:
+    """The lines a tier prints for a non-zero pytest run: one per row, marked,
+    capped at `_FAILED_ID_CAP` with the remainder DISCLOSED by count."""
+    rows = _failed_rows(out)
+    lines = [
+        f"{_FAILED_ID_PREFIX}{m.group(1)} {m.group(2)}"
+        for m in (_FAILED_ROW_RE.match(row) for row in rows[:_FAILED_ID_CAP])
+    ]
+    if len(rows) > _FAILED_ID_CAP:
+        lines.append(
+            f"{_FAILED_ID_PREFIX}... {len(rows) - _FAILED_ID_CAP} more failures; see the log"
+        )
+    return lines
+
+
 def _annotate_failure(title: str, out: str, *, max_lines: int = 8) -> None:
     """Surface a non-threshold failure (pytest, ruff, corpora) as check annotations.
 
@@ -216,9 +288,7 @@ def _annotate_failure(title: str, out: str, *, max_lines: int = 8) -> None:
     """
     if not os.environ.get("GITHUB_ACTIONS"):
         return
-    failed = [
-        ln.strip() for ln in out.splitlines() if ln.startswith(("FAILED ", "ERROR "))
-    ]
+    failed = _failed_rows(out)
     lines = (
         failed[:max_lines]
         if failed
@@ -228,6 +298,89 @@ def _annotate_failure(title: str, out: str, *, max_lines: int = 8) -> None:
         print(f"::error title={title}::{ln[:400]}")
     if len(failed) > max_lines:
         print(f"::error title={title}::... {len(failed) - max_lines} more; see the log")
+
+
+#: Most characters of a failure report; the rest is cut and DISCLOSED.
+_FAILURE_REPORT_MAX_CHARS = 200_000
+
+#: A pytest section header: `==== NAME ====`.
+_SECTION_RE = re.compile(r"^=+ (.+?) =+$")
+_KEPT_SECTIONS = ("ERRORS", "FAILURES", "short test summary info")
+#: Every section pytest (or a plugin this suite loads) prints after the ones
+#: kept. ⚠⚠ A section ends ONLY on one of these names: captured output inside
+#: FAILURES can print its own `=== banner ===`, and ending on any `=` line
+#: dropped every later traceback (review). `tests coverage` is pytest-cov 7's
+#: header; `---------- coverage:` (below) is the older one.
+_OTHER_SECTIONS = (
+    "warnings summary",
+    "tests coverage",
+    "PASSES",
+    "slowest durations",
+    "rerun test summary info",
+    "xfailures",
+    "xpasses",
+)
+
+#: Lines kept from a red run that printed NO kept section (an INTERNALERROR, a
+#: coverage-floor failure): the reason is somewhere in the tail.
+_FAILURE_TAIL_LINES = 80
+
+#: Reports the pytest tiers recorded this process, written by `--failures`.
+_FAILURE_REPORTS: list[str] = []
+
+
+def _failure_report(out: str) -> str:
+    """pytest's ERRORS, FAILURES and short-summary sections, verbatim; "" when
+    there are none (harness F-26).
+
+    F-35 put the failed IDS in the artifact; the REASON stayed in a console
+    tail that nobody logs, behind the coverage table. A Windows-only watcher
+    failure went unexplained twice in the local full tier because of it. The
+    coverage table and the warnings are dropped: they are the bulk of a red
+    run's output and explain nothing about a failure.
+    """
+    kept: list[str] = []
+    keep = False
+    final = ""
+    for ln in out.splitlines():
+        m = _SECTION_RE.match(ln.strip())
+        name = m.group(1).strip() if m else None
+        if name in _KEPT_SECTIONS:
+            keep = True
+        elif name in _OTHER_SECTIONS or ln.startswith("---------- coverage:"):
+            keep = False
+        if keep:
+            kept.append(ln)
+        elif re.search(r"\b(passed|failed|error)\b", ln) and " in " in ln:
+            final = ln
+    if not kept:
+        return ""
+    if final:
+        kept.append(final)
+    text = "\n".join(kept) + "\n"
+    if len(text) > _FAILURE_REPORT_MAX_CHARS:
+        cut = len(text) - _FAILURE_REPORT_MAX_CHARS
+        text = (
+            text[:_FAILURE_REPORT_MAX_CHARS]
+            + f"\n... {cut} characters cut; see the console\n"
+        )
+    return text
+
+
+def _record_failure_report(out: str) -> None:
+    """Keep a red pytest run's report for `--failures`. Called only on a
+    non-zero run, so an empty report means pytest printed no FAILURES/ERRORS
+    section (an INTERNALERROR, a coverage floor) and the tail is kept instead:
+    a red run never leaves the file absent (review)."""
+    report = _failure_report(out)
+    if not report:
+        tail = out.splitlines()[-_FAILURE_TAIL_LINES:]
+        report = (
+            f"(no FAILURES or ERRORS section; the last {len(tail)} lines of output)\n"
+            + "\n".join(tail)
+            + "\n"
+        )
+    _FAILURE_REPORTS.append(report)
 
 
 def _pytest_summary(out: str) -> dict:
@@ -600,7 +753,10 @@ def tier_fast(result: dict) -> bool:
     if rc != 0:
         ok = False
         print(out[-4000:])
+        for ln in _failed_id_lines(out):
+            print(ln)
         _annotate_failure("fast tier: pytest", out)
+        _record_failure_report(out)
     # A skip ceiling here too: a rebuilt .venv without the watch extra took
     # this tier from 7 skips to 112 at exit 0 (2026-09-03, the 08-28 shape).
     print(T.verdict_line("suite.fast_skips_max", summ["skipped"]))
@@ -637,6 +793,32 @@ def tier_full(result: dict) -> bool:
     cov = T.floor("coverage.min")
     warm_ok = warm_assets()
     print(f"== full tier: tests/ with --cov-fail-under={cov}")
+    # ⚠⚠ **Coverage's C tracer was ~40% of this tier's wall clock (#740).** The
+    # measurement is `docs/harness/FINDINGS.md` F-32, written from
+    # `.claude/state/evidence/740_measurement.json` and not restated here -- an
+    # earlier version of this comment carried its own copy of the figures, which
+    # review found to be the fastest of five samples with the other four
+    # unreconciled. Four runs, same box and tree: ctrace twice, sysmon, and
+    # uninstrumented; sysmon's instrumentation costs about 5 s where ctrace's
+    # costs about 135 s.
+    #
+    # ⚠⚠ **The coverage NUMBER is not weakened, and a CONTROL shows it rather
+    # than an assertion:** ctrace disagreed with ITSELF by more missed lines
+    # across two runs than it disagreed with sysmon, every delta inside the async
+    # dispatcher, statements identical throughout. `coverage.min` is itself a
+    # Floor, and a tracer counting fewer lines as missed would be a loosening by
+    # a side door, so equality could not simply be asserted.
+    #
+    # ⚠ NOT version-gated here. coverage checks `sys.monitoring`, branch support,
+    # dynamic contexts and concurrency, then warns and falls back to its default
+    # core (`coverage/core.py`, slug `no-sysmon`), so the 3.10 and 3.11 legs
+    # measure exactly as before. A `sys.version_info` test here would be a second
+    # copy of that decision, wrong the first time coverage widens support.
+    #
+    # ⚠ `setdefault`, so `COVERAGE_CORE=ctrace ... -m harness full` still forces
+    # the old tracer -- the comparison above has to stay reproducible by whoever
+    # doubts it.
+    cov_env = {"COVERAGE_CORE": os.environ.get("COVERAGE_CORE", "sysmon")}
     rc, out, secs = _run(
         [
             PY,
@@ -651,14 +833,21 @@ def tier_full(result: dict) -> bool:
             "--cov=src",
             "--cov-report=term",
             f"--cov-fail-under={cov}",
-        ]
+        ],
+        env=cov_env,
     )
     summ = _pytest_summary(out)
     print("  ", summ["line"])
     ok = rc == 0 and warm_ok
     if rc != 0:
         print(out[-6000:])
+        # F-35: the tail above can lose the short summary behind the coverage
+        # table, and `summary_markdown` never kept a column-0 row anyway. The
+        # names, in the form the artifact collects.
+        for ln in _failed_id_lines(out):
+            print(ln)
         _annotate_failure("full tier: pytest", out)
+        _record_failure_report(out)
     m = re.search(r"^TOTAL\s+\d+\s+\d+\s+(\d+)%", out, re.M)
     cov_obs = int(m.group(1)) if m else None
     if cov_obs is not None:
@@ -738,12 +927,29 @@ def tier_bench(result: dict, *, offline: bool, write_results: bool = False) -> b
         if step.get("restore"):
             subprocess.run(["git", "checkout", "--", *step["restore"]], cwd=REPO)
         if scratch_art is not None:
+            dest = REPO / step["artifact"]
+            failed_dest = dest.with_name(dest.stem + ".failed" + dest.suffix)
             if rc == 0 and scratch_art.exists():
                 arts[step["name"]] = json.loads(scratch_art.read_text(encoding="utf-8"))
                 if write_results:
-                    dest = REPO / step["artifact"]
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_bytes(scratch_art.read_bytes())
+                    failed_dest.unlink(missing_ok=True)
+            elif scratch_art.exists():
+                # LEDGER L-72: a red run's measurement is the evidence (F-19), so
+                # it rides in the result and, under --write-results, BESIDE the
+                # tracked file -- never over it: the tracked copy is the last
+                # accepted weekly result, and CI used to upload it under the
+                # failing run's name while this measurement was deleted below.
+                try:
+                    arts[step["name"]]["measurement"] = json.loads(
+                        scratch_art.read_text(encoding="utf-8")
+                    )
+                except (OSError, ValueError):
+                    arts[step["name"]]["measurement_unreadable"] = True
+                if write_results:
+                    failed_dest.parent.mkdir(parents=True, exist_ok=True)
+                    failed_dest.write_bytes(scratch_art.read_bytes())
             import shutil
 
             shutil.rmtree(scratch_art.parent, ignore_errors=True)
@@ -803,11 +1009,18 @@ def main(argv: list[str] | None = None) -> int:
         help="append a Markdown table of every verdict line to FILE (GitHub step summary)",
     )
     ap.add_argument(
+        "--failures",
+        metavar="FILE",
+        help="write a red pytest tier's FAILURES/ERRORS/short-summary sections to FILE; "
+        "removes FILE on a run with none",
+    )
+    ap.add_argument(
         "--annotate",
         action="store_true",
         help="print a ::error annotation for every FAIL verdict",
     )
     a = ap.parse_args(argv)
+    _FAILURE_REPORTS.clear()
     tee = None
     if a.summary or a.annotate:
         tee = _Tee(sys.stdout)
@@ -824,6 +1037,18 @@ def main(argv: list[str] | None = None) -> int:
             if a.annotate:
                 for line in tee.annotations():
                     print(line)
+        if a.failures:
+            # One run, one report: a green run must not leave the last red
+            # run's tracebacks behind to be read as this one's (W-20).
+            # ⚠ An OSError here replaces `return rc` with a traceback, i.e. a
+            # non-zero exit: this fails CLOSED and cannot turn red into green.
+            target = Path(a.failures)
+            if _FAILURE_REPORTS:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("\n".join(_FAILURE_REPORTS), encoding="utf-8")
+                print(f"[harness] failure report -> {target}")
+            else:
+                target.unlink(missing_ok=True)
     return rc
 
 

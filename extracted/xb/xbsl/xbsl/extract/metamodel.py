@@ -18,9 +18,18 @@ string attribute gets МаксимальнаяДлина). Both are followed on 
 The result is xbsl/data/element/<version>/metamodel.json:
     { "classes": { "<Class>": {"props": {"<ru name>": {kind, ...}}, "ext": [...], "inline": [...]} },
       "enums": { "<EnumClass>": ["<Russian value>", ...] },
+      "enum_items": { "<EnumClass>": {"<Russian value>": {"en": "<English>",
+                                                         "since": "<mode>", "until": "<mode>"}} },
+      "languages": [ {"ru": "<name>", "en": "<name>", "code": "<ISO 639>", "since": "<mode>"} ],
       "vid2class": { "<ВидЭлемента>": "<root class>" },
       "vetted": [ kinds the unknown-property rule may judge ],
       "common": [universal keys of the project element envelope] }
+
+`enum_items` - the platform calls the values of an enumeration its items - spells every value
+the way ITS enumeration does (`en`), since the flat term table cannot hold a word two
+enumerations spell apart, and dates the values the platform limits to some compatibility modes:
+`since` is the mode a value appeared in, `until` the last mode that still has it. A value with
+neither is in every mode.
 
 Per property: `kind` (boolean | number | string | enum | type | block | list - what an editor
 should offer), `type` (the declared type name), plus the optional `enum` (the enumeration class,
@@ -46,7 +55,9 @@ import zipfile
 from pathlib import Path
 
 from xbsl.extract import _distro
-from xbsl.extract.terms import scan_kind_table
+from xbsl.extract.terms import (
+    EnumerationValue, scan_enumeration_classes, scan_kind_table, scan_language_table,
+)
 
 # jar plugins that carry .xcore
 _JAR_RE = re.compile(r"designtime|\.model|mdd|dmf|metamodel", re.I)
@@ -55,6 +66,11 @@ _HEADER_RE = re.compile(
 )
 _ENUM_RE = re.compile(r"\benum\s+(\w+)\s*\{([^}]*)\}")
 _ENUM_ITEM_RE = re.compile(r"(\w+)\s*(?:=\s*\d+\s*)?as\s+\"([^\"]+)\"")
+#: A data type of the model over a Java class: `type Importance wraps ImportanceG5Enum`. The
+#: class is named as the file imports it, fully qualified, or from the package of the file.
+_WRAPS_RE = re.compile(r"\btype\s+(\w+)\s+wraps\s+([\w.$]+)")
+_PACKAGE_RE = re.compile(r"^\s*package\s+([\w.]+)", re.M)
+_IMPORT_RE = re.compile(r"^\s*import\s+([\w.$]+)\s*$", re.M)
 _ANNOT_NAME_RE = re.compile(r"@(\w+)")
 _MODIFIERS = ("unsettable", "contains", "refers", "unique", "transient", "derived", "readonly")
 _DECL_RE = re.compile(
@@ -390,14 +406,33 @@ def _leading_annotations(text: str, start: int) -> dict[str, str]:
     return out
 
 
-def _parse_xcore(text: str, classes: dict, enums: dict, wrappers: set[str]) -> None:
-    """Collect classes, enumerations and @TypedWrapper markers of one .xcore file."""
+def _parse_xcore(text: str, classes: dict, enums: dict, wrappers: set[str],
+                 wraps: dict[str, str] | None = None,
+                 spellings: dict[str, dict[str, str]] | None = None) -> None:
+    """Collect classes, enumerations and @TypedWrapper markers of one .xcore file.
+
+    `wraps`, when given, collects the data types the file declares over a Java class: {the
+    type's name in the model: the class file of the class (`pkg/Name.class`)}. `spellings`,
+    when given, collects the English spelling of each value of each enumeration - {the
+    enumeration: {Russian value: English}}: the literal of the model is the English spelling,
+    and the Russian one follows it (`Normal as "Обычная"`).
+    """
     text = _strip_comments(text)
     n = len(text)
     for name, body in _ENUM_RE.findall(text):
-        values = [ru for _, ru in _ENUM_ITEM_RE.findall(body)]
-        if values:
-            enums.setdefault(name, values)
+        literals = _ENUM_ITEM_RE.findall(body)
+        if literals:
+            enums.setdefault(name, [ru for _, ru in literals])
+            if spellings is not None:
+                spellings.setdefault(name, {ru: en for en, ru in literals})
+    if wraps is not None:
+        package = _PACKAGE_RE.search(text)
+        imported = {path.rsplit(".", 1)[-1]: path for path in _IMPORT_RE.findall(text)}
+        for name, wrapped in _WRAPS_RE.findall(text):
+            if "." not in wrapped:
+                wrapped = imported.get(wrapped) or (
+                    f"{package.group(1)}.{wrapped}" if package else wrapped)
+            wraps.setdefault(name, wrapped.replace(".", "/") + ".class")
     for m in re.finditer(r"@TypedWrapper\s*(?:\([^)]*\))?\s*(?:@\w+(?:\([^)]*\))?\s*)*"
                          r"(?:abstract\s+)?(?:class|interface)\s+(\w+)", text):
         wrappers.add(m.group(1))
@@ -453,32 +488,138 @@ def _fill_members(classes: dict, enums: dict, wrappers: set[str]) -> None:
                         node["inline"].append(d.group("type"))
 
 
-def extract(dist: Path) -> tuple[dict, dict, dict]:
-    """The classes, the enumerations and the kind table of the main .car.
+def _read_model(
+    car: zipfile.ZipFile,
+) -> tuple[dict, dict, set[str], dict[str, str], dict[str, dict[str, str]]]:
+    """(classes, enumerations, @TypedWrapper classes, wrapped Java classes, the English spellings
+    of the enumeration values) of every .xcore.
+
+    The classes still carry their raw bodies (`_body`): the members are typed later, once
+    every enumeration is known (see _fill_members).
+    """
+    classes: dict = {}
+    enums: dict = {}
+    wrappers: set[str] = set()
+    wraps: dict[str, str] = {}
+    spellings: dict[str, dict[str, str]] = {}
+    for n in car.namelist():
+        if not n.endswith(".jar") or not _JAR_RE.search(Path(n).name):
+            continue
+        try:
+            jz = zipfile.ZipFile(io.BytesIO(car.read(n)))
+        except zipfile.BadZipFile:
+            continue
+        for m in jz.namelist():
+            if m.endswith(".xcore"):
+                _parse_xcore(jz.read(m).decode("utf-8", "replace"), classes, enums, wrappers,
+                             wraps, spellings)
+    return classes, enums, wrappers, wraps, spellings
+
+
+def _property_types(classes: dict) -> set[str]:
+    """The declared types of every property of the raw class bodies - the item type of a list
+    included, since a list is declared by the type of its items."""
+    found: set[str] = set()
+    for node in classes.values():
+        for body in node["_body"]:
+            for annots, decl in _members(body):
+                if not any(key in annots for key in ("PropertyInfo", "PropertyInfo2", "PropertyInfo3")):
+                    continue
+                m = _DECL_RE.match(decl)
+                if m:
+                    found.add(m.group("type"))
+    return found
+
+
+def _compiled_enumerations(car: zipfile.ZipFile, classes: dict, enums: dict, wrappers: set[str],
+                           wraps: dict[str, str]) -> dict[str, list[EnumerationValue]]:
+    """{a data type a property is typed by: the values of the compiled enumeration it wraps}.
+
+    The model types the importance of a command, the days of a weekly schedule, the periodicity
+    of a set of constants and more by data types over Java enumerations; the values are in the
+    compiled class alone (extract.terms.enumeration_values). A type that is an enumeration or a
+    class of the model itself, or a wrapper written as a scalar, is not looked for; a wrapped
+    class that is no enumeration of values gives nothing. A value comes in both spellings and
+    with the modes the class limits it to.
+    """
+    used = _property_types(classes)
+    wanted = {
+        name: path for name, path in wraps.items()
+        if name in used and name not in enums and name not in classes and name not in wrappers
+    }
+    values = scan_enumeration_classes(car, set(wanted.values()))
+    return {name: values[path] for name, path in sorted(wanted.items()) if path in values}
+
+
+def compiled_enumerations(car: zipfile.ZipFile) -> dict[str, list[EnumerationValue]]:
+    """The compiled enumerations the properties of the model are typed by (see
+    _compiled_enumerations) - for the terms step, which spells their values."""
+    classes, enums, wrappers, wraps, _spellings = _read_model(car)
+    return _compiled_enumerations(car, classes, enums, wrappers, wraps)
+
+
+def _value_record(english: str, since: str | None = None, until: str | None = None) -> dict:
+    """One value of an enumeration as metamodel.json keeps it: its English spelling, and the
+    modes that limit it where the platform states them."""
+    return {"en": english, **({"since": since} if since else {}),
+            **({"until": until} if until else {})}
+
+
+def extract(dist: Path) -> tuple[dict, dict, dict, list[dict[str, str]], list[str], dict]:
+    """The classes, the enumerations, the kind table, the languages of the main .car, the
+    compiled enumerations among the enumerations and the record of every enumeration value.
 
     The kind table (Russian kind -> its English spelling) is read from the serializer's own
     enum by the term extractor; it is taken here rather than from terms.json because this
     step runs BEFORE the terms one, and a mapping built from a stale dictionary would quietly
     lose the kinds a new build brings.
+
+    The languages are the enumeration the project descriptor types its localization languages
+    and its default language by. It is a compiled class, not an .xcore enumeration, so the
+    walk above never met it: the default language came out a `block` and the list of
+    languages a list of an unknown class. It joins the enumerations BEFORE the members are
+    typed, and the default language becomes an enumeration like any other. So do the other
+    compiled enumerations the model wraps for its properties (_compiled_enumerations): before
+    them the importance of a command, the strategy of a scheduled job and a dozen more
+    properties were typed `block`, with no list of the values they allow.
+
+    The records ({enumeration: {Russian value: {"en", "since"?, "until"?}}}) spell each value
+    the way ITS enumeration does. The flat table of the term pairs cannot: the same Russian
+    word is `Normal` for the importance of a command and `Usual` for the importance of a
+    favorite, and the table drops such a word altogether. Every source of the enumerations
+    states the English spelling next to the Russian one: the literal of an .xcore, the term of
+    a language, the pair a compiled value is built from. The modes come from the compiled
+    classes alone - an .xcore dates no value - and from the language table.
     """
     car = _distro.find_car(dist)
-    classes: dict = {}
-    enums: dict = {}
-    wrappers: set[str] = set()
     with zipfile.ZipFile(car) as z:
-        for n in z.namelist():
-            if not n.endswith(".jar") or not _JAR_RE.search(Path(n).name):
-                continue
-            try:
-                jz = zipfile.ZipFile(io.BytesIO(z.read(n)))
-            except zipfile.BadZipFile:
-                continue
-            for m in jz.namelist():
-                if m.endswith(".xcore"):
-                    _parse_xcore(jz.read(m).decode("utf-8", "replace"), classes, enums, wrappers)
+        classes, enums, wrappers, wraps, spellings = _read_model(z)
         kinds = scan_kind_table(z)
+        languages = scan_language_table(z)
+        records = {name: {russian: _value_record(english) for russian, english in pairs.items()}
+                   for name, pairs in spellings.items()}
+        rows: list[dict[str, str]] = []
+        if languages is not None:
+            language_class, rows = languages
+            enums.setdefault(language_class, [row["ru"] for row in rows])
+            records.setdefault(language_class, {
+                row["ru"]: _value_record(row["en"], row.get("since")) for row in rows})
+        compiled = _compiled_enumerations(z, classes, enums, wrappers, wraps)
+    for name, values in compiled.items():
+        enums.setdefault(name, [value.russian for value in values])
+        records.setdefault(name, {
+            value.russian: _value_record(value.english, value.since, value.until)
+            for value in values})
     _fill_members(classes, enums, wrappers)
-    return classes, enums, kinds
+    # In the order of the values the enumeration lists, which is the order the platform
+    # declares them in.
+    values: dict[str, dict[str, dict]] = {}
+    for name in sorted(enums):
+        own = records.get(name) or {}
+        listed = {russian: own[russian] for russian in enums[name] if russian in own}
+        if listed:
+            values[name] = listed
+    return classes, enums, kinds, rows, sorted(compiled), values
 
 
 def main(argv=None) -> int:
@@ -499,8 +640,11 @@ def main(argv=None) -> int:
         raise SystemExit(f"Каталог дистрибутива не найден: {dist}")
 
     version = _distro.detect_version(dist, args.element_version)
-    classes, enums, kinds = extract(dist)
+    classes, enums, kinds, languages, compiled, enum_items = extract(dist)
     vid2class, unresolved = build_vid2class(classes, kinds)
+    if not languages:
+        print("ПРЕДУПРЕЖДЕНИЕ: в дистрибутиве не найдено перечисление языков локализации – "
+              "раздел languages остался пустым", file=sys.stderr)
     if not kinds:
         print("ПРЕДУПРЕЖДЕНИЕ: в дистрибутиве не найдено перечисление видов элементов – "
               "vid2class остался пустым", file=sys.stderr)
@@ -531,6 +675,12 @@ def main(argv=None) -> int:
             for k, v in sorted(classes.items())
         },
         "enums": dict(sorted(enums.items())),
+        # Every value of every enumeration with its English spelling, as that enumeration
+        # spells it, and the compatibility modes the platform limits it to.
+        "enum_items": enum_items,
+        # The languages in the order the platform declares them, each with its code (the
+        # folder of its translations is named by it) and the compatibility mode it needs.
+        "languages": languages,
         "vid2class": vid2class,
         "vetted": sorted(VETTED),
         "common": COMMON,
@@ -545,6 +695,20 @@ def main(argv=None) -> int:
         _distro.update_index(version, make_default=not args.no_default)
     print(f"Записано: {out} (версия {version})")
     print(f"  классов: {len(classes)}; перечислений: {len(enums)}; видов в vid2class: {len(vid2class)}")
+    listed = ", ".join(f"{row['ru']} ({row['code']}, с {row['since']})" for row in languages)
+    print(f"  языков локализации: {len(languages)}" + (f" – {listed}" if listed else ""))
+    print(f"  скомпилированных перечислений у свойств: {len(compiled)}"
+          + (f" – {', '.join(compiled)}" if compiled else ""))
+    dated = []
+    for name, records in enum_items.items():
+        for russian, record in records.items():
+            limits = [f"с {record['since']}"] if record.get("since") else []
+            limits += [f"по {record['until']}"] if record.get("until") else []
+            if limits:
+                dated.append(f"{name}.{russian} ({', '.join(limits)})")
+    print(f"  значений перечислений с английским написанием: "
+          f"{sum(len(records) for records in enum_items.values())}; с режимами: {len(dated)}"
+          + (f" – {', '.join(dated)}" if dated else ""))
     return 0
 
 

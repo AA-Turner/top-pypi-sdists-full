@@ -1596,6 +1596,9 @@ class CfnOrganizationTelemetryRule(
                     log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
+                    msk_monitoring_parameters=observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty(
+                        enhanced_monitoring="enhancedMonitoring"
+                    ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
                         log_format="logFormat",
@@ -2711,6 +2714,61 @@ class CfnOrganizationTelemetryRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enhanced_monitoring": "enhancedMonitoring"},
+    )
+    class MskMonitoringParametersProperty:
+        def __init__(
+            self,
+            *,
+            enhanced_monitoring: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration parameters for Amazon MSK cluster monitoring.
+
+            :param enhanced_monitoring: The level of enhanced monitoring for the MSK cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-mskmonitoringparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                msk_monitoring_parameters_property = observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty(
+                    enhanced_monitoring="enhancedMonitoring"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__68211db1381520b1354086b410425262fb321a7f8296bc21f8e8ac95a4aa9ad5)
+                check_type(argname="argument enhanced_monitoring", value=enhanced_monitoring, expected_type=type_hints["enhanced_monitoring"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enhanced_monitoring is not None:
+                self._values["enhanced_monitoring"] = enhanced_monitoring
+
+        @builtins.property
+        def enhanced_monitoring(self) -> typing.Optional[builtins.str]:
+            '''The level of enhanced monitoring for the MSK cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-mskmonitoringparameters.html#cfn-observabilityadmin-organizationtelemetryrule-mskmonitoringparameters-enhancedmonitoring
+            '''
+            result = self._values.get("enhanced_monitoring")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MskMonitoringParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.RegionStatusProperty",
         jsii_struct_bases=[],
         name_mapping={"region": "region", "rule_arn": "ruleArn", "status": "status"},
@@ -2857,6 +2915,7 @@ class CfnOrganizationTelemetryRule(
             "elb_load_balancer_logging_parameters": "elbLoadBalancerLoggingParameters",
             "kms_key_arn": "kmsKeyArn",
             "log_delivery_parameters": "logDeliveryParameters",
+            "msk_monitoring_parameters": "mskMonitoringParameters",
             "retention_in_days": "retentionInDays",
             "vpc_flow_log_parameters": "vpcFlowLogParameters",
             "waf_logging_parameters": "wafLoggingParameters",
@@ -2872,6 +2931,7 @@ class CfnOrganizationTelemetryRule(
             elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             kms_key_arn: typing.Optional[builtins.str] = None,
             log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            msk_monitoring_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.MskMonitoringParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
             vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             waf_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOrganizationTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2884,6 +2944,7 @@ class CfnOrganizationTelemetryRule(
             :param elb_load_balancer_logging_parameters: Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
             :param kms_key_arn: The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
             :param log_delivery_parameters: Parameters for log delivery configuration.
+            :param msk_monitoring_parameters: Configuration parameters for Amazon MSK cluster monitoring.
             :param retention_in_days: The number of days to retain the telemetry data in the destination.
             :param vpc_flow_log_parameters: Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
             :param waf_logging_parameters: Configuration parameters specific to WAF logging when WAF is the resource type.
@@ -2923,6 +2984,9 @@ class CfnOrganizationTelemetryRule(
                     kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
+                    ),
+                    msk_monitoring_parameters=observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty(
+                        enhanced_monitoring="enhancedMonitoring"
                     ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -2966,6 +3030,7 @@ class CfnOrganizationTelemetryRule(
                 check_type(argname="argument elb_load_balancer_logging_parameters", value=elb_load_balancer_logging_parameters, expected_type=type_hints["elb_load_balancer_logging_parameters"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument log_delivery_parameters", value=log_delivery_parameters, expected_type=type_hints["log_delivery_parameters"])
+                check_type(argname="argument msk_monitoring_parameters", value=msk_monitoring_parameters, expected_type=type_hints["msk_monitoring_parameters"])
                 check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
                 check_type(argname="argument vpc_flow_log_parameters", value=vpc_flow_log_parameters, expected_type=type_hints["vpc_flow_log_parameters"])
                 check_type(argname="argument waf_logging_parameters", value=waf_logging_parameters, expected_type=type_hints["waf_logging_parameters"])
@@ -2982,6 +3047,8 @@ class CfnOrganizationTelemetryRule(
                 self._values["kms_key_arn"] = kms_key_arn
             if log_delivery_parameters is not None:
                 self._values["log_delivery_parameters"] = log_delivery_parameters
+            if msk_monitoring_parameters is not None:
+                self._values["msk_monitoring_parameters"] = msk_monitoring_parameters
             if retention_in_days is not None:
                 self._values["retention_in_days"] = retention_in_days
             if vpc_flow_log_parameters is not None:
@@ -3048,6 +3115,17 @@ class CfnOrganizationTelemetryRule(
             '''
             result = self._values.get("log_delivery_parameters")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.LogDeliveryParametersProperty"]], result)
+
+        @builtins.property
+        def msk_monitoring_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.MskMonitoringParametersProperty"]]:
+            '''Configuration parameters for Amazon MSK cluster monitoring.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-organizationtelemetryrule-telemetrydestinationconfiguration-mskmonitoringparameters
+            '''
+            result = self._values.get("msk_monitoring_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOrganizationTelemetryRule.MskMonitoringParametersProperty"]], result)
 
         @builtins.property
         def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -3174,6 +3252,9 @@ class CfnOrganizationTelemetryRule(
                         kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
+                        ),
+                        msk_monitoring_parameters=observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty(
+                            enhanced_monitoring="enhancedMonitoring"
                         ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -3615,6 +3696,9 @@ class CfnOrganizationTelemetryRuleProps:
                         kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnOrganizationTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
+                        ),
+                        msk_monitoring_parameters=observabilityadmin.CfnOrganizationTelemetryRule.MskMonitoringParametersProperty(
+                            enhanced_monitoring="enhancedMonitoring"
                         ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty(
@@ -5120,6 +5204,9 @@ class CfnTelemetryRule(
                     log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
                     ),
+                    msk_monitoring_parameters=observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty(
+                        enhanced_monitoring="enhancedMonitoring"
+                    ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
                         log_format="logFormat",
@@ -6232,6 +6319,61 @@ class CfnTelemetryRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enhanced_monitoring": "enhancedMonitoring"},
+    )
+    class MskMonitoringParametersProperty:
+        def __init__(
+            self,
+            *,
+            enhanced_monitoring: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration parameters for Amazon MSK cluster monitoring.
+
+            :param enhanced_monitoring: The level of enhanced monitoring for the MSK cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-mskmonitoringparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                msk_monitoring_parameters_property = observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty(
+                    enhanced_monitoring="enhancedMonitoring"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b7cf3deb37f965523c788660d7817adce580b4877993e9d7d71dcd71b1d20c97)
+                check_type(argname="argument enhanced_monitoring", value=enhanced_monitoring, expected_type=type_hints["enhanced_monitoring"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enhanced_monitoring is not None:
+                self._values["enhanced_monitoring"] = enhanced_monitoring
+
+        @builtins.property
+        def enhanced_monitoring(self) -> typing.Optional[builtins.str]:
+            '''The level of enhanced monitoring for the MSK cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-mskmonitoringparameters.html#cfn-observabilityadmin-telemetryrule-mskmonitoringparameters-enhancedmonitoring
+            '''
+            result = self._values.get("enhanced_monitoring")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MskMonitoringParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule.RegionStatusProperty",
         jsii_struct_bases=[],
         name_mapping={"region": "region", "rule_arn": "ruleArn", "status": "status"},
@@ -6378,6 +6520,7 @@ class CfnTelemetryRule(
             "elb_load_balancer_logging_parameters": "elbLoadBalancerLoggingParameters",
             "kms_key_arn": "kmsKeyArn",
             "log_delivery_parameters": "logDeliveryParameters",
+            "msk_monitoring_parameters": "mskMonitoringParameters",
             "retention_in_days": "retentionInDays",
             "vpc_flow_log_parameters": "vpcFlowLogParameters",
             "waf_logging_parameters": "wafLoggingParameters",
@@ -6393,6 +6536,7 @@ class CfnTelemetryRule(
             elb_load_balancer_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             kms_key_arn: typing.Optional[builtins.str] = None,
             log_delivery_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.LogDeliveryParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            msk_monitoring_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.MskMonitoringParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retention_in_days: typing.Optional[jsii.Number] = None,
             vpc_flow_log_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.VPCFlowLogParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             waf_logging_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTelemetryRule.WAFLoggingParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6405,6 +6549,7 @@ class CfnTelemetryRule(
             :param elb_load_balancer_logging_parameters: Configuration parameters specific to ELB load balancer logging when ELB is the resource type.
             :param kms_key_arn: The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the destination log groups specified in the Telemetry Rule.
             :param log_delivery_parameters: Configuration parameters specific to Amazon Bedrock AgentCore logging when Amazon Bedrock AgentCore is the resource type.
+            :param msk_monitoring_parameters: Configuration parameters for Amazon MSK cluster monitoring.
             :param retention_in_days: The number of days to retain the telemetry data in the destination.
             :param vpc_flow_log_parameters: Configuration parameters specific to VPC Flow Logs when VPC is the resource type.
             :param waf_logging_parameters: Configuration parameters specific to WAF logging when WAF is the resource type.
@@ -6444,6 +6589,9 @@ class CfnTelemetryRule(
                     kms_key_arn="kmsKeyArn",
                     log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                         log_types=["logTypes"]
+                    ),
+                    msk_monitoring_parameters=observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty(
+                        enhanced_monitoring="enhancedMonitoring"
                     ),
                     retention_in_days=123,
                     vpc_flow_log_parameters=observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
@@ -6487,6 +6635,7 @@ class CfnTelemetryRule(
                 check_type(argname="argument elb_load_balancer_logging_parameters", value=elb_load_balancer_logging_parameters, expected_type=type_hints["elb_load_balancer_logging_parameters"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument log_delivery_parameters", value=log_delivery_parameters, expected_type=type_hints["log_delivery_parameters"])
+                check_type(argname="argument msk_monitoring_parameters", value=msk_monitoring_parameters, expected_type=type_hints["msk_monitoring_parameters"])
                 check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
                 check_type(argname="argument vpc_flow_log_parameters", value=vpc_flow_log_parameters, expected_type=type_hints["vpc_flow_log_parameters"])
                 check_type(argname="argument waf_logging_parameters", value=waf_logging_parameters, expected_type=type_hints["waf_logging_parameters"])
@@ -6503,6 +6652,8 @@ class CfnTelemetryRule(
                 self._values["kms_key_arn"] = kms_key_arn
             if log_delivery_parameters is not None:
                 self._values["log_delivery_parameters"] = log_delivery_parameters
+            if msk_monitoring_parameters is not None:
+                self._values["msk_monitoring_parameters"] = msk_monitoring_parameters
             if retention_in_days is not None:
                 self._values["retention_in_days"] = retention_in_days
             if vpc_flow_log_parameters is not None:
@@ -6569,6 +6720,17 @@ class CfnTelemetryRule(
             '''
             result = self._values.get("log_delivery_parameters")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.LogDeliveryParametersProperty"]], result)
+
+        @builtins.property
+        def msk_monitoring_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.MskMonitoringParametersProperty"]]:
+            '''Configuration parameters for Amazon MSK cluster monitoring.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html#cfn-observabilityadmin-telemetryrule-telemetrydestinationconfiguration-mskmonitoringparameters
+            '''
+            result = self._values.get("msk_monitoring_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTelemetryRule.MskMonitoringParametersProperty"]], result)
 
         @builtins.property
         def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -6692,6 +6854,9 @@ class CfnTelemetryRule(
                         kms_key_arn="kmsKeyArn",
                         log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
+                        ),
+                        msk_monitoring_parameters=observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty(
+                            enhanced_monitoring="enhancedMonitoring"
                         ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
@@ -7121,6 +7286,9 @@ class CfnTelemetryRuleProps:
                         log_delivery_parameters=observabilityadmin.CfnTelemetryRule.LogDeliveryParametersProperty(
                             log_types=["logTypes"]
                         ),
+                        msk_monitoring_parameters=observabilityadmin.CfnTelemetryRule.MskMonitoringParametersProperty(
+                            enhanced_monitoring="enhancedMonitoring"
+                        ),
                         retention_in_days=123,
                         vpc_flow_log_parameters=observabilityadmin.CfnTelemetryRule.VPCFlowLogParametersProperty(
                             log_format="logFormat",
@@ -7537,6 +7705,13 @@ def _typecheckingstub__0a6ecd2133b0bae7130114f115e61eb5e98343b8c136ecade19918d01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__68211db1381520b1354086b410425262fb321a7f8296bc21f8e8ac95a4aa9ad5(
+    *,
+    enhanced_monitoring: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__39474ff06c29a0fa1bd91659fc00baf48b14f80d991ec59b6f0d4ac0ecf907e2(
     *,
     region: typing.Optional[builtins.str] = None,
@@ -7561,6 +7736,7 @@ def _typecheckingstub__36b4168c57b4555036ca598e8299a36985c9aab7a1eb6b84357df4454
     elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    msk_monitoring_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.MskMonitoringParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     waf_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOrganizationTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7966,6 +8142,13 @@ def _typecheckingstub__ec5b265219a09ae971954fc5efb55eeca562e31b03200d5a454f07b91
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b7cf3deb37f965523c788660d7817adce580b4877993e9d7d71dcd71b1d20c97(
+    *,
+    enhanced_monitoring: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5537a00308bab09ea31f9d63dfd37373fb989591c800bcebed8f9977dad4f21d(
     *,
     region: typing.Optional[builtins.str] = None,
@@ -7990,6 +8173,7 @@ def _typecheckingstub__01ec7a824466c4f6343ec939656046b6c12a168edd9bbf6ebca41e4b5
     elb_load_balancer_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.ELBLoadBalancerLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     log_delivery_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.LogDeliveryParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    msk_monitoring_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.MskMonitoringParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     vpc_flow_log_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.VPCFlowLogParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     waf_logging_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTelemetryRule.WAFLoggingParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

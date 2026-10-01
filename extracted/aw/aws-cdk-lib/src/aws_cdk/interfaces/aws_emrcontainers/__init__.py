@@ -132,6 +132,51 @@ class _IEndpointRefProxy(
 typing.cast(typing.Any, IEndpointRef).__jsii_proxy_class__ = lambda : _IEndpointRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_emrcontainers.IJobTemplateRef")
+class IJobTemplateRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IJobTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_emrcontainers.IJobTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("JobTemplateReference", jsii.get(self, "jobTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IJobTemplateRef).__jsii_proxy_class__ = lambda : _IJobTemplateRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_emrcontainers.ISecurityConfigurationRef"
 )
@@ -224,6 +269,55 @@ class _IVirtualClusterRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IVirtualClusterRef).__jsii_proxy_class__ = lambda : _IVirtualClusterRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_emrcontainers.JobTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"job_template_arn": "jobTemplateArn"},
+)
+class JobTemplateReference:
+    def __init__(self, *, job_template_arn: builtins.str) -> None:
+        '''A reference to a JobTemplate resource.
+
+        :param job_template_arn: The Arn of the JobTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_emrcontainers as interfaces_emrcontainers
+            
+            job_template_reference = interfaces_emrcontainers.JobTemplateReference(
+                job_template_arn="jobTemplateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3f40689935d4c9d4e53e4aa74e18fb39b8e36ff78362c43824b5e715cb5c516)
+            check_type(argname="argument job_template_arn", value=job_template_arn, expected_type=type_hints["job_template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_template_arn": job_template_arn,
+        }
+
+    @builtins.property
+    def job_template_arn(self) -> builtins.str:
+        '''The Arn of the JobTemplate resource.'''
+        result = self._values.get("job_template_arn")
+        assert result is not None, "Required property 'job_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -346,8 +440,10 @@ class VirtualClusterReference:
 __all__ = [
     "EndpointReference",
     "IEndpointRef",
+    "IJobTemplateRef",
     "ISecurityConfigurationRef",
     "IVirtualClusterRef",
+    "JobTemplateReference",
     "SecurityConfigurationReference",
     "VirtualClusterReference",
 ]
@@ -357,6 +453,13 @@ publication.publish()
 def _typecheckingstub__f8da93a42d3292300c35c7d5863b4ecdfabf6c6a48563cb245a43a0393149b50(
     *,
     endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3f40689935d4c9d4e53e4aa74e18fb39b8e36ff78362c43824b5e715cb5c516(
+    *,
+    job_template_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -376,5 +479,5 @@ def _typecheckingstub__b279f868e31527e514f6d252f42aa76ae779c333792720eb24ad65b28
     """Type checking stubs"""
     pass
 
-for cls in [IEndpointRef, ISecurityConfigurationRef, IVirtualClusterRef]:
+for cls in [IEndpointRef, IJobTemplateRef, ISecurityConfigurationRef, IVirtualClusterRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

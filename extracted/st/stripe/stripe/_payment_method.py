@@ -1289,6 +1289,9 @@ class PaymentMethod(
         PayPal account PayerID. This identifier uniquely identifies the PayPal customer.
         """
 
+    class Paypay(StripeObject):
+        pass
+
     class Payto(StripeObject):
         bsb_number: Optional[str]
         """
@@ -1366,6 +1369,9 @@ class PaymentMethod(
         Last four characters of the IBAN.
         """
         _inner_class_types = {"generated_from": GeneratedFrom}
+
+    class Sequra(StripeObject):
+        pass
 
     class Sofort(StripeObject):
         country: Optional[str]
@@ -1566,6 +1572,7 @@ class PaymentMethod(
     payco: Optional[Payco]
     paynow: Optional[Paynow]
     paypal: Optional[Paypal]
+    paypay: Optional[Paypay]
     payto: Optional[Payto]
     pix: Optional[Pix]
     promptpay: Optional[Promptpay]
@@ -1578,6 +1585,7 @@ class PaymentMethod(
     satispay: Optional[Satispay]
     scalapay: Optional[Scalapay]
     sepa_debit: Optional[SepaDebit]
+    sequra: Optional[Sequra]
     sofort: Optional[Sofort]
     sunbit: Optional[Sunbit]
     swish: Optional[Swish]
@@ -1625,6 +1633,7 @@ class PaymentMethod(
             "payco",
             "paynow",
             "paypal",
+            "paypay",
             "payto",
             "pix",
             "promptpay",
@@ -1633,6 +1642,7 @@ class PaymentMethod(
             "satispay",
             "scalapay",
             "sepa_debit",
+            "sequra",
             "sofort",
             "sunbit",
             "swish",
@@ -1654,7 +1664,10 @@ class PaymentMethod(
 
     @classmethod
     def _cls_attach(
-        cls, payment_method: str, **params: Unpack["PaymentMethodAttachParams"]
+        cls,
+        payment_method: str,
+        /,
+        **params: Unpack["PaymentMethodAttachParams"],
     ) -> "PaymentMethod":
         """
         Attaches a PaymentMethod object to a Customer.
@@ -1685,7 +1698,7 @@ class PaymentMethod(
     @overload
     @staticmethod
     def attach(
-        payment_method: str, **params: Unpack["PaymentMethodAttachParams"]
+        payment_method: str, /, **params: Unpack["PaymentMethodAttachParams"]
     ) -> "PaymentMethod":
         """
         Attaches a PaymentMethod object to a Customer.
@@ -1726,7 +1739,7 @@ class PaymentMethod(
         ...
 
     @class_method_variant("_cls_attach")
-    def attach(  # pyright: ignore[reportGeneralTypeIssues]
+    def attach(
         self, **params: Unpack["PaymentMethodAttachParams"]
     ) -> "PaymentMethod":
         """
@@ -1757,7 +1770,10 @@ class PaymentMethod(
 
     @classmethod
     async def _cls_attach_async(
-        cls, payment_method: str, **params: Unpack["PaymentMethodAttachParams"]
+        cls,
+        payment_method: str,
+        /,
+        **params: Unpack["PaymentMethodAttachParams"],
     ) -> "PaymentMethod":
         """
         Attaches a PaymentMethod object to a Customer.
@@ -1788,7 +1804,7 @@ class PaymentMethod(
     @overload
     @staticmethod
     async def attach_async(
-        payment_method: str, **params: Unpack["PaymentMethodAttachParams"]
+        payment_method: str, /, **params: Unpack["PaymentMethodAttachParams"]
     ) -> "PaymentMethod":
         """
         Attaches a PaymentMethod object to a Customer.
@@ -1829,7 +1845,7 @@ class PaymentMethod(
         ...
 
     @class_method_variant("_cls_attach_async")
-    async def attach_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def attach_async(
         self, **params: Unpack["PaymentMethodAttachParams"]
     ) -> "PaymentMethod":
         """
@@ -1896,7 +1912,10 @@ class PaymentMethod(
 
     @classmethod
     def _cls_detach(
-        cls, payment_method: str, **params: Unpack["PaymentMethodDetachParams"]
+        cls,
+        payment_method: str,
+        /,
+        **params: Unpack["PaymentMethodDetachParams"],
     ) -> "PaymentMethod":
         """
         Detaches a PaymentMethod object from a Customer. Detachment is permanent and irreversible — once detached, a PaymentMethod can no longer be used for payments or re-attached to a Customer.
@@ -1915,7 +1934,7 @@ class PaymentMethod(
     @overload
     @staticmethod
     def detach(
-        payment_method: str, **params: Unpack["PaymentMethodDetachParams"]
+        payment_method: str, /, **params: Unpack["PaymentMethodDetachParams"]
     ) -> "PaymentMethod":
         """
         Detaches a PaymentMethod object from a Customer. Detachment is permanent and irreversible — once detached, a PaymentMethod can no longer be used for payments or re-attached to a Customer.
@@ -1932,7 +1951,7 @@ class PaymentMethod(
         ...
 
     @class_method_variant("_cls_detach")
-    def detach(  # pyright: ignore[reportGeneralTypeIssues]
+    def detach(
         self, **params: Unpack["PaymentMethodDetachParams"]
     ) -> "PaymentMethod":
         """
@@ -1951,7 +1970,10 @@ class PaymentMethod(
 
     @classmethod
     async def _cls_detach_async(
-        cls, payment_method: str, **params: Unpack["PaymentMethodDetachParams"]
+        cls,
+        payment_method: str,
+        /,
+        **params: Unpack["PaymentMethodDetachParams"],
     ) -> "PaymentMethod":
         """
         Detaches a PaymentMethod object from a Customer. Detachment is permanent and irreversible — once detached, a PaymentMethod can no longer be used for payments or re-attached to a Customer.
@@ -1970,7 +1992,7 @@ class PaymentMethod(
     @overload
     @staticmethod
     async def detach_async(
-        payment_method: str, **params: Unpack["PaymentMethodDetachParams"]
+        payment_method: str, /, **params: Unpack["PaymentMethodDetachParams"]
     ) -> "PaymentMethod":
         """
         Detaches a PaymentMethod object from a Customer. Detachment is permanent and irreversible — once detached, a PaymentMethod can no longer be used for payments or re-attached to a Customer.
@@ -1987,7 +2009,7 @@ class PaymentMethod(
         ...
 
     @class_method_variant("_cls_detach_async")
-    async def detach_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def detach_async(
         self, **params: Unpack["PaymentMethodDetachParams"]
     ) -> "PaymentMethod":
         """
@@ -2046,7 +2068,7 @@ class PaymentMethod(
 
     @classmethod
     def modify(
-        cls, id: str, **params: Unpack["PaymentMethodModifyParams"]
+        cls, id: str, /, **params: Unpack["PaymentMethodModifyParams"]
     ) -> "PaymentMethod":
         """
         Updates a PaymentMethod object. A PaymentMethod must be attached to a customer to be updated.
@@ -2063,7 +2085,7 @@ class PaymentMethod(
 
     @classmethod
     async def modify_async(
-        cls, id: str, **params: Unpack["PaymentMethodModifyParams"]
+        cls, id: str, /, **params: Unpack["PaymentMethodModifyParams"]
     ) -> "PaymentMethod":
         """
         Updates a PaymentMethod object. A PaymentMethod must be attached to a customer to be updated.
@@ -2143,6 +2165,7 @@ class PaymentMethod(
         "payco": Payco,
         "paynow": Paynow,
         "paypal": Paypal,
+        "paypay": Paypay,
         "payto": Payto,
         "pix": Pix,
         "promptpay": Promptpay,
@@ -2152,6 +2175,7 @@ class PaymentMethod(
         "satispay": Satispay,
         "scalapay": Scalapay,
         "sepa_debit": SepaDebit,
+        "sequra": Sequra,
         "sofort": Sofort,
         "sunbit": Sunbit,
         "swish": Swish,

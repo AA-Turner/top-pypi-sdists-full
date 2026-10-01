@@ -41,6 +41,7 @@ from .literals import (
     DataDeletionPolicyType,
     DataSourceStatusType,
     DataSourceTypeType,
+    DayOfWeekType,
     DocumentStatusType,
     EmbeddingDataTypeType,
     EmbeddingModelTypeType,
@@ -80,6 +81,9 @@ from .literals import (
     SharePointAuthTypeType,
     SortOrderType,
     TypeType,
+    VpcConfigurationStatusType,
+    VpcProtocolType,
+    VpcResolutionModeType,
     WebScopeTypeType,
 )
 
@@ -159,6 +163,8 @@ __all__ = (
     "CreatePromptResponseTypeDef",
     "CreatePromptVersionRequestTypeDef",
     "CreatePromptVersionResponseTypeDef",
+    "CreateVpcConfigurationRequestTypeDef",
+    "CreateVpcConfigurationResponseTypeDef",
     "CuratedQueryTypeDef",
     "CustomContentTypeDef",
     "CustomDocumentIdentifierTypeDef",
@@ -172,6 +178,8 @@ __all__ = (
     "DataSourceConfigurationUnionTypeDef",
     "DataSourceSummaryTypeDef",
     "DataSourceTypeDef",
+    "DayOfMonthOutputTypeDef",
+    "DayOfMonthTypeDef",
     "DeleteAgentActionGroupRequestTypeDef",
     "DeleteAgentAliasRequestTypeDef",
     "DeleteAgentAliasResponseTypeDef",
@@ -195,6 +203,8 @@ __all__ = (
     "DeletePromptResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteResourcePolicyResponseTypeDef",
+    "DeleteVpcConfigurationRequestTypeDef",
+    "DeleteVpcConfigurationResponseTypeDef",
     "DeletionProtectionConfigurationTypeDef",
     "DisassociateAgentCollaboratorRequestTypeDef",
     "DisassociateAgentKnowledgeBaseRequestTypeDef",
@@ -265,6 +275,8 @@ __all__ = (
     "GetPromptResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "GetVpcConfigurationRequestTypeDef",
+    "GetVpcConfigurationResponseTypeDef",
     "GuardrailConfigurationTypeDef",
     "HierarchicalChunkingConfigurationOutputTypeDef",
     "HierarchicalChunkingConfigurationTypeDef",
@@ -343,6 +355,9 @@ __all__ = (
     "ListPromptsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListVpcConfigurationsRequestPaginateTypeDef",
+    "ListVpcConfigurationsRequestTypeDef",
+    "ListVpcConfigurationsResponseTypeDef",
     "LoopControllerFlowNodeConfigurationTypeDef",
     "LoopFlowNodeConfigurationOutputTypeDef",
     "LoopFlowNodeConfigurationTypeDef",
@@ -375,6 +390,8 @@ __all__ = (
     "MissingNodeOutputFlowValidationDetailsTypeDef",
     "MongoDbAtlasConfigurationTypeDef",
     "MongoDbAtlasFieldMappingTypeDef",
+    "MonthlyScheduleOutputTypeDef",
+    "MonthlyScheduleTypeDef",
     "MultipleLoopControllerNodesFlowValidationDetailsTypeDef",
     "MultipleLoopInputNodesFlowValidationDetailsTypeDef",
     "MultipleNodeInputConnectionsFlowValidationDetailsTypeDef",
@@ -495,6 +512,8 @@ __all__ = (
     "SupplementalDataStorageConfigurationOutputTypeDef",
     "SupplementalDataStorageConfigurationTypeDef",
     "SupplementalDataStorageLocationTypeDef",
+    "SyncScheduleOutputTypeDef",
+    "SyncScheduleTypeDef",
     "SystemContentBlockTypeDef",
     "TagResourceRequestTypeDef",
     "TextContentDocTypeDef",
@@ -568,6 +587,8 @@ __all__ = (
     "VideoConfigurationTypeDef",
     "VideoExtractionConfigurationTypeDef",
     "VideoSegmentationConfigurationTypeDef",
+    "VpcConfigurationSummaryTypeDef",
+    "VpcConfigurationTypeDef",
     "WebCrawlerConfigurationOutputTypeDef",
     "WebCrawlerConfigurationTypeDef",
     "WebCrawlerLimitsTypeDef",
@@ -575,6 +596,7 @@ __all__ = (
     "WebDataSourceConfigurationTypeDef",
     "WebSourceConfigurationOutputTypeDef",
     "WebSourceConfigurationTypeDef",
+    "WeeklyScheduleTypeDef",
 )
 
 
@@ -737,6 +759,21 @@ class CreatePromptVersionRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class CreateVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcId: str
+    subnetIds: Sequence[str]
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    clientToken: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+
+
 class CuratedQueryTypeDef(TypedDict):
     naturalLanguage: str
     sql: str
@@ -786,6 +823,16 @@ class DataSourceSummaryTypeDef(TypedDict):
     status: DataSourceStatusType
     updatedAt: datetime
     description: NotRequired[str]
+
+
+class DayOfMonthOutputTypeDef(TypedDict):
+    dayNumber: NotRequired[int]
+    lastDayOfMonth: NotRequired[dict[str, Any]]
+
+
+class DayOfMonthTypeDef(TypedDict):
+    dayNumber: NotRequired[int]
+    lastDayOfMonth: NotRequired[Mapping[str, Any]]
 
 
 class DeleteAgentActionGroupRequestTypeDef(TypedDict):
@@ -844,6 +891,11 @@ class DeletePromptRequestTypeDef(TypedDict):
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     expectedRevisionId: NotRequired[str]
+
+
+class DeleteVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcConfigurationId: str
 
 
 class DeletionProtectionConfigurationTypeDef(TypedDict):
@@ -1192,6 +1244,29 @@ class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class GetVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcConfigurationId: str
+
+
+class VpcConfigurationTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    vpcId: str
+    subnetIds: list[str]
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    createdAt: datetime
+    updatedAt: datetime
+    statusMessage: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+
+
 class HierarchicalChunkingLevelConfigurationTypeDef(TypedDict):
     maxTokens: int
 
@@ -1367,6 +1442,29 @@ PromptSummaryTypeDef = TypedDict(
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+class ListVpcConfigurationsRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    statusFilter: NotRequired[VpcConfigurationStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class VpcConfigurationSummaryTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    vpcId: str
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    createdAt: datetime
+    statusMessage: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
 
 
 class VideoExtractionConfigurationTypeDef(TypedDict):
@@ -1580,6 +1678,10 @@ class StorageFlowNodeS3ConfigurationTypeDef(TypedDict):
     bucketName: str
 
 
+class WeeklyScheduleTypeDef(TypedDict):
+    dayOfWeek: DayOfWeekType
+
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -1739,6 +1841,12 @@ class AssociateAgentKnowledgeBaseResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteAgentAliasResponseTypeDef(TypedDict):
     agentId: str
     agentAliasId: str
@@ -1810,6 +1918,12 @@ DeletePromptResponseTypeDef = TypedDict(
 class DeleteResourcePolicyResponseTypeDef(TypedDict):
     resourceArn: str
     revisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2018,6 +2132,14 @@ class ListDataSourcesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class MonthlyScheduleOutputTypeDef(TypedDict):
+    dayOfMonth: DayOfMonthOutputTypeDef
+
+
+class MonthlyScheduleTypeDef(TypedDict):
+    dayOfMonth: DayOfMonthTypeDef
+
+
 class DocumentIdentifierTypeDef(TypedDict):
     dataSourceType: ContentDataSourceTypeType
     s3: NotRequired[S3LocationTypeDef]
@@ -2136,6 +2258,11 @@ class FunctionTypeDef(TypedDict):
     description: NotRequired[str]
     parameters: NotRequired[Mapping[str, ParameterDetailTypeDef]]
     requireConfirmation: NotRequired[RequireConfirmationType]
+
+
+class GetVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfiguration: VpcConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class HierarchicalChunkingConfigurationOutputTypeDef(TypedDict):
@@ -2282,8 +2409,20 @@ class ListPromptsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListVpcConfigurationsRequestPaginateTypeDef(TypedDict):
+    knowledgeBaseId: str
+    statusFilter: NotRequired[VpcConfigurationStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListPromptsResponseTypeDef(TypedDict):
     promptSummaries: list[PromptSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListVpcConfigurationsResponseTypeDef(TypedDict):
+    items: list[VpcConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2604,6 +2743,18 @@ class ListFlowAliasesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class SyncScheduleOutputTypeDef(TypedDict):
+    daily: NotRequired[dict[str, Any]]
+    weekly: NotRequired[WeeklyScheduleTypeDef]
+    monthly: NotRequired[MonthlyScheduleOutputTypeDef]
+
+
+class SyncScheduleTypeDef(TypedDict):
+    daily: NotRequired[Mapping[str, Any]]
+    weekly: NotRequired[WeeklyScheduleTypeDef]
+    monthly: NotRequired[MonthlyScheduleTypeDef]
+
+
 class DeleteKnowledgeBaseDocumentsRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     dataSourceId: str
@@ -2718,18 +2869,6 @@ class StartIngestionJobResponseTypeDef(TypedDict):
 class StopIngestionJobResponseTypeDef(TypedDict):
     ingestionJob: IngestionJobTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef(TypedDict):
-    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
-    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
-    connectorParameters: NotRequired[dict[str, Any]]
-
-
-class ManagedKnowledgeBaseConnectorConfigurationTypeDef(TypedDict):
-    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
-    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
-    connectorParameters: NotRequired[Mapping[str, Any]]
 
 
 MemoryConfigurationUnionTypeDef = Union[
@@ -2848,6 +2987,7 @@ class BedrockEmbeddingModelConfigurationOutputTypeDef(TypedDict):
     embeddingDataType: NotRequired[EmbeddingDataTypeType]
     audio: NotRequired[list[AudioConfigurationTypeDef]]
     video: NotRequired[list[VideoConfigurationTypeDef]]
+    modelConfiguration: NotRequired[dict[str, Any]]
 
 
 class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
@@ -2855,6 +2995,7 @@ class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
     embeddingDataType: NotRequired[EmbeddingDataTypeType]
     audio: NotRequired[Sequence[AudioConfigurationTypeDef]]
     video: NotRequired[Sequence[VideoConfigurationTypeDef]]
+    modelConfiguration: NotRequired[Mapping[str, Any]]
 
 
 class CreateAgentAliasResponseTypeDef(TypedDict):
@@ -2880,6 +3021,20 @@ class CustomContentTypeDef(TypedDict):
 
 
 MessageUnionTypeDef = Union[MessageTypeDef, MessageOutputTypeDef]
+
+
+class ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[dict[str, Any]]
+    syncSchedule: NotRequired[SyncScheduleOutputTypeDef]
+
+
+class ManagedKnowledgeBaseConnectorConfigurationTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[Mapping[str, Any]]
+    syncSchedule: NotRequired[SyncScheduleTypeDef]
 
 
 class DeleteKnowledgeBaseDocumentsResponseTypeDef(TypedDict):
@@ -3272,6 +3427,9 @@ class ManagedKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
     embeddingModelArn: NotRequired[str]
     embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationOutputTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[
+        SupplementalDataStorageConfigurationOutputTypeDef
+    ]
 
 
 class VectorKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
@@ -3287,6 +3445,7 @@ class ManagedKnowledgeBaseConfigurationTypeDef(TypedDict):
     embeddingModelArn: NotRequired[str]
     embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[SupplementalDataStorageConfigurationTypeDef]
 
 
 class VectorKnowledgeBaseConfigurationTypeDef(TypedDict):

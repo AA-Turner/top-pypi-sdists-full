@@ -423,7 +423,7 @@ class AgentTask:
         """Append the ``agent-browser`` ``--session`` map when relevant.
 
         Only fires for packages that use the ``agent_browser`` login backend
-        (claude-code / gemini-cli / codex) — other packages don't ship the CLI
+        (claude-code / codex) — other packages don't ship the CLI
         that reads those session names.
         """
         if self._session is None:

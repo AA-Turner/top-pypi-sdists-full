@@ -1491,6 +1491,541 @@ class CfnLicense(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_licensemanager_19fc2853.ILicenseAssetGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnLicenseAssetGroup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetGroup",
+):
+    '''Resource Type definition for AWS::LicenseManager::LicenseAssetGroup.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html
+    :cloudformationResource: AWS::LicenseManager::LicenseAssetGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_licensemanager as licensemanager
+        
+        cfn_license_asset_group = licensemanager.CfnLicenseAssetGroup(self, "MyCfnLicenseAssetGroup",
+            associated_license_asset_ruleset_arns=["associatedLicenseAssetRulesetArns"],
+            license_asset_group_configurations=[licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty(
+                usage_dimension="usageDimension"
+            )],
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            properties=[licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty(
+                key="key",
+                value="value"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        associated_license_asset_ruleset_arns: typing.Sequence[builtins.str],
+        license_asset_group_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::LicenseManager::LicenseAssetGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param associated_license_asset_ruleset_arns: ARNs of associated license asset rulesets.
+        :param license_asset_group_configurations: License asset group configurations.
+        :param name: License asset group name.
+        :param description: License asset group description.
+        :param properties: License asset group properties.
+        :param tags: Tags to add to the license asset group.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a7eb0e9c1a98c85e724ce832ff7b1ce8fd9f32ef8bf61202ebead342dde7569)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLicenseAssetGroupProps(
+            associated_license_asset_ruleset_arns=associated_license_asset_ruleset_arns,
+            license_asset_group_configurations=license_asset_group_configurations,
+            name=name,
+            description=description,
+            properties=properties,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForLicenseAssetGroup")
+    @builtins.classmethod
+    def arn_for_license_asset_group(
+        cls,
+        resource: "_aws_licensemanager_19fc2853.ILicenseAssetGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c92447dc3b3c49f66871c1a5b5a94d680a51029f6ffeebee0ea6a9a49db5fe4d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLicenseAssetGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnLicenseAssetGroup")
+    @builtins.classmethod
+    def is_cfn_license_asset_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLicenseAssetGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__809d001e63215d9cbe3719b81bc0d851a7725b3c1e33600389221a747a4b4694)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLicenseAssetGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__294c05113bd809f9d7ad3d3d678cb92d5f7c387d8594b98d3d9f338704db204a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8e7983e6f5ad3b6189d4d6daec8f693b50dedac772c69ecb63a13196ff714f0b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseAssetGroupArn")
+    def attr_license_asset_group_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the license asset group.
+
+        :cloudformationAttribute: LicenseAssetGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseAssetGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseAssetGroupRef")
+    def license_asset_group_ref(
+        self,
+    ) -> "_aws_licensemanager_19fc2853.LicenseAssetGroupReference":
+        '''A reference to a LicenseAssetGroup resource.'''
+        return typing.cast("_aws_licensemanager_19fc2853.LicenseAssetGroupReference", jsii.get(self, "licenseAssetGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="associatedLicenseAssetRulesetArns")
+    def associated_license_asset_ruleset_arns(self) -> typing.List[builtins.str]:
+        '''ARNs of associated license asset rulesets.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "associatedLicenseAssetRulesetArns"))
+
+    @associated_license_asset_ruleset_arns.setter
+    def associated_license_asset_ruleset_arns(
+        self,
+        value: typing.List[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f3bd6323563dab699ac4f56a2b8be33bf577eb047b1ad7b648129300e7eaba57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "associatedLicenseAssetRulesetArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseAssetGroupConfigurations")
+    def license_asset_group_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty"]]]:
+        '''License asset group configurations.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty"]]], jsii.get(self, "licenseAssetGroupConfigurations"))
+
+    @license_asset_group_configurations.setter
+    def license_asset_group_configurations(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__340cb8b61867cff10d0f87786f4a341cff5fe7c9dc53e64930e02fe65785c798)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseAssetGroupConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''License asset group name.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2b218cd3c7ad28e135e6494f201ffc4b62b1332a59401b8ad833c813c7ff9109)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''License asset group description.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bcef867bdea5e6ef1b5800b42043e013de4ddb6765f453856d7febe33e461b87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="properties")
+    def properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty"]]]]:
+        '''License asset group properties.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty"]]]], jsii.get(self, "properties"))
+
+    @properties.setter
+    def properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9524f9ed559fd633bd91a0b86c39e5f5a6d07331db60925db048195db1add97d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license asset group.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c87603fb324b8b9768432501e47e47aa25028284d613ae1f69d1f58ba57da505)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"usage_dimension": "usageDimension"},
+    )
+    class LicenseAssetGroupConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            usage_dimension: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param usage_dimension: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetgroup-licenseassetgroupconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                license_asset_group_configuration_property = licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty(
+                    usage_dimension="usageDimension"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__26e992d2e8922ca401097743ec0c3a2a582ade57aeb4570a2bc14e099629d256)
+                check_type(argname="argument usage_dimension", value=usage_dimension, expected_type=type_hints["usage_dimension"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if usage_dimension is not None:
+                self._values["usage_dimension"] = usage_dimension
+
+        @builtins.property
+        def usage_dimension(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetgroup-licenseassetgroupconfiguration.html#cfn-licensemanager-licenseassetgroup-licenseassetgroupconfiguration-usagedimension
+            '''
+            result = self._values.get("usage_dimension")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LicenseAssetGroupConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class LicenseAssetGroupPropertyProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetgroup-licenseassetgroupproperty.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                license_asset_group_property_property = licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b48c7fd38dd1f0cb7c228d8f0149ebdd7e4624db6dcf3b5f04ac311ca16a47d4)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key is not None:
+                self._values["key"] = key
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetgroup-licenseassetgroupproperty.html#cfn-licensemanager-licenseassetgroup-licenseassetgroupproperty-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseassetgroup-licenseassetgroupproperty.html#cfn-licensemanager-licenseassetgroup-licenseassetgroupproperty-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LicenseAssetGroupPropertyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "associated_license_asset_ruleset_arns": "associatedLicenseAssetRulesetArns",
+        "license_asset_group_configurations": "licenseAssetGroupConfigurations",
+        "name": "name",
+        "description": "description",
+        "properties": "properties",
+        "tags": "tags",
+    },
+)
+class CfnLicenseAssetGroupProps:
+    def __init__(
+        self,
+        *,
+        associated_license_asset_ruleset_arns: typing.Sequence[builtins.str],
+        license_asset_group_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLicenseAssetGroup``.
+
+        :param associated_license_asset_ruleset_arns: ARNs of associated license asset rulesets.
+        :param license_asset_group_configurations: License asset group configurations.
+        :param name: License asset group name.
+        :param description: License asset group description.
+        :param properties: License asset group properties.
+        :param tags: Tags to add to the license asset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            cfn_license_asset_group_props = licensemanager.CfnLicenseAssetGroupProps(
+                associated_license_asset_ruleset_arns=["associatedLicenseAssetRulesetArns"],
+                license_asset_group_configurations=[licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty(
+                    usage_dimension="usageDimension"
+                )],
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                properties=[licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty(
+                    key="key",
+                    value="value"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a677826a5d01bc22ddf14d35068e5a795395e0d453105e9311ef16a8e59c34f9)
+            check_type(argname="argument associated_license_asset_ruleset_arns", value=associated_license_asset_ruleset_arns, expected_type=type_hints["associated_license_asset_ruleset_arns"])
+            check_type(argname="argument license_asset_group_configurations", value=license_asset_group_configurations, expected_type=type_hints["license_asset_group_configurations"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "associated_license_asset_ruleset_arns": associated_license_asset_ruleset_arns,
+            "license_asset_group_configurations": license_asset_group_configurations,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if properties is not None:
+            self._values["properties"] = properties
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def associated_license_asset_ruleset_arns(self) -> typing.List[builtins.str]:
+        '''ARNs of associated license asset rulesets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-associatedlicenseassetrulesetarns
+        '''
+        result = self._values.get("associated_license_asset_ruleset_arns")
+        assert result is not None, "Required property 'associated_license_asset_ruleset_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def license_asset_group_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty"]]]:
+        '''License asset group configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-licenseassetgroupconfigurations
+        '''
+        result = self._values.get("license_asset_group_configurations")
+        assert result is not None, "Required property 'license_asset_group_configurations' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''License asset group name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''License asset group description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty"]]]]:
+        '''License asset group properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-properties
+        '''
+        result = self._values.get("properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license asset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseassetgroup.html#cfn-licensemanager-licenseassetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLicenseAssetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_licensemanager_19fc2853.ILicenseAssetRuleSetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLicenseAssetRuleSet(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3043,6 +3578,8 @@ __all__ = [
     "CfnGrant",
     "CfnGrantProps",
     "CfnLicense",
+    "CfnLicenseAssetGroup",
+    "CfnLicenseAssetGroupProps",
     "CfnLicenseAssetRuleSet",
     "CfnLicenseAssetRuleSetProps",
     "CfnLicenseProps",
@@ -3316,6 +3853,107 @@ def _typecheckingstub__483b5b4e301dfddf60a6c6da8bdc4898ec615b5045a70ceeeefc10fe7
     *,
     begin: builtins.str,
     end: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a7eb0e9c1a98c85e724ce832ff7b1ce8fd9f32ef8bf61202ebead342dde7569(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    associated_license_asset_ruleset_arns: typing.Sequence[builtins.str],
+    license_asset_group_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c92447dc3b3c49f66871c1a5b5a94d680a51029f6ffeebee0ea6a9a49db5fe4d(
+    resource: _aws_licensemanager_19fc2853.ILicenseAssetGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__809d001e63215d9cbe3719b81bc0d851a7725b3c1e33600389221a747a4b4694(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__294c05113bd809f9d7ad3d3d678cb92d5f7c387d8594b98d3d9f338704db204a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e7983e6f5ad3b6189d4d6daec8f693b50dedac772c69ecb63a13196ff714f0b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3bd6323563dab699ac4f56a2b8be33bf577eb047b1ad7b648129300e7eaba57(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__340cb8b61867cff10d0f87786f4a341cff5fe7c9dc53e64930e02fe65785c798(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b218cd3c7ad28e135e6494f201ffc4b62b1332a59401b8ad833c813c7ff9109(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcef867bdea5e6ef1b5800b42043e013de4ddb6765f453856d7febe33e461b87(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9524f9ed559fd633bd91a0b86c39e5f5a6d07331db60925db048195db1add97d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c87603fb324b8b9768432501e47e47aa25028284d613ae1f69d1f58ba57da505(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26e992d2e8922ca401097743ec0c3a2a582ade57aeb4570a2bc14e099629d256(
+    *,
+    usage_dimension: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b48c7fd38dd1f0cb7c228d8f0149ebdd7e4624db6dcf3b5f04ac311ca16a47d4(
+    *,
+    key: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a677826a5d01bc22ddf14d35068e5a795395e0d453105e9311ef16a8e59c34f9(
+    *,
+    associated_license_asset_ruleset_arns: typing.Sequence[builtins.str],
+    license_asset_group_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseAssetGroup.LicenseAssetGroupPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

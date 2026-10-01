@@ -6,6 +6,7 @@ import logging
 import os
 import pathlib
 import re
+import ssl
 import sys
 import traceback
 import typing
@@ -43,6 +44,12 @@ from ._connection_identifier_shape import (
     build_shape_telemetry_message,
     record_input_shape,
 )
+from ._ocsp_mode import (
+    IGNORED_OCSP_SUPPORT_PARAMS_WARNING,
+    ignored_ocsp_support_params,
+    resolve_ocsp_mode,
+    snapshot_ocsp_explicit_params,
+)
 from ._query_context_cache import QueryContextCache
 from ._utils import (
     _DEFAULT_VALUE_SERVER_DOP_CAP_FOR_FILE_TRANSFER,
@@ -78,6 +85,7 @@ from .constants import (
     _OAUTH_DEFAULT_SCOPE,
     ENV_VAR_MIN_TLS_VERSION,
     ENV_VAR_PARTNER,
+    ENV_VAR_TLS_CIPHERS,
     OCSP_ROOT_CERTS_DICT_LOCK_TIMEOUT_DEFAULT_NO_TIMEOUT,
     PARAMETER_AUTOCOMMIT,
     PARAMETER_CLIENT_PREFETCH_THREADS,
@@ -94,6 +102,7 @@ from .constants import (
     OCSPMode,
     QueryStatus,
     get_min_tls_version,
+    get_tls_ciphers,
 )
 from .converter import SnowflakeConverter
 from .crl import CRLConfig
@@ -163,7 +172,7 @@ from .util_text import (
     parse_account,
     split_statements,
 )
-from .wif_util import AttestationProvider
+from .wif_util import AttestationProvider, parse_workload_identity_host
 
 if sys.version_info >= (3, 13) or typing.TYPE_CHECKING:
     CursorCls = TypeVar("CursorCls", bound=SnowflakeCursorBase, default=SnowflakeCursor)
@@ -279,6 +288,10 @@ DEFAULT_CONFIGURATION: dict[str, tuple[Any, type | tuple[type, ...]]] = {
         False,
         bool,
     ),  # Opt into AWS WIF JWT attestation via STS GetWebIdentityToken instead of the default SigV4 GetCallerIdentity method
+    "workload_identity_host": (
+        None,
+        (type(None), str),
+    ),  # Optional STS host or URL override for AWS WIF
     "mfa_callback": (None, (type(None), Callable)),
     "password_callback": (None, (type(None), Callable)),
     "auth_class": (None, (type(None), AuthByPlugin)),
@@ -290,7 +303,10 @@ DEFAULT_CONFIGURATION: dict[str, tuple[Any, type | tuple[type, ...]]] = {
     "internal_application_name": (CLIENT_NAME, (type(None), str)),
     "internal_application_version": (CLIENT_VERSION, (type(None), str)),
     "disable_ocsp_checks": (False, bool),
-    "ocsp_fail_open": (True, bool),  # fail open on ocsp issues, default true
+    "ocsp_fail_open": (
+        None,
+        (type(None), bool),
+    ),  # None = unset (not an opt-in); True/False only when the user set it
     "ocsp_root_certs_dict_lock_timeout": (
         OCSP_ROOT_CERTS_DICT_LOCK_TIMEOUT_DEFAULT_NO_TIMEOUT,  # no timeout
         int,
@@ -564,12 +580,14 @@ class SnowflakeConnection:
     Use connect(..) to get the object.
 
     Attributes:
-        insecure_mode (deprecated): Whether or not the connection is in OCSP disabled mode. It means that the connection
-            validates the TLS certificate but doesn't check revocation status with OCSP provider.
-        disable_ocsp_checks: Whether or not the connection is in OCSP disabled mode. It means that the connection
-            validates the TLS certificate but doesn't check revocation status with OCSP provider.
-        ocsp_fail_open: Whether or not the connection is in fail open mode. Fail open mode decides if TLS certificates
-            continue to be validated. Revoked certificates are blocked. Any other exceptions are disregarded.
+        insecure_mode (deprecated): Same resolved view as disable_ocsp_checks. Prefer disable_ocsp_checks.
+        disable_ocsp_checks: Resolved view of whether this connection skips OCSP. True when OCSP is off
+            (the default unless the user opted in). True disables OCSP, including when
+            ocsp_fail_open is also set. False is the stored default and is not an opt-in.
+        ocsp_fail_open: Stored fail-open preference. True/False is the only OCSP
+            opt-in (True = fail-open, False = fail-closed) unless
+            disable_ocsp_checks/insecure_mode is True. The stored default is None
+            (unset). Forwarding DEFAULT_CONFIGURATION does not opt in.
         ocsp_root_certs_dict_lock_timeout: Timeout for the OCSP root certs dict lock in seconds. Default value is -1, which means no timeout.
         session_id: The session ID of the connection.
         user: The user name used in the connection.
@@ -681,6 +699,7 @@ class SnowflakeConnection:
 
         for name, (value, _) in DEFAULT_CONFIGURATION.items():
             setattr(self, f"_{name}", value)
+        self._ocsp_explicit: frozenset[str] = frozenset()
 
         self.heartbeat_thread = None
         is_kwargs_empty = not kwargs
@@ -697,6 +716,7 @@ class SnowflakeConnection:
                 DeprecationWarning,
                 stacklevel=2,
             )
+            self._insecure_mode = kwargs["insecure_mode"]
 
             if (
                 "disable_ocsp_checks" in kwargs
@@ -763,13 +783,16 @@ class SnowflakeConnection:
         ``SnowflakeConnection``.
         """
         try:
-            get_min_tls_version()
+            floor = get_min_tls_version()
+            policy = get_tls_ciphers()
         except ValueError as exc:
             raise ProgrammingError(msg=str(exc), errno=ER_INVALID_VALUE) from exc
 
         # A botocore hook that could not be installed means AWS SDK requests are
         # not honoring the floor. Report it to callers who actually configured one
-        # rather than at import time, which would break users who did not.
+        # rather than at import time, which would break users who did not. Checked
+        # before the cipher warnings below: there is no point advising on a cipher
+        # combination for a connection that is about to be refused.
         from . import ssl_wrap_socket
 
         hook_error = ssl_wrap_socket.BOTOCORE_MIN_TLS_HOOK_ERROR
@@ -787,6 +810,30 @@ class SnowflakeConnection:
                 errno=ER_INVALID_VALUE,
             )
 
+        if policy is None:
+            return
+        # Two combinations parse cleanly but cannot do what the operator intended,
+        # so they are worth saying out loud rather than leaving to be discovered
+        # from a handshake that quietly used a cipher they meant to exclude.
+        if policy.tls12 and not policy.tls13 and floor >= ssl.TLSVersion.TLSv1_3:
+            logger.warning(
+                "%s configures only TLS 1.2 ciphers (%s) while %s requires TLS 1.3, "
+                "so none of them can be negotiated.",
+                ENV_VAR_TLS_CIPHERS,
+                policy.tls12,
+                ENV_VAR_MIN_TLS_VERSION,
+            )
+        if policy.tls13 and not policy.tls12 and floor < ssl.TLSVersion.TLSv1_3:
+            logger.warning(
+                "%s restricts TLS 1.3 suites (%s) but names no TLS 1.2 ciphers, and "
+                "TLS 1.2 is still permitted, so a TLS 1.2 handshake would use "
+                "OpenSSL's default ciphers. Set %s to 1.3, or list TLS 1.2 ciphers "
+                "as well.",
+                ENV_VAR_TLS_CIPHERS,
+                policy.tls13,
+                ENV_VAR_MIN_TLS_VERSION,
+            )
+
     def _validate_account(self, account_str):
         if not is_valid_account_identifier(account_str):
             Error.errorhandler_wrapper(
@@ -802,24 +849,34 @@ class SnowflakeConnection:
     # Deprecated
     @property
     def insecure_mode(self) -> bool:
-        return self._disable_ocsp_checks
+        return self._ocsp_mode() == OCSPMode.DISABLE_OCSP_CHECKS
 
     @property
     def disable_ocsp_checks(self) -> bool:
-        return self._disable_ocsp_checks
+        return self._ocsp_mode() == OCSPMode.DISABLE_OCSP_CHECKS
 
     @property
-    def ocsp_fail_open(self) -> bool:
+    def ocsp_fail_open(self) -> bool | None:
+        """Stored fail-open preference, not whether OCSP is currently on.
+
+        None means the parameter was not set. True/False is the user-set
+        preference if OCSP is on. Use ``_ocsp_mode()`` to see the resolved mode.
+        """
         return self._ocsp_fail_open
 
     def _ocsp_mode(self) -> OCSPMode:
-        """OCSP mode. DISABLE_OCSP_CHECKS, FAIL_OPEN or FAIL_CLOSED."""
-        if self.disable_ocsp_checks:
-            return OCSPMode.DISABLE_OCSP_CHECKS
-        elif self.ocsp_fail_open:
-            return OCSPMode.FAIL_OPEN
-        else:
-            return OCSPMode.FAIL_CLOSED
+        """OCSP mode. DISABLE_OCSP_CHECKS, FAIL_OPEN or FAIL_CLOSED.
+
+        Default is DISABLE_OCSP_CHECKS unless the user set ocsp_fail_open
+        to True or False. disable_ocsp_checks=True or insecure_mode=True
+        turns OCSP off, including when ocsp_fail_open is set.
+        """
+        return resolve_ocsp_mode(
+            explicit=getattr(self, "_ocsp_explicit", frozenset()),
+            disable_ocsp_checks=self._disable_ocsp_checks,
+            ocsp_fail_open=self._ocsp_fail_open,
+            insecure_mode=getattr(self, "_insecure_mode", None),
+        )
 
     # CRL (Certificate Revocation List) configuration properties
     @property
@@ -1697,12 +1754,25 @@ class SnowflakeConnection:
                             "errno": ER_INVALID_WIF_SETTINGS,
                         },
                     )
+                if self._workload_identity_host:
+                    if self._workload_identity_provider != AttestationProvider.AWS:
+                        Error.errorhandler_wrapper(
+                            self,
+                            None,
+                            ProgrammingError,
+                            {
+                                "msg": "workload_identity_host is supported only for AWS",
+                                "errno": ER_INVALID_WIF_SETTINGS,
+                            },
+                        )
+                    parse_workload_identity_host(self._workload_identity_host)
                 self.auth_class = AuthByWorkloadIdentity(
                     provider=self._workload_identity_provider,
                     token=self._token,
                     entra_resource=self._workload_identity_entra_resource,
                     impersonation_path=self._workload_identity_impersonation_path,
                     aws_use_outbound_token=self._workload_identity_aws_use_outbound_token,
+                    workload_identity_host=self._workload_identity_host,
                 )
             else:
                 # okta URL, e.g., https://<account>.okta.com/
@@ -1740,6 +1810,13 @@ class SnowflakeConnection:
             self._connection_identifier_shape: ConnectionIdentifierShape = (
                 record_input_shape(kwargs)
             )
+        # Capture OCSP keys present on the merged user/toml dict before
+        # DEFAULT_CONFIGURATION values are treated as if the user set them.
+        # Union on reconfigure so a later connect(warehouse=...) does not
+        # forget an earlier opt-in.
+        self._ocsp_explicit = getattr(
+            self, "_ocsp_explicit", frozenset()
+        ) | snapshot_ocsp_explicit_params(kwargs)
         # Handle special cases first
         if "sequence_counter" in kwargs:
             self.sequence_counter = kwargs["sequence_counter"]
@@ -1891,6 +1968,7 @@ class SnowflakeConnection:
                 "workload_identity_entra_resource",
                 "workload_identity_impersonation_path",
                 "workload_identity_aws_use_outbound_token",
+                "workload_identity_host",
             ]
             for dependent_option in workload_identity_dependent_options:
                 if (
@@ -1956,7 +2034,8 @@ class SnowflakeConnection:
                 },
             )
 
-        if self.ocsp_fail_open:
+        ocsp_mode = self._ocsp_mode()
+        if ocsp_mode == OCSPMode.FAIL_OPEN:
             logger.debug(
                 "This connection is in OCSP Fail Open Mode. "
                 "TLS Certificates would be checked for validity "
@@ -1965,12 +2044,26 @@ class SnowflakeConnection:
                 "failures would be disregarded in favor of "
                 "connectivity."
             )
-
-        if self.disable_ocsp_checks:
+        elif ocsp_mode == OCSPMode.FAIL_CLOSED:
+            logger.debug(
+                "This connection is in OCSP Fail Closed Mode. "
+                "TLS Certificates would be checked for validity "
+                "and revocation status. Certificate Revocation "
+                "related exceptions or OCSP Responder failures "
+                "would cause the connection to fail."
+            )
+        else:
             logger.debug(
                 "This connection runs with disabled OCSP checks. "
                 "Revocation status of the certificate will not be checked against OCSP Responder."
             )
+            ignored = ignored_ocsp_support_params(self._ocsp_explicit)
+            if ignored:
+                logger.warning(
+                    IGNORED_OCSP_SUPPORT_PARAMS_WARNING.format(
+                        params=", ".join(ignored)
+                    )
+                )
 
     def cmd_query(
         self,

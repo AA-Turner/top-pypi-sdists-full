@@ -396,6 +396,7 @@ class TrailTypeDef(TypedDict):
     HasCustomEventSelectors: NotRequired[bool]
     HasInsightSelectors: NotRequired[bool]
     IsOrganizationTrail: NotRequired[bool]
+    RecursiveLogging: NotRequired[bool]
 
 
 class DisableFederationRequestTypeDef(TypedDict):
@@ -682,6 +683,7 @@ class UpdateTrailRequestTypeDef(TypedDict):
     CloudWatchLogsRoleArn: NotRequired[str]
     KmsKeyId: NotRequired[str]
     IsOrganizationTrail: NotRequired[bool]
+    RecursiveLogging: NotRequired[bool]
 
 
 class AddTagsRequestTypeDef(TypedDict):
@@ -702,6 +704,7 @@ class CreateTrailRequestTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     IsOrganizationTrail: NotRequired[bool]
     TagsList: NotRequired[Sequence[TagTypeDef]]
+    RecursiveLogging: NotRequired[bool]
 
 
 class RemoveTagsRequestTypeDef(TypedDict):
@@ -748,6 +751,7 @@ class CreateTrailResponseTypeDef(TypedDict):
     CloudWatchLogsRoleArn: str
     KmsKeyId: str
     IsOrganizationTrail: bool
+    RecursiveLogging: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -843,6 +847,7 @@ class UpdateTrailResponseTypeDef(TypedDict):
     CloudWatchLogsRoleArn: str
     KmsKeyId: str
     IsOrganizationTrail: bool
+    RecursiveLogging: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 

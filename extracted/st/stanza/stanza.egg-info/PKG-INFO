@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stanza
-Version: 1.14.0
+Version: 1.15.0
 Summary: A Python NLP Library for Many Human Languages, by the Stanford NLP Group
 Home-page: https://github.com/stanfordnlp/stanza
 Author: Stanford Natural Language Processing Group
@@ -28,11 +28,12 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: emoji
+Requires-Dist: networkx
 Requires-Dist: numpy
+Requires-Dist: orjson
 Requires-Dist: platformdirs
 Requires-Dist: protobuf>=3.15.0
 Requires-Dist: requests
-Requires-Dist: networkx
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: torch>=1.13.0
 Requires-Dist: tqdm
@@ -77,7 +78,7 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-<div align="center"><img src="https://github.com/stanfordnlp/stanza/raw/dev/images/stanza-logo.png" height="100px"/></div>
+<div align="center"><img src="stanza/pipeline/demo/stanza-logo.png" height="100px"/></div>
 
 <h2 align="center">Stanza: A Python NLP Library for Many Human Languages</h2>
 

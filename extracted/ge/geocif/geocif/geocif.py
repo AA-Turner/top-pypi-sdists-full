@@ -31,7 +31,7 @@ from geocif.progress import pbar as _pbar
 from .cid import definitions as di
 from .ml import correlations, feature_engineering as fe, feature_selection as fs, fs_cache
 from .ml.region_selection import leakfree as _leakfree
-from .ml import output, spatial_neighbors as sn, stages, stats, trainers, trend, xai
+from .ml import output, spatial_neighbors as sn, stages, stats, stress_switch, trainers, trend, xai
 
 plt.style.use("default")
 
@@ -297,6 +297,17 @@ class Geocif:
         self.check_yield_trend_diagnostic = self.parser.getboolean(
             "ML", "check_yield_trend_diagnostic", fallback=False,
         )
+        # Stress switch (ml/stress_switch.py): fit a fold WITHOUT detrending
+        # when the national Jun-Aug NDVI predicts a collapse year (maize 2012).
+        # On by default for the configured countries x crops (default: United
+        # States maize, the only validated pair); a no-op everywhere else.
+        (
+            self.stress_switch,
+            self.stress_switch_countries,
+            self.stress_switch_crops,
+        ) = stress_switch.settings(self.parser)
+        self._stress_ndvi = None
+        self._stress_switched = False
         # Per-region anomaly target: when set, training fits on
         # (y - region_mean_train_years); predictions add the region mean back
         # at inference time so the DB / plots / FDW stay in absolute yield
@@ -634,6 +645,18 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.limix_params[_opt.replace("limix_", "")] = _cast("ML", _opt)
+
+        # Optional Kumo Tabular (model='kumo') overrides; kumo_<x> -> <x>.
+        # Absent keys keep the trainer's defaults (size large, device auto,
+        # 8 estimators). seed is geocif's fold seed, set in the trainer.
+        self.kumo_params: dict = {}
+        for _opt, _cast in (
+            ("kumo_size", self.parser.get),
+            ("kumo_device", self.parser.get),
+            ("kumo_num_estimators", self.parser.getint),
+        ):
+            if self.parser.has_option("ML", _opt):
+                self.kumo_params[_opt.replace("kumo_", "")] = _cast("ML", _opt)
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -1073,10 +1096,16 @@ class Geocif:
         is forcing every hindcast year onto today's stage list.
         """
         if self.align_hindcast_stage or self.forecast_season == self.today_year:
-            current_month = ar.utcnow().month
+            # The run's local (New York) date, not UTC: after 8 pm EDT on the
+            # last day of a month, UTC already says next month, so a late run
+            # kept the partial current month's stages that an earlier run the
+            # same day dropped (2026-09-30: September in vs out). Compare the
+            # leading month token exactly — startswith("1") also matched the
+            # 10_/11_/12_ stages every January.
+            current_month = self._date.month
             self.all_stages = [
                 elem for elem in self.all_stages
-                if not elem.startswith(str(current_month))
+                if str(elem).split("_")[0] != str(current_month)
             ]
 
     def _create_simulation_stages(self):
@@ -1682,7 +1711,7 @@ class Geocif:
             if not s.startswith(("PS", "IS"))
         ]
         if not stage_ids:
-            return ar.utcnow().month
+            return self._date.month
 
         # Longest stage contains the full season sequence
         longest = max(stage_ids, key=lambda s: len(s.split("_")))
@@ -1725,7 +1754,7 @@ class Geocif:
         """
         from geocif.utils import get_pre_season_init_months
 
-        extend = ar.utcnow().month if include_in_season else None
+        extend = self._date.month if include_in_season else None
         return get_pre_season_init_months(
             self._get_season_start_month(),
             extend_to_month=extend,
@@ -1762,6 +1791,7 @@ class Geocif:
         """
         init_months = self._get_pre_season_init_months(include_in_season=include_in_season)
         season_start = self._get_season_start_month()
+        self._stress_ndvi = None  # init-month steps have no Jun-Aug signal: switch never fires
 
         # Add init months whose PS_<m> rows exist in the data but fall
         # outside the computed window (anchor drift between the CID and ML
@@ -2346,6 +2376,14 @@ class Geocif:
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
+        # Raw (not zero-filled) Jun-Aug NDVI, taken before any CID filtering;
+        # a stage that does not cover the window yields None.
+        self._stress_ndvi = (
+            stress_switch.extract_signal(df)
+            if getattr(self, "stress_switch", False) and stress_switch.applies(
+                self.country, self.crop, self.stress_switch_countries, self.stress_switch_crops)
+            else None
+        )
         if self.top_n_pearson:
             self._apply_top_n_pearson_filter(df)     # mutates self.use_cids
         elif self.auto_select_cids_flag:
@@ -3110,6 +3148,14 @@ class Geocif:
         """
         df[f"{self.target}_class"] = np.nan
 
+        # A stress-switched stage turned detrending off; restore it before this
+        # stage's split reads it (the switch only ever fires from True and
+        # decides again in _compute_detrended_yield).
+        if getattr(self, "_stress_switched", False):
+            self.check_yield_trend = True
+            self._refresh_target_column()
+            self._stress_switched = False
+
         mask = df["Harvest Year"] == self.forecast_season
         self.df_train = df[~mask].copy()
         self.df_test = df[mask].copy()
@@ -3391,6 +3437,8 @@ class Geocif:
                 "check_yield_trend (target detrending). Skipping trend feature."
             )
             return
+        if getattr(self, "_stress_switched", False):
+            return  # the validated collapse-year fallback has no trend feature
 
         import ast as _ast
         cp_threshold = self.parser.getfloat(
@@ -3505,6 +3553,8 @@ class Geocif:
                 "Skipping Trend All feature."
             )
             return
+        if getattr(self, "_stress_switched", False):
+            return  # the validated collapse-year fallback has no trend feature
 
         from scipy.stats import theilslopes
 
@@ -3748,6 +3798,8 @@ class Geocif:
                 f"check_yield_trend={self.check_yield_trend} (was {prev})"
             )
 
+        self._apply_stress_switch()
+
         self.df_train[f"Detrended {self.target}"] = np.nan
         self.df_train["Detrended Model"] = np.nan
         self.df_train["Detrended Model Type"] = pd.Series(np.nan, index=self.df_train.index, dtype="object")
@@ -3775,6 +3827,67 @@ class Geocif:
                 continue
 
             self._process_region_detrending(group, region_name)
+
+    def _apply_stress_switch(self):
+        """[ML] stress_switch: fit this fold WITHOUT detrending (and without
+        trend features) when the national Jun-Aug NDVI predicts a collapse
+        year — see ml/stress_switch.py. Only for ML models, only when
+        detrending is on, only for [ML] stress_switch_countries x
+        stress_switch_crops (default United States maize)."""
+        if not (getattr(self, "stress_switch", False) and self.ml_model and self.check_yield_trend):
+            return
+        tag = f"{self.country}/{self.crop}/season={self.forecast_season}"
+        if not stress_switch.applies(
+            self.country, self.crop, self.stress_switch_countries, self.stress_switch_crops
+        ):
+            return
+        if not stress_switch.is_validated(self.country, self.crop):
+            self.logger.warning(
+                f"  stress_switch [{tag}]: NOT validated for this country/crop "
+                f"(only US maize is); running because it is configured"
+            )
+        if self._stress_ndvi is None:
+            self.logger.info(
+                f"  stress_switch [{tag}]: no {stress_switch.INDEX} "
+                f"{stress_switch.WINDOW} at this stage; trend-on kept"
+            )
+            return
+
+        # Same promoted-row guard as the trend diagnostic: national shocks
+        # must come from genuine training years only.
+        train = _leakfree(self.df_train)
+        years = pd.to_numeric(train["Harvest Year"].astype(str), errors="coerce")
+        yields = pd.Series(
+            train[self.target].astype(float).values,
+            index=pd.MultiIndex.from_arrays([train["Region"].astype(str).values, years.values]),
+        )
+        yields = yields[yields.index.get_level_values(1).notna()]
+        both = pd.concat([self.df_train, self.df_test])
+        area = pd.Series(
+            pd.to_numeric(both["Area (ha)"], errors="coerce").values,
+            index=pd.MultiIndex.from_arrays([
+                both["Region"].astype(str).values,
+                pd.to_numeric(both["Harvest Year"].astype(str), errors="coerce").values,
+            ]),
+        )
+        area = area[area.index.get_level_values(1).notna()]
+        area = area[~area.index.duplicated()]
+
+        res = stress_switch.predict_shock(yields, area, self._stress_ndvi, int(self.forecast_season))
+        if res["reason"]:
+            self.logger.info(f"  stress_switch [{tag}]: not evaluated ({res['reason']}); trend-on kept")
+            return
+        msg = (
+            f"national Jun-Aug NDVI z={res['z']:+.2f} -> predicted shock "
+            f"{res['s_hat']:+.1%} vs threshold {-stress_switch.THRESHOLD_SD * res['tau']:+.1%}"
+        )
+        if not res["fired"]:
+            self.logger.info(f"  stress_switch [{tag}]: {msg} -> trend-on kept")
+            return
+        self.check_yield_trend = False
+        self._refresh_target_column()
+        self._stress_switched = True
+        self.logger.warning(f"  stress_switch [{tag}]: {msg} -> SWITCH: fold fit WITHOUT detrending")
 
     def _process_region_detrending(self, group: pd.DataFrame, region_name: str):
         """Process detrending and classification for a single region."""
@@ -4249,8 +4362,8 @@ class Geocif:
         if self.forecast_season != self.today_year:
             return df
         
-        current_month = ar.utcnow().month
-        current_day = ar.utcnow().day
+        current_month = self._date.month
+        current_day = self._date.day
         
         cols_to_drop = []
         for col in df.columns:
@@ -4275,8 +4388,8 @@ class Geocif:
         if self.forecast_season != self.today_year:
             return df
 
-        current_month = ar.utcnow().month
-        current_day = ar.utcnow().day
+        current_month = self._date.month
+        current_day = self._date.day
 
         # After _filter_current_month_partial_data:
         # day < 25 → current month already dropped → last available = current_month - 1
@@ -5712,6 +5825,8 @@ class Geocif:
             return self._predict_mitra_with_ci(X_test)
         elif self.dispatch_name == "causilo":
             return self._predict_causilo_with_ci(X_test)
+        elif self.dispatch_name == "kumo":
+            return self._predict_kumo_with_ci(X_test)
         elif self.dispatch_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
@@ -5859,6 +5974,22 @@ class Geocif:
             best_hyperparameters = {}
 
         return y_pred, y_pred_ci, best_hyperparameters
+
+    def _predict_kumo_with_ci(self, X_test: pd.DataFrame) -> Tuple:
+        """Kumo Tabular native predictive interval (ml/kumo.py).
+
+        Same shape of problem as causilo: the regression head carries 999
+        native quantiles, so ONE forward pass returns the lower bound, the
+        median (the point estimate, as in predict()) and the upper bound —
+        no conformal wrapper (trainers.estimate_ci leaves kumo unwrapped).
+        Emits the (n, 2, 1) CI shape _retrend_predictions expects.
+        """
+        lower_q = self.alpha / 2
+        upper_q = 1.0 - self.alpha / 2
+        q = self.model.predict_quantiles(X_test, [lower_q, 0.5, upper_q])
+        lower, y_pred, upper = q[:, 0], q[:, 1], q[:, 2]
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+        return y_pred, y_pred_ci, self.model.get_params().copy()
 
     def _predict_tabpfn_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
         """TabPFN native quantile regression for prediction intervals.
@@ -7253,6 +7384,7 @@ class ModelTrainer:
             tabpfn_params=getattr(self.obj, "tabpfn_params", None),
             causilo_params=getattr(self.obj, "causilo_params", None),
             limix_params=getattr(self.obj, "limix_params", None),
+            kumo_params=getattr(self.obj, "kumo_params", None),
         )
 
     def _add_confidence_intervals_if_needed(self, X_train=None):

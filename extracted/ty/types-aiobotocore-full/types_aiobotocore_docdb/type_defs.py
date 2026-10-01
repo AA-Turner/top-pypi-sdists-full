@@ -756,6 +756,7 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     ManageMasterUserPassword: NotRequired[bool]
     MasterUserSecretKmsKeyId: NotRequired[str]
     NetworkType: NotRequired[str]
+    CopyTagsToSnapshot: NotRequired[bool]
     SourceRegion: NotRequired[str]
 
 
@@ -780,6 +781,7 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     MasterUserSecretKmsKeyId: NotRequired[str]
     RotateMasterUserPassword: NotRequired[bool]
     NetworkType: NotRequired[str]
+    CopyTagsToSnapshot: NotRequired[bool]
 
 
 class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
@@ -799,6 +801,7 @@ class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
     NetworkType: NotRequired[str]
+    CopyTagsToSnapshot: NotRequired[bool]
 
 
 class DBClusterParameterGroupDetailsTypeDef(TypedDict):
@@ -867,6 +870,7 @@ class DBClusterTypeDef(TypedDict):
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationInfoTypeDef]
     MasterUserSecret: NotRequired[ClusterMasterUserSecretTypeDef]
     NetworkType: NotRequired[str]
+    CopyTagsToSnapshot: NotRequired[bool]
 
 
 class DBEngineVersionTypeDef(TypedDict):
@@ -1139,6 +1143,7 @@ class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
     NetworkType: NotRequired[str]
+    CopyTagsToSnapshot: NotRequired[bool]
 
 
 class EventCategoriesMessageTypeDef(TypedDict):

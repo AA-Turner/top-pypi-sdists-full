@@ -318,26 +318,31 @@ async fn serialized_event_path_preserves_http_payload_and_headers() {
 
             ResponseTemplate::new(200).set_body_json(json!({"success": true}))
         })
+        .expect(2)
         .mount(&server)
         .await;
 
-    let options = StatsigOptions {
-        log_event_url: Some(format!("{}/v1/log_event", server.uri())),
-        ..StatsigOptions::default()
-    };
-    let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", Some(&options));
+    for enabled in [false, true] {
+        let options = StatsigOptions {
+            prefer_http2: Some(enabled),
+            log_event_url: Some(format!("{}/v1/log_event", server.uri())),
+            ..StatsigOptions::default()
+        };
+        let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", Some(&options));
 
-    assert!(
-        adapter
-            .log_serialized_events(SerializedLogEventRequest {
-                payload,
-                event_count: 3,
-                retries: 2,
-                flush_type: "scheduled_max_time".to_string(),
-            })
-            .await
-            .unwrap()
-    );
+        assert!(
+            adapter
+                .log_serialized_events(SerializedLogEventRequest {
+                    payload: payload.clone(),
+                    event_count: 3,
+                    retries: 2,
+                    flush_type: "scheduled_max_time".to_string(),
+                })
+                .await
+                .unwrap()
+        );
+    }
+    server.verify().await;
 }
 
 #[cfg(all(feature = "pyo3_event_zstd", not(feature = "with_zstd")))]

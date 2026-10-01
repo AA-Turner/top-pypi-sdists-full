@@ -2479,6 +2479,51 @@ class _IViewVersionRefProxy(
 typing.cast(typing.Any, IViewVersionRef).__jsii_proxy_class__ = lambda : _IViewVersionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IVocabularyRef")
+class IVocabularyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Vocabulary.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="vocabularyRef")
+    def vocabulary_ref(self) -> "VocabularyReference":
+        '''(experimental) A reference to a Vocabulary resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVocabularyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Vocabulary.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IVocabularyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="vocabularyRef")
+    def vocabulary_ref(self) -> "VocabularyReference":
+        '''(experimental) A reference to a Vocabulary resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VocabularyReference", jsii.get(self, "vocabularyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVocabularyRef).__jsii_proxy_class__ = lambda : _IVocabularyRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IWorkspaceRef")
 class IWorkspaceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -3702,6 +3747,55 @@ class ViewVersionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.VocabularyReference",
+    jsii_struct_bases=[],
+    name_mapping={"vocabulary_arn": "vocabularyArn"},
+)
+class VocabularyReference:
+    def __init__(self, *, vocabulary_arn: builtins.str) -> None:
+        '''A reference to a Vocabulary resource.
+
+        :param vocabulary_arn: The Arn of the Vocabulary resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            vocabulary_reference = interfaces_connect.VocabularyReference(
+                vocabulary_arn="vocabularyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c70007478621ce2290b149400e78def5d536f53d7b28f951acce162345b755e4)
+            check_type(argname="argument vocabulary_arn", value=vocabulary_arn, expected_type=type_hints["vocabulary_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "vocabulary_arn": vocabulary_arn,
+        }
+
+    @builtins.property
+    def vocabulary_arn(self) -> builtins.str:
+        '''The Arn of the Vocabulary resource.'''
+        result = self._values.get("vocabulary_arn")
+        assert result is not None, "Required property 'vocabulary_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VocabularyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.WorkspaceReference",
     jsii_struct_bases=[],
     name_mapping={"workspace_arn": "workspaceArn"},
@@ -3801,6 +3895,7 @@ __all__ = [
     "IUserRef",
     "IViewRef",
     "IViewVersionRef",
+    "IVocabularyRef",
     "IWorkspaceRef",
     "InstanceReference",
     "InstanceStorageConfigReference",
@@ -3824,6 +3919,7 @@ __all__ = [
     "UserReference",
     "ViewReference",
     "ViewVersionReference",
+    "VocabularyReference",
     "WorkspaceReference",
 ]
 
@@ -4095,6 +4191,13 @@ def _typecheckingstub__deae179674b96a536a16655001cf7da75f0dd842cd313daf145cd60cc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c70007478621ce2290b149400e78def5d536f53d7b28f951acce162345b755e4(
+    *,
+    vocabulary_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e463b0325a(
     *,
     workspace_arn: builtins.str,
@@ -4102,5 +4205,5 @@ def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e46
     """Type checking stubs"""
     pass
 
-for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IMetricRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
+for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IMetricRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IVocabularyRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

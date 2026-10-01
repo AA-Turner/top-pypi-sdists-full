@@ -13,6 +13,7 @@ from matrx_utils import utcnow
 from urllib.parse import urlparse
 
 from matrx_connect import AppContext, Emitter, RequestControlRegistry, system_app_context
+from matrx_orm import IntegrityError
 
 from matrx_scraper._ext import get_ext, has_ext
 from matrx_scraper.parser.knobs import KnobScope
@@ -91,12 +92,15 @@ from matrx_scraper.web_crawl.url_identity import reconcile_site_urls
 from matrx_scraper.web_crawl.persistence import (
     RUN_LEASE_HEARTBEAT_EVERY,
     STALE_SESSION_AFTER,
+    START_LANE_BY_MODE,
     WORKER_STOPPED_ERROR,
     CanonicalBodyPersister,
     CrawlPersistenceState,
+    CrawlStartConflict,
     DurableCrawlEventSink,
     WebCrawlRepository,
     build_user_claims,
+    is_start_claim_conflict,
     read_run_lease,
     run_lease_is_live,
 )
@@ -215,25 +219,26 @@ def _rebuild_resume_request(request_dump: dict, stats: dict | None) -> CrawlStar
     return CrawlStartRequest.model_validate(payload)
 
 
-# One ACTIVE site-wide crawl per site: N concurrent "start crawl" POSTs must
-# not mint N sessions all crawling the same site at once. Only the site-wide
-# modes are exclusive — bootstrap / initialization / page_fetch / sitemap /
-# gsc runs stay unrestricted.
-_EXCLUSIVE_CRAWL_MODES = frozenset({"full", "list"})
-
-
-def _session_blocks_new_crawl(session: object, *, now: datetime | None = None) -> bool:
-    """True when this queued/running session should refuse a NEW full/list
-    crawl of its site.
+# One ACTIVE session per (site, start lane): N concurrent starts must not mint
+# N sessions all crawling — or all initializing — the same site at once. The
+# lanes are persistence.START_LANE_BY_MODE; page_fetch / sitemap / gsc runs
+# have no lane and stay unrestricted. The unique index is the arbiter; this
+# live judgment names the holder and decides whether a claim-holder is dead.
+def _session_blocks_new_crawl(
+    session: object, *, lane: str = "site_crawl", now: datetime | None = None
+) -> bool:
+    """True when this queued/running session should refuse a NEW start in
+    `lane` (see START_LANE_BY_MODE) of its site.
 
     A `running` session blocks while its run lease (or `updated_at` fallback)
     is live — the same judgment `run_lease_is_live` makes for resume. A
     `queued` session blocks only while it is fresh enough that the stale
     reaper would not claim it; a queued row with an unreadable `updated_at`
-    fails CLOSED (blocks).
+    fails CLOSED (blocks). A session in another lane — or with no mode, e.g.
+    a row this service did not create — never blocks.
     """
     scope = dict(getattr(session, "scope", None) or {})
-    if scope.get("mode") not in _EXCLUSIVE_CRAWL_MODES:
+    if START_LANE_BY_MODE.get(str(scope.get("mode") or "")) != lane:
         return False
     status = str(getattr(session, "status", "") or "")
     if status == "running":
@@ -248,27 +253,23 @@ def _session_blocks_new_crawl(session: object, *, now: datetime | None = None) -
     return False
 
 
-def _start_race_key(session: object) -> tuple[datetime, str]:
-    created_at = getattr(session, "created_at", None)
-    if not isinstance(created_at, datetime):
-        created_at = datetime.max.replace(tzinfo=UTC)
-    elif created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=UTC)
-    return (created_at, str(getattr(session, "id", "")))
-
-
-def _losing_start_conflict(own_session: object, conflicts: list[object]) -> object | None:
-    """Deterministic loser election for two starts racing past the pre-check.
-
-    Both racers re-list after creating their sessions; the one with the
-    LARGER `(created_at, id)` yields to the smaller. Exactly one of two
-    mutually visible racers loses, so at most one crawl survives.
-    """
-    own_key = _start_race_key(own_session)
-    older = [s for s in conflicts if _start_race_key(s) < own_key]
-    if not older:
+async def _live_lane_holder(site_id: str, lane: str) -> object | None:
+    """The live session holding `lane` on this site, if any (oldest first)."""
+    active = await WebCrawlRepository.list_active_sessions_for_site(site_id)
+    holders = [s for s in active if _session_blocks_new_crawl(s, lane=lane)]
+    if not holders:
         return None
-    return min(older, key=_start_race_key)
+    return min(holders, key=lambda s: str(getattr(s, "created_at", "")))
+
+
+def _lane_conflict(holder: object, lane: str) -> CrawlStartConflict:
+    noun = "initialization" if lane == "site_initialization" else "crawl session"
+    return CrawlStartConflict(
+        f"{noun} {getattr(holder, 'id', '?')} is already active for this site "
+        f"(status {getattr(holder, 'status', '?')}) — it is the run to follow; "
+        "cancel it or wait for it to finish before starting another",
+        active_session_id=str(getattr(holder, "id", "") or "") or None,
+    )
 
 
 @dataclass
@@ -482,18 +483,16 @@ class WebCrawlService:
             if request.list_mode
             else "full"
         )
-        if mode in _EXCLUSIVE_CRAWL_MODES:
-            # ONE active site-wide crawl per site. Reap crashed leftovers
-            # first so a dead run never blocks a legitimate start, then
-            # refuse while a live full/list session exists.
+        lane = START_LANE_BY_MODE.get(mode)
+        if lane is not None:
+            # ONE active session per (site, start lane). Reap crashed leftovers
+            # first so a dead run never blocks a legitimate start; the
+            # friendly pre-check names the live holder. The ARBITER is the
+            # start-claim unique index at insert time below.
             await WebCrawlRepository.fail_stale_sessions()
-            for existing in await WebCrawlRepository.list_active_sessions_for_site(site_id):
-                if _session_blocks_new_crawl(existing):
-                    raise RuntimeError(
-                        f"crawl session {existing.id} is already active for this "
-                        f"site (status {existing.status}) — cancel it or wait for "
-                        "it to finish or crash before starting another crawl"
-                    )
+            holder = await _live_lane_holder(site_id, lane)
+            if holder is not None:
+                raise _lane_conflict(holder, lane)
         scope = {
             "mode": mode,
             "coverage_qualified": request.coverage_qualified() and not homepage_bootstrap,
@@ -505,33 +504,9 @@ class WebCrawlService:
             session_id,
             organization_id,
             file_owner_id,
-        ) = await repository.create_session(
-            site_id, scope=scope, user_id=ctx.user_id, trigger=trigger
+        ) = await self._claim_session(
+            repository, site_id, lane=lane, scope=scope, user_id=ctx.user_id, trigger=trigger
         )
-        if mode in _EXCLUSIVE_CRAWL_MODES:
-            # Race backstop: two concurrent starts can both pass the
-            # pre-check before either row exists. Both re-list AFTER
-            # creating; the racer with the larger (created_at, id) yields —
-            # its just-created session is terminated so it cannot itself
-            # block later starts. (A DB partial-unique arbiter would be
-            # airtight; this application-level election covers the practical
-            # window without a migration.)
-            active = await WebCrawlRepository.list_active_sessions_for_site(site_id)
-            own = next((s for s in active if str(s.id) == session_id), None)
-            conflicts = [
-                s for s in active if str(s.id) != session_id and _session_blocks_new_crawl(s)
-            ]
-            blocker = (
-                _losing_start_conflict(own, conflicts)
-                if own is not None
-                else (min(conflicts, key=_start_race_key) if conflicts else None)
-            )
-            if blocker is not None:
-                await WebCrawlRepository.abandon_duplicate_session(session_id, str(blocker.id))
-                raise RuntimeError(
-                    f"crawl session {blocker.id} is already active for this site — "
-                    "concurrent start refused"
-                )
         broker = await self.brokers.create(session_id)
         # A fresh session takes the same durable run lease a resume does, so
         # every session-status write this run makes is ownership-checked and a
@@ -558,6 +533,53 @@ class WebCrawlService:
             broker=broker,
             mode=mode,
         )
+
+    @staticmethod
+    async def _claim_session(
+        repository: WebCrawlRepository,
+        site_id: str,
+        *,
+        lane: str | None,
+        scope: dict[str, object],
+        user_id: str,
+        trigger: str,
+    ) -> tuple[str, str, str, str]:
+        """Insert the session row — for a laned mode, THAT insert is the claim.
+
+        A unique violation on the start-claim index means another session
+        holds the lane. If that holder is live, this start loses (409, with
+        the holder's id to follow). If it is dead but not yet reaped, retire
+        it and claim once more; a second loss is a live racer and is final.
+        """
+        for attempt in (1, 2):
+            try:
+                return await repository.create_session(
+                    site_id, scope=dict(scope), user_id=user_id, trigger=trigger
+                )
+            except IntegrityError as exc:
+                if lane is None or not is_start_claim_conflict(exc):
+                    raise
+                holder = await _live_lane_holder(site_id, lane)
+                if holder is not None:
+                    raise _lane_conflict(holder, lane) from None
+                if attempt == 2:
+                    raise CrawlStartConflict(
+                        "another run is already active for this site — it claimed the "
+                        "start lane at the same moment; concurrent start refused"
+                    ) from None
+                for session in await WebCrawlRepository.list_active_sessions_for_site(site_id):
+                    session_mode = str(dict(session.scope or {}).get("mode") or "")
+                    if START_LANE_BY_MODE.get(session_mode) == lane:
+                        logger.warning(
+                            "start claim on site %s lane %s held by dead session %s (%s) — "
+                            "retiring it so the new start can claim",
+                            site_id,
+                            lane,
+                            session.id,
+                            session.status,
+                        )
+                        await WebCrawlRepository.retire_dead_session(str(session.id))
+        raise AssertionError("unreachable: the claim loop always returns or raises")
 
     async def prepare_resume(self, ctx: AppContext, session_id: str) -> PreparedCrawl:
         """Re-prepare a CRASHED session so `run_prepared` continues its durable

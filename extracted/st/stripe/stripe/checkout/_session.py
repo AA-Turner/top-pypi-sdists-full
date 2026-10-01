@@ -328,7 +328,7 @@ class Session(
         class Label(StripeObject):
             custom: Optional[str]
             """
-            Custom text for the label, displayed to the customer. Up to 50 characters.
+            Custom text for the label, displayed to the customer. Up to 100 characters.
             """
             type: Literal["custom"]
             """
@@ -872,7 +872,7 @@ class Session(
             """
 
         class Alipay(StripeObject):
-            setup_future_usage: Optional[Literal["none"]]
+            setup_future_usage: Optional[Union[Literal["none"], str]]
             """
             Indicates that you intend to make future payments with this PaymentIntent's payment method.
 
@@ -950,7 +950,9 @@ class Session(
             _inner_class_types = {"mandate_options": MandateOptions}
 
         class Bancontact(StripeObject):
-            setup_future_usage: Optional[Literal["none"]]
+            setup_future_usage: Optional[
+                Union[Literal["none", "off_session"], str]
+            ]
             """
             Indicates that you intend to make future payments with this PaymentIntent's payment method.
 
@@ -1655,6 +1657,12 @@ class Session(
             """
             _inner_class_types = {"mandate_options": MandateOptions}
 
+        class Sequra(StripeObject):
+            capture_method: Optional[Literal["manual"]]
+            """
+            Controls when the funds will be captured from the customer's account.
+            """
+
         class Sofort(StripeObject):
             setup_future_usage: Optional[Literal["none"]]
             """
@@ -1817,7 +1825,7 @@ class Session(
             """
             The client type that the end customer will pay from
             """
-            setup_future_usage: Optional[Literal["none"]]
+            setup_future_usage: Optional[Union[Literal["none"], str]]
             """
             Indicates that you intend to make future payments with this PaymentIntent's payment method.
 
@@ -1867,6 +1875,7 @@ class Session(
         satispay: Optional[Satispay]
         scalapay: Optional[Scalapay]
         sepa_debit: Optional[SepaDebit]
+        sequra: Optional[Sequra]
         sofort: Optional[Sofort]
         sunbit: Optional[Sunbit]
         swish: Optional[Swish]
@@ -1914,6 +1923,7 @@ class Session(
             "satispay": Satispay,
             "scalapay": Scalapay,
             "sepa_debit": SepaDebit,
+            "sequra": Sequra,
             "sofort": Sofort,
             "sunbit": Sunbit,
             "swish": Swish,
@@ -2315,7 +2325,7 @@ class Session(
                 """
                 discount: "DiscountResource"
                 """
-                A discount represents the actual application of a [coupon](https://api.stripe.com#coupons) or [promotion code](https://api.stripe.com#promotion_codes).
+                A discount represents the actual application of a [coupon](https://docs.stripe.com/api#coupons) or [promotion code](https://docs.stripe.com/api#promotion_codes).
                 It contains information about when the discount began, when it will end, and what it is applied to.
 
                 Related guide: [Applying discounts to subscriptions](https://docs.stripe.com/billing/subscriptions/discounts)
@@ -2409,6 +2419,10 @@ class Session(
     """
     Enables user redeemable promotion codes.
     """
+    allowed_payment_method_types: Optional[List[str]]
+    """
+    A list of the types of payment methods (e.g., `card`) this Checkout Session can accept.
+    """
     amount_subtotal: Optional[int]
     """
     Total of all items before discounts or taxes are applied.
@@ -2466,7 +2480,7 @@ class Session(
     """
     custom_fields: List[CustomField]
     """
-    Collect additional information from your customer using custom fields. Up to 3 fields are supported. You can't set this parameter if `ui_mode` is `custom`.
+    Collect additional information from your customer using custom fields. Up to 3 fields are supported. You can't set this parameter if `ui_mode` is `elements`.
     """
     custom_text: CustomText
     customer: Optional[ExpandableField["Customer"]]
@@ -2761,7 +2775,7 @@ class Session(
 
     @classmethod
     def _cls_expire(
-        cls, session: str, **params: Unpack["SessionExpireParams"]
+        cls, session: str, /, **params: Unpack["SessionExpireParams"]
     ) -> "Session":
         """
         A Checkout Session can be expired when it is in one of these statuses: open
@@ -2782,7 +2796,7 @@ class Session(
     @overload
     @staticmethod
     def expire(
-        session: str, **params: Unpack["SessionExpireParams"]
+        session: str, /, **params: Unpack["SessionExpireParams"]
     ) -> "Session":
         """
         A Checkout Session can be expired when it is in one of these statuses: open
@@ -2801,9 +2815,7 @@ class Session(
         ...
 
     @class_method_variant("_cls_expire")
-    def expire(  # pyright: ignore[reportGeneralTypeIssues]
-        self, **params: Unpack["SessionExpireParams"]
-    ) -> "Session":
+    def expire(self, **params: Unpack["SessionExpireParams"]) -> "Session":
         """
         A Checkout Session can be expired when it is in one of these statuses: open
 
@@ -2822,7 +2834,7 @@ class Session(
 
     @classmethod
     async def _cls_expire_async(
-        cls, session: str, **params: Unpack["SessionExpireParams"]
+        cls, session: str, /, **params: Unpack["SessionExpireParams"]
     ) -> "Session":
         """
         A Checkout Session can be expired when it is in one of these statuses: open
@@ -2843,7 +2855,7 @@ class Session(
     @overload
     @staticmethod
     async def expire_async(
-        session: str, **params: Unpack["SessionExpireParams"]
+        session: str, /, **params: Unpack["SessionExpireParams"]
     ) -> "Session":
         """
         A Checkout Session can be expired when it is in one of these statuses: open
@@ -2864,7 +2876,7 @@ class Session(
         ...
 
     @class_method_variant("_cls_expire_async")
-    async def expire_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def expire_async(
         self, **params: Unpack["SessionExpireParams"]
     ) -> "Session":
         """
@@ -2925,7 +2937,7 @@ class Session(
 
     @classmethod
     def _cls_list_line_items(
-        cls, session: str, **params: Unpack["SessionListLineItemsParams"]
+        cls, session: str, /, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
         When retrieving a Checkout Session, there is an includable line_items property containing the first handful of those items. There is also a URL where you can retrieve the full (paginated) list of line items.
@@ -2944,7 +2956,7 @@ class Session(
     @overload
     @staticmethod
     def list_line_items(
-        session: str, **params: Unpack["SessionListLineItemsParams"]
+        session: str, /, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
         When retrieving a Checkout Session, there is an includable line_items property containing the first handful of those items. There is also a URL where you can retrieve the full (paginated) list of line items.
@@ -2961,7 +2973,7 @@ class Session(
         ...
 
     @class_method_variant("_cls_list_line_items")
-    def list_line_items(  # pyright: ignore[reportGeneralTypeIssues]
+    def list_line_items(
         self, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
@@ -2980,7 +2992,7 @@ class Session(
 
     @classmethod
     async def _cls_list_line_items_async(
-        cls, session: str, **params: Unpack["SessionListLineItemsParams"]
+        cls, session: str, /, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
         When retrieving a Checkout Session, there is an includable line_items property containing the first handful of those items. There is also a URL where you can retrieve the full (paginated) list of line items.
@@ -2999,7 +3011,7 @@ class Session(
     @overload
     @staticmethod
     async def list_line_items_async(
-        session: str, **params: Unpack["SessionListLineItemsParams"]
+        session: str, /, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
         When retrieving a Checkout Session, there is an includable line_items property containing the first handful of those items. There is also a URL where you can retrieve the full (paginated) list of line items.
@@ -3016,7 +3028,7 @@ class Session(
         ...
 
     @class_method_variant("_cls_list_line_items_async")
-    async def list_line_items_async(  # pyright: ignore[reportGeneralTypeIssues]
+    async def list_line_items_async(
         self, **params: Unpack["SessionListLineItemsParams"]
     ) -> ListObject["LineItem"]:
         """
@@ -3035,7 +3047,7 @@ class Session(
 
     @classmethod
     def modify(
-        cls, id: str, **params: Unpack["SessionModifyParams"]
+        cls, id: str, /, **params: Unpack["SessionModifyParams"]
     ) -> "Session":
         """
         Updates a Checkout Session object.
@@ -3054,7 +3066,7 @@ class Session(
 
     @classmethod
     async def modify_async(
-        cls, id: str, **params: Unpack["SessionModifyParams"]
+        cls, id: str, /, **params: Unpack["SessionModifyParams"]
     ) -> "Session":
         """
         Updates a Checkout Session object.

@@ -27,6 +27,7 @@ __all__ = (
     "DictionaryLanguageType",
     "DictionaryStatusType",
     "ElementalInferenceServiceName",
+    "ExtendedAnalysisModeType",
     "FeedDeletedWaiterName",
     "FeedStatusType",
     "FilterNameType",
@@ -38,6 +39,7 @@ __all__ = (
     "ResourceServiceName",
     "SearchFixturesPaginatorName",
     "ServiceName",
+    "SummaryGenerationModeType",
     "TranscriptionLanguageType",
     "WaiterName",
 )
@@ -46,6 +48,7 @@ __all__ = (
 DataSourceSportType = Literal["american-football", "basketball"]
 DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
 DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
+ExtendedAnalysisModeType = Literal["DISABLED", "ENABLED"]
 FeedDeletedWaiterName = Literal["feed_deleted"]
 FeedStatusType = Literal[
     "ACTIVE", "ARCHIVED", "AVAILABLE", "CREATING", "DELETED", "DELETING", "UPDATING"
@@ -56,6 +59,7 @@ ListFeedsPaginatorName = Literal["list_feeds"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
 ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
 SearchFixturesPaginatorName = Literal["search_fixtures"]
+SummaryGenerationModeType = Literal["DISABLED", "ENABLED"]
 TranscriptionLanguageType = Literal[
     "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
 ]
@@ -140,6 +144,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -214,6 +219,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -242,6 +248,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -336,6 +343,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

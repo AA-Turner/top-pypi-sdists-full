@@ -39,6 +39,66 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_fsx.BackupReference",
+    jsii_struct_bases=[],
+    name_mapping={"backup_id": "backupId", "resource_arn": "resourceArn"},
+)
+class BackupReference:
+    def __init__(self, *, backup_id: builtins.str, resource_arn: builtins.str) -> None:
+        '''A reference to a Backup resource.
+
+        :param backup_id: The BackupId of the Backup resource.
+        :param resource_arn: The ResourceARN of the Backup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_fsx as interfaces_fsx
+            
+            backup_reference = interfaces_fsx.BackupReference(
+                backup_id="backupId",
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__428cd57a1881032d6c1c3a479146a90a990148935af981efafe77a557f9ca598)
+            check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_id": backup_id,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def backup_id(self) -> builtins.str:
+        '''The BackupId of the Backup resource.'''
+        result = self._values.get("backup_id")
+        assert result is not None, "Required property 'backup_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceARN of the Backup resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BackupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_fsx.DataRepositoryAssociationReference",
     jsii_struct_bases=[],
     name_mapping={"association_id": "associationId"},
@@ -83,6 +143,71 @@ class DataRepositoryAssociationReference:
 
     def __repr__(self) -> str:
         return "DataRepositoryAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_fsx.FileCacheReference",
+    jsii_struct_bases=[],
+    name_mapping={"file_cache_id": "fileCacheId", "resource_arn": "resourceArn"},
+)
+class FileCacheReference:
+    def __init__(
+        self,
+        *,
+        file_cache_id: builtins.str,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''A reference to a FileCache resource.
+
+        :param file_cache_id: The FileCacheId of the FileCache resource.
+        :param resource_arn: The ResourceARN of the FileCache resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_fsx as interfaces_fsx
+            
+            file_cache_reference = interfaces_fsx.FileCacheReference(
+                file_cache_id="fileCacheId",
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eefda58109758b4710ae1e33f42a5bddf728601a65d33d5549088b9f4903957e)
+            check_type(argname="argument file_cache_id", value=file_cache_id, expected_type=type_hints["file_cache_id"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "file_cache_id": file_cache_id,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def file_cache_id(self) -> builtins.str:
+        '''The FileCacheId of the FileCache resource.'''
+        result = self._values.get("file_cache_id")
+        assert result is not None, "Required property 'file_cache_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceARN of the FileCache resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FileCacheReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -136,6 +261,51 @@ class FileSystemReference:
         )
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IBackupRef")
+class IBackupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Backup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "BackupReference":
+        '''(experimental) A reference to a Backup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBackupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Backup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_fsx.IBackupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "BackupReference":
+        '''(experimental) A reference to a Backup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BackupReference", jsii.get(self, "backupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBackupRef).__jsii_proxy_class__ = lambda : _IBackupRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_fsx.IDataRepositoryAssociationRef"
 )
@@ -181,6 +351,51 @@ class _IDataRepositoryAssociationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDataRepositoryAssociationRef).__jsii_proxy_class__ = lambda : _IDataRepositoryAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IFileCacheRef")
+class IFileCacheRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FileCache.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fileCacheRef")
+    def file_cache_ref(self) -> "FileCacheReference":
+        '''(experimental) A reference to a FileCache resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFileCacheRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FileCache.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_fsx.IFileCacheRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fileCacheRef")
+    def file_cache_ref(self) -> "FileCacheReference":
+        '''(experimental) A reference to a FileCache resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FileCacheReference", jsii.get(self, "fileCacheRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFileCacheRef).__jsii_proxy_class__ = lambda : _IFileCacheRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fsx.IFileSystemRef")
@@ -605,9 +820,13 @@ class VolumeReference:
 
 
 __all__ = [
+    "BackupReference",
     "DataRepositoryAssociationReference",
+    "FileCacheReference",
     "FileSystemReference",
+    "IBackupRef",
     "IDataRepositoryAssociationRef",
+    "IFileCacheRef",
     "IFileSystemRef",
     "IS3AccessPointAttachmentRef",
     "ISnapshotRef",
@@ -621,9 +840,25 @@ __all__ = [
 
 publication.publish()
 
+def _typecheckingstub__428cd57a1881032d6c1c3a479146a90a990148935af981efafe77a557f9ca598(
+    *,
+    backup_id: builtins.str,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1721b2217c8a769d168dd3182f74b58f64a161dc58300822743bdefbab90fc9b(
     *,
     association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eefda58109758b4710ae1e33f42a5bddf728601a65d33d5549088b9f4903957e(
+    *,
+    file_cache_id: builtins.str,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -663,5 +898,5 @@ def _typecheckingstub__61f38b8d84730ff5f4ebf7e7fea2aba7014e031fcdb9669434a022fba
     """Type checking stubs"""
     pass
 
-for cls in [IDataRepositoryAssociationRef, IFileSystemRef, IS3AccessPointAttachmentRef, ISnapshotRef, IStorageVirtualMachineRef, IVolumeRef]:
+for cls in [IBackupRef, IDataRepositoryAssociationRef, IFileCacheRef, IFileSystemRef, IS3AccessPointAttachmentRef, ISnapshotRef, IStorageVirtualMachineRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,5 +1,5 @@
 //! Editor services: completion, definition, diagnostics, and syntax edits.
-pub(crate) mod alternation;
+pub mod alternation;
 pub mod argument_spans;
 pub mod argument_syntax_edit;
 pub mod at_reference;
@@ -12,12 +12,16 @@ pub mod file;
 mod frontmatter;
 pub mod fuzzy;
 pub mod hover;
+pub mod jinja;
 pub mod model_alias_shortcut;
 pub mod placeholder;
 pub mod token;
 pub mod wire;
 mod xprompt_args;
 
+pub use alternation::{
+    scan_alternations, AlternationFormWire, AlternationScanWire,
+};
 pub use argument_spans::{
     extract_xprompt_argument_spans,
     extract_xprompt_argument_spans_with_catalog,

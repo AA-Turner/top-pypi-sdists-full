@@ -185,6 +185,55 @@ class EventTrackerReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.FilterReference",
+    jsii_struct_bases=[],
+    name_mapping={"filter_arn": "filterArn"},
+)
+class FilterReference:
+    def __init__(self, *, filter_arn: builtins.str) -> None:
+        '''A reference to a Filter resource.
+
+        :param filter_arn: The FilterArn of the Filter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            filter_reference = interfaces_personalize.FilterReference(
+                filter_arn="filterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c6ebb1a85f9ff6cfef36e8c6e0bab3bfbb80f6a4e3394aa47dd50f10f91738c)
+            check_type(argname="argument filter_arn", value=filter_arn, expected_type=type_hints["filter_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filter_arn": filter_arn,
+        }
+
+    @builtins.property
+    def filter_arn(self) -> builtins.str:
+        '''The FilterArn of the Filter resource.'''
+        result = self._values.get("filter_arn")
+        assert result is not None, "Required property 'filter_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FilterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDatasetGroupRef")
 class IDatasetGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -318,6 +367,51 @@ class _IEventTrackerRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IEventTrackerRef).__jsii_proxy_class__ = lambda : _IEventTrackerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IFilterRef")
+class IFilterRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Filter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> "FilterReference":
+        '''(experimental) A reference to a Filter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFilterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Filter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IFilterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> "FilterReference":
+        '''(experimental) A reference to a Filter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterReference", jsii.get(self, "filterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFilterRef).__jsii_proxy_class__ = lambda : _IFilterRefProxy
 
 
 @jsii.interface(
@@ -608,9 +702,11 @@ __all__ = [
     "DatasetGroupReference",
     "DatasetReference",
     "EventTrackerReference",
+    "FilterReference",
     "IDatasetGroupRef",
     "IDatasetRef",
     "IEventTrackerRef",
+    "IFilterRef",
     "IMetricAttributionRef",
     "ISchemaRef",
     "ISolutionRef",
@@ -642,6 +738,13 @@ def _typecheckingstub__6d8d144771c9767d2eb402aa1c45874e15c7a7f3d7d9b725488105373
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0c6ebb1a85f9ff6cfef36e8c6e0bab3bfbb80f6a4e3394aa47dd50f10f91738c(
+    *,
+    filter_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f901034fd37d74f86a1f352aac6f6ff15fc0b4e1c2eefd635246f849663fd5a0(
     *,
     metric_attribution_arn: builtins.str,
@@ -663,5 +766,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
+for cls in [IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IFilterRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

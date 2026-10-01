@@ -18,6 +18,7 @@ from matrx_connect.streaming import create_streaming_response
 from matrx_connect.context.events import InfoPayload
 from matrx_scraper.service import ScrapeOptions, ScrapeService
 from matrx_scraper.utils.proxy import redact_url_secrets
+from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
 # ``confirm_request_organization`` first ships in matrx-connect 0.1.116 (this
 # package's floor). The import is guarded because CI's dependency-floor test
@@ -261,6 +262,9 @@ async def _capture_backlink_screenshot(
             organization_id=organization_id,
             mime_type="image/png",
             published_to_web=False,
+            # The organization's evidence, never personal: stated, because an
+            # unstated audience is born "only_me" (access ladder T-13).
+            shown_to=SHOWN_TO_TYPE_DEFAULT,
             change_summary="Backlink source-page link evidence",
             metadata={
                 "organization_id": organization_id,

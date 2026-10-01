@@ -33,6 +33,8 @@ from .paginator import (
     ListInvoiceSummariesPaginator,
     ListInvoiceUnitsPaginator,
     ListProcurementPortalPreferencesPaginator,
+    ListProcurementPortalsPaginator,
+    ListProcurementPortalSuppliersPaginator,
 )
 from .type_defs import (
     BatchGetInvoiceProfileRequestTypeDef,
@@ -57,6 +59,10 @@ from .type_defs import (
     ListInvoiceUnitsResponseTypeDef,
     ListProcurementPortalPreferencesRequestTypeDef,
     ListProcurementPortalPreferencesResponseTypeDef,
+    ListProcurementPortalsRequestTypeDef,
+    ListProcurementPortalsResponseTypeDef,
+    ListProcurementPortalSuppliersRequestTypeDef,
+    ListProcurementPortalSuppliersResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutProcurementPortalPreferenceRequestTypeDef,
@@ -240,6 +246,28 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_procurement_portal_preferences)
         """
 
+    async def list_procurement_portal_suppliers(
+        self, **kwargs: Unpack[ListProcurementPortalSuppliersRequestTypeDef]
+    ) -> ListProcurementPortalSuppliersResponseTypeDef:
+        """
+        Returns the suppliers configured for a specified procurement portal, including
+        supplier identifiers and associated metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/list_procurement_portal_suppliers.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_procurement_portal_suppliers)
+        """
+
+    async def list_procurement_portals(
+        self, **kwargs: Unpack[ListProcurementPortalsRequestTypeDef]
+    ) -> ListProcurementPortalsResponseTypeDef:
+        """
+        Returns the Amazon Web Services-supported procurement portals for e-invoice
+        delivery and purchase order retrieval.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/list_procurement_portals.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_procurement_portals)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -343,6 +371,28 @@ class InvoicingClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_procurement_portal_preferences"]
     ) -> ListProcurementPortalPreferencesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_procurement_portal_suppliers"]
+    ) -> ListProcurementPortalSuppliersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_procurement_portals"]
+    ) -> ListProcurementPortalsPaginator:
         """
         Create a paginator for an operation.
 

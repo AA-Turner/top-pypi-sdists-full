@@ -122,6 +122,46 @@ class PROJECT_MT_view(_bpy_types.Menu):
         :param context:
         """
 
+class PROJECT_PT_color_management(
+    _bpy_types.Panel, bl_ui.space_userpref.CenterAlignMixIn
+):
+    """Base class for panels to center align contents with some horizontal margin.
+    Deriving classes need to implement a draw_centered(context, layout) function.
+    """
+
+    bl_category: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw_centered(self, context, layout) -> None:
+        """
+
+        :param context:
+        :param layout:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class PROJECT_PT_main(_bpy_types.Panel, bl_ui.space_userpref.CenterAlignMixIn):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.

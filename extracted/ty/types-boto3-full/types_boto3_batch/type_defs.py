@@ -33,6 +33,8 @@ from .literals import (
     DeviceCgroupPermissionType,
     EFSAuthorizationConfigIAMType,
     EFSTransitEncryptionType,
+    EksAccessEntryDesiredStateType,
+    EksAccessEntryStatusType,
     FirelensConfigurationTypeType,
     JobDefinitionTypeType,
     JobQueueTypeType,
@@ -149,9 +151,11 @@ __all__ = (
     "EcsTaskDetailsTypeDef",
     "EcsTaskPropertiesOutputTypeDef",
     "EcsTaskPropertiesTypeDef",
+    "EksAccessEntryTypeDef",
     "EksAttemptContainerDetailTypeDef",
     "EksAttemptDetailTypeDef",
     "EksConfigurationTypeDef",
+    "EksConfigurationUpdateTypeDef",
     "EksContainerDetailTypeDef",
     "EksContainerEnvironmentVariableTypeDef",
     "EksContainerOutputTypeDef",
@@ -410,11 +414,6 @@ class EcsSettingsTypeDef(TypedDict):
     containerInsights: NotRequired[ContainerInsightsType]
 
 
-class EksConfigurationTypeDef(TypedDict):
-    eksClusterArn: str
-    kubernetesNamespace: str
-
-
 class UpdatePolicyTypeDef(TypedDict):
     terminateJobsOnUpdate: NotRequired[bool]
     jobExecutionTimeoutMinutes: NotRequired[int]
@@ -651,6 +650,11 @@ class DeviceTypeDef(TypedDict):
 class EFSAuthorizationConfigTypeDef(TypedDict):
     accessPointId: NotRequired[str]
     iam: NotRequired[EFSAuthorizationConfigIAMType]
+
+
+class EksAccessEntryTypeDef(TypedDict):
+    desiredState: EksAccessEntryDesiredStateType
+    status: NotRequired[EksAccessEntryStatusType]
 
 
 class EksAttemptContainerDetailTypeDef(TypedDict):
@@ -1296,6 +1300,16 @@ class EFSVolumeConfigurationTypeDef(TypedDict):
     transitEncryption: NotRequired[EFSTransitEncryptionType]
     transitEncryptionPort: NotRequired[int]
     authorizationConfig: NotRequired[EFSAuthorizationConfigTypeDef]
+
+
+class EksConfigurationTypeDef(TypedDict):
+    eksClusterArn: str
+    kubernetesNamespace: str
+    accessEntry: NotRequired[EksAccessEntryTypeDef]
+
+
+class EksConfigurationUpdateTypeDef(TypedDict):
+    accessEntry: NotRequired[EksAccessEntryTypeDef]
 
 
 class EksAttemptDetailTypeDef(TypedDict):
@@ -2286,6 +2300,7 @@ class UpdateComputeEnvironmentRequestTypeDef(TypedDict):
     updatePolicy: NotRequired[UpdatePolicyTypeDef]
     context: NotRequired[str]
     ecsSettings: NotRequired[EcsSettingsTypeDef]
+    eksConfiguration: NotRequired[EksConfigurationUpdateTypeDef]
 
 
 class NodeRangePropertyOutputTypeDef(TypedDict):

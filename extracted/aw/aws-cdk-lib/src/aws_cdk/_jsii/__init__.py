@@ -153,6 +153,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_events": "aws_cdk.aws_events",
     "aws-cdk-lib.aws_events_targets": "aws_cdk.aws_events_targets",
     "aws-cdk-lib.aws_eventschemas": "aws_cdk.aws_eventschemas",
+    "aws-cdk-lib.aws_eventsv2": "aws_cdk.aws_eventsv2",
     "aws-cdk-lib.aws_evidently": "aws_cdk.aws_evidently",
     "aws-cdk-lib.aws_evs": "aws_cdk.aws_evs",
     "aws-cdk-lib.aws_finspace": "aws_cdk.aws_finspace",
@@ -171,6 +172,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_greengrassv2": "aws_cdk.aws_greengrassv2",
     "aws-cdk-lib.aws_groundstation": "aws_cdk.aws_groundstation",
     "aws-cdk-lib.aws_guardduty": "aws_cdk.aws_guardduty",
+    "aws-cdk-lib.aws_healthagent": "aws_cdk.aws_healthagent",
     "aws-cdk-lib.aws_healthimaging": "aws_cdk.aws_healthimaging",
     "aws-cdk-lib.aws_healthlake": "aws_cdk.aws_healthlake",
     "aws-cdk-lib.aws_iam": "aws_cdk.aws_iam",
@@ -239,6 +241,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_networkfirewall": "aws_cdk.aws_networkfirewall",
     "aws-cdk-lib.aws_networkflowmonitor": "aws_cdk.aws_networkflowmonitor",
     "aws-cdk-lib.aws_networkmanager": "aws_cdk.aws_networkmanager",
+    "aws-cdk-lib.aws_networkmonitor": "aws_cdk.aws_networkmonitor",
     "aws-cdk-lib.aws_nimblestudio": "aws_cdk.aws_nimblestudio",
     "aws-cdk-lib.aws_notifications": "aws_cdk.aws_notifications",
     "aws-cdk-lib.aws_notificationscontacts": "aws_cdk.aws_notificationscontacts",
@@ -480,6 +483,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_entityresolution": "aws_cdk.interfaces.aws_entityresolution",
     "aws-cdk-lib.interfaces.aws_events": "aws_cdk.interfaces.aws_events",
     "aws-cdk-lib.interfaces.aws_eventschemas": "aws_cdk.interfaces.aws_eventschemas",
+    "aws-cdk-lib.interfaces.aws_eventsv2": "aws_cdk.interfaces.aws_eventsv2",
     "aws-cdk-lib.interfaces.aws_evidently": "aws_cdk.interfaces.aws_evidently",
     "aws-cdk-lib.interfaces.aws_evs": "aws_cdk.interfaces.aws_evs",
     "aws-cdk-lib.interfaces.aws_finspace": "aws_cdk.interfaces.aws_finspace",
@@ -497,6 +501,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_greengrassv2": "aws_cdk.interfaces.aws_greengrassv2",
     "aws-cdk-lib.interfaces.aws_groundstation": "aws_cdk.interfaces.aws_groundstation",
     "aws-cdk-lib.interfaces.aws_guardduty": "aws_cdk.interfaces.aws_guardduty",
+    "aws-cdk-lib.interfaces.aws_healthagent": "aws_cdk.interfaces.aws_healthagent",
     "aws-cdk-lib.interfaces.aws_healthimaging": "aws_cdk.interfaces.aws_healthimaging",
     "aws-cdk-lib.interfaces.aws_healthlake": "aws_cdk.interfaces.aws_healthlake",
     "aws-cdk-lib.interfaces.aws_iam": "aws_cdk.interfaces.aws_iam",
@@ -561,6 +566,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_networkfirewall": "aws_cdk.interfaces.aws_networkfirewall",
     "aws-cdk-lib.interfaces.aws_networkflowmonitor": "aws_cdk.interfaces.aws_networkflowmonitor",
     "aws-cdk-lib.interfaces.aws_networkmanager": "aws_cdk.interfaces.aws_networkmanager",
+    "aws-cdk-lib.interfaces.aws_networkmonitor": "aws_cdk.interfaces.aws_networkmonitor",
     "aws-cdk-lib.interfaces.aws_nimblestudio": "aws_cdk.interfaces.aws_nimblestudio",
     "aws-cdk-lib.interfaces.aws_notifications": "aws_cdk.interfaces.aws_notifications",
     "aws-cdk-lib.interfaces.aws_notificationscontacts": "aws_cdk.interfaces.aws_notificationscontacts",
@@ -583,6 +589,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_pcaconnectorscep": "aws_cdk.interfaces.aws_pcaconnectorscep",
     "aws-cdk-lib.interfaces.aws_pcs": "aws_cdk.interfaces.aws_pcs",
     "aws-cdk-lib.interfaces.aws_personalize": "aws_cdk.interfaces.aws_personalize",
+    "aws-cdk-lib.interfaces.aws_pi": "aws_cdk.interfaces.aws_pi",
     "aws-cdk-lib.interfaces.aws_pinpoint": "aws_cdk.interfaces.aws_pinpoint",
     "aws-cdk-lib.interfaces.aws_pinpointemail": "aws_cdk.interfaces.aws_pinpointemail",
     "aws-cdk-lib.interfaces.aws_pipes": "aws_cdk.interfaces.aws_pipes",
@@ -679,7 +686,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.271.0", __name__[0:-6], "aws-cdk-lib@2.271.0.jsii.tgz"
+    "aws-cdk-lib", "2.272.0", __name__[0:-6], "aws-cdk-lib@2.272.0.jsii.tgz"
 )
 
 __all__ = [

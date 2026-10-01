@@ -17,11 +17,18 @@ import weakref
 if TYPE_CHECKING:
     from unkey.py.analytics import Analytics
     from unkey.py.apis import Apis
+    from unkey.py.apps import Apps
+    from unkey.py.deployments import Deployments
+    from unkey.py.domains import Domains
+    from unkey.py.environments import Environments
+    from unkey.py.gateway import Gateway
+    from unkey.py.github import Github
     from unkey.py.identities import Identities
     from unkey.py.internal import Internal
     from unkey.py.keys import Keys
     from unkey.py.permissions import Permissions
-    from unkey.py.portal import Portal
+    from unkey.py.portal_sdk import PortalSDK
+    from unkey.py.projects import Projects
     from unkey.py.ratelimit import Ratelimit
 
 
@@ -31,7 +38,7 @@ class Unkey(BaseSDK):
 
     ### Authentication
     #
-    This API uses HTTP Bearer authentication with root keys. Most endpoints require specific permissions associated with your root key. When making requests, include your root key in the `Authorization` header:
+    This API accepts HTTP Bearer credentials. Public integrations use root keys. Dashboard-originated requests use a short-lived dashboard proxy JWT minted by the dashboard server. Most endpoints require permissions associated with the authenticated principal. When making public API requests, include your root key in the `Authorization` header:
     ```
     Authorization: Bearer unkey_xxxxxxxxxxx
     ```
@@ -108,25 +115,45 @@ class Unkey(BaseSDK):
     r"""Analytics query operations"""
     apis: "Apis"
     r"""API management operations"""
+    apps: "Apps"
+    r"""App management operations"""
     internal: "Internal"
+    deployments: "Deployments"
+    r"""Deployment operations"""
+    domains: "Domains"
+    r"""Custom domain operations"""
+    environments: "Environments"
+    r"""Environment management operations"""
+    gateway: "Gateway"
+    r"""Gateway policy operations"""
+    github: "Github"
+    r"""GitHub App installation operations"""
     identities: "Identities"
     r"""Identity management operations"""
     keys: "Keys"
     r"""API key management operations"""
     permissions: "Permissions"
     r"""Permission and role management operations"""
-    portal: "Portal"
+    portal: "PortalSDK"
     r"""Customer Portal session management"""
+    projects: "Projects"
     ratelimit: "Ratelimit"
     r"""Rate limiting operations"""
     _sub_sdk_map = {
         "analytics": ("unkey.py.analytics", "Analytics"),
         "apis": ("unkey.py.apis", "Apis"),
+        "apps": ("unkey.py.apps", "Apps"),
         "internal": ("unkey.py.internal", "Internal"),
+        "deployments": ("unkey.py.deployments", "Deployments"),
+        "domains": ("unkey.py.domains", "Domains"),
+        "environments": ("unkey.py.environments", "Environments"),
+        "gateway": ("unkey.py.gateway", "Gateway"),
+        "github": ("unkey.py.github", "Github"),
         "identities": ("unkey.py.identities", "Identities"),
         "keys": ("unkey.py.keys", "Keys"),
         "permissions": ("unkey.py.permissions", "Permissions"),
-        "portal": ("unkey.py.portal", "Portal"),
+        "portal": ("unkey.py.portal_sdk", "PortalSDK"),
+        "projects": ("unkey.py.projects", "Projects"),
         "ratelimit": ("unkey.py.ratelimit", "Ratelimit"),
     }
 

@@ -41,7 +41,6 @@ from cognite.client.data_classes import (
     OidcCredentials,
 )
 from rich import print
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -166,7 +165,6 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
             *({ExternalDataSourceIO} if FeatureFlag.is_enabled(Flags.EXTERNAL_DATA_SOURCES) else set()),
         }
     )
-    extra_content_property = "query"
 
     _doc_url = "Transformations/operation/createTransformations"
     _hash_key = "-- cdf-auth"
@@ -176,8 +174,8 @@ class TransformationIO(ResourceIO[ExternalId, TransformationRequest, Transformat
     # larger number of transformations. Thus, we use a conservative batch size.
     _BATCH_SIZE = 20  # The maximum number of transformations to create in a single batch
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
-        super().__init__(client, build_dir, console)
+    def __init__(self, client: ToolkitClient):
+        super().__init__(client)
         self._authentication_by_id_operation: dict[
             tuple[str, Literal["read", "write"]], OidcCredentials | ClientCredentials
         ] = {}

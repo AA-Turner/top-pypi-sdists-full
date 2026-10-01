@@ -15,7 +15,9 @@ Zendesk API docs: https://developer.zendesk.com/api-reference/ticketing/tickets/
 from __future__ import annotations
 
 import os
+import uuid
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
@@ -34,6 +36,8 @@ _REQUEST_TIMEOUT_SECONDS = 30
 
 # Zendesk caps comment pages at 100 records per page.
 _COMMENTS_PER_PAGE = 100
+_SEARCH_PER_PAGE = 100
+_MAX_SEARCH_RESULTS = 1000
 
 
 class ZendeskAPIError(Exception):
@@ -162,6 +166,177 @@ def _put(
 ) -> dict[str, Any]:
     """Issue an authenticated PUT against the Zendesk API and return JSON."""
     return _request(credentials, "PUT", path, json_body=json_body)
+
+
+def _post(
+    credentials: ZendeskCredentials,
+    path: str,
+    json_body: dict[str, Any],
+) -> dict[str, Any]:
+    """Issue an authenticated POST against the Zendesk API and return JSON."""
+    return _request(credentials, "POST", path, json_body=json_body)
+
+
+def _next_page_params(next_page: Any) -> dict[str, Any] | None:
+    """Extract query parameters from a Zendesk pagination URL."""
+    if not isinstance(next_page, str) or not next_page:
+        return None
+    params = parse_qs(urlparse(next_page).query, keep_blank_values=True)
+    return params or None
+
+
+def _get_paginated_collection(
+    credentials: ZendeskCredentials,
+    path: str,
+    collection_key: str,
+    *,
+    params: dict[str, Any],
+    max_results: int | None = None,
+) -> list[dict[str, Any]]:
+    """Read a paginated Zendesk collection, optionally stopping at a limit."""
+    results: list[dict[str, Any]] = []
+    current_params = params
+    seen_pages: set[str] = set()
+    while True:
+        data = _get(credentials, path, params=current_params)
+        page = data.get(collection_key)
+        if not isinstance(page, list):
+            raise ZendeskAPIError(
+                f"Zendesk {path} response missing a `{collection_key}` list."
+            )
+        results.extend(item for item in page if isinstance(item, dict))
+        if max_results is not None and len(results) >= max_results:
+            return results[:max_results]
+
+        next_page = data.get("next_page")
+        if not isinstance(next_page, str) or not next_page:
+            return results
+        if next_page in seen_pages:
+            raise ZendeskAPIError(f"Zendesk {path} pagination did not advance.")
+        seen_pages.add(next_page)
+        next_params = _next_page_params(next_page)
+        if next_params is None:
+            return results
+        current_params = next_params
+
+
+def get_current_user(
+    credentials: ZendeskCredentials | None = None,
+) -> dict[str, Any]:
+    """Fetch the authenticated Zendesk user."""
+    credentials = credentials or resolve_zendesk_credentials()
+    data = _get(credentials, "/users/me.json")
+    user = data.get("user")
+    if not isinstance(user, dict):
+        raise ZendeskAPIError("Zendesk current-user response missing a `user` object.")
+    return user
+
+
+def search(
+    query: str,
+    *,
+    sort_by: str | None = None,
+    sort_order: str = "desc",
+    max_results: int = 100,
+    credentials: ZendeskCredentials | None = None,
+) -> list[dict[str, Any]]:
+    """Search Zendesk records, following pages up to 1,000 results."""
+    if max_results < 1:
+        raise ZendeskAPIError("Zendesk search `max_results` must be at least 1.")
+    max_results = min(max_results, _MAX_SEARCH_RESULTS)
+    credentials = credentials or resolve_zendesk_credentials()
+    params: dict[str, Any] = {
+        "query": query,
+        "per_page": min(_SEARCH_PER_PAGE, max_results),
+    }
+    if sort_by is not None:
+        params["sort_by"] = sort_by
+    if sort_order:
+        params["sort_order"] = sort_order
+    return _get_paginated_collection(
+        credentials,
+        "/search.json",
+        "results",
+        params=params,
+        max_results=max_results,
+    )
+
+
+def list_tickets_by_external_id(
+    external_id: str,
+    credentials: ZendeskCredentials | None = None,
+) -> list[dict[str, Any]]:
+    """List Zendesk tickets matching an external ID."""
+    credentials = credentials or resolve_zendesk_credentials()
+    return _get_paginated_collection(
+        credentials,
+        "/tickets.json",
+        "tickets",
+        params={"external_id": external_id, "per_page": _SEARCH_PER_PAGE},
+    )
+
+
+def find_ticket_form_id(
+    name: str,
+    credentials: ZendeskCredentials | None = None,
+) -> int:
+    """Find one active ticket form by case-insensitive exact name."""
+    credentials = credentials or resolve_zendesk_credentials()
+    forms = _get_paginated_collection(
+        credentials,
+        "/ticket_forms.json",
+        "ticket_forms",
+        params={"per_page": _SEARCH_PER_PAGE},
+    )
+    matches = [
+        form
+        for form in forms
+        if form.get("active") is True
+        and isinstance(form.get("name"), str)
+        and form["name"].casefold() == name.casefold()
+    ]
+    if not matches:
+        raise ZendeskAPIError(
+            f"No active Zendesk ticket form named `{name}` was found."
+        )
+    if len(matches) > 1:
+        raise ZendeskAPIError(
+            f"Multiple active Zendesk ticket forms named `{name}` were found."
+        )
+    form_id = matches[0].get("id")
+    if not isinstance(form_id, int):
+        raise ZendeskAPIError(f"Zendesk ticket form `{name}` has an invalid ID.")
+    return form_id
+
+
+def create_ticket(
+    ticket_payload: dict[str, Any],
+    credentials: ZendeskCredentials | None = None,
+) -> dict[str, Any]:
+    """Create a Zendesk ticket and return its raw ticket object."""
+    credentials = credentials or resolve_zendesk_credentials()
+    data = _post(credentials, "/tickets.json", {"ticket": ticket_payload})
+    ticket = data.get("ticket")
+    if not isinstance(ticket, dict):
+        raise ZendeskAPIError(
+            "Zendesk ticket creation response missing a `ticket` object."
+        )
+    return ticket
+
+
+def find_organizations_by_airbyte_org_id(
+    airbyte_org_id: str,
+    credentials: ZendeskCredentials | None = None,
+) -> list[dict[str, Any]]:
+    """Find Zendesk organizations by Airbyte organization UUID."""
+    try:
+        normalized_org_id = str(uuid.UUID(airbyte_org_id))
+    except (AttributeError, ValueError) as exc:
+        raise ZendeskAPIError("Airbyte organization ID must be a valid UUID.") from exc
+    return search(
+        f"type:organization airbyte_org_id:{normalized_org_id}",
+        credentials=credentials,
+    )
 
 
 def _clean_tags(tags: list[str]) -> list[str]:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyModbusTCP
-Version: 0.3.0
+Version: 0.3.1
 Summary: A simple Modbus/TCP library for Python
 Home-page: https://github.com/sourceperl/pyModbusTCP
 Author: Loic Lefebvre
@@ -8,6 +8,14 @@ Author-email: loic.celine@free.fr
 License: MIT
 Platform: any
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: summary
 
 .. |badge_tests| image:: https://github.com/sourceperl/pyModbusTCP/actions/workflows/tests.yml/badge.svg?branch=master
                 :target: https://github.com/sourceperl/pyModbusTCP/actions/workflows/tests.yml
@@ -26,7 +34,7 @@ Since version 0.1.0, a server is also available.
 Tests
 -----
 
-The module is currently test on Python 3.8, 3.9, 3.10, 3.11 and 3.12.
+The module is currently test on Python 3.10, 3.11, 3.12, 3.13 and 3.14.
 
 For Linux, Mac OS and Windows.
 

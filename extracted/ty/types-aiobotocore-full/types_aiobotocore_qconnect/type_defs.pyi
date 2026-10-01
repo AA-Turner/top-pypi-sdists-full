@@ -43,6 +43,7 @@ from .literals import (
     GuardrailSensitiveInformationActionType,
     GuardrailSourceType,
     ImportJobStatusType,
+    InteractionModeType,
     KnowledgeBaseSearchTypeType,
     KnowledgeBaseStatusType,
     KnowledgeBaseTypeType,
@@ -67,6 +68,8 @@ from .literals import (
     ReferenceTypeType,
     RelevanceLevelType,
     RelevanceType,
+    RetrieveErrorCodeType,
+    ReturnReasonType,
     SpanStatusType,
     SpanTypeType,
     StatusType,
@@ -119,6 +122,7 @@ __all__ = (
     "ActivateMessageTemplateRequestTypeDef",
     "ActivateMessageTemplateResponseTypeDef",
     "AgentAttributesTypeDef",
+    "AgentTargetTypeDef",
     "AmazonConnectGuideAssociationDataTypeDef",
     "AnnotationTypeDef",
     "AnswerRecommendationAIAgentConfigurationOutputTypeDef",
@@ -198,6 +202,8 @@ __all__ = (
     "DataSummaryTypeDef",
     "DeactivateMessageTemplateRequestTypeDef",
     "DeactivateMessageTemplateResponseTypeDef",
+    "DelegateAgentConfigurationOutputTypeDef",
+    "DelegateAgentConfigurationTypeDef",
     "DeleteAIAgentRequestTypeDef",
     "DeleteAIAgentVersionRequestTypeDef",
     "DeleteAIGuardrailRequestTypeDef",
@@ -282,6 +288,8 @@ __all__ = (
     "GuardrailTopicConfigOutputTypeDef",
     "GuardrailTopicConfigTypeDef",
     "GuardrailWordConfigTypeDef",
+    "HandoffAgentConfigurationOutputTypeDef",
+    "HandoffAgentConfigurationTypeDef",
     "HierarchicalChunkingConfigurationOutputTypeDef",
     "HierarchicalChunkingConfigurationTypeDef",
     "HierarchicalChunkingLevelConfigurationTypeDef",
@@ -384,6 +392,10 @@ __all__ = (
     "MessageTemplateSummaryTypeDef",
     "MessageTemplateVersionSummaryTypeDef",
     "ModelSummaryTypeDef",
+    "MultiAgentConfigurationOutputTypeDef",
+    "MultiAgentConfigurationTypeDef",
+    "MultiAgentInstructionOutputTypeDef",
+    "MultiAgentInstructionTypeDef",
     "NoteTakingAIAgentConfigurationTypeDef",
     "NotesChunkDataDetailsTypeDef",
     "NotesDataDetailsTypeDef",
@@ -398,6 +410,7 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "ParsingConfigurationTypeDef",
     "ParsingPromptTypeDef",
+    "ProactiveRecommendationDataDetailsTypeDef",
     "PushADMMessageTemplateContentTypeDef",
     "PushAPNSMessageTemplateContentTypeDef",
     "PushBaiduMessageTemplateContentTypeDef",
@@ -438,6 +451,7 @@ __all__ = (
     "ResultDataTypeDef",
     "RetrievalConfigurationTypeDef",
     "RetrievalFilterConfigurationTypeDef",
+    "RetrieveErrorTypeDef",
     "RetrieveRequestTypeDef",
     "RetrieveResponseTypeDef",
     "RetrieveResultTypeDef",
@@ -559,6 +573,7 @@ __all__ = (
 
 class AIAgentConfigurationDataTypeDef(TypedDict):
     aiAgentId: str
+    enabled: NotRequired[bool]
 
 class CaseSummarizationAIAgentConfigurationTypeDef(TypedDict):
     caseSummarizationAIPromptId: NotRequired[str]
@@ -691,6 +706,10 @@ class ResponseMetadataTypeDef(TypedDict):
 class AgentAttributesTypeDef(TypedDict):
     firstName: NotRequired[str]
     lastName: NotRequired[str]
+
+class AgentTargetTypeDef(TypedDict):
+    aiAgentId: NotRequired[str]
+    applicationId: NotRequired[str]
 
 class AmazonConnectGuideAssociationDataTypeDef(TypedDict):
     flowId: NotRequired[str]
@@ -995,6 +1014,9 @@ class NotesChunkDataDetailsTypeDef(TypedDict):
 class NotesDataDetailsTypeDef(TypedDict):
     completion: NotRequired[str]
 
+class ProactiveRecommendationDataDetailsTypeDef(TypedDict):
+    nextMessageToken: str
+
 class SuggestedMessageDataDetailsTypeDef(TypedDict):
     messageText: str
 
@@ -1020,6 +1042,14 @@ class DeactivateMessageTemplateRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     messageTemplateId: str
     versionNumber: int
+
+class MultiAgentInstructionOutputTypeDef(TypedDict):
+    instruction: NotRequired[str]
+    examples: NotRequired[list[str]]
+
+class MultiAgentInstructionTypeDef(TypedDict):
+    instruction: NotRequired[str]
+    examples: NotRequired[Sequence[str]]
 
 class DeleteAIAgentRequestTypeDef(TypedDict):
     assistantId: str
@@ -1462,6 +1492,11 @@ class RemoveAssistantAIAgentRequestTypeDef(TypedDict):
 class RemoveKnowledgeBaseTemplateUriRequestTypeDef(TypedDict):
     knowledgeBaseId: str
 
+class RetrieveErrorTypeDef(TypedDict):
+    associationId: str
+    code: RetrieveErrorCodeType
+    message: str
+
 class RetrieveResultTypeDef(TypedDict):
     associationId: str
     sourceId: str
@@ -1799,6 +1834,26 @@ class DataReferenceTypeDef(TypedDict):
     generativeReference: NotRequired[GenerativeReferenceTypeDef]
     suggestedMessageReference: NotRequired[SuggestedMessageReferenceTypeDef]
 
+class DelegateAgentConfigurationOutputTypeDef(TypedDict):
+    agentTarget: AgentTargetTypeDef
+    instruction: NotRequired[MultiAgentInstructionOutputTypeDef]
+
+class HandoffAgentConfigurationOutputTypeDef(TypedDict):
+    agentTarget: AgentTargetTypeDef
+    instruction: NotRequired[MultiAgentInstructionOutputTypeDef]
+    audioStreamingEnabled: NotRequired[bool]
+    immediateHandoff: NotRequired[bool]
+
+class DelegateAgentConfigurationTypeDef(TypedDict):
+    agentTarget: AgentTargetTypeDef
+    instruction: NotRequired[MultiAgentInstructionTypeDef]
+
+class HandoffAgentConfigurationTypeDef(TypedDict):
+    agentTarget: AgentTargetTypeDef
+    instruction: NotRequired[MultiAgentInstructionTypeDef]
+    audioStreamingEnabled: NotRequired[bool]
+    immediateHandoff: NotRequired[bool]
+
 class DocumentTextTypeDef(TypedDict):
     text: NotRequired[str]
     highlights: NotRequired[list[HighlightTypeDef]]
@@ -2051,6 +2106,7 @@ class QuickResponseSearchExpressionTypeDef(TypedDict):
 
 class RetrieveResponseTypeDef(TypedDict):
     results: list[RetrieveResultTypeDef]
+    errors: list[RetrieveErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RuntimeSessionDataTypeDef(TypedDict):
@@ -2297,6 +2353,14 @@ class PutFeedbackResponseTypeDef(TypedDict):
 
 class ConversationContextTypeDef(TypedDict):
     selfServiceConversationHistory: Sequence[SelfServiceConversationHistoryTypeDef]
+
+class MultiAgentConfigurationOutputTypeDef(TypedDict):
+    delegateAgentConfiguration: NotRequired[DelegateAgentConfigurationOutputTypeDef]
+    handoffAgentConfiguration: NotRequired[HandoffAgentConfigurationOutputTypeDef]
+
+class MultiAgentConfigurationTypeDef(TypedDict):
+    delegateAgentConfiguration: NotRequired[DelegateAgentConfigurationTypeDef]
+    handoffAgentConfiguration: NotRequired[HandoffAgentConfigurationTypeDef]
 
 class DocumentTypeDef(TypedDict):
     contentReference: ContentReferenceTypeDef
@@ -2709,6 +2773,7 @@ class ListAssistantAssociationsResponseTypeDef(TypedDict):
 class MessageDataOutputTypeDef(TypedDict):
     text: NotRequired[TextMessageOutputTypeDef]
     toolUseResult: NotRequired[ToolUseResultDataOutputTypeDef]
+    data: NotRequired[dict[str, Any]]
 
 TextMessageUnionTypeDef = Union[TextMessageTypeDef, TextMessageOutputTypeDef]
 
@@ -2897,6 +2962,7 @@ class MessageOutputTypeDef(TypedDict):
 class MessageDataTypeDef(TypedDict):
     text: NotRequired[TextMessageUnionTypeDef]
     toolUseResult: NotRequired[ToolUseResultDataUnionTypeDef]
+    data: NotRequired[Mapping[str, Any]]
 
 class GetImportJobResponseTypeDef(TypedDict):
     importJob: ImportJobDataTypeDef
@@ -2926,6 +2992,7 @@ class DataDetailsPaginatorTypeDef(TypedDict):
     suggestedMessageData: NotRequired[SuggestedMessageDataDetailsTypeDef]
     notesData: NotRequired[NotesDataDetailsTypeDef]
     notesChunkData: NotRequired[NotesChunkDataDetailsTypeDef]
+    proactiveRecommendationData: NotRequired[ProactiveRecommendationDataDetailsTypeDef]
 
 class DataDetailsTypeDef(TypedDict):
     contentData: NotRequired[ContentDataDetailsTypeDef]
@@ -2940,6 +3007,7 @@ class DataDetailsTypeDef(TypedDict):
     suggestedMessageData: NotRequired[SuggestedMessageDataDetailsTypeDef]
     notesData: NotRequired[NotesDataDetailsTypeDef]
     notesChunkData: NotRequired[NotesChunkDataDetailsTypeDef]
+    proactiveRecommendationData: NotRequired[ProactiveRecommendationDataDetailsTypeDef]
 
 class ExtendedMessageTemplateDataTypeDef(TypedDict):
     messageTemplateArn: str
@@ -3067,6 +3135,9 @@ class SpanAttributesPaginatorTypeDef(TypedDict):
     aiAgentVersion: NotRequired[int]
     aiAgentInvoker: NotRequired[str]
     aiAgentOrchestratorUseCase: NotRequired[str]
+    interactionMode: NotRequired[InteractionModeType]
+    targetAgentId: NotRequired[str]
+    returnReason: NotRequired[ReturnReasonType]
     requestModel: NotRequired[str]
     requestMaxTokens: NotRequired[int]
     temperature: NotRequired[float]
@@ -3105,6 +3176,9 @@ class SpanAttributesTypeDef(TypedDict):
     aiAgentVersion: NotRequired[int]
     aiAgentInvoker: NotRequired[str]
     aiAgentOrchestratorUseCase: NotRequired[str]
+    interactionMode: NotRequired[InteractionModeType]
+    targetAgentId: NotRequired[str]
+    returnReason: NotRequired[ReturnReasonType]
     requestModel: NotRequired[str]
     requestMaxTokens: NotRequired[int]
     temperature: NotRequired[float]
@@ -3133,18 +3207,24 @@ class RenderMessageTemplateRequestTypeDef(TypedDict):
     attributes: MessageTemplateAttributesUnionTypeDef
 
 class OrchestrationAIAgentConfigurationOutputTypeDef(TypedDict):
-    orchestrationAIPromptId: str
+    orchestrationAIPromptId: NotRequired[str]
     orchestrationAIGuardrailId: NotRequired[str]
     toolConfigurations: NotRequired[list[ToolConfigurationOutputTypeDef]]
+    multiAgentConfigurations: NotRequired[list[MultiAgentConfigurationOutputTypeDef]]
     connectInstanceArn: NotRequired[str]
     locale: NotRequired[str]
+    inputSchemas: NotRequired[list[dict[str, Any]]]
+    outputSchemas: NotRequired[list[dict[str, Any]]]
 
 class OrchestrationAIAgentConfigurationTypeDef(TypedDict):
-    orchestrationAIPromptId: str
+    orchestrationAIPromptId: NotRequired[str]
     orchestrationAIGuardrailId: NotRequired[str]
     toolConfigurations: NotRequired[Sequence[ToolConfigurationTypeDef]]
+    multiAgentConfigurations: NotRequired[Sequence[MultiAgentConfigurationTypeDef]]
     connectInstanceArn: NotRequired[str]
     locale: NotRequired[str]
+    inputSchemas: NotRequired[Sequence[Mapping[str, Any]]]
+    outputSchemas: NotRequired[Sequence[Mapping[str, Any]]]
 
 GetNextMessageResponseTypeDef = TypedDict(
     "GetNextMessageResponseTypeDef",

@@ -57,6 +57,9 @@ class BaseAuth:
         """Return setting value from strategy"""
         return self.strategy.setting(name, default=default, backend=self)
 
+    def prepare_auth(self, user: UserProtocol | None = None) -> None:
+        """Prepare backend-specific validation or state before authentication starts."""
+
     def start(self) -> HttpResponseProtocol:
         if self.uses_redirect():
             return self.strategy.redirect(self.auth_url())
@@ -307,6 +310,11 @@ class BaseAuth:
         return self.strategy.authenticate(
             self, *partial.args, pipeline_index=partial.next_step, **partial.kwargs
         )
+
+    def validate_partial_pipeline(
+        self, partial: PartialMixin, user: UserProtocol | None = None
+    ) -> None:
+        """Validate backend-specific requirements before resuming a pipeline."""
 
     def auth_extra_arguments(self) -> dict[str, str]:
         """Return extra arguments needed on auth process.

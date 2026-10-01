@@ -111,6 +111,7 @@ __all__ = (
     "EndpointDescriptionTypeDef",
     "EndpointGroupTypeDef",
     "EndpointIdentifierTypeDef",
+    "IpAddressDetailTypeDef",
     "IpSetTypeDef",
     "ListAcceleratorsRequestPaginateTypeDef",
     "ListAcceleratorsRequestTypeDef",
@@ -191,11 +192,6 @@ class AcceleratorAttributesTypeDef(TypedDict):
 class AcceleratorEventTypeDef(TypedDict):
     Message: NotRequired[str]
     Timestamp: NotRequired[datetime]
-
-class IpSetTypeDef(TypedDict):
-    IpFamily: NotRequired[str]
-    IpAddresses: NotRequired[list[str]]
-    IpAddressFamily: NotRequired[IpAddressFamilyType]
 
 class CustomRoutingEndpointConfigurationTypeDef(TypedDict):
     EndpointId: NotRequired[str]
@@ -345,6 +341,10 @@ class EndpointIdentifierTypeDef(TypedDict):
     EndpointId: str
     ClientIPPreservationEnabled: NotRequired[bool]
 
+class IpAddressDetailTypeDef(TypedDict):
+    IpAddress: NotRequired[str]
+    NetworkZone: NotRequired[str]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -443,30 +443,6 @@ class UpdateCustomRoutingAcceleratorRequestTypeDef(TypedDict):
 
 class WithdrawByoipCidrRequestTypeDef(TypedDict):
     Cidr: str
-
-class AcceleratorTypeDef(TypedDict):
-    AcceleratorArn: NotRequired[str]
-    Name: NotRequired[str]
-    IpAddressType: NotRequired[IpAddressTypeType]
-    Enabled: NotRequired[bool]
-    IpSets: NotRequired[list[IpSetTypeDef]]
-    DnsName: NotRequired[str]
-    Status: NotRequired[AcceleratorStatusType]
-    CreatedTime: NotRequired[datetime]
-    LastModifiedTime: NotRequired[datetime]
-    DualStackDnsName: NotRequired[str]
-    Events: NotRequired[list[AcceleratorEventTypeDef]]
-
-class CustomRoutingAcceleratorTypeDef(TypedDict):
-    AcceleratorArn: NotRequired[str]
-    Name: NotRequired[str]
-    IpAddressType: NotRequired[IpAddressTypeType]
-    Enabled: NotRequired[bool]
-    IpSets: NotRequired[list[IpSetTypeDef]]
-    DnsName: NotRequired[str]
-    Status: NotRequired[CustomRoutingAcceleratorStatusType]
-    CreatedTime: NotRequired[datetime]
-    LastModifiedTime: NotRequired[datetime]
 
 class AddCustomRoutingEndpointsRequestTypeDef(TypedDict):
     EndpointConfigurations: Sequence[CustomRoutingEndpointConfigurationTypeDef]
@@ -684,6 +660,12 @@ class RemoveEndpointsRequestTypeDef(TypedDict):
     EndpointIdentifiers: Sequence[EndpointIdentifierTypeDef]
     EndpointGroupArn: str
 
+class IpSetTypeDef(TypedDict):
+    IpFamily: NotRequired[str]
+    IpAddresses: NotRequired[list[str]]
+    IpAddressFamily: NotRequired[IpAddressFamilyType]
+    IpAddressDetails: NotRequired[list[IpAddressDetailTypeDef]]
+
 class ListAcceleratorsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -726,40 +708,6 @@ class ListEndpointGroupsRequestPaginateTypeDef(TypedDict):
 class ListListenersRequestPaginateTypeDef(TypedDict):
     AcceleratorArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class CreateAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: AcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: AcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAcceleratorsResponseTypeDef(TypedDict):
-    Accelerators: list[AcceleratorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class UpdateAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: AcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateCustomRoutingAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: CustomRoutingAcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeCustomRoutingAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: CustomRoutingAcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListCustomRoutingAcceleratorsResponseTypeDef(TypedDict):
-    Accelerators: list[CustomRoutingAcceleratorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class UpdateCustomRoutingAcceleratorResponseTypeDef(TypedDict):
-    Accelerator: CustomRoutingAcceleratorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateCrossAccountAttachmentResponseTypeDef(TypedDict):
     CrossAccountAttachment: AttachmentTypeDef
@@ -872,3 +820,61 @@ class ListCustomRoutingPortMappingsResponseTypeDef(TypedDict):
     PortMappings: list[PortMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class AcceleratorTypeDef(TypedDict):
+    AcceleratorArn: NotRequired[str]
+    Name: NotRequired[str]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    Enabled: NotRequired[bool]
+    IpSets: NotRequired[list[IpSetTypeDef]]
+    DnsName: NotRequired[str]
+    Status: NotRequired[AcceleratorStatusType]
+    CreatedTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    DualStackDnsName: NotRequired[str]
+    Events: NotRequired[list[AcceleratorEventTypeDef]]
+
+class CustomRoutingAcceleratorTypeDef(TypedDict):
+    AcceleratorArn: NotRequired[str]
+    Name: NotRequired[str]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    Enabled: NotRequired[bool]
+    IpSets: NotRequired[list[IpSetTypeDef]]
+    DnsName: NotRequired[str]
+    Status: NotRequired[CustomRoutingAcceleratorStatusType]
+    CreatedTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+
+class CreateAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: AcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: AcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAcceleratorsResponseTypeDef(TypedDict):
+    Accelerators: list[AcceleratorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class UpdateAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: AcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCustomRoutingAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: CustomRoutingAcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCustomRoutingAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: CustomRoutingAcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCustomRoutingAcceleratorsResponseTypeDef(TypedDict):
+    Accelerators: list[CustomRoutingAcceleratorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class UpdateCustomRoutingAcceleratorResponseTypeDef(TypedDict):
+    Accelerator: CustomRoutingAcceleratorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef

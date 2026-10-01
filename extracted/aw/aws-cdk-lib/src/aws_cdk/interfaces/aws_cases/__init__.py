@@ -459,6 +459,51 @@ class _ILayoutRefProxy(
 typing.cast(typing.Any, ILayoutRef).__jsii_proxy_class__ = lambda : _ILayoutRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cases.IRelatedItemRef")
+class IRelatedItemRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RelatedItem.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="relatedItemRef")
+    def related_item_ref(self) -> "RelatedItemReference":
+        '''(experimental) A reference to a RelatedItem resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRelatedItemRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RelatedItem.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cases.IRelatedItemRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="relatedItemRef")
+    def related_item_ref(self) -> "RelatedItemReference":
+        '''(experimental) A reference to a RelatedItem resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RelatedItemReference", jsii.get(self, "relatedItemRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRelatedItemRef).__jsii_proxy_class__ = lambda : _IRelatedItemRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cases.ITemplateRef")
 class ITemplateRef(
     _constructs_77d1e7e8.IConstruct,
@@ -554,6 +599,55 @@ class LayoutReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cases.RelatedItemReference",
+    jsii_struct_bases=[],
+    name_mapping={"related_item_arn": "relatedItemArn"},
+)
+class RelatedItemReference:
+    def __init__(self, *, related_item_arn: builtins.str) -> None:
+        '''A reference to a RelatedItem resource.
+
+        :param related_item_arn: The RelatedItemArn of the RelatedItem resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cases as interfaces_cases
+            
+            related_item_reference = interfaces_cases.RelatedItemReference(
+                related_item_arn="relatedItemArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78460b634b7c2f6310254c55fcf7003eba2d6ba06ee509b4ddae88225a3ebfb1)
+            check_type(argname="argument related_item_arn", value=related_item_arn, expected_type=type_hints["related_item_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "related_item_arn": related_item_arn,
+        }
+
+    @builtins.property
+    def related_item_arn(self) -> builtins.str:
+        '''The RelatedItemArn of the RelatedItem resource.'''
+        result = self._values.get("related_item_arn")
+        assert result is not None, "Required property 'related_item_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RelatedItemReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cases.TemplateReference",
     jsii_struct_bases=[],
     name_mapping={"template_arn": "templateArn"},
@@ -612,8 +706,10 @@ __all__ = [
     "IDomainRef",
     "IFieldRef",
     "ILayoutRef",
+    "IRelatedItemRef",
     "ITemplateRef",
     "LayoutReference",
+    "RelatedItemReference",
     "TemplateReference",
 ]
 
@@ -654,6 +750,13 @@ def _typecheckingstub__5e6d380b7626ed495afd5dc2c0d3925b3dbde53f0779e1131e693a84a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__78460b634b7c2f6310254c55fcf7003eba2d6ba06ee509b4ddae88225a3ebfb1(
+    *,
+    related_item_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e79abfdc3314e46c0458acb7321ed640fc64b358a0e8a6232d6d4d08185eb8d7(
     *,
     template_arn: builtins.str,
@@ -661,5 +764,5 @@ def _typecheckingstub__e79abfdc3314e46c0458acb7321ed640fc64b358a0e8a6232d6d4d081
     """Type checking stubs"""
     pass
 
-for cls in [ICaseRef, ICaseRuleRef, IDomainRef, IFieldRef, ILayoutRef, ITemplateRef]:
+for cls in [ICaseRef, ICaseRuleRef, IDomainRef, IFieldRef, ILayoutRef, IRelatedItemRef, ITemplateRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

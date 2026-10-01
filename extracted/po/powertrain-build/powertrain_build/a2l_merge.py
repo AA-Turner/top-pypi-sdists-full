@@ -93,11 +93,11 @@ class A2lMerge(ProblemLogger):
         #   /* Upper Limit            */      3.0
         # /end CHARACTERISTIC
 
-        self._block_finder = re.compile(r'(?:\s*\n)*'           # Optional blank lines
-                                        r'(\s*/begin (\w+)\s*'  # begin <something> block
-                                        r'\n\s*([\w.]+).*?\n'   # label. (Bosch-nvm contains the .)
-                                        r'.*?'                  # block definition
-                                        r'/end\s+\2)',          # end <something> block. Same something as before
+        self._block_finder = re.compile(r'(?:\s*\n)*'             # Optional blank lines
+                                        r'(\s*/begin\s+(\w+)\s*'  # begin <something> block
+                                        r'\n\s*([\w.]+).*?\n'     # label. (Bosch-nvm contains the .)
+                                        r'.*?'                    # block definition
+                                        r'/end\s+\2)',            # end <something> block. Same something as before
                                         flags=re.M | re.DOTALL)
 
         self._tl_compu_method_parser = re.compile(
@@ -195,7 +195,7 @@ class A2lMerge(ProblemLogger):
                 code_generator = 'target_link'
 
             if code_generator == 'embedded_coder':
-                blks = re.findall(r'(?:\s*\n)*(\s*/begin '
+                blks = re.findall(r'(?:\s*\n)*(\s*/begin\s+'
                                   r'(?!PROJECT|HEADER|MODULE|MOD_PAR|MOD_COMMON)(\w+)\s*(?:\n\s*)?'
                                   r'(?:/\*\s*[\w ]+\s*\*/\s*)?(\w+)([\[\d+\]]*).*?\n.*?/end\s+\2)',
                                   a2ld, flags=re.M | re.DOTALL)

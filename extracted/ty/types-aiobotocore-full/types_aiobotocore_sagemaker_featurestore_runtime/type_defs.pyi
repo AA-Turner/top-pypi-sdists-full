@@ -60,6 +60,7 @@ __all__ = (
     "PutRecordRequestTypeDef",
     "ResponseMetadataTypeDef",
     "TtlDurationTypeDef",
+    "UpdateRecordRequestTypeDef",
 )
 
 class BatchGetRecordErrorTypeDef(TypedDict):
@@ -183,6 +184,13 @@ class BatchWriteRecordEntryTypeDef(TypedDict):
 class PutRecordRequestTypeDef(TypedDict):
     FeatureGroupName: str
     Record: Sequence[FeatureValueUnionTypeDef]
+    TargetStores: NotRequired[Sequence[TargetStoreType]]
+    TtlDuration: NotRequired[TtlDurationTypeDef]
+
+class UpdateRecordRequestTypeDef(TypedDict):
+    FeatureGroupName: str
+    RecordIdentifierValueAsString: str
+    Features: Sequence[FeatureValueUnionTypeDef]
     TargetStores: NotRequired[Sequence[TargetStoreType]]
     TtlDuration: NotRequired[TtlDurationTypeDef]
 

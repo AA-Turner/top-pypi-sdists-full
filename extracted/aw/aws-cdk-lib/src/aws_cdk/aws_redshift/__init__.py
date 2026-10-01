@@ -5819,6 +5819,336 @@ class CfnIntegrationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.IQEV2IdcApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnQEV2IdcApplication(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnQEV2IdcApplication",
+):
+    '''Creates an Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html
+    :cloudformationResource: AWS::Redshift::QEV2IdcApplication
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_qev2_idc_application = redshift.CfnQEV2IdcApplication(self, "MyCfnQEV2IdcApplication",
+            idc_display_name="idcDisplayName",
+            idc_instance_arn="idcInstanceArn",
+            qev2_idc_application_name="qev2IdcApplicationName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        idc_display_name: builtins.str,
+        idc_instance_arn: builtins.str,
+        qev2_idc_application_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::QEV2IdcApplication``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param idc_display_name: The display name for the Amazon Redshift Query Editor (QEV2) IAM Identity Center application. It appears in the console.
+        :param idc_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance used to create the Amazon Redshift Query Editor (QEV2) managed application.
+        :param qev2_idc_application_name: The name of the Amazon Redshift Query Editor (QEV2) application in IAM Identity Center.
+        :param tags: A list of tags associated with the application. Tags are key-value pairs that you can use to organize and identify your resources.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4a9ea1365637047352958fc35acd747193499f4feb13fe0804da2d5dad6355d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQEV2IdcApplicationProps(
+            idc_display_name=idc_display_name,
+            idc_instance_arn=idc_instance_arn,
+            qev2_idc_application_name=qev2_idc_application_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnQEV2IdcApplication")
+    @builtins.classmethod
+    def is_cfn_qev2_idc_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnQEV2IdcApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ee83f310dd2d80ef9e31f74d82d64090140eea9d368839a1068139f20ab5b34)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQEV2IdcApplication", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__513a6f133130795ab57ac60250a7dd23aea8ad4fa555eee67a4fdfee7492d049)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a8c71019e02fe4f0a606319d4c040aa51c54882db7562837afe3ad7f567a6c84)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdcManagedApplicationArn")
+    def attr_idc_managed_application_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the Amazon Redshift Query Editor (QEV2) IAM Identity Center managed application.
+
+        :cloudformationAttribute: IdcManagedApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdcManagedApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdcOnboardStatus")
+    def attr_idc_onboard_status(self) -> builtins.str:
+        '''The onboarding status for the Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+        :cloudformationAttribute: IdcOnboardStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdcOnboardStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrQev2IdcApplicationArn")
+    def attr_qev2_idc_application_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the Amazon Redshift Query Editor (QEV2) application that integrates with IAM Identity Center.
+
+        :cloudformationAttribute: Qev2IdcApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrQev2IdcApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="qev2IdcApplicationRef")
+    def qev2_idc_application_ref(
+        self,
+    ) -> "_aws_redshift_9ff5fd22.QEV2IdcApplicationReference":
+        '''A reference to a QEV2IdcApplication resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.QEV2IdcApplicationReference", jsii.get(self, "qev2IdcApplicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="idcDisplayName")
+    def idc_display_name(self) -> builtins.str:
+        '''The display name for the Amazon Redshift Query Editor (QEV2) IAM Identity Center application.'''
+        return typing.cast(builtins.str, jsii.get(self, "idcDisplayName"))
+
+    @idc_display_name.setter
+    def idc_display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd17a0b4ce2d9f706cb385668c558679386cb92c2bc4b503ccbc72b8cac8e5b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idcDisplayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="idcInstanceArn")
+    def idc_instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM Identity Center instance used to create the Amazon Redshift Query Editor (QEV2) managed application.'''
+        return typing.cast(builtins.str, jsii.get(self, "idcInstanceArn"))
+
+    @idc_instance_arn.setter
+    def idc_instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55df99140982d72759401bce1e9a33cefce8e6d28417c363ad0e1d35bf2195c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idcInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="qev2IdcApplicationName")
+    def qev2_idc_application_name(self) -> builtins.str:
+        '''The name of the Amazon Redshift Query Editor (QEV2) application in IAM Identity Center.'''
+        return typing.cast(builtins.str, jsii.get(self, "qev2IdcApplicationName"))
+
+    @qev2_idc_application_name.setter
+    def qev2_idc_application_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19f742dca2d0940e3ea32f6f009362b08e57f9d13728aeb1b6307c4cd33d5f60)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "qev2IdcApplicationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags associated with the application.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ceb728ef414aa5ee850d23d43c36ca2ee7ad034abb7afd77b28fecb6675a1fe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnQEV2IdcApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "idc_display_name": "idcDisplayName",
+        "idc_instance_arn": "idcInstanceArn",
+        "qev2_idc_application_name": "qev2IdcApplicationName",
+        "tags": "tags",
+    },
+)
+class CfnQEV2IdcApplicationProps:
+    def __init__(
+        self,
+        *,
+        idc_display_name: builtins.str,
+        idc_instance_arn: builtins.str,
+        qev2_idc_application_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQEV2IdcApplication``.
+
+        :param idc_display_name: The display name for the Amazon Redshift Query Editor (QEV2) IAM Identity Center application. It appears in the console.
+        :param idc_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance used to create the Amazon Redshift Query Editor (QEV2) managed application.
+        :param qev2_idc_application_name: The name of the Amazon Redshift Query Editor (QEV2) application in IAM Identity Center.
+        :param tags: A list of tags associated with the application. Tags are key-value pairs that you can use to organize and identify your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_qev2_idc_application_props = redshift.CfnQEV2IdcApplicationProps(
+                idc_display_name="idcDisplayName",
+                idc_instance_arn="idcInstanceArn",
+                qev2_idc_application_name="qev2IdcApplicationName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3290445ed57010f85bf98b8b912be308d7201a19eb2426825a5941e8096c7987)
+            check_type(argname="argument idc_display_name", value=idc_display_name, expected_type=type_hints["idc_display_name"])
+            check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
+            check_type(argname="argument qev2_idc_application_name", value=qev2_idc_application_name, expected_type=type_hints["qev2_idc_application_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "idc_display_name": idc_display_name,
+            "idc_instance_arn": idc_instance_arn,
+            "qev2_idc_application_name": qev2_idc_application_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def idc_display_name(self) -> builtins.str:
+        '''The display name for the Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+        It appears in the console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html#cfn-redshift-qev2idcapplication-idcdisplayname
+        '''
+        result = self._values.get("idc_display_name")
+        assert result is not None, "Required property 'idc_display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def idc_instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM Identity Center instance used to create the Amazon Redshift Query Editor (QEV2) managed application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html#cfn-redshift-qev2idcapplication-idcinstancearn
+        '''
+        result = self._values.get("idc_instance_arn")
+        assert result is not None, "Required property 'idc_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def qev2_idc_application_name(self) -> builtins.str:
+        '''The name of the Amazon Redshift Query Editor (QEV2) application in IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html#cfn-redshift-qev2idcapplication-qev2idcapplicationname
+        '''
+        result = self._values.get("qev2_idc_application_name")
+        assert result is not None, "Required property 'qev2_idc_application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags associated with the application.
+
+        Tags are key-value pairs that you can use to organize and identify your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html#cfn-redshift-qev2idcapplication-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQEV2IdcApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.IScheduledActionRef)
 class CfnScheduledAction(
     _aws_cdk_0cae9daa.CfnResource,
@@ -6667,6 +6997,803 @@ class CfnScheduledActionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.ISnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshot",
+):
+    '''Resource Type definition for AWS::Redshift::Snapshot.
+
+    Creates a manual snapshot of the specified cluster. The cluster must be in the available state.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html
+    :cloudformationResource: AWS::Redshift::Snapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_snapshot = redshift.CfnSnapshot(self, "MyCfnSnapshot",
+            cluster_identifier="clusterIdentifier",
+            snapshot_identifier="snapshotIdentifier",
+        
+            # the properties below are optional
+            manual_snapshot_retention_period=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_identifier: builtins.str,
+        snapshot_identifier: builtins.str,
+        manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::Snapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_identifier: The cluster identifier for which you want a snapshot.
+        :param snapshot_identifier: A unique identifier for the snapshot that you are requesting. This identifier must be unique for all snapshots within the Amazon Web Services account.
+        :param manual_snapshot_retention_period: The number of days that a manual snapshot is retained. If the value is -1, the manual snapshot is retained indefinitely. The value must be either -1 or an integer between 1 and 3653.
+        :param tags: A list of tag instances.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b01cd3daebac0e2aa9c70c149cb256861bebb4ba8cc9ff50e6311d95e8389ff6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotProps(
+            cluster_identifier=cluster_identifier,
+            snapshot_identifier=snapshot_identifier,
+            manual_snapshot_retention_period=manual_snapshot_retention_period,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSnapshot")
+    @builtins.classmethod
+    def arn_for_snapshot(
+        cls,
+        resource: "_aws_redshift_9ff5fd22.ISnapshotRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4e0e2bcd6d9144932e035c778bfdd87e76db055294ac42c46add41122e1786f2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnSnapshot")
+    @builtins.classmethod
+    def is_cfn_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d39c7520faed5b51d913a4ddc99ef9fde5e5ea771402694f0730db7d93cc9397)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88d388e7ffdf9e0688f1c430b5f919b486eb6915796555b97dea039cbbbd5463)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__527719b5d5e5f7423b8ce279cb7c5ece6af80941753cfffe553745752b5d24c9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAvailabilityZone")
+    def attr_availability_zone(self) -> builtins.str:
+        '''The Availability Zone in which the cluster was created.
+
+        :cloudformationAttribute: AvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterCreateTime")
+    def attr_cluster_create_time(self) -> builtins.str:
+        '''The time (UTC) when the cluster was originally created.
+
+        :cloudformationAttribute: ClusterCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterVersion")
+    def attr_cluster_version(self) -> builtins.str:
+        '''The version ID of the Amazon Redshift engine that is running on the cluster.
+
+        :cloudformationAttribute: ClusterVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbName")
+    def attr_db_name(self) -> builtins.str:
+        '''The name of the database that was created when the cluster was created.
+
+        :cloudformationAttribute: DBName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEncrypted")
+    def attr_encrypted(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''If true, the data in the snapshot is encrypted at rest.
+
+        :cloudformationAttribute: Encrypted
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEncrypted"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEncryptedWithHsm")
+    def attr_encrypted_with_hsm(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A boolean that indicates whether the snapshot data is encrypted using the HSM keys of the source cluster.
+
+        :cloudformationAttribute: EncryptedWithHSM
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEncryptedWithHsm"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineFullVersion")
+    def attr_engine_full_version(self) -> builtins.str:
+        '''The engine full version of the cluster at the time the snapshot was taken.
+
+        :cloudformationAttribute: EngineFullVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineFullVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEnhancedVpcRouting")
+    def attr_enhanced_vpc_routing(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''An option that specifies whether to create the cluster with enhanced VPC routing enabled.
+
+        :cloudformationAttribute: EnhancedVpcRouting
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEnhancedVpcRouting"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyId")
+    def attr_kms_key_id(self) -> builtins.str:
+        '''The Key Management Service (KMS) key ID of the encryption key that was used to encrypt data in the cluster from which the snapshot was taken.
+
+        :cloudformationAttribute: KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMaintenanceTrackName")
+    def attr_maintenance_track_name(self) -> builtins.str:
+        '''The name of the maintenance track for the snapshot.
+
+        :cloudformationAttribute: MaintenanceTrackName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMaintenanceTrackName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMasterUsername")
+    def attr_master_username(self) -> builtins.str:
+        '''The admin user name for the cluster.
+
+        :cloudformationAttribute: MasterUsername
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMasterUsername"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNodeType")
+    def attr_node_type(self) -> builtins.str:
+        '''The node type that the cluster is provisioned with.
+
+        :cloudformationAttribute: NodeType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNodeType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNumberOfNodes")
+    def attr_number_of_nodes(self) -> jsii.Number:
+        '''The number of nodes in the cluster.
+
+        :cloudformationAttribute: NumberOfNodes
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNumberOfNodes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerAccount")
+    def attr_owner_account(self) -> builtins.str:
+        '''The Amazon Web Services account that owns the snapshot.
+
+        :cloudformationAttribute: OwnerAccount
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> jsii.Number:
+        '''The port that the cluster is listening on.
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotArn")
+    def attr_snapshot_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the snapshot.
+
+        :cloudformationAttribute: SnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreateTime")
+    def attr_snapshot_create_time(self) -> builtins.str:
+        '''The time (in UTC format) when Amazon Redshift began the snapshot.
+
+        :cloudformationAttribute: SnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotType")
+    def attr_snapshot_type(self) -> builtins.str:
+        '''The snapshot type.
+
+        Snapshots created using CreateClusterSnapshot and CopyClusterSnapshot are of type manual.
+
+        :cloudformationAttribute: SnapshotType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The snapshot status.
+
+        The value of the status depends on the API operation used: CreateClusterSnapshot and CopyClusterSnapshot returns status as creating. DescribeClusterSnapshots returns status as creating, available, final snapshot, or failed. DeleteClusterSnapshot returns status as deleted.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The VPC identifier of the cluster if the snapshot is from a cluster in a VPC.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "_aws_redshift_9ff5fd22.SnapshotReference":
+        '''A reference to a Snapshot resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.SnapshotReference", jsii.get(self, "snapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterIdentifier")
+    def cluster_identifier(self) -> builtins.str:
+        '''The cluster identifier for which you want a snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterIdentifier"))
+
+    @cluster_identifier.setter
+    def cluster_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ea5eedf1407a88f62b1f90ae255a6ff0d17adbec98d1b684b218152f68940189)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotIdentifier")
+    def snapshot_identifier(self) -> builtins.str:
+        '''A unique identifier for the snapshot that you are requesting.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotIdentifier"))
+
+    @snapshot_identifier.setter
+    def snapshot_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__545ebe35ef90410b97958b70962b791843d65a22c1583d79379fe5638a1c75f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manualSnapshotRetentionPeriod")
+    def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days that a manual snapshot is retained.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "manualSnapshotRetentionPeriod"))
+
+    @manual_snapshot_retention_period.setter
+    def manual_snapshot_retention_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d7a84e055adee688142b7ef241538acaf76a1eabcfc3c5c4d2f246a4f21d26a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manualSnapshotRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d409e5beb567538a6878425adb704d1e77b3527f7f89c32d0a67f5c8cdab9a68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.ISnapshotCopyGrantRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSnapshotCopyGrant(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshotCopyGrant",
+):
+    '''Creates a snapshot copy grant that permits Amazon Redshift to use an encrypted symmetric key from AWS Key Management Service (KMS) to encrypt copied snapshots in a destination region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html
+    :cloudformationResource: AWS::Redshift::SnapshotCopyGrant
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_snapshot_copy_grant = redshift.CfnSnapshotCopyGrant(self, "MyCfnSnapshotCopyGrant",
+            snapshot_copy_grant_name="snapshotCopyGrantName",
+        
+            # the properties below are optional
+            kms_key_id="kmsKeyId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        snapshot_copy_grant_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::SnapshotCopyGrant``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param snapshot_copy_grant_name: The name of the snapshot copy grant. This name must be unique in the region for the AWS account.
+        :param kms_key_id: The unique identifier of the encrypted symmetric key to which to grant Amazon Redshift permission. If no key is specified, the default key is used. Marked writeOnly because Create accepts aliases/key-ids but Describe returns the resolved key ARN, which would fail drift detection.
+        :param tags: A list of tag instances.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee114459db7af440b92657c3d37a545330daf2834ad634bb1859809065fff8be)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotCopyGrantProps(
+            snapshot_copy_grant_name=snapshot_copy_grant_name,
+            kms_key_id=kms_key_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSnapshotCopyGrant")
+    @builtins.classmethod
+    def arn_for_snapshot_copy_grant(
+        cls,
+        resource: "_aws_redshift_9ff5fd22.ISnapshotCopyGrantRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__32400edccba0b01fcdd0f74ffb0a0e8edf071aaeafee1800d82cdca048510785)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSnapshotCopyGrant", [resource]))
+
+    @jsii.member(jsii_name="isCfnSnapshotCopyGrant")
+    @builtins.classmethod
+    def is_cfn_snapshot_copy_grant(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSnapshotCopyGrant.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a2ba8335c54839e124cb3c077b37f811b1526feafa758e21ec0d18decd22711)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshotCopyGrant", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__946b75827355f2fc46bb3f3ffcc065a2e10eb34d3d445f60510e907f425f471e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__12e514b289a3bd73f203d8d56944f3ea357f245ed3a56e37fa174bece1c1e24d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the snapshot copy grant.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyGrantRef")
+    def snapshot_copy_grant_ref(
+        self,
+    ) -> "_aws_redshift_9ff5fd22.SnapshotCopyGrantReference":
+        '''A reference to a SnapshotCopyGrant resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.SnapshotCopyGrantReference", jsii.get(self, "snapshotCopyGrantRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyGrantName")
+    def snapshot_copy_grant_name(self) -> builtins.str:
+        '''The name of the snapshot copy grant.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotCopyGrantName"))
+
+    @snapshot_copy_grant_name.setter
+    def snapshot_copy_grant_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48164ad25f46a332941d3f8f97c2ebbbafce9d9c03d239a24b11a3ea79f31eb1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotCopyGrantName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the encrypted symmetric key to which to grant Amazon Redshift permission.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a4b69c88aeb747f528957d9d598a2fcf785c1eacc80dd2ebd17b49bc3571b89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6cda45fc8b7862a6e3f97e604f52ae93c02ebcaf348dd2947cb30551a8d19a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshotCopyGrantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_copy_grant_name": "snapshotCopyGrantName",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotCopyGrantProps:
+    def __init__(
+        self,
+        *,
+        snapshot_copy_grant_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshotCopyGrant``.
+
+        :param snapshot_copy_grant_name: The name of the snapshot copy grant. This name must be unique in the region for the AWS account.
+        :param kms_key_id: The unique identifier of the encrypted symmetric key to which to grant Amazon Redshift permission. If no key is specified, the default key is used. Marked writeOnly because Create accepts aliases/key-ids but Describe returns the resolved key ARN, which would fail drift detection.
+        :param tags: A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_snapshot_copy_grant_props = redshift.CfnSnapshotCopyGrantProps(
+                snapshot_copy_grant_name="snapshotCopyGrantName",
+            
+                # the properties below are optional
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f4293881b0a3745419af17d24cc0d8fb626c5090923d071a0b4db45a02057d0)
+            check_type(argname="argument snapshot_copy_grant_name", value=snapshot_copy_grant_name, expected_type=type_hints["snapshot_copy_grant_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_copy_grant_name": snapshot_copy_grant_name,
+        }
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_copy_grant_name(self) -> builtins.str:
+        '''The name of the snapshot copy grant.
+
+        This name must be unique in the region for the AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html#cfn-redshift-snapshotcopygrant-snapshotcopygrantname
+        '''
+        result = self._values.get("snapshot_copy_grant_name")
+        assert result is not None, "Required property 'snapshot_copy_grant_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the encrypted symmetric key to which to grant Amazon Redshift permission.
+
+        If no key is specified, the default key is used. Marked writeOnly because Create accepts aliases/key-ids but Describe returns the resolved key ARN, which would fail drift detection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html#cfn-redshift-snapshotcopygrant-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html#cfn-redshift-snapshotcopygrant-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotCopyGrantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_identifier": "clusterIdentifier",
+        "snapshot_identifier": "snapshotIdentifier",
+        "manual_snapshot_retention_period": "manualSnapshotRetentionPeriod",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotProps:
+    def __init__(
+        self,
+        *,
+        cluster_identifier: builtins.str,
+        snapshot_identifier: builtins.str,
+        manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshot``.
+
+        :param cluster_identifier: The cluster identifier for which you want a snapshot.
+        :param snapshot_identifier: A unique identifier for the snapshot that you are requesting. This identifier must be unique for all snapshots within the Amazon Web Services account.
+        :param manual_snapshot_retention_period: The number of days that a manual snapshot is retained. If the value is -1, the manual snapshot is retained indefinitely. The value must be either -1 or an integer between 1 and 3653.
+        :param tags: A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_snapshot_props = redshift.CfnSnapshotProps(
+                cluster_identifier="clusterIdentifier",
+                snapshot_identifier="snapshotIdentifier",
+            
+                # the properties below are optional
+                manual_snapshot_retention_period=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__050cbf301dbbe97e3a867d66112d424a15abace7cb9e5deff4a072753117f532)
+            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
+            check_type(argname="argument snapshot_identifier", value=snapshot_identifier, expected_type=type_hints["snapshot_identifier"])
+            check_type(argname="argument manual_snapshot_retention_period", value=manual_snapshot_retention_period, expected_type=type_hints["manual_snapshot_retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_identifier": cluster_identifier,
+            "snapshot_identifier": snapshot_identifier,
+        }
+        if manual_snapshot_retention_period is not None:
+            self._values["manual_snapshot_retention_period"] = manual_snapshot_retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_identifier(self) -> builtins.str:
+        '''The cluster identifier for which you want a snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html#cfn-redshift-snapshot-clusteridentifier
+        '''
+        result = self._values.get("cluster_identifier")
+        assert result is not None, "Required property 'cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def snapshot_identifier(self) -> builtins.str:
+        '''A unique identifier for the snapshot that you are requesting.
+
+        This identifier must be unique for all snapshots within the Amazon Web Services account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html#cfn-redshift-snapshot-snapshotidentifier
+        '''
+        result = self._values.get("snapshot_identifier")
+        assert result is not None, "Required property 'snapshot_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def manual_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days that a manual snapshot is retained.
+
+        If the value is -1, the manual snapshot is retained indefinitely. The value must be either -1 or an integer between 1 and 3653.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html#cfn-redshift-snapshot-manualsnapshotretentionperiod
+        '''
+        result = self._values.get("manual_snapshot_retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html#cfn-redshift-snapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.ISnapshotScheduleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSnapshotSchedule(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7002,6 +8129,444 @@ class CfnSnapshotScheduleProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.IUsageLimitRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnUsageLimit(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnUsageLimit",
+):
+    '''Resource Type definition for AWS::Redshift::UsageLimit.
+
+    Creates a usage limit for a specified Amazon Redshift feature on a cluster. The usage limit is identified by the returned usage limit identifier.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html
+    :cloudformationResource: AWS::Redshift::UsageLimit
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_usage_limit = redshift.CfnUsageLimit(self, "MyCfnUsageLimit",
+            amount=123,
+            cluster_identifier="clusterIdentifier",
+            feature_type="featureType",
+            limit_type="limitType",
+        
+            # the properties below are optional
+            breach_action="breachAction",
+            period="period",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        amount: jsii.Number,
+        cluster_identifier: builtins.str,
+        feature_type: builtins.str,
+        limit_type: builtins.str,
+        breach_action: typing.Optional[builtins.str] = None,
+        period: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::UsageLimit``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param amount: The limit amount. If time-based, this amount is in minutes. If data-based, this amount is in terabytes (TB). The value must be a positive number.
+        :param cluster_identifier: The identifier of the cluster that you want to limit usage.
+        :param feature_type: The Amazon Redshift feature that you want to limit.
+        :param limit_type: The type of limit. Depending on the feature type, this can be based on a time duration or data size. If FeatureType is spectrum, then LimitType must be data-scanned. If FeatureType is concurrency-scaling, then LimitType must be time. If FeatureType is cross-region-datasharing, then LimitType must be data-scanned.
+        :param breach_action: The action that Amazon Redshift takes when the limit is reached. The default is log.
+        :param period: The time period that the amount applies to. A weekly period begins on Sunday. The default is monthly.
+        :param tags: A list of tag instances.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9a12accfa2e5f8621dc77dc635e014979d852af9501f6a6fc38659c50aea3260)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUsageLimitProps(
+            amount=amount,
+            cluster_identifier=cluster_identifier,
+            feature_type=feature_type,
+            limit_type=limit_type,
+            breach_action=breach_action,
+            period=period,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForUsageLimit")
+    @builtins.classmethod
+    def arn_for_usage_limit(
+        cls,
+        resource: "_aws_redshift_9ff5fd22.IUsageLimitRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efa6363394c452e5116d0953cec65e409318d042c4bd8ede3df35afe524d1927)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUsageLimit", [resource]))
+
+    @jsii.member(jsii_name="isCfnUsageLimit")
+    @builtins.classmethod
+    def is_cfn_usage_limit(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUsageLimit.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1fd35d9b7df758ed86ab54dbbd34bafdb95702ef345db78be550c5929586150)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUsageLimit", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08df14e76b4930a618864e0f1d10b44bc3442f31a62c3ead09ea7186ed385a3a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84decbebb7eed93dc54ab07c6e3def24b772b910324b184f1e86194ad7f9d330)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the usage limit.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUsageLimitId")
+    def attr_usage_limit_id(self) -> builtins.str:
+        '''The identifier of the usage limit.
+
+        :cloudformationAttribute: UsageLimitId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUsageLimitId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="usageLimitRef")
+    def usage_limit_ref(self) -> "_aws_redshift_9ff5fd22.UsageLimitReference":
+        '''A reference to a UsageLimit resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.UsageLimitReference", jsii.get(self, "usageLimitRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="amount")
+    def amount(self) -> jsii.Number:
+        '''The limit amount.'''
+        return typing.cast(jsii.Number, jsii.get(self, "amount"))
+
+    @amount.setter
+    def amount(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__62baff610f7740fea0ae7eb9199b76d6682d67b879bd87b23f402ea6f80692d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "amount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterIdentifier")
+    def cluster_identifier(self) -> builtins.str:
+        '''The identifier of the cluster that you want to limit usage.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterIdentifier"))
+
+    @cluster_identifier.setter
+    def cluster_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__208f3283d28752868e05574acbf061e8d3c32377a9715b6441f9dc18ab7f9d60)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="featureType")
+    def feature_type(self) -> builtins.str:
+        '''The Amazon Redshift feature that you want to limit.'''
+        return typing.cast(builtins.str, jsii.get(self, "featureType"))
+
+    @feature_type.setter
+    def feature_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd2559166f44ddf0c716c3f5b7fbd1413cda1ada1bdae10ddccded14531b2b25)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "featureType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="limitType")
+    def limit_type(self) -> builtins.str:
+        '''The type of limit.'''
+        return typing.cast(builtins.str, jsii.get(self, "limitType"))
+
+    @limit_type.setter
+    def limit_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e713c0f34a8fe71ae12b9fbb1b79dfe98a8b05ae7bbbe2d55d9db20bb4b4bc90)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "limitType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="breachAction")
+    def breach_action(self) -> typing.Optional[builtins.str]:
+        '''The action that Amazon Redshift takes when the limit is reached.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "breachAction"))
+
+    @breach_action.setter
+    def breach_action(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa36339aecbf659e8bba0d05a540ee6c25a760299b36353f35c65a0bf59e367a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "breachAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="period")
+    def period(self) -> typing.Optional[builtins.str]:
+        '''The time period that the amount applies to.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "period"))
+
+    @period.setter
+    def period(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b37296ae14a833b57f83bce924dbfb6fdb4ccb1a9738608784167c4c53510180)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "period", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__afed28c70d355c7652abdfc693d6e705e817be78d331956ec5819c057b73dca7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnUsageLimitProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "amount": "amount",
+        "cluster_identifier": "clusterIdentifier",
+        "feature_type": "featureType",
+        "limit_type": "limitType",
+        "breach_action": "breachAction",
+        "period": "period",
+        "tags": "tags",
+    },
+)
+class CfnUsageLimitProps:
+    def __init__(
+        self,
+        *,
+        amount: jsii.Number,
+        cluster_identifier: builtins.str,
+        feature_type: builtins.str,
+        limit_type: builtins.str,
+        breach_action: typing.Optional[builtins.str] = None,
+        period: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUsageLimit``.
+
+        :param amount: The limit amount. If time-based, this amount is in minutes. If data-based, this amount is in terabytes (TB). The value must be a positive number.
+        :param cluster_identifier: The identifier of the cluster that you want to limit usage.
+        :param feature_type: The Amazon Redshift feature that you want to limit.
+        :param limit_type: The type of limit. Depending on the feature type, this can be based on a time duration or data size. If FeatureType is spectrum, then LimitType must be data-scanned. If FeatureType is concurrency-scaling, then LimitType must be time. If FeatureType is cross-region-datasharing, then LimitType must be data-scanned.
+        :param breach_action: The action that Amazon Redshift takes when the limit is reached. The default is log.
+        :param period: The time period that the amount applies to. A weekly period begins on Sunday. The default is monthly.
+        :param tags: A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_usage_limit_props = redshift.CfnUsageLimitProps(
+                amount=123,
+                cluster_identifier="clusterIdentifier",
+                feature_type="featureType",
+                limit_type="limitType",
+            
+                # the properties below are optional
+                breach_action="breachAction",
+                period="period",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9b50a0925e7c4c2a59629b7e3d0a13aef72ee5efa17bd38f07f86708850b0d30)
+            check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
+            check_type(argname="argument feature_type", value=feature_type, expected_type=type_hints["feature_type"])
+            check_type(argname="argument limit_type", value=limit_type, expected_type=type_hints["limit_type"])
+            check_type(argname="argument breach_action", value=breach_action, expected_type=type_hints["breach_action"])
+            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "amount": amount,
+            "cluster_identifier": cluster_identifier,
+            "feature_type": feature_type,
+            "limit_type": limit_type,
+        }
+        if breach_action is not None:
+            self._values["breach_action"] = breach_action
+        if period is not None:
+            self._values["period"] = period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def amount(self) -> jsii.Number:
+        '''The limit amount.
+
+        If time-based, this amount is in minutes. If data-based, this amount is in terabytes (TB). The value must be a positive number.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-amount
+        '''
+        result = self._values.get("amount")
+        assert result is not None, "Required property 'amount' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def cluster_identifier(self) -> builtins.str:
+        '''The identifier of the cluster that you want to limit usage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-clusteridentifier
+        '''
+        result = self._values.get("cluster_identifier")
+        assert result is not None, "Required property 'cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def feature_type(self) -> builtins.str:
+        '''The Amazon Redshift feature that you want to limit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-featuretype
+        '''
+        result = self._values.get("feature_type")
+        assert result is not None, "Required property 'feature_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def limit_type(self) -> builtins.str:
+        '''The type of limit.
+
+        Depending on the feature type, this can be based on a time duration or data size. If FeatureType is spectrum, then LimitType must be data-scanned. If FeatureType is concurrency-scaling, then LimitType must be time. If FeatureType is cross-region-datasharing, then LimitType must be data-scanned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-limittype
+        '''
+        result = self._values.get("limit_type")
+        assert result is not None, "Required property 'limit_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def breach_action(self) -> typing.Optional[builtins.str]:
+        '''The action that Amazon Redshift takes when the limit is reached.
+
+        The default is log.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-breachaction
+        '''
+        result = self._values.get("breach_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def period(self) -> typing.Optional[builtins.str]:
+        '''The time period that the amount applies to.
+
+        A weekly period begins on Sunday. The default is monthly.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-period
+        '''
+        result = self._values.get("period")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tag instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html#cfn-redshift-usagelimit-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUsageLimitProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnCluster",
     "CfnClusterParameterGroup",
@@ -7021,10 +8586,18 @@ __all__ = [
     "CfnEventSubscriptionProps",
     "CfnIntegration",
     "CfnIntegrationProps",
+    "CfnQEV2IdcApplication",
+    "CfnQEV2IdcApplicationProps",
     "CfnScheduledAction",
     "CfnScheduledActionProps",
+    "CfnSnapshot",
+    "CfnSnapshotCopyGrant",
+    "CfnSnapshotCopyGrantProps",
+    "CfnSnapshotProps",
     "CfnSnapshotSchedule",
     "CfnSnapshotScheduleProps",
+    "CfnUsageLimit",
+    "CfnUsageLimitProps",
 ]
 
 publication.publish()
@@ -8102,6 +9675,70 @@ def _typecheckingstub__0772e4da780df63d61457c13aa77602f5d56797dbd993866c48762708
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f4a9ea1365637047352958fc35acd747193499f4feb13fe0804da2d5dad6355d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    idc_display_name: builtins.str,
+    idc_instance_arn: builtins.str,
+    qev2_idc_application_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ee83f310dd2d80ef9e31f74d82d64090140eea9d368839a1068139f20ab5b34(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__513a6f133130795ab57ac60250a7dd23aea8ad4fa555eee67a4fdfee7492d049(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8c71019e02fe4f0a606319d4c040aa51c54882db7562837afe3ad7f567a6c84(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd17a0b4ce2d9f706cb385668c558679386cb92c2bc4b503ccbc72b8cac8e5b5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55df99140982d72759401bce1e9a33cefce8e6d28417c363ad0e1d35bf2195c5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19f742dca2d0940e3ea32f6f009362b08e57f9d13728aeb1b6307c4cd33d5f60(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceb728ef414aa5ee850d23d43c36ca2ee7ad034abb7afd77b28fecb6675a1fe4(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3290445ed57010f85bf98b8b912be308d7201a19eb2426825a5941e8096c7987(
+    *,
+    idc_display_name: builtins.str,
+    idc_instance_arn: builtins.str,
+    qev2_idc_application_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b090f5bcac0321af743a2821b9b20cd050f984204fe9b5d4288918250e146d1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8232,6 +9869,138 @@ def _typecheckingstub__4b8f33670db3a11840dd3dde7157d6c714dfbdf357d1a2d7ffab1191d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b01cd3daebac0e2aa9c70c149cb256861bebb4ba8cc9ff50e6311d95e8389ff6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_identifier: builtins.str,
+    snapshot_identifier: builtins.str,
+    manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e0e2bcd6d9144932e035c778bfdd87e76db055294ac42c46add41122e1786f2(
+    resource: _aws_redshift_9ff5fd22.ISnapshotRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d39c7520faed5b51d913a4ddc99ef9fde5e5ea771402694f0730db7d93cc9397(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88d388e7ffdf9e0688f1c430b5f919b486eb6915796555b97dea039cbbbd5463(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__527719b5d5e5f7423b8ce279cb7c5ece6af80941753cfffe553745752b5d24c9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea5eedf1407a88f62b1f90ae255a6ff0d17adbec98d1b684b218152f68940189(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__545ebe35ef90410b97958b70962b791843d65a22c1583d79379fe5638a1c75f6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d7a84e055adee688142b7ef241538acaf76a1eabcfc3c5c4d2f246a4f21d26a(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d409e5beb567538a6878425adb704d1e77b3527f7f89c32d0a67f5c8cdab9a68(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee114459db7af440b92657c3d37a545330daf2834ad634bb1859809065fff8be(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    snapshot_copy_grant_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32400edccba0b01fcdd0f74ffb0a0e8edf071aaeafee1800d82cdca048510785(
+    resource: _aws_redshift_9ff5fd22.ISnapshotCopyGrantRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a2ba8335c54839e124cb3c077b37f811b1526feafa758e21ec0d18decd22711(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__946b75827355f2fc46bb3f3ffcc065a2e10eb34d3d445f60510e907f425f471e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12e514b289a3bd73f203d8d56944f3ea357f245ed3a56e37fa174bece1c1e24d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48164ad25f46a332941d3f8f97c2ebbbafce9d9c03d239a24b11a3ea79f31eb1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a4b69c88aeb747f528957d9d598a2fcf785c1eacc80dd2ebd17b49bc3571b89(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6cda45fc8b7862a6e3f97e604f52ae93c02ebcaf348dd2947cb30551a8d19a9(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f4293881b0a3745419af17d24cc0d8fb626c5090923d071a0b4db45a02057d0(
+    *,
+    snapshot_copy_grant_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__050cbf301dbbe97e3a867d66112d424a15abace7cb9e5deff4a072753117f532(
+    *,
+    cluster_identifier: builtins.str,
+    snapshot_identifier: builtins.str,
+    manual_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3f9992c9772e9a10940472d8fece07b62b17ec976d154d3cb33506722159c3a1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8297,6 +10066,100 @@ def _typecheckingstub__0c4321cbdf13d74cf5cadd786e33384d3aa7335d0347b0006cc14744e
     schedule_definitions: typing.Sequence[builtins.str],
     schedule_identifier: builtins.str,
     schedule_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a12accfa2e5f8621dc77dc635e014979d852af9501f6a6fc38659c50aea3260(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    amount: jsii.Number,
+    cluster_identifier: builtins.str,
+    feature_type: builtins.str,
+    limit_type: builtins.str,
+    breach_action: typing.Optional[builtins.str] = None,
+    period: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efa6363394c452e5116d0953cec65e409318d042c4bd8ede3df35afe524d1927(
+    resource: _aws_redshift_9ff5fd22.IUsageLimitRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1fd35d9b7df758ed86ab54dbbd34bafdb95702ef345db78be550c5929586150(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08df14e76b4930a618864e0f1d10b44bc3442f31a62c3ead09ea7186ed385a3a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84decbebb7eed93dc54ab07c6e3def24b772b910324b184f1e86194ad7f9d330(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62baff610f7740fea0ae7eb9199b76d6682d67b879bd87b23f402ea6f80692d4(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__208f3283d28752868e05574acbf061e8d3c32377a9715b6441f9dc18ab7f9d60(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd2559166f44ddf0c716c3f5b7fbd1413cda1ada1bdae10ddccded14531b2b25(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e713c0f34a8fe71ae12b9fbb1b79dfe98a8b05ae7bbbe2d55d9db20bb4b4bc90(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa36339aecbf659e8bba0d05a540ee6c25a760299b36353f35c65a0bf59e367a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b37296ae14a833b57f83bce924dbfb6fdb4ccb1a9738608784167c4c53510180(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afed28c70d355c7652abdfc693d6e705e817be78d331956ec5819c057b73dca7(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b50a0925e7c4c2a59629b7e3d0a13aef72ee5efa17bd38f07f86708850b0d30(
+    *,
+    amount: jsii.Number,
+    cluster_identifier: builtins.str,
+    feature_type: builtins.str,
+    limit_type: builtins.str,
+    breach_action: typing.Optional[builtins.str] = None,
+    period: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

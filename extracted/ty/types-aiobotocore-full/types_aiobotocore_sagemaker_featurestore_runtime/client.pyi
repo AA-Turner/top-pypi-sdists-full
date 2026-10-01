@@ -42,6 +42,7 @@ from .type_defs import (
     ListRecordsRequestTypeDef,
     ListRecordsResponseTypeDef,
     PutRecordRequestTypeDef,
+    UpdateRecordRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -54,6 +55,7 @@ __all__ = ("SageMakerFeatureStoreRuntimeClient",)
 class Exceptions(BaseClientExceptions):
     AccessForbidden: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     InternalFailure: type[BotocoreClientError]
     ResourceNotFound: type[BotocoreClientError]
     ServiceUnavailable: type[BotocoreClientError]
@@ -156,6 +158,17 @@ class SageMakerFeatureStoreRuntimeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/put_record.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#put_record)
+        """
+
+    async def update_record(
+        self, **kwargs: Unpack[UpdateRecordRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates one or more feature values for an existing record in the specified
+        feature group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker-featurestore-runtime/client/update_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_featurestore_runtime/client/#update_record)
         """
 
     def get_paginator(  # type: ignore[override]

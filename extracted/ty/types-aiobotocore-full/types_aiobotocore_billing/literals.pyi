@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ApplicationTypeType",
+    "BillingDomainType",
     "BillingFeatureFilterNameType",
     "BillingFeatureType",
     "BillingServiceName",
@@ -33,7 +34,10 @@ __all__ = (
     "CreditStatusType",
     "DimensionType",
     "GetCreditAllocationHistoryPaginatorName",
+    "ListBillingViewSegmentsPaginatorName",
     "ListBillingViewsPaginatorName",
+    "ListBusinessSupportAccountChargesPaginatorName",
+    "ListBusinessSupportSubscriptionHistoryPaginatorName",
     "ListEnterpriseSupportLinkedAccountChargesPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
     "PaginatorName",
@@ -44,6 +48,7 @@ __all__ = (
 )
 
 ApplicationTypeType = Literal["AFTER_DISCOUNTS", "BEFORE_CROSS_SERVICE_DISCOUNTS"]
+BillingDomainType = Literal["BILLABLE", "PRO_FORMA"]
 BillingFeatureFilterNameType = Literal["PREFERENCE_KEY"]
 BillingFeatureType = Literal[
     "BILLING_ALERTS",
@@ -72,7 +77,12 @@ CreditSharingTypeType = Literal["COST_CATEGORY_RULE", "CUSTOM", "DEFAULT", "DISA
 CreditStatusType = Literal["DISABLED", "ENABLED"]
 DimensionType = Literal["LINKED_ACCOUNT"]
 GetCreditAllocationHistoryPaginatorName = Literal["get_credit_allocation_history"]
+ListBillingViewSegmentsPaginatorName = Literal["list_billing_view_segments"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
+ListBusinessSupportAccountChargesPaginatorName = Literal["list_business_support_account_charges"]
+ListBusinessSupportSubscriptionHistoryPaginatorName = Literal[
+    "list_business_support_subscription_history"
+]
 ListEnterpriseSupportLinkedAccountChargesPaginatorName = Literal[
     "list_enterprise_support_linked_account_charges"
 ]
@@ -160,6 +170,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -234,6 +245,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -262,6 +274,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -356,6 +369,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -516,7 +530,10 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "get_credit_allocation_history",
+    "list_billing_view_segments",
     "list_billing_views",
+    "list_business_support_account_charges",
+    "list_business_support_subscription_history",
     "list_enterprise_support_linked_account_charges",
     "list_source_views_for_billing_view",
 ]

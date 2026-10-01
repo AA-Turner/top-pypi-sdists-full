@@ -52,6 +52,7 @@ from .literals import (
     ScaleInProtectedInstancesType,
     ScalingActivityStatusCodeType,
     StandbyInstancesType,
+    TargetCapacityTypeType,
     WarmPoolStateType,
 )
 
@@ -156,6 +157,8 @@ __all__ = (
     "DetachLoadBalancersTypeTypeDef",
     "DetachTrafficSourcesTypeTypeDef",
     "DisableMetricsCollectionQueryTypeDef",
+    "DistributionSegmentOutputTypeDef",
+    "DistributionSegmentTypeDef",
     "EbsTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableMetricsCollectionQueryTypeDef",
@@ -182,6 +185,7 @@ __all__ = (
     "InstanceRequirementsTypeDef",
     "InstanceReusePolicyTypeDef",
     "InstanceTypeDef",
+    "InstancesDistributionOutputTypeDef",
     "InstancesDistributionTypeDef",
     "LaunchConfigurationNameTypeTypeDef",
     "LaunchConfigurationNamesTypePaginateTypeDef",
@@ -599,6 +603,12 @@ class DisableMetricsCollectionQueryTypeDef(TypedDict):
     AutoScalingGroupName: str
     Metrics: NotRequired[Sequence[str]]
 
+class DistributionSegmentOutputTypeDef(TypedDict):
+    TargetCapacityTypes: NotRequired[list[TargetCapacityTypeType]]
+
+class DistributionSegmentTypeDef(TypedDict):
+    TargetCapacityTypes: NotRequired[Sequence[TargetCapacityTypeType]]
+
 class EnableMetricsCollectionQueryTypeDef(TypedDict):
     AutoScalingGroupName: str
     Granularity: str
@@ -665,14 +675,6 @@ class VCpuCountRequestTypeDef(TypedDict):
 
 class InstanceReusePolicyTypeDef(TypedDict):
     ReuseOnScaleIn: NotRequired[bool]
-
-class InstancesDistributionTypeDef(TypedDict):
-    OnDemandAllocationStrategy: NotRequired[str]
-    OnDemandBaseCapacity: NotRequired[int]
-    OnDemandPercentageAboveBaseCapacity: NotRequired[int]
-    SpotAllocationStrategy: NotRequired[str]
-    SpotInstancePools: NotRequired[int]
-    SpotMaxPrice: NotRequired[str]
 
 class LaunchConfigurationNameTypeTypeDef(TypedDict):
     LaunchConfigurationName: str
@@ -1105,6 +1107,24 @@ class DescribeTrafficSourcesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class InstancesDistributionOutputTypeDef(TypedDict):
+    OnDemandAllocationStrategy: NotRequired[str]
+    OnDemandBaseCapacity: NotRequired[int]
+    OnDemandPercentageAboveBaseCapacity: NotRequired[int]
+    SpotAllocationStrategy: NotRequired[str]
+    SpotInstancePools: NotRequired[int]
+    SpotMaxPrice: NotRequired[str]
+    DistributionSegments: NotRequired[list[DistributionSegmentOutputTypeDef]]
+
+class InstancesDistributionTypeDef(TypedDict):
+    OnDemandAllocationStrategy: NotRequired[str]
+    OnDemandBaseCapacity: NotRequired[int]
+    OnDemandPercentageAboveBaseCapacity: NotRequired[int]
+    SpotAllocationStrategy: NotRequired[str]
+    SpotInstancePools: NotRequired[int]
+    SpotMaxPrice: NotRequired[str]
+    DistributionSegments: NotRequired[Sequence[DistributionSegmentTypeDef]]
+
 class InstanceLifecyclePolicyTypeDef(TypedDict):
     RetentionTriggers: NotRequired[RetentionTriggersTypeDef]
 
@@ -1434,7 +1454,7 @@ class TargetTrackingConfigurationTypeDef(TypedDict):
 
 class MixedInstancesPolicyOutputTypeDef(TypedDict):
     LaunchTemplate: NotRequired[LaunchTemplateOutputTypeDef]
-    InstancesDistribution: NotRequired[InstancesDistributionTypeDef]
+    InstancesDistribution: NotRequired[InstancesDistributionOutputTypeDef]
 
 class MixedInstancesPolicyTypeDef(TypedDict):
     LaunchTemplate: NotRequired[LaunchTemplateTypeDef]

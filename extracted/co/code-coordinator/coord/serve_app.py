@@ -1951,10 +1951,12 @@ def _milestone_drain_tick(config: Config) -> list:
     that filter for free). A per-milestone fetch/dispatch error must not
     silence the other registered milestones — caught and logged per entry.
 
-    Same ``oracle_loop`` capping as ``_milestone_gate_tick`` (#2542): a repo
-    under oracle-loop control gets at most one dispatch per registered
-    milestone per tick, so this legacy path can't fan two same-milestone
-    entries out to distinct machines in one call and race them on the
+    Same ``oracle_loop`` capping as ``_milestone_gate_tick`` (#2542,
+    resolved per milestone via ``milestone_oracle_loop`` since #2785): a
+    milestone under oracle-loop control gets at most one dispatch per
+    registered milestone per tick, so this legacy path can't fan two
+    same-milestone entries out to distinct machines in one call and race
+    them on the
     shared ``tests/acceptance/ms-N/manifest.yml`` either — even though only
     pre-#2335 registrations feed it today (see above), it is the same class
     of hole as the gate tick's and worth closing the same way.
@@ -2043,9 +2045,17 @@ def _milestone_drain_tick(config: Config) -> list:
         from coord.dispatch_liveness import github_issue_liveness_fetcher  # noqa: PLC0415
         from coord.network import claude_credential_reachable  # noqa: PLC0415
 
+        # #2785: resolved per milestone via `milestone_oracle_loop`, not
+        # the repo-level `has_driver` alone — see that function's
+        # docstring. `block_reason` above already is this specific
+        # milestone's Gate-A existence probe (confirmed `None`, or this tick
+        # would already have `continue`d above), so reuse it rather than
+        # re-fetching.
         plan = md.plan_dispatch(
             ctx.work_order, board, config, repo_cfg, ctx.terminal_issues,
-            oracle_loop=config.acceptance.has_driver(repo_name),
+            oracle_loop=md.milestone_oracle_loop(
+                repo_cfg, config, gate_a_satisfied=block_reason is None
+            ),
             credential_fetcher=claude_credential_reachable,
         )
         # #3376 review round 1: this drain tick is a real production
@@ -2129,13 +2139,30 @@ def _milestone_gate_tick(config: Config, *, now: float | None = None) -> list:
     hold-and-report: it logs why it cannot advance and leaves the record
     where it is. Nothing here silently falls through.
 
-    ``plan_dispatch`` is called with ``oracle_loop=config.acceptance.
-    has_driver(repo_cfg.name)`` (#2542) — for a repo under oracle-loop
-    control this caps the tick's dispatch at one ready-frontier entry, so
-    this walk (docs/ORACLE_LOOP.md's "oracle drive", #1453 — the documented
-    primary driver for an oracle-loop milestone) can never launch two
-    same-milestone entries into their JIT slice-authoring phase in the same
-    tick, racing on the shared ``tests/acceptance/ms-N/manifest.yml``.
+    ``plan_dispatch`` is called with ``oracle_loop=md.milestone_oracle_loop
+    (repo_cfg, config, gate_a_satisfied=mg.GATE_A in record.cleared)`` (#2542,
+    resolved per milestone rather than repo-wide since #2785) — for a
+    milestone under oracle-loop control this caps the tick's dispatch at one
+    ready-frontier entry, so this walk (docs/ORACLE_LOOP.md's "oracle
+    drive", #1453 — the documented primary driver for an oracle-loop
+    milestone) can never launch two same-milestone entries into their JIT
+    slice-authoring phase in the same tick, racing on the shared
+    ``tests/acceptance/ms-N/manifest.yml``.
+
+    #2785 review: this reads ``GATE_A in record.cleared`` — the *durable*
+    record of whether this milestone's Gate-A contract has already been
+    confirmed to exist — rather than re-deriving it from a fresh
+    ``probes.gate_a_blocked`` live probe. The ``work`` gate is only
+    reachable after ``evaluate_gate`` already advanced this record past
+    ``GATE_A`` (which stamps ``GATE_A`` into ``cleared``, see
+    ``apply_step``), so the two answers agree on the happy path — but
+    ``probe_milestone`` unconditionally re-fetches Gate A on *every* tick
+    regardless of the milestone's current gate, so a single tick's transient
+    GitHub read failure would otherwise flip ``gate_a_satisfied`` to
+    ``False`` for that tick alone, un-capping the one-entry-per-tick limit
+    and reopening #2542's manifest race exactly when GitHub is least
+    reliable. The durable record can't flap tick to tick the way a live
+    re-probe can.
 
     Deliberately **not** gated on ``config.milestone.auto_dispatch`` — that
     flag gates the legacy standalone drain (:func:`_milestone_drain_tick`),
@@ -2244,9 +2271,29 @@ def _milestone_gate_tick(config: Config, *, now: float | None = None) -> list:
                 from coord.dispatch_liveness import github_issue_liveness_fetcher  # noqa: PLC0415
                 from coord.network import claude_credential_reachable  # noqa: PLC0415
 
+                # #2785: resolved per milestone via `milestone_oracle_loop`,
+                # not the repo-level `has_driver` alone — see that
+                # function's docstring.
+                #
+                # #2785 review: reads the DURABLE `record.cleared` (has
+                # GATE_A already been stamped as cleared for this milestone?)
+                # rather than `probes.gate_a_blocked` — that field is a
+                # fresh live Gate-A re-probe recomputed on EVERY tick
+                # (`probe_milestone`'s own docstring), and a single tick's
+                # transient GitHub read failure there would silently drop
+                # `oracle_loop` to False for that tick's dispatch, un-capping
+                # the one-entry-per-tick limit right when GitHub flakiness
+                # makes caution matter most. The `work` gate is only
+                # reachable after `evaluate_gate` already advanced this
+                # record past GATE_A (which appends it to `cleared` —
+                # `apply_step`), so this durable signal is exactly as
+                # accurate on the happy path and immune to that flap.
                 plan = md.plan_dispatch(
                     ctx.work_order, board, config, repo_cfg, ctx.terminal_issues,
-                    oracle_loop=config.acceptance.has_driver(repo_cfg.name),
+                    oracle_loop=md.milestone_oracle_loop(
+                        repo_cfg, config,
+                        gate_a_satisfied=mg.GATE_A in record.cleared,
+                    ),
                     credential_fetcher=claude_credential_reachable,
                 )
                 # #3376 review round 1: same issue-liveness wiring as the

@@ -28,15 +28,12 @@ Blocked guests: a row with ``is_blocked`` whose ``blocked_until`` is unset or
 still in the future raises ``GuestBlockedError`` before any counter update or
 anonymous-user creation — the host maps it to a final 403 at its auth boundary.
 
-Minting is bounded (2026-09-29): a fingerprint no real client produces raises
-``GuestFingerprintMalformedError`` (400) before any lookup, and a NEW identity
-from a client IP past the platform-locked ``auth.guest_identity`` ceiling
-raises ``GuestMintRateLimitedError`` (429) before GoTrue is called — GoTrue's
-own per-IP anonymous limit only ever sees this server's IP. Every write of
-``auth_user_id`` is one atomic claim (set only while NULL), so concurrent first
-requests for one fingerprint all return the same identity; the losing minted
-user is recorded (``system_error`` kind ``guest_identity_race_loser``), never
-served, never deleted.
+One identity per fingerprint (2026-09-29): every write of ``auth_user_id`` is one
+atomic claim — a conditional update that sets it only while it is still NULL,
+then re-reads the winner. Concurrent first requests for one fingerprint may each
+mint an anonymous user, but all of them return the same identity; a losing
+minted user is logged loudly and recorded (``system_error`` kind
+``guest_identity_race_loser``), never returned and never deleted.
 
 Error resilience: all other DB and auth errors are caught and re-raised as
 ``GuestIdentityUnavailableError``.  A locally-generated UUID is forbidden:
@@ -47,9 +44,9 @@ personal-organization or ownership write downstream.
 from __future__ import annotations
 
 import inspect
-import ipaddress
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
+from typing import Any
 
 from matrx_utils import vcprint
 
@@ -76,48 +73,6 @@ class GuestBlockedError(RuntimeError):
         until = f" until {blocked_until.isoformat()}" if blocked_until else ""
         super().__init__(f"Guest fingerprint {fingerprint[:12]}… is blocked{until}.")
         self.blocked_until = blocked_until
-
-
-class GuestFingerprintMalformedError(RuntimeError):
-    """The fingerprint header is not one any real client produces; nothing is minted.
-
-    A final refusal (400) — a sibling of ``GuestBlockedError``, never a subclass
-    of ``GuestIdentityUnavailableError`` (which means "retry").
-    """
-
-    def __init__(self) -> None:
-        super().__init__("Guest fingerprint is malformed.")
-
-
-class GuestMintRateLimitedError(RuntimeError):
-    """This client IP reached the ``auth.guest_identity`` new-identity ceiling (429).
-
-    Only a NEW identity is refused; a returning guest (row already holding an
-    ``auth_user_id``) never reaches this check.
-    """
-
-    def __init__(self, ip_address: str | None, *, ceiling: int, window_minutes: int) -> None:
-        super().__init__(
-            f"Too many new guest identities from this network ({ceiling} per "
-            f"{window_minutes} min)."
-        )
-        self.ip_address = ip_address
-        self.ceiling = ceiling
-        self.window_minutes = window_minutes
-        self.retry_after_seconds = window_minutes * 60
-
-
-#: What every real client sends: the web client's visitor id / crypto.randomUUID
-#: hex (matrx-frontend lib/services/fingerprint-service.ts ``isValidFingerprint``,
-#: the ``record_acquisition_first_touch`` door's ``^[A-Za-z0-9]{16,200}$``) and the
-#: extension's sha256 hex (matrx-extend src/lib/auth/guest-signature.ts). ``_``/``-``
-#: stay admitted for the web client's own validator (legacy ``temp_`` ids).
-_FINGERPRINT_RE = re.compile(r"^[A-Za-z0-9_-]{16,200}$")
-
-
-def looks_like_guest_fingerprint(fingerprint: object) -> bool:
-    """True when ``fingerprint`` has the shape a real client produces."""
-    return isinstance(fingerprint, str) and bool(_FINGERPRINT_RE.fullmatch(fingerprint))
 
 
 async def _create_anon_auth_user() -> str:
@@ -172,41 +127,108 @@ async def _create_anon_auth_user() -> str:
         return str(user_id)
 
 
+# Non-human callers — mirrors matrx-frontend lib/product-analytics/user-acquisition.ts
+# BOT_USER_AGENT, plus our own agent browser (``Claude/x.y``). A bot is STAMPED,
+# never refused: our agents run guest-flow tests in headless Chrome.
+_BOT_USER_AGENT = re.compile(
+    r"\b([a-z0-9_-]*bot|crawler|spider|slurp|bingpreview|facebookexternalhit|headlesschrome"
+    r"|lighthouse|semrush|ahrefs|bytespider)\b"
+    r"|\b(curl|wget|python-requests|python-httpx|aiohttp|httpie|okhttp|axios|go-http-client"
+    r"|libwww-perl|java|apache-httpclient|node-fetch|got|undici)\b"
+    r"|\bclaude/[\d.]+"
+    r"|^node$",
+    re.IGNORECASE,
+)
+_BROWSER_FAMILIES = (("edge", r"Edg/"), ("firefox", r"Firefox/"), ("chrome", r"Chrome/"), ("safari", r"Safari/"))
+
+
+def classify_guest_user_agent(user_agent: str | None) -> tuple[str, str]:
+    """``(traffic_kind, ua_family)`` — ``traffic_kind`` is ``bot`` or ``browser``.
+
+    ``ua_family`` names the matched bot token (lower-cased) or the browser
+    family; ``unknown`` when no user agent was sent (counted as ``bot``: every
+    real browser sends one).
+    """
+    if not user_agent:
+        return "bot", "unknown"
+    match = _BOT_USER_AGENT.search(user_agent)
+    if match:
+        token = (match.group(0) or "").lower()
+        return "bot", token.split("/", 1)[0] or "unknown"
+    for family, pattern in _BROWSER_FAMILIES:
+        if re.search(pattern, user_agent):
+            return "browser", family
+    return "browser", "other"
+
+
+def _mint_stamp(user_agent: str | None, minted_route: str | None) -> dict[str, Any]:
+    traffic_kind, ua_family = classify_guest_user_agent(user_agent)
+    return {
+        "traffic_kind": traffic_kind,
+        "ua_family": ua_family,
+        "minted_route": minted_route,
+        "minted_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _merged_metadata(row: Any, stamp: dict[str, Any]) -> dict[str, Any]:
+    """The row's metadata with the mint stamp merged in — other keys kept."""
+    current = getattr(row, "metadata", None)
+    merged = dict(current) if isinstance(current, dict) else {}
+    merged.update(stamp)
+    return merged
+
+
+async def guest_has_identity(fingerprint: str) -> bool:
+    """True when this fingerprint already owns an ``auth.users`` identity.
+
+    Read-only: mints nothing, moves no counter. The auth middleware asks this
+    before a READ request (GET/HEAD/OPTIONS) so a visitor who has never done
+    anything that needs an account — a crawler, a link preview, a page load —
+    is answered anonymously instead of getting an anonymous user and an
+    organization of their own. Raises ``GuestIdentityUnavailableError`` when
+    the registry cannot be read (never answers a guess).
+    """
+    try:
+        rows = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
+    except Exception as exc:
+        raise GuestIdentityUnavailableError(
+            "Guest registry could not be read."
+        ) from exc
+    return bool(rows and getattr(rows[0], "auth_user_id", None))
+
+
 async def resolve_guest_uuid(
     fingerprint: str,
     ip_address: str | None = None,
     user_agent: str | None = None,
+    minted_route: str | None = None,
 ) -> str:
     """Return the stable auth.users UUID for this fingerprint.
 
+    Resolving is NOT executing: no counter or execution timestamp moves here
+    (they move only in the execution gate / ``record_guest_execution``). A
+    request that MINTS stamps ``metadata`` with ``traffic_kind`` / ``ua_family``
+    / ``minted_route`` / ``minted_at`` (merged; other keys kept).
+
     Flow:
-      0. Malformed fingerprint             → raise ``GuestFingerprintMalformedError``.
       1. Look up guest_executions by fingerprint.
       2. If found and actively blocked     → raise ``GuestBlockedError`` (no writes).
       3. If found with auth_user_id set  → return auth_user_id (fast path).
-      4. If found but auth_user_id is null → mint (ceiling-checked), CLAIM the row.
-      5. If not found                      → mint (ceiling-checked), create the row;
-                                             a lost insert race CLAIMS or adopts.
+      4. If found but auth_user_id is null → mint, then CLAIM the row atomically.
+      5. If not found                      → mint, create the row; a lost insert
+                                             race CLAIMS the racer's row or adopts
+                                             its identity.
 
-    Exactly one identity per fingerprint is ever returned: every write of
-    ``auth_user_id`` is the atomic claim in ``_claim_identity`` (set only while
-    still NULL), and a request whose minted user loses the claim returns the
-    winner's — its own anonymous user is recorded as a race loser, never served.
+    Exactly one identity per fingerprint is ever returned: a request whose
+    minted user loses the claim returns the winner's.
 
-    Raises ``GuestBlockedError`` / ``GuestFingerprintMalformedError`` /
-    ``GuestMintRateLimitedError`` as final refusals (never wrapped as
-    unavailable). Raises ``GuestIdentityUnavailableError`` when the registry or
-    anonymous sign-in cannot produce a real ``auth.users`` row.  Callers must
-    stop at the authentication boundary; a synthetic UUID is not an identity.
+    Raises ``GuestBlockedError`` when the row is blocked and ``blocked_until`` is
+    unset or in the future — a final refusal, never wrapped as unavailable.
+    Raises ``GuestIdentityUnavailableError`` when the registry or anonymous
+    sign-in cannot produce a real ``auth.users`` row.  Callers must stop at the
+    authentication boundary on either; a synthetic UUID is not an identity.
     """
-    if not looks_like_guest_fingerprint(fingerprint):
-        vcprint(
-            f"[GuestRegistry] Malformed fingerprint refused before any lookup or mint "
-            f"(len={len(fingerprint) if isinstance(fingerprint, str) else 'n/a'}, ip={ip_address})",
-            color="yellow",
-        )
-        raise GuestFingerprintMalformedError()
-
     try:
         existing = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
 
@@ -234,12 +256,8 @@ async def resolve_guest_uuid(
                 raise GuestBlockedError(fingerprint, blocked_until)
 
             if auth_user_id:
-                await _gm.update_guest_executions(
-                    row_id,
-                    first_execution_at=getattr(row, "first_execution_at", None) or now,
-                    last_execution_at=now,
-                    total_executions=getattr(row, "total_executions", 0) + 1,
-                )
+                # Identity resolve only — no write. Counters move on real
+                # executions, never on every request that carries a fingerprint.
                 vcprint(
                     f"[GuestRegistry] Returning existing guest: "
                     f"{auth_user_id[:8]}… fingerprint={fingerprint[:12]}…",
@@ -249,14 +267,11 @@ async def resolve_guest_uuid(
 
             # Row exists but auth_user_id was never populated (an acquisition
             # first-touch row, or a legacy row) — mint, then CLAIM atomically.
-            await _enforce_mint_ceiling(ip_address)
             minted = await _create_anon_auth_user()
             winner = await _claim_identity(
                 row_id,
                 minted,
-                first_execution_at=getattr(row, "first_execution_at", None) or now,
-                last_execution_at=now,
-                total_executions=getattr(row, "total_executions", 0) + 1,
+                metadata=_merged_metadata(row, _mint_stamp(user_agent, minted_route)),
             )
             if winner != minted:
                 await _record_race_loser(fingerprint, loser=minted, winner=winner, branch="backfill")
@@ -269,45 +284,43 @@ async def resolve_guest_uuid(
             return minted
 
         # First visit — create both the anon auth user and the guest_executions row.
-        await _enforce_mint_ceiling(ip_address)
-        minted = await _create_anon_auth_user()
+        auth_user_id = await _create_anon_auth_user()
         try:
             await _gm.create_guest_executions(
                 fingerprint=fingerprint,
-                auth_user_id=minted,
+                auth_user_id=auth_user_id,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                total_executions=1,
+                metadata=_mint_stamp(user_agent, minted_route),
             )
         except Exception:
             # A concurrent request committed the unique fingerprint row while
-            # this one was minting. If that row already holds an identity, it
+            # this one was minting. If that row already holds an identity it
             # wins; if it holds none (a concurrent acquisition first-touch, or
-            # a racer that has not claimed yet), claim it atomically. Either way
-            # exactly one identity is returned. No row at all = a real failure.
+            # a racer that has not claimed yet), claim it atomically. Either
+            # way exactly one identity is returned. No row = a real failure.
             winners = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
             if not winners:
                 raise
-            now = datetime.now(UTC)
             racer = winners[0]
             winner = await _claim_identity(
                 str(racer.id),
-                minted,
-                first_execution_at=getattr(racer, "first_execution_at", None) or now,
-                last_execution_at=now,
-                total_executions=getattr(racer, "total_executions", 0) + 1,
+                auth_user_id,
+                metadata=_merged_metadata(racer, _mint_stamp(user_agent, minted_route)),
             )
-            if winner != minted:
-                await _record_race_loser(fingerprint, loser=minted, winner=winner, branch="first_visit")
+            if winner != auth_user_id:
+                await _record_race_loser(
+                    fingerprint, loser=auth_user_id, winner=winner, branch="first_visit"
+                )
             return winner
         vcprint(
             f"[GuestRegistry] Created new guest: "
-            f"{minted[:8]}… fingerprint={fingerprint[:12]}…",
+            f"{auth_user_id[:8]}… fingerprint={fingerprint[:12]}…",
             color="green",
         )
-        return minted
+        return auth_user_id
 
-    except (GuestBlockedError, GuestMintRateLimitedError):
+    except GuestBlockedError:
         # A refusal, not an outage — never re-wrap it as "unavailable".
         raise
     except Exception as exc:
@@ -320,19 +333,18 @@ async def resolve_guest_uuid(
         ) from exc
 
 
-async def _claim_identity(row_id: str, minted: str, **counters: object) -> str:
+async def _claim_identity(row_id: str, minted: str, **fields: object) -> str:
     """Atomically set ``auth_user_id`` on ``row_id`` ONLY while it is still NULL.
 
     One conditional UPDATE (``... WHERE id = $1 AND auth_user_id IS NULL``) —
     Postgres serialises concurrent claims on the row, so exactly one wins.
     Returns the identity the row holds afterwards: ``minted`` when this call
-    won, the earlier winner's otherwise. Raises when the row vanished (no
-    identity can be vouched for).
+    won, the earlier winner's otherwise. Raises when the row vanished.
     """
     result = await _gm.update_where(
         {"id": row_id, "auth_user_id__isnull": True},
         auth_user_id=minted,
-        **counters,
+        **fields,
     )
     if getattr(result, "rows_affected", 0):
         return minted
@@ -348,10 +360,10 @@ async def _claim_identity(row_id: str, minted: str, **counters: object) -> str:
 async def _record_race_loser(fingerprint: str, *, loser: str, winner: str, branch: str) -> None:
     """A concurrent request won this fingerprint; ``loser`` is never served.
 
-    Loud by contract: a WARNING line plus one ``system_error`` row
-    (kind ``guest_identity_race_loser``) naming the orphaned anonymous
-    ``auth.users`` id, so it can be found and swept. It is NOT deleted here
-    (house law: archive, never delete); no guest_executions row points to it.
+    Loud by contract: a WARNING line plus one ``system_error`` row (kind
+    ``guest_identity_race_loser``) naming the orphaned anonymous ``auth.users``
+    id so it can be found. Not deleted here (archive, never delete); no
+    guest_executions row points to it.
     """
     vcprint(
         f"[GuestRegistry] Concurrent mint lost ({branch}): anonymous user {loser[:8]}… is an "
@@ -387,53 +399,6 @@ async def _record_race_loser(fingerprint: str, *, loser: str, winner: str, branc
             f"[GuestRegistry] race-loser capture FAILED for orphan {loser}: {capture_exc!r}",
             color="red",
         )
-
-
-async def _enforce_mint_ceiling(ip_address: str | None) -> None:
-    """Refuse a NEW guest identity when this client IP has minted too many.
-
-    Counts guest rows minted from ``ip_address`` inside the window (rows that
-    hold an identity — acquisition first-touch rows without one are page views,
-    not mints) and refuses at the ceiling BEFORE GoTrue is called. Loopback is
-    local development against the one database and is never counted.
-    """
-    if _is_loopback(ip_address):
-        return
-    from matrx_ai._ext import get_guest_mint_limit_reader
-
-    reader = get_guest_mint_limit_reader()
-    if reader is None:
-        raise RuntimeError(
-            "no guest_mint_limit_reader is bound — refusing to mint an unlimited guest "
-            "identity. Remedy: the host must configure_ext(guest_mint_limit_reader=...)."
-        )
-    ceiling, window_minutes = await reader()
-    since = datetime.now(UTC) - timedelta(minutes=int(window_minutes))
-    ip_filter: dict[str, object] = (
-        {"ip_address": ip_address} if ip_address else {"ip_address__isnull": True}
-    )
-    minted = await _gm.count(
-        **ip_filter, auth_user_id__isnull=False, created_at__gte=since
-    )
-    if minted >= int(ceiling):
-        vcprint(
-            f"[GuestRegistry] Guest mint ceiling reached: ip={ip_address} minted={minted} "
-            f"ceiling={ceiling}/{window_minutes}min — new identity refused before GoTrue",
-            color="yellow",
-            log_level="WARNING",
-        )
-        raise GuestMintRateLimitedError(
-            ip_address, ceiling=int(ceiling), window_minutes=int(window_minutes)
-        )
-
-
-def _is_loopback(ip_address: str | None) -> bool:
-    if not ip_address:
-        return False
-    try:
-        return ipaddress.ip_address(ip_address).is_loopback
-    except ValueError:
-        return False
 
 
 def _as_aware_utc(value: datetime) -> datetime:

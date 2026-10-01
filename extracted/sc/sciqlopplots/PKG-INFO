@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SciQLopPlots
-Version: 0.40.0
+Version: 0.42.1
 Summary: SciQLop plot API based on QCustomPlot
 Author-Email: Alexis Jeandet <alexis.jeandet@member.fsf.org>
 License: GNU GENERAL PUBLIC LICENSE
@@ -42,13 +42,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Project-URL: homepage, https://github.com/SciQLop/SciQLopPlots
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: numpy
 Requires-Dist: pyside6==6.11.1
 Requires-Dist: shiboken6==6.11.1

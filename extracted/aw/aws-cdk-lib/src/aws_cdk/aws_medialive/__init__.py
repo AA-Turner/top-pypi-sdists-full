@@ -800,6 +800,91 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AbWatermarkingCustomProfileProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "embedding_frequency": "embeddingFrequency",
+            "scene_cut": "sceneCut",
+            "target_psnr": "targetPsnr",
+        },
+    )
+    class AbWatermarkingCustomProfileProperty:
+        def __init__(
+            self,
+            *,
+            embedding_frequency: typing.Optional[jsii.Number] = None,
+            scene_cut: typing.Optional[jsii.Number] = None,
+            target_psnr: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param embedding_frequency: 
+            :param scene_cut: 
+            :param target_psnr: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-abwatermarkingcustomprofile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                ab_watermarking_custom_profile_property = medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                    embedding_frequency=123,
+                    scene_cut=123,
+                    target_psnr=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__66ca0d557929d01656a460cdd98ceed875fde0f8fc07580e7e424f064e2aaa0e)
+                check_type(argname="argument embedding_frequency", value=embedding_frequency, expected_type=type_hints["embedding_frequency"])
+                check_type(argname="argument scene_cut", value=scene_cut, expected_type=type_hints["scene_cut"])
+                check_type(argname="argument target_psnr", value=target_psnr, expected_type=type_hints["target_psnr"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if embedding_frequency is not None:
+                self._values["embedding_frequency"] = embedding_frequency
+            if scene_cut is not None:
+                self._values["scene_cut"] = scene_cut
+            if target_psnr is not None:
+                self._values["target_psnr"] = target_psnr
+
+        @builtins.property
+        def embedding_frequency(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-abwatermarkingcustomprofile.html#cfn-medialive-channel-abwatermarkingcustomprofile-embeddingfrequency
+            '''
+            result = self._values.get("embedding_frequency")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def scene_cut(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-abwatermarkingcustomprofile.html#cfn-medialive-channel-abwatermarkingcustomprofile-scenecut
+            '''
+            result = self._values.get("scene_cut")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def target_psnr(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-abwatermarkingcustomprofile.html#cfn-medialive-channel-abwatermarkingcustomprofile-targetpsnr
+            '''
+            result = self._values.get("target_psnr")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AbWatermarkingCustomProfileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.Ac3SettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2139,7 +2224,7 @@ class CfnChannel(
                                 sid=123,
                                 timezone="timezone"
                             ),
-                            nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
+                            nielsen_nw_only_settings=medialive.CfnChannel.NielsenNaesIiNwOnlySettingsProperty(
                                 check_digit_string="checkDigitString",
                                 sid=123,
                                 timezone="timezone"
@@ -3903,7 +3988,7 @@ class CfnChannel(
                             sid=123,
                             timezone="timezone"
                         ),
-                        nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
+                        nielsen_nw_only_settings=medialive.CfnChannel.NielsenNaesIiNwOnlySettingsProperty(
                             check_digit_string="checkDigitString",
                             sid=123,
                             timezone="timezone"
@@ -5592,7 +5677,12 @@ class CfnChannel(
                             font_family="fontFamily",
                             style_control="styleControl"
                         ),
-                        embedded_destination_settings=medialive.CfnChannel.EmbeddedDestinationSettingsProperty(),
+                        embedded_destination_settings=medialive.CfnChannel.EmbeddedDestinationSettingsProperty(
+                            position=medialive.CfnChannel.EmbeddedCaptionPositionSettingsProperty(
+                                y_position_line=123
+                            ),
+                            style_control="styleControl"
+                        ),
                         embedded_plus_scte20_destination_settings=medialive.CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty(),
                         rtmp_caption_info_destination_settings=medialive.CfnChannel.RtmpCaptionInfoDestinationSettingsProperty(),
                         scte20_plus_embedded_destination_settings=medialive.CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty(),
@@ -5600,9 +5690,15 @@ class CfnChannel(
                         smpte_tt_destination_settings=medialive.CfnChannel.SmpteTtDestinationSettingsProperty(),
                         teletext_destination_settings=medialive.CfnChannel.TeletextDestinationSettingsProperty(),
                         ttml_destination_settings=medialive.CfnChannel.TtmlDestinationSettingsProperty(
+                            position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                                y_position_percentage=123
+                            ),
                             style_control="styleControl"
                         ),
                         webvtt_destination_settings=medialive.CfnChannel.WebvttDestinationSettingsProperty(
+                            position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                                y_position_percentage=123
+                            ),
                             style_control="styleControl"
                         )
                     ),
@@ -5850,7 +5946,12 @@ class CfnChannel(
                         font_family="fontFamily",
                         style_control="styleControl"
                     ),
-                    embedded_destination_settings=medialive.CfnChannel.EmbeddedDestinationSettingsProperty(),
+                    embedded_destination_settings=medialive.CfnChannel.EmbeddedDestinationSettingsProperty(
+                        position=medialive.CfnChannel.EmbeddedCaptionPositionSettingsProperty(
+                            y_position_line=123
+                        ),
+                        style_control="styleControl"
+                    ),
                     embedded_plus_scte20_destination_settings=medialive.CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty(),
                     rtmp_caption_info_destination_settings=medialive.CfnChannel.RtmpCaptionInfoDestinationSettingsProperty(),
                     scte20_plus_embedded_destination_settings=medialive.CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty(),
@@ -5858,9 +5959,15 @@ class CfnChannel(
                     smpte_tt_destination_settings=medialive.CfnChannel.SmpteTtDestinationSettingsProperty(),
                     teletext_destination_settings=medialive.CfnChannel.TeletextDestinationSettingsProperty(),
                     ttml_destination_settings=medialive.CfnChannel.TtmlDestinationSettingsProperty(
+                        position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                            y_position_percentage=123
+                        ),
                         style_control="styleControl"
                     ),
                     webvtt_destination_settings=medialive.CfnChannel.WebvttDestinationSettingsProperty(
+                        position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                            y_position_percentage=123
+                        ),
                         style_control="styleControl"
                     )
                 )
@@ -6791,6 +6898,59 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name_modifier": "nameModifier"},
+    )
+    class CmafIngestFrameCaptureOutputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            name_modifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param name_modifier: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestframecaptureoutputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                cmaf_ingest_frame_capture_output_settings_property = medialive.CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty(
+                    name_modifier="nameModifier"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2ffb796356c07ca1d6575215f69aae2f88b52abbc2350f4fc50507ea2dcce9c1)
+                check_type(argname="argument name_modifier", value=name_modifier, expected_type=type_hints["name_modifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if name_modifier is not None:
+                self._values["name_modifier"] = name_modifier
+
+        @builtins.property
+        def name_modifier(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestframecaptureoutputsettings.html#cfn-medialive-channel-cmafingestframecaptureoutputsettings-namemodifier
+            '''
+            result = self._values.get("name_modifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CmafIngestFrameCaptureOutputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestGroupSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -6811,6 +6971,7 @@ class CfnChannel(
             "timed_metadata_id3_frame": "timedMetadataId3Frame",
             "timed_metadata_id3_period": "timedMetadataId3Period",
             "timed_metadata_passthrough": "timedMetadataPassthrough",
+            "watermarking_settings": "watermarkingSettings",
         },
     )
     class CmafIngestGroupSettingsProperty:
@@ -6834,6 +6995,7 @@ class CfnChannel(
             timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
             timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
             timed_metadata_passthrough: typing.Optional[builtins.str] = None,
+            watermarking_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CmafIngestWatermarkingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param additional_destinations: 
@@ -6853,6 +7015,7 @@ class CfnChannel(
             :param timed_metadata_id3_frame: 
             :param timed_metadata_id3_period: 
             :param timed_metadata_passthrough: 
+            :param watermarking_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestgroupsettings.html
             :exampleMetadata: fixture=_generated
@@ -6889,7 +7052,27 @@ class CfnChannel(
                     send_delay_ms=123,
                     timed_metadata_id3_frame="timedMetadataId3Frame",
                     timed_metadata_id3_period=123,
-                    timed_metadata_passthrough="timedMetadataPassthrough"
+                    timed_metadata_passthrough="timedMetadataPassthrough",
+                    watermarking_settings=medialive.CfnChannel.CmafIngestWatermarkingSettingsProperty(
+                        cmaf_ingest_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                            additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            )],
+                            alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            ),
+                            custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                                embedding_frequency=123,
+                                scene_cut=123,
+                                target_psnr=123
+                            ),
+                            license="license",
+                            operator_id=123,
+                            poly_period=123,
+                            profile="profile",
+                            watermark_id_length="watermarkIdLength"
+                        )
+                    )
                 )
             '''
             if __debug__:
@@ -6911,6 +7094,7 @@ class CfnChannel(
                 check_type(argname="argument timed_metadata_id3_frame", value=timed_metadata_id3_frame, expected_type=type_hints["timed_metadata_id3_frame"])
                 check_type(argname="argument timed_metadata_id3_period", value=timed_metadata_id3_period, expected_type=type_hints["timed_metadata_id3_period"])
                 check_type(argname="argument timed_metadata_passthrough", value=timed_metadata_passthrough, expected_type=type_hints["timed_metadata_passthrough"])
+                check_type(argname="argument watermarking_settings", value=watermarking_settings, expected_type=type_hints["watermarking_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if additional_destinations is not None:
                 self._values["additional_destinations"] = additional_destinations
@@ -6946,6 +7130,8 @@ class CfnChannel(
                 self._values["timed_metadata_id3_period"] = timed_metadata_id3_period
             if timed_metadata_passthrough is not None:
                 self._values["timed_metadata_passthrough"] = timed_metadata_passthrough
+            if watermarking_settings is not None:
+                self._values["watermarking_settings"] = watermarking_settings
 
         @builtins.property
         def additional_destinations(
@@ -7089,6 +7275,16 @@ class CfnChannel(
             result = self._values.get("timed_metadata_passthrough")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def watermarking_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestWatermarkingSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestgroupsettings.html#cfn-medialive-channel-cmafingestgroupsettings-watermarkingsettings
+            '''
+            result = self._values.get("watermarking_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestWatermarkingSettingsProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -7101,20 +7297,43 @@ class CfnChannel(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestOutputSettingsProperty",
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"name_modifier": "nameModifier"},
+        name_mapping={
+            "additional_destinations_alternate_destinations": "additionalDestinationsAlternateDestinations",
+            "alternate_destination": "alternateDestination",
+            "custom_profile": "customProfile",
+            "license": "license",
+            "operator_id": "operatorId",
+            "poly_period": "polyPeriod",
+            "profile": "profile",
+            "watermark_id_length": "watermarkIdLength",
+        },
     )
-    class CmafIngestOutputSettingsProperty:
+    class CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty:
         def __init__(
             self,
             *,
-            name_modifier: typing.Optional[builtins.str] = None,
+            additional_destinations_alternate_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            alternate_destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.AbWatermarkingCustomProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            license: typing.Optional[builtins.str] = None,
+            operator_id: typing.Optional[jsii.Number] = None,
+            poly_period: typing.Optional[jsii.Number] = None,
+            profile: typing.Optional[builtins.str] = None,
+            watermark_id_length: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param name_modifier: 
+            :param additional_destinations_alternate_destinations: 
+            :param alternate_destination: 
+            :param custom_profile: 
+            :param license: 
+            :param operator_id: 
+            :param poly_period: 
+            :param profile: 
+            :param watermark_id_length: 
 
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestoutputsettings.html
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html
             :exampleMetadata: fixture=_generated
 
             Example::
@@ -7123,23 +7342,121 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                cmaf_ingest_output_settings_property = medialive.CfnChannel.CmafIngestOutputSettingsProperty(
-                    name_modifier="nameModifier"
+                cmaf_ingest_media_package_v2_ab_watermarker_irdeto_settings_property = medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                    additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                        destination_ref_id="destinationRefId"
+                    )],
+                    alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                        destination_ref_id="destinationRefId"
+                    ),
+                    custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                        embedding_frequency=123,
+                        scene_cut=123,
+                        target_psnr=123
+                    ),
+                    license="license",
+                    operator_id=123,
+                    poly_period=123,
+                    profile="profile",
+                    watermark_id_length="watermarkIdLength"
                 )
             '''
             if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__6876fb9c63945be0983729df7880b4775c3a167e3cdfb8a192a9f461fe10138e)
-                check_type(argname="argument name_modifier", value=name_modifier, expected_type=type_hints["name_modifier"])
+                type_hints = cached_type_hints(_typecheckingstub__579ed7fd3826de04807e028b5a1d1d333dc380262880b7d997a9aa30261a5991)
+                check_type(argname="argument additional_destinations_alternate_destinations", value=additional_destinations_alternate_destinations, expected_type=type_hints["additional_destinations_alternate_destinations"])
+                check_type(argname="argument alternate_destination", value=alternate_destination, expected_type=type_hints["alternate_destination"])
+                check_type(argname="argument custom_profile", value=custom_profile, expected_type=type_hints["custom_profile"])
+                check_type(argname="argument license", value=license, expected_type=type_hints["license"])
+                check_type(argname="argument operator_id", value=operator_id, expected_type=type_hints["operator_id"])
+                check_type(argname="argument poly_period", value=poly_period, expected_type=type_hints["poly_period"])
+                check_type(argname="argument profile", value=profile, expected_type=type_hints["profile"])
+                check_type(argname="argument watermark_id_length", value=watermark_id_length, expected_type=type_hints["watermark_id_length"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if name_modifier is not None:
-                self._values["name_modifier"] = name_modifier
+            if additional_destinations_alternate_destinations is not None:
+                self._values["additional_destinations_alternate_destinations"] = additional_destinations_alternate_destinations
+            if alternate_destination is not None:
+                self._values["alternate_destination"] = alternate_destination
+            if custom_profile is not None:
+                self._values["custom_profile"] = custom_profile
+            if license is not None:
+                self._values["license"] = license
+            if operator_id is not None:
+                self._values["operator_id"] = operator_id
+            if poly_period is not None:
+                self._values["poly_period"] = poly_period
+            if profile is not None:
+                self._values["profile"] = profile
+            if watermark_id_length is not None:
+                self._values["watermark_id_length"] = watermark_id_length
 
         @builtins.property
-        def name_modifier(self) -> typing.Optional[builtins.str]:
+        def additional_destinations_alternate_destinations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]]]]:
             '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestoutputsettings.html#cfn-medialive-channel-cmafingestoutputsettings-namemodifier
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-additionaldestinationsalternatedestinations
             '''
-            result = self._values.get("name_modifier")
+            result = self._values.get("additional_destinations_alternate_destinations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]]]], result)
+
+        @builtins.property
+        def alternate_destination(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-alternatedestination
+            '''
+            result = self._values.get("alternate_destination")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]], result)
+
+        @builtins.property
+        def custom_profile(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.AbWatermarkingCustomProfileProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-customprofile
+            '''
+            result = self._values.get("custom_profile")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.AbWatermarkingCustomProfileProperty"]], result)
+
+        @builtins.property
+        def license(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-license
+            '''
+            result = self._values.get("license")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def operator_id(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-operatorid
+            '''
+            result = self._values.get("operator_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def poly_period(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-polyperiod
+            '''
+            result = self._values.get("poly_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def profile(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-profile
+            '''
+            result = self._values.get("profile")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def watermark_id_length(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings.html#cfn-medialive-channel-cmafingestmediapackagev2abwatermarkerirdetosettings-watermarkidlength
+            '''
+            result = self._values.get("watermark_id_length")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -7149,7 +7466,81 @@ class CfnChannel(
             return not (rhs == self)
 
         def __repr__(self) -> str:
-            return "CmafIngestOutputSettingsProperty(%s)" % ", ".join(
+            return "CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestWatermarkingSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cmaf_ingest_ab_watermarker_irdeto_settings": "cmafIngestAbWatermarkerIrdetoSettings",
+        },
+    )
+    class CmafIngestWatermarkingSettingsProperty:
+        def __init__(
+            self,
+            *,
+            cmaf_ingest_ab_watermarker_irdeto_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param cmaf_ingest_ab_watermarker_irdeto_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestwatermarkingsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                cmaf_ingest_watermarking_settings_property = medialive.CfnChannel.CmafIngestWatermarkingSettingsProperty(
+                    cmaf_ingest_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                        additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        )],
+                        alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        ),
+                        custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                            embedding_frequency=123,
+                            scene_cut=123,
+                            target_psnr=123
+                        ),
+                        license="license",
+                        operator_id=123,
+                        poly_period=123,
+                        profile="profile",
+                        watermark_id_length="watermarkIdLength"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b39694a5ce7a3d16685d9b2ef6810c293498934a3f363f40aed95d9da6aa9563)
+                check_type(argname="argument cmaf_ingest_ab_watermarker_irdeto_settings", value=cmaf_ingest_ab_watermarker_irdeto_settings, expected_type=type_hints["cmaf_ingest_ab_watermarker_irdeto_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cmaf_ingest_ab_watermarker_irdeto_settings is not None:
+                self._values["cmaf_ingest_ab_watermarker_irdeto_settings"] = cmaf_ingest_ab_watermarker_irdeto_settings
+
+        @builtins.property
+        def cmaf_ingest_ab_watermarker_irdeto_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestwatermarkingsettings.html#cfn-medialive-channel-cmafingestwatermarkingsettings-cmafingestabwatermarkerirdetosettings
+            '''
+            result = self._values.get("cmaf_ingest_ab_watermarker_irdeto_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CmafIngestWatermarkingSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8807,13 +9198,74 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.EmbeddedCaptionPositionSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"y_position_line": "yPositionLine"},
+    )
+    class EmbeddedCaptionPositionSettingsProperty:
+        def __init__(
+            self,
+            *,
+            y_position_line: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param y_position_line: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-embeddedcaptionpositionsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                embedded_caption_position_settings_property = medialive.CfnChannel.EmbeddedCaptionPositionSettingsProperty(
+                    y_position_line=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3632ead639662ebadd37e89f6885890618114a63902b53b12d49eb30947495c5)
+                check_type(argname="argument y_position_line", value=y_position_line, expected_type=type_hints["y_position_line"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if y_position_line is not None:
+                self._values["y_position_line"] = y_position_line
+
+        @builtins.property
+        def y_position_line(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-embeddedcaptionpositionsettings.html#cfn-medialive-channel-embeddedcaptionpositionsettings-ypositionline
+            '''
+            result = self._values.get("y_position_line")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EmbeddedCaptionPositionSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.EmbeddedDestinationSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={},
+        name_mapping={"position": "position", "style_control": "styleControl"},
     )
     class EmbeddedDestinationSettingsProperty:
-        def __init__(self) -> None:
+        def __init__(
+            self,
+            *,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.EmbeddedCaptionPositionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            style_control: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''
+            :param position: 
+            :param style_control: 
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-embeddeddestinationsettings.html
             :exampleMetadata: fixture=_generated
 
@@ -8823,9 +9275,40 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                embedded_destination_settings_property = medialive.CfnChannel.EmbeddedDestinationSettingsProperty()
+                embedded_destination_settings_property = medialive.CfnChannel.EmbeddedDestinationSettingsProperty(
+                    position=medialive.CfnChannel.EmbeddedCaptionPositionSettingsProperty(
+                        y_position_line=123
+                    ),
+                    style_control="styleControl"
+                )
             '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cc784149ec89e16132672a7f820013cdc2f544427c8545525b896fe576c83c3f)
+                check_type(argname="argument position", value=position, expected_type=type_hints["position"])
+                check_type(argname="argument style_control", value=style_control, expected_type=type_hints["style_control"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if position is not None:
+                self._values["position"] = position
+            if style_control is not None:
+                self._values["style_control"] = style_control
+
+        @builtins.property
+        def position(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EmbeddedCaptionPositionSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-embeddeddestinationsettings.html#cfn-medialive-channel-embeddeddestinationsettings-position
+            '''
+            result = self._values.get("position")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.EmbeddedCaptionPositionSettingsProperty"]], result)
+
+        @builtins.property
+        def style_control(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-embeddeddestinationsettings.html#cfn-medialive-channel-embeddeddestinationsettings-stylecontrol
+            '''
+            result = self._values.get("style_control")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14651,17 +15134,23 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.InferenceSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"audio_feed_inputs": "audioFeedInputs", "feed_arn": "feedArn"},
+        name_mapping={
+            "audio_feed_inputs": "audioFeedInputs",
+            "enrichment_methods": "enrichmentMethods",
+            "feed_arn": "feedArn",
+        },
     )
     class InferenceSettingsProperty:
         def __init__(
             self,
             *,
             audio_feed_inputs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.AudioFeedInputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enrichment_methods: typing.Optional[typing.Sequence[builtins.str]] = None,
             feed_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
             :param audio_feed_inputs: 
+            :param enrichment_methods: 
             :param feed_arn: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html
@@ -14678,16 +15167,20 @@ class CfnChannel(
                         audio_selector_name="audioSelectorName",
                         feed_input="feedInput"
                     )],
+                    enrichment_methods=["enrichmentMethods"],
                     feed_arn="feedArn"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13)
                 check_type(argname="argument audio_feed_inputs", value=audio_feed_inputs, expected_type=type_hints["audio_feed_inputs"])
+                check_type(argname="argument enrichment_methods", value=enrichment_methods, expected_type=type_hints["enrichment_methods"])
                 check_type(argname="argument feed_arn", value=feed_arn, expected_type=type_hints["feed_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if audio_feed_inputs is not None:
                 self._values["audio_feed_inputs"] = audio_feed_inputs
+            if enrichment_methods is not None:
+                self._values["enrichment_methods"] = enrichment_methods
             if feed_arn is not None:
                 self._values["feed_arn"] = feed_arn
 
@@ -14700,6 +15193,14 @@ class CfnChannel(
             '''
             result = self._values.get("audio_feed_inputs")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.AudioFeedInputProperty"]]]], result)
+
+        @builtins.property
+        def enrichment_methods(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html#cfn-medialive-channel-inferencesettings-enrichmentmethods
+            '''
+            result = self._values.get("enrichment_methods")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def feed_arn(self) -> typing.Optional[builtins.str]:
@@ -17415,121 +17916,6 @@ class CfnChannel(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"m2_ts_settings": "m2TsSettings"},
-    )
-    class MediaConnectRouterContainerSettingsProperty:
-        def __init__(
-            self,
-            *,
-            m2_ts_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''
-            :param m2_ts_settings: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutercontainersettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_medialive as medialive
-                
-                media_connect_router_container_settings_property = medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
-                    m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
-                        absent_input_audio_behavior="absentInputAudioBehavior",
-                        arib="arib",
-                        arib_captions_pid="aribCaptionsPid",
-                        arib_captions_pid_control="aribCaptionsPidControl",
-                        audio_buffer_model="audioBufferModel",
-                        audio_frames_per_pes=123,
-                        audio_pids="audioPids",
-                        audio_stream_type="audioStreamType",
-                        bitrate=123,
-                        buffer_model="bufferModel",
-                        cc_descriptor="ccDescriptor",
-                        dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
-                            network_id=123,
-                            network_name="networkName",
-                            rep_interval=123
-                        ),
-                        dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
-                            output_sdt="outputSdt",
-                            rep_interval=123,
-                            service_name="serviceName",
-                            service_provider_name="serviceProviderName"
-                        ),
-                        dvb_sub_pids="dvbSubPids",
-                        dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
-                            rep_interval=123
-                        ),
-                        dvb_teletext_pid="dvbTeletextPid",
-                        ebif="ebif",
-                        ebp_audio_interval="ebpAudioInterval",
-                        ebp_lookahead_ms=123,
-                        ebp_placement="ebpPlacement",
-                        ecm_pid="ecmPid",
-                        es_rate_in_pes="esRateInPes",
-                        etv_platform_pid="etvPlatformPid",
-                        etv_signal_pid="etvSignalPid",
-                        fragment_time=123,
-                        klv="klv",
-                        klv_data_pids="klvDataPids",
-                        nielsen_id3_behavior="nielsenId3Behavior",
-                        null_packet_bitrate=123,
-                        pat_interval=123,
-                        pcr_control="pcrControl",
-                        pcr_period=123,
-                        pcr_pid="pcrPid",
-                        pmt_interval=123,
-                        pmt_pid="pmtPid",
-                        program_num=123,
-                        rate_mode="rateMode",
-                        scte27_pids="scte27Pids",
-                        scte35_control="scte35Control",
-                        scte35_pid="scte35Pid",
-                        scte35_preroll_pullup_milliseconds=123,
-                        segmentation_markers="segmentationMarkers",
-                        segmentation_style="segmentationStyle",
-                        segmentation_time=123,
-                        timed_metadata_behavior="timedMetadataBehavior",
-                        timed_metadata_pid="timedMetadataPid",
-                        transport_stream_id=123,
-                        video_pid="videoPid"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__a6ac25b04b1dd9818b55ce4f1c60aa48824eea57c303f2bb649be28cff1fbdf8)
-                check_type(argname="argument m2_ts_settings", value=m2_ts_settings, expected_type=type_hints["m2_ts_settings"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if m2_ts_settings is not None:
-                self._values["m2_ts_settings"] = m2_ts_settings
-
-        @builtins.property
-        def m2_ts_settings(
-            self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.M2tsSettingsProperty"]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutercontainersettings.html#cfn-medialive-channel-mediaconnectroutercontainersettings-m2tssettings
-            '''
-            result = self._values.get("m2_ts_settings")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.M2tsSettingsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MediaConnectRouterContainerSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterGroupSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={"availability_zones": "availabilityZones"},
@@ -17730,7 +18116,7 @@ class CfnChannel(
             self,
             *,
             connected_router_inputs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MediaConnectRouterOutputConnectionMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            container_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MediaConnectRouterContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.UdpMediaConnectRouterContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
@@ -17752,7 +18138,7 @@ class CfnChannel(
                         pipeline0="pipeline0",
                         pipeline1="pipeline1"
                     ),
-                    container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                    container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                         m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                             absent_input_audio_behavior="absentInputAudioBehavior",
                             arib="arib",
@@ -17846,12 +18232,12 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaConnectRouterContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpMediaConnectRouterContainerSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputsettings.html#cfn-medialive-channel-mediaconnectrouteroutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaConnectRouterContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpMediaConnectRouterContainerSettingsProperty"]], result)
 
         @builtins.property
         def destination(
@@ -17871,63 +18257,6 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "MediaConnectRouterOutputSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"destination": "destination"},
-    )
-    class MediaPackageAdditionalDestinationsProperty:
-        def __init__(
-            self,
-            *,
-            destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''
-            :param destination: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageadditionaldestinations.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_medialive as medialive
-                
-                media_package_additional_destinations_property = medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
-                    destination=medialive.CfnChannel.OutputLocationRefProperty(
-                        destination_ref_id="destinationRefId"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__0e8b10ee21ff2438e6fb9561b09663137ff1b02db22819c6e3f84e41e12a8f6c)
-                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if destination is not None:
-                self._values["destination"] = destination
-
-        @builtins.property
-        def destination(
-            self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageadditionaldestinations.html#cfn-medialive-channel-mediapackageadditionaldestinations-destination
-            '''
-            result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputLocationRefProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MediaPackageAdditionalDestinationsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -17967,7 +18296,7 @@ class CfnChannel(
                         destination_ref_id="destinationRefId"
                     ),
                     mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
-                        additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                        additional_destinations=[medialive.CfnChannel.AdditionalDestinationsProperty(
                             destination=medialive.CfnChannel.OutputLocationRefProperty(
                                 destination_ref_id="destinationRefId"
                             )
@@ -17985,7 +18314,27 @@ class CfnChannel(
                         segment_length_units="segmentLengthUnits",
                         timed_metadata_id3_frame="timedMetadataId3Frame",
                         timed_metadata_id3_period=123,
-                        timed_metadata_passthrough="timedMetadataPassthrough"
+                        timed_metadata_passthrough="timedMetadataPassthrough",
+                        watermarking_settings=medialive.CfnChannel.MediaPackageV2WatermarkingSettingsProperty(
+                            media_package_v2_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                                additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                                    destination_ref_id="destinationRefId"
+                                )],
+                                alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                    destination_ref_id="destinationRefId"
+                                ),
+                                custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                                    embedding_frequency=123,
+                                    scene_cut=123,
+                                    target_psnr=123
+                                ),
+                                license="license",
+                                operator_id=123,
+                                poly_period=123,
+                                profile="profile",
+                                watermark_id_length="watermarkIdLength"
+                            )
+                        )
                     )
                 )
             '''
@@ -18185,7 +18534,8 @@ class CfnChannel(
                         audio_group_id="audioGroupId",
                         audio_rendition_sets="audioRenditionSets",
                         hls_auto_select="hlsAutoSelect",
-                        hls_default="hlsDefault"
+                        hls_default="hlsDefault",
+                        output_usage=["outputUsage"]
                     )
                 )
             '''
@@ -18225,6 +18575,7 @@ class CfnChannel(
             "audio_rendition_sets": "audioRenditionSets",
             "hls_auto_select": "hlsAutoSelect",
             "hls_default": "hlsDefault",
+            "output_usage": "outputUsage",
         },
     )
     class MediaPackageV2DestinationSettingsProperty:
@@ -18235,12 +18586,14 @@ class CfnChannel(
             audio_rendition_sets: typing.Optional[builtins.str] = None,
             hls_auto_select: typing.Optional[builtins.str] = None,
             hls_default: typing.Optional[builtins.str] = None,
+            output_usage: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
             :param audio_group_id: 
             :param audio_rendition_sets: 
             :param hls_auto_select: 
             :param hls_default: 
+            :param output_usage: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html
             :exampleMetadata: fixture=_generated
@@ -18255,7 +18608,8 @@ class CfnChannel(
                     audio_group_id="audioGroupId",
                     audio_rendition_sets="audioRenditionSets",
                     hls_auto_select="hlsAutoSelect",
-                    hls_default="hlsDefault"
+                    hls_default="hlsDefault",
+                    output_usage=["outputUsage"]
                 )
             '''
             if __debug__:
@@ -18264,6 +18618,7 @@ class CfnChannel(
                 check_type(argname="argument audio_rendition_sets", value=audio_rendition_sets, expected_type=type_hints["audio_rendition_sets"])
                 check_type(argname="argument hls_auto_select", value=hls_auto_select, expected_type=type_hints["hls_auto_select"])
                 check_type(argname="argument hls_default", value=hls_default, expected_type=type_hints["hls_default"])
+                check_type(argname="argument output_usage", value=output_usage, expected_type=type_hints["output_usage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if audio_group_id is not None:
                 self._values["audio_group_id"] = audio_group_id
@@ -18273,6 +18628,8 @@ class CfnChannel(
                 self._values["hls_auto_select"] = hls_auto_select
             if hls_default is not None:
                 self._values["hls_default"] = hls_default
+            if output_usage is not None:
+                self._values["output_usage"] = output_usage
 
         @builtins.property
         def audio_group_id(self) -> typing.Optional[builtins.str]:
@@ -18306,6 +18663,14 @@ class CfnChannel(
             result = self._values.get("hls_default")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def output_usage(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html#cfn-medialive-channel-mediapackagev2destinationsettings-outputusage
+            '''
+            result = self._values.get("output_usage")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -18332,13 +18697,14 @@ class CfnChannel(
             "timed_metadata_id3_frame": "timedMetadataId3Frame",
             "timed_metadata_id3_period": "timedMetadataId3Period",
             "timed_metadata_passthrough": "timedMetadataPassthrough",
+            "watermarking_settings": "watermarkingSettings",
         },
     )
     class MediaPackageV2GroupSettingsProperty:
         def __init__(
             self,
             *,
-            additional_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MediaPackageAdditionalDestinationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            additional_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.AdditionalDestinationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             caption_language_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             id3_behavior: typing.Optional[builtins.str] = None,
             klv_behavior: typing.Optional[builtins.str] = None,
@@ -18349,6 +18715,7 @@ class CfnChannel(
             timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
             timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
             timed_metadata_passthrough: typing.Optional[builtins.str] = None,
+            watermarking_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MediaPackageV2WatermarkingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param additional_destinations: 
@@ -18362,6 +18729,7 @@ class CfnChannel(
             :param timed_metadata_id3_frame: 
             :param timed_metadata_id3_period: 
             :param timed_metadata_passthrough: 
+            :param watermarking_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html
             :exampleMetadata: fixture=_generated
@@ -18373,7 +18741,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 media_package_v2_group_settings_property = medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
-                    additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                    additional_destinations=[medialive.CfnChannel.AdditionalDestinationsProperty(
                         destination=medialive.CfnChannel.OutputLocationRefProperty(
                             destination_ref_id="destinationRefId"
                         )
@@ -18391,7 +18759,27 @@ class CfnChannel(
                     segment_length_units="segmentLengthUnits",
                     timed_metadata_id3_frame="timedMetadataId3Frame",
                     timed_metadata_id3_period=123,
-                    timed_metadata_passthrough="timedMetadataPassthrough"
+                    timed_metadata_passthrough="timedMetadataPassthrough",
+                    watermarking_settings=medialive.CfnChannel.MediaPackageV2WatermarkingSettingsProperty(
+                        media_package_v2_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                            additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            )],
+                            alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            ),
+                            custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                                embedding_frequency=123,
+                                scene_cut=123,
+                                target_psnr=123
+                            ),
+                            license="license",
+                            operator_id=123,
+                            poly_period=123,
+                            profile="profile",
+                            watermark_id_length="watermarkIdLength"
+                        )
+                    )
                 )
             '''
             if __debug__:
@@ -18407,6 +18795,7 @@ class CfnChannel(
                 check_type(argname="argument timed_metadata_id3_frame", value=timed_metadata_id3_frame, expected_type=type_hints["timed_metadata_id3_frame"])
                 check_type(argname="argument timed_metadata_id3_period", value=timed_metadata_id3_period, expected_type=type_hints["timed_metadata_id3_period"])
                 check_type(argname="argument timed_metadata_passthrough", value=timed_metadata_passthrough, expected_type=type_hints["timed_metadata_passthrough"])
+                check_type(argname="argument watermarking_settings", value=watermarking_settings, expected_type=type_hints["watermarking_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if additional_destinations is not None:
                 self._values["additional_destinations"] = additional_destinations
@@ -18430,16 +18819,18 @@ class CfnChannel(
                 self._values["timed_metadata_id3_period"] = timed_metadata_id3_period
             if timed_metadata_passthrough is not None:
                 self._values["timed_metadata_passthrough"] = timed_metadata_passthrough
+            if watermarking_settings is not None:
+                self._values["watermarking_settings"] = watermarking_settings
 
         @builtins.property
         def additional_destinations(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaPackageAdditionalDestinationsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.AdditionalDestinationsProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-additionaldestinations
             '''
             result = self._values.get("additional_destinations")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaPackageAdditionalDestinationsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.AdditionalDestinationsProperty"]]]], result)
 
         @builtins.property
         def caption_language_mappings(
@@ -18523,6 +18914,16 @@ class CfnChannel(
             result = self._values.get("timed_metadata_passthrough")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def watermarking_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaPackageV2WatermarkingSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-watermarkingsettings
+            '''
+            result = self._values.get("watermarking_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.MediaPackageV2WatermarkingSettingsProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -18531,6 +18932,80 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "MediaPackageV2GroupSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageV2WatermarkingSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "media_package_v2_ab_watermarker_irdeto_settings": "mediaPackageV2AbWatermarkerIrdetoSettings",
+        },
+    )
+    class MediaPackageV2WatermarkingSettingsProperty:
+        def __init__(
+            self,
+            *,
+            media_package_v2_ab_watermarker_irdeto_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param media_package_v2_ab_watermarker_irdeto_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2watermarkingsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_package_v2_watermarking_settings_property = medialive.CfnChannel.MediaPackageV2WatermarkingSettingsProperty(
+                    media_package_v2_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                        additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        )],
+                        alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        ),
+                        custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                            embedding_frequency=123,
+                            scene_cut=123,
+                            target_psnr=123
+                        ),
+                        license="license",
+                        operator_id=123,
+                        poly_period=123,
+                        profile="profile",
+                        watermark_id_length="watermarkIdLength"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b6a76ae4af1435751fe7fe16c94bf5cace73d8ef857d8e3af9656038d667541b)
+                check_type(argname="argument media_package_v2_ab_watermarker_irdeto_settings", value=media_package_v2_ab_watermarker_irdeto_settings, expected_type=type_hints["media_package_v2_ab_watermarker_irdeto_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if media_package_v2_ab_watermarker_irdeto_settings is not None:
+                self._values["media_package_v2_ab_watermarker_irdeto_settings"] = media_package_v2_ab_watermarker_irdeto_settings
+
+        @builtins.property
+        def media_package_v2_ab_watermarker_irdeto_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2watermarkingsettings.html#cfn-medialive-channel-mediapackagev2watermarkingsettings-mediapackagev2abwatermarkerirdetosettings
+            '''
+            result = self._values.get("media_package_v2_ab_watermarker_irdeto_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaPackageV2WatermarkingSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -20491,6 +20966,91 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenNaesIiNwOnlySettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "check_digit_string": "checkDigitString",
+            "sid": "sid",
+            "timezone": "timezone",
+        },
+    )
+    class NielsenNaesIiNwOnlySettingsProperty:
+        def __init__(
+            self,
+            *,
+            check_digit_string: typing.Optional[builtins.str] = None,
+            sid: typing.Optional[jsii.Number] = None,
+            timezone: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param check_digit_string: 
+            :param sid: 
+            :param timezone: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennaesiinwonlysettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                nielsen_naes_ii_nw_only_settings_property = medialive.CfnChannel.NielsenNaesIiNwOnlySettingsProperty(
+                    check_digit_string="checkDigitString",
+                    sid=123,
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__36638d5821a5c5d276c07a09579cae86091cf6eec9019cded28dd01425283ae5)
+                check_type(argname="argument check_digit_string", value=check_digit_string, expected_type=type_hints["check_digit_string"])
+                check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if check_digit_string is not None:
+                self._values["check_digit_string"] = check_digit_string
+            if sid is not None:
+                self._values["sid"] = sid
+            if timezone is not None:
+                self._values["timezone"] = timezone
+
+        @builtins.property
+        def check_digit_string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennaesiinwonlysettings.html#cfn-medialive-channel-nielsennaesiinwonlysettings-checkdigitstring
+            '''
+            result = self._values.get("check_digit_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sid(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennaesiinwonlysettings.html#cfn-medialive-channel-nielsennaesiinwonlysettings-sid
+            '''
+            result = self._values.get("sid")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timezone(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennaesiinwonlysettings.html#cfn-medialive-channel-nielsennaesiinwonlysettings-timezone
+            '''
+            result = self._values.get("timezone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NielsenNaesIiNwOnlySettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenNaesIiNwProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -20581,91 +21141,6 @@ class CfnChannel(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenNwOnlyProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "check_digit_string": "checkDigitString",
-            "sid": "sid",
-            "timezone": "timezone",
-        },
-    )
-    class NielsenNwOnlyProperty:
-        def __init__(
-            self,
-            *,
-            check_digit_string: typing.Optional[builtins.str] = None,
-            sid: typing.Optional[jsii.Number] = None,
-            timezone: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param check_digit_string: 
-            :param sid: 
-            :param timezone: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_medialive as medialive
-                
-                nielsen_nw_only_property = medialive.CfnChannel.NielsenNwOnlyProperty(
-                    check_digit_string="checkDigitString",
-                    sid=123,
-                    timezone="timezone"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__c8880569fbcb21f53f2aadeb90349757818c1b56006828e4d9dc301866002213)
-                check_type(argname="argument check_digit_string", value=check_digit_string, expected_type=type_hints["check_digit_string"])
-                check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
-                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if check_digit_string is not None:
-                self._values["check_digit_string"] = check_digit_string
-            if sid is not None:
-                self._values["sid"] = sid
-            if timezone is not None:
-                self._values["timezone"] = timezone
-
-        @builtins.property
-        def check_digit_string(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-checkdigitstring
-            '''
-            result = self._values.get("check_digit_string")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def sid(self) -> typing.Optional[jsii.Number]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-sid
-            '''
-            result = self._values.get("sid")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def timezone(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsennwonly.html#cfn-medialive-channel-nielsennwonly-timezone
-            '''
-            result = self._values.get("timezone")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "NielsenNwOnlyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.NielsenWatermarksSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -20682,7 +21157,7 @@ class CfnChannel(
             nielsen_cbet_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenCBETProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             nielsen_distribution_type: typing.Optional[builtins.str] = None,
             nielsen_naes_ii_nw_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenNaesIiNwProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            nielsen_nw_only_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenNwOnlyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_nw_only_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.NielsenNaesIiNwOnlySettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure Nielsen Watermarks in the audio encode.
 
@@ -20714,7 +21189,7 @@ class CfnChannel(
                         sid=123,
                         timezone="timezone"
                     ),
-                    nielsen_nw_only_settings=medialive.CfnChannel.NielsenNwOnlyProperty(
+                    nielsen_nw_only_settings=medialive.CfnChannel.NielsenNaesIiNwOnlySettingsProperty(
                         check_digit_string="checkDigitString",
                         sid=123,
                         timezone="timezone"
@@ -20771,12 +21246,12 @@ class CfnChannel(
         @builtins.property
         def nielsen_nw_only_settings(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNwOnlyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNaesIiNwOnlySettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsenwatermarkssettings.html#cfn-medialive-channel-nielsenwatermarkssettings-nielsennwonlysettings
             '''
             result = self._values.get("nielsen_nw_only_settings")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNwOnlyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.NielsenNaesIiNwOnlySettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21290,7 +21765,27 @@ class CfnChannel(
                         send_delay_ms=123,
                         timed_metadata_id3_frame="timedMetadataId3Frame",
                         timed_metadata_id3_period=123,
-                        timed_metadata_passthrough="timedMetadataPassthrough"
+                        timed_metadata_passthrough="timedMetadataPassthrough",
+                        watermarking_settings=medialive.CfnChannel.CmafIngestWatermarkingSettingsProperty(
+                            cmaf_ingest_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                                additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                                    destination_ref_id="destinationRefId"
+                                )],
+                                alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                    destination_ref_id="destinationRefId"
+                                ),
+                                custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                                    embedding_frequency=123,
+                                    scene_cut=123,
+                                    target_psnr=123
+                                ),
+                                license="license",
+                                operator_id=123,
+                                poly_period=123,
+                                profile="profile",
+                                watermark_id_length="watermarkIdLength"
+                            )
+                        )
                     ),
                     frame_capture_group_settings=medialive.CfnChannel.FrameCaptureGroupSettingsProperty(
                         destination=medialive.CfnChannel.OutputLocationRefProperty(
@@ -21403,7 +21898,7 @@ class CfnChannel(
                             destination_ref_id="destinationRefId"
                         ),
                         mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
-                            additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                            additional_destinations=[medialive.CfnChannel.AdditionalDestinationsProperty(
                                 destination=medialive.CfnChannel.OutputLocationRefProperty(
                                     destination_ref_id="destinationRefId"
                                 )
@@ -21421,7 +21916,27 @@ class CfnChannel(
                             segment_length_units="segmentLengthUnits",
                             timed_metadata_id3_frame="timedMetadataId3Frame",
                             timed_metadata_id3_period=123,
-                            timed_metadata_passthrough="timedMetadataPassthrough"
+                            timed_metadata_passthrough="timedMetadataPassthrough",
+                            watermarking_settings=medialive.CfnChannel.MediaPackageV2WatermarkingSettingsProperty(
+                                media_package_v2_ab_watermarker_irdeto_settings=medialive.CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty(
+                                    additional_destinations_alternate_destinations=[medialive.CfnChannel.OutputLocationRefProperty(
+                                        destination_ref_id="destinationRefId"
+                                    )],
+                                    alternate_destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                        destination_ref_id="destinationRefId"
+                                    ),
+                                    custom_profile=medialive.CfnChannel.AbWatermarkingCustomProfileProperty(
+                                        embedding_frequency=123,
+                                        scene_cut=123,
+                                        target_psnr=123
+                                    ),
+                                    license="license",
+                                    operator_id=123,
+                                    poly_period=123,
+                                    profile="profile",
+                                    watermark_id_length="watermarkIdLength"
+                                )
+                            )
                         )
                     ),
                     ms_smooth_group_settings=medialive.CfnChannel.MsSmoothGroupSettingsProperty(
@@ -21905,7 +22420,7 @@ class CfnChannel(
                             extension="extension",
                             name_modifier="nameModifier"
                         ),
-                        cmaf_ingest_output_settings=medialive.CfnChannel.CmafIngestOutputSettingsProperty(
+                        cmaf_ingest_output_settings=medialive.CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty(
                             name_modifier="nameModifier"
                         ),
                         frame_capture_output_settings=medialive.CfnChannel.FrameCaptureOutputSettingsProperty(
@@ -21963,7 +22478,7 @@ class CfnChannel(
                                 pipeline0="pipeline0",
                                 pipeline1="pipeline1"
                             ),
-                            container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                            container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                                 m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                                     absent_input_audio_behavior="absentInputAudioBehavior",
                                     arib="arib",
@@ -22035,7 +22550,8 @@ class CfnChannel(
                                 audio_group_id="audioGroupId",
                                 audio_rendition_sets="audioRenditionSets",
                                 hls_auto_select="hlsAutoSelect",
-                                hls_default="hlsDefault"
+                                hls_default="hlsDefault",
+                                output_usage=["outputUsage"]
                             )
                         ),
                         ms_smooth_output_settings=medialive.CfnChannel.MsSmoothOutputSettingsProperty(
@@ -22075,7 +22591,7 @@ class CfnChannel(
                         ),
                         srt_output_settings=medialive.CfnChannel.SrtOutputSettingsProperty(
                             buffer_msec=123,
-                            container_settings=medialive.CfnChannel.UdpContainerSettingsProperty(
+                            container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                                 m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                                     absent_input_audio_behavior="absentInputAudioBehavior",
                                     arib="arib",
@@ -22323,7 +22839,7 @@ class CfnChannel(
             self,
             *,
             archive_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.ArchiveOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cmaf_ingest_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CmafIngestOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cmaf_ingest_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             frame_capture_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.FrameCaptureOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hls_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.HlsOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_connect_router_output_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.MediaConnectRouterOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22428,7 +22944,7 @@ class CfnChannel(
                         extension="extension",
                         name_modifier="nameModifier"
                     ),
-                    cmaf_ingest_output_settings=medialive.CfnChannel.CmafIngestOutputSettingsProperty(
+                    cmaf_ingest_output_settings=medialive.CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty(
                         name_modifier="nameModifier"
                     ),
                     frame_capture_output_settings=medialive.CfnChannel.FrameCaptureOutputSettingsProperty(
@@ -22486,7 +23002,7 @@ class CfnChannel(
                             pipeline0="pipeline0",
                             pipeline1="pipeline1"
                         ),
-                        container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                        container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                             m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                                 absent_input_audio_behavior="absentInputAudioBehavior",
                                 arib="arib",
@@ -22558,7 +23074,8 @@ class CfnChannel(
                             audio_group_id="audioGroupId",
                             audio_rendition_sets="audioRenditionSets",
                             hls_auto_select="hlsAutoSelect",
-                            hls_default="hlsDefault"
+                            hls_default="hlsDefault",
+                            output_usage=["outputUsage"]
                         )
                     ),
                     ms_smooth_output_settings=medialive.CfnChannel.MsSmoothOutputSettingsProperty(
@@ -22598,7 +23115,7 @@ class CfnChannel(
                     ),
                     srt_output_settings=medialive.CfnChannel.SrtOutputSettingsProperty(
                         buffer_msec=123,
-                        container_settings=medialive.CfnChannel.UdpContainerSettingsProperty(
+                        container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                             m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                                 absent_input_audio_behavior="absentInputAudioBehavior",
                                 arib="arib",
@@ -22794,12 +23311,12 @@ class CfnChannel(
         @builtins.property
         def cmaf_ingest_output_settings(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-cmafingestoutputsettings
             '''
             result = self._values.get("cmaf_ingest_output_settings")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty"]], result)
 
         @builtins.property
         def frame_capture_output_settings(
@@ -24283,7 +24800,7 @@ class CfnChannel(
             self,
             *,
             buffer_msec: typing.Optional[jsii.Number] = None,
-            container_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.UdpContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.UdpMediaConnectRouterContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             encryption_type: typing.Optional[builtins.str] = None,
             latency: typing.Optional[jsii.Number] = None,
@@ -24306,7 +24823,7 @@ class CfnChannel(
                 
                 srt_output_settings_property = medialive.CfnChannel.SrtOutputSettingsProperty(
                     buffer_msec=123,
-                    container_settings=medialive.CfnChannel.UdpContainerSettingsProperty(
+                    container_settings=medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
                         m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
                             absent_input_audio_behavior="absentInputAudioBehavior",
                             arib="arib",
@@ -24406,12 +24923,12 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpMediaConnectRouterContainerSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-srtoutputsettings.html#cfn-medialive-channel-srtoutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.UdpMediaConnectRouterContainerSettingsProperty"]], result)
 
         @builtins.property
         def destination(
@@ -24826,6 +25343,59 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.TextCaptionPositionSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"y_position_percentage": "yPositionPercentage"},
+    )
+    class TextCaptionPositionSettingsProperty:
+        def __init__(
+            self,
+            *,
+            y_position_percentage: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param y_position_percentage: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-textcaptionpositionsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                text_caption_position_settings_property = medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                    y_position_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7ce888df9183bf35fe9372b1370079ec3ff46a203dac3f0b6a076da81a75fe94)
+                check_type(argname="argument y_position_percentage", value=y_position_percentage, expected_type=type_hints["y_position_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if y_position_percentage is not None:
+                self._values["y_position_percentage"] = y_position_percentage
+
+        @builtins.property
+        def y_position_percentage(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-textcaptionpositionsettings.html#cfn-medialive-channel-textcaptionpositionsettings-ypositionpercentage
+            '''
+            result = self._values.get("y_position_percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TextCaptionPositionSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.ThumbnailConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"state": "state"},
@@ -25038,18 +25608,20 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.TtmlDestinationSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"style_control": "styleControl"},
+        name_mapping={"position": "position", "style_control": "styleControl"},
     )
     class TtmlDestinationSettingsProperty:
         def __init__(
             self,
             *,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TextCaptionPositionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             style_control: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The setup of TTML captions in the output.
 
             The parent of this entity is CaptionDestinationSettings.
 
+            :param position: 
             :param style_control: When set to passthrough, passes through style and position information from a TTML-like input source (TTML, SMPTE-TT, CFF-TT) to the CFF-TT output or TTML output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-ttmldestinationsettings.html
@@ -25062,15 +25634,31 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 ttml_destination_settings_property = medialive.CfnChannel.TtmlDestinationSettingsProperty(
+                    position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                        y_position_percentage=123
+                    ),
                     style_control="styleControl"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__2181e12c4fa358ba7b93757ed64a91bee0a4bbcdfd93b078d2112aef707a0ab9)
+                check_type(argname="argument position", value=position, expected_type=type_hints["position"])
                 check_type(argname="argument style_control", value=style_control, expected_type=type_hints["style_control"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if position is not None:
+                self._values["position"] = position
             if style_control is not None:
                 self._values["style_control"] = style_control
+
+        @builtins.property
+        def position(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TextCaptionPositionSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-ttmldestinationsettings.html#cfn-medialive-channel-ttmldestinationsettings-position
+            '''
+            result = self._values.get("position")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TextCaptionPositionSettingsProperty"]], result)
 
         @builtins.property
         def style_control(self) -> typing.Optional[builtins.str]:
@@ -25301,6 +25889,121 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "UdpGroupSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"m2_ts_settings": "m2TsSettings"},
+    )
+    class UdpMediaConnectRouterContainerSettingsProperty:
+        def __init__(
+            self,
+            *,
+            m2_ts_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param m2_ts_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpmediaconnectroutercontainersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                udp_media_connect_router_container_settings_property = medialive.CfnChannel.UdpMediaConnectRouterContainerSettingsProperty(
+                    m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
+                        absent_input_audio_behavior="absentInputAudioBehavior",
+                        arib="arib",
+                        arib_captions_pid="aribCaptionsPid",
+                        arib_captions_pid_control="aribCaptionsPidControl",
+                        audio_buffer_model="audioBufferModel",
+                        audio_frames_per_pes=123,
+                        audio_pids="audioPids",
+                        audio_stream_type="audioStreamType",
+                        bitrate=123,
+                        buffer_model="bufferModel",
+                        cc_descriptor="ccDescriptor",
+                        dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
+                            network_id=123,
+                            network_name="networkName",
+                            rep_interval=123
+                        ),
+                        dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
+                            output_sdt="outputSdt",
+                            rep_interval=123,
+                            service_name="serviceName",
+                            service_provider_name="serviceProviderName"
+                        ),
+                        dvb_sub_pids="dvbSubPids",
+                        dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
+                            rep_interval=123
+                        ),
+                        dvb_teletext_pid="dvbTeletextPid",
+                        ebif="ebif",
+                        ebp_audio_interval="ebpAudioInterval",
+                        ebp_lookahead_ms=123,
+                        ebp_placement="ebpPlacement",
+                        ecm_pid="ecmPid",
+                        es_rate_in_pes="esRateInPes",
+                        etv_platform_pid="etvPlatformPid",
+                        etv_signal_pid="etvSignalPid",
+                        fragment_time=123,
+                        klv="klv",
+                        klv_data_pids="klvDataPids",
+                        nielsen_id3_behavior="nielsenId3Behavior",
+                        null_packet_bitrate=123,
+                        pat_interval=123,
+                        pcr_control="pcrControl",
+                        pcr_period=123,
+                        pcr_pid="pcrPid",
+                        pmt_interval=123,
+                        pmt_pid="pmtPid",
+                        program_num=123,
+                        rate_mode="rateMode",
+                        scte27_pids="scte27Pids",
+                        scte35_control="scte35Control",
+                        scte35_pid="scte35Pid",
+                        scte35_preroll_pullup_milliseconds=123,
+                        segmentation_markers="segmentationMarkers",
+                        segmentation_style="segmentationStyle",
+                        segmentation_time=123,
+                        timed_metadata_behavior="timedMetadataBehavior",
+                        timed_metadata_pid="timedMetadataPid",
+                        transport_stream_id=123,
+                        video_pid="videoPid"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2e0a71cfb3edf56262b70e3cc23c71f926efc3d8afd4dad72595d6a18aefcd90)
+                check_type(argname="argument m2_ts_settings", value=m2_ts_settings, expected_type=type_hints["m2_ts_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if m2_ts_settings is not None:
+                self._values["m2_ts_settings"] = m2_ts_settings
+
+        @builtins.property
+        def m2_ts_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.M2tsSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpmediaconnectroutercontainersettings.html#cfn-medialive-channel-udpmediaconnectroutercontainersettings-m2tssettings
+            '''
+            result = self._values.get("m2_ts_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.M2tsSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UdpMediaConnectRouterContainerSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -25908,9 +26611,12 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.VideoDescriptionProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "border": "border",
             "codec_settings": "codecSettings",
+            "crop_rectangle": "cropRectangle",
             "height": "height",
             "name": "name",
+            "output_position_rectangle": "outputPositionRectangle",
             "respond_to_afd": "respondToAfd",
             "scaling_behavior": "scalingBehavior",
             "sharpness": "sharpness",
@@ -25921,9 +26627,12 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            border: typing.Optional[jsii.Number] = None,
             codec_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.VideoCodecSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            crop_rectangle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.VideoPositionRectangleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             height: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
+            output_position_rectangle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.VideoPositionRectangleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             respond_to_afd: typing.Optional[builtins.str] = None,
             scaling_behavior: typing.Optional[builtins.str] = None,
             sharpness: typing.Optional[jsii.Number] = None,
@@ -25933,9 +26642,12 @@ class CfnChannel(
 
             The parent of this entity is EncoderSettings.
 
+            :param border: 
             :param codec_settings: The video codec settings.
+            :param crop_rectangle: 
             :param height: The output video height, in pixels. This must be an even number. For most codecs, you can keep this field and width blank in order to use the height and width (resolution) from the source. Note that we don't recommend keeping the field blank. For the Frame Capture codec, height and width are required.
             :param name: The name of this VideoDescription. Outputs use this name to uniquely identify this description. Description names should be unique within this channel.
+            :param output_position_rectangle: 
             :param respond_to_afd: Indicates how to respond to the AFD values in the input stream. RESPOND causes input video to be clipped, depending on the AFD value, input display aspect ratio, and output display aspect ratio, and (except for the FRAMECAPTURE codec) includes the values in the output. PASSTHROUGH (does not apply to FRAMECAPTURE codec) ignores the AFD values and includes the values in the output, so input video is not clipped. NONE ignores the AFD values and does not include the values through to the output, so input video is not clipped.
             :param scaling_behavior: STRETCHTOOUTPUT configures the output position to stretch the video to the specified output resolution (height and width). This option overrides any position value. DEFAULT might insert black boxes (pillar boxes or letter boxes) around the video to provide the specified output resolution.
             :param sharpness: Changes the strength of the anti-alias filter used for scaling. 0 is the softest setting, and 100 is the sharpest. We recommend a setting of 50 for most content.
@@ -25956,6 +26668,7 @@ class CfnChannel(
                 # rec709_settings: Any
                 
                 video_description_property = medialive.CfnChannel.VideoDescriptionProperty(
+                    border=123,
                     codec_settings=medialive.CfnChannel.VideoCodecSettingsProperty(
                         av1_settings=medialive.CfnChannel.Av1SettingsProperty(
                             afd_signaling="afdSignaling",
@@ -26164,8 +26877,20 @@ class CfnChannel(
                             timecode_insertion="timecodeInsertion"
                         )
                     ),
+                    crop_rectangle=medialive.CfnChannel.VideoPositionRectangleProperty(
+                        height=123,
+                        width=123,
+                        x=123,
+                        y=123
+                    ),
                     height=123,
                     name="name",
+                    output_position_rectangle=medialive.CfnChannel.VideoPositionRectangleProperty(
+                        height=123,
+                        width=123,
+                        x=123,
+                        y=123
+                    ),
                     respond_to_afd="respondToAfd",
                     scaling_behavior="scalingBehavior",
                     sharpness=123,
@@ -26174,20 +26899,29 @@ class CfnChannel(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ab7e91a57207801ff35843bc289aeb1c7b782b2fe53f7d6be2f7de9fe3951954)
+                check_type(argname="argument border", value=border, expected_type=type_hints["border"])
                 check_type(argname="argument codec_settings", value=codec_settings, expected_type=type_hints["codec_settings"])
+                check_type(argname="argument crop_rectangle", value=crop_rectangle, expected_type=type_hints["crop_rectangle"])
                 check_type(argname="argument height", value=height, expected_type=type_hints["height"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument output_position_rectangle", value=output_position_rectangle, expected_type=type_hints["output_position_rectangle"])
                 check_type(argname="argument respond_to_afd", value=respond_to_afd, expected_type=type_hints["respond_to_afd"])
                 check_type(argname="argument scaling_behavior", value=scaling_behavior, expected_type=type_hints["scaling_behavior"])
                 check_type(argname="argument sharpness", value=sharpness, expected_type=type_hints["sharpness"])
                 check_type(argname="argument width", value=width, expected_type=type_hints["width"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if border is not None:
+                self._values["border"] = border
             if codec_settings is not None:
                 self._values["codec_settings"] = codec_settings
+            if crop_rectangle is not None:
+                self._values["crop_rectangle"] = crop_rectangle
             if height is not None:
                 self._values["height"] = height
             if name is not None:
                 self._values["name"] = name
+            if output_position_rectangle is not None:
+                self._values["output_position_rectangle"] = output_position_rectangle
             if respond_to_afd is not None:
                 self._values["respond_to_afd"] = respond_to_afd
             if scaling_behavior is not None:
@@ -26196,6 +26930,14 @@ class CfnChannel(
                 self._values["sharpness"] = sharpness
             if width is not None:
                 self._values["width"] = width
+
+        @builtins.property
+        def border(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videodescription.html#cfn-medialive-channel-videodescription-border
+            '''
+            result = self._values.get("border")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def codec_settings(
@@ -26207,6 +26949,16 @@ class CfnChannel(
             '''
             result = self._values.get("codec_settings")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.VideoCodecSettingsProperty"]], result)
+
+        @builtins.property
+        def crop_rectangle(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.VideoPositionRectangleProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videodescription.html#cfn-medialive-channel-videodescription-croprectangle
+            '''
+            result = self._values.get("crop_rectangle")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.VideoPositionRectangleProperty"]], result)
 
         @builtins.property
         def height(self) -> typing.Optional[jsii.Number]:
@@ -26229,6 +26981,16 @@ class CfnChannel(
             '''
             result = self._values.get("name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_position_rectangle(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.VideoPositionRectangleProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videodescription.html#cfn-medialive-channel-videodescription-outputpositionrectangle
+            '''
+            result = self._values.get("output_position_rectangle")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.VideoPositionRectangleProperty"]], result)
 
         @builtins.property
         def respond_to_afd(self) -> typing.Optional[builtins.str]:
@@ -26282,6 +27044,101 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "VideoDescriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.VideoPositionRectangleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"height": "height", "width": "width", "x": "x", "y": "y"},
+    )
+    class VideoPositionRectangleProperty:
+        def __init__(
+            self,
+            *,
+            height: typing.Optional[jsii.Number] = None,
+            width: typing.Optional[jsii.Number] = None,
+            x: typing.Optional[jsii.Number] = None,
+            y: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param height: 
+            :param width: 
+            :param x: 
+            :param y: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videopositionrectangle.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                video_position_rectangle_property = medialive.CfnChannel.VideoPositionRectangleProperty(
+                    height=123,
+                    width=123,
+                    x=123,
+                    y=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5d01a35f00c43c0512840b6b11ee7bb2168f235545020a7dc5fea515b8b98575)
+                check_type(argname="argument height", value=height, expected_type=type_hints["height"])
+                check_type(argname="argument width", value=width, expected_type=type_hints["width"])
+                check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+                check_type(argname="argument y", value=y, expected_type=type_hints["y"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if height is not None:
+                self._values["height"] = height
+            if width is not None:
+                self._values["width"] = width
+            if x is not None:
+                self._values["x"] = x
+            if y is not None:
+                self._values["y"] = y
+
+        @builtins.property
+        def height(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videopositionrectangle.html#cfn-medialive-channel-videopositionrectangle-height
+            '''
+            result = self._values.get("height")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def width(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videopositionrectangle.html#cfn-medialive-channel-videopositionrectangle-width
+            '''
+            result = self._values.get("width")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def x(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videopositionrectangle.html#cfn-medialive-channel-videopositionrectangle-x
+            '''
+            result = self._values.get("x")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def y(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videopositionrectangle.html#cfn-medialive-channel-videopositionrectangle-y
+            '''
+            result = self._values.get("y")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VideoPositionRectangleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -26860,18 +27717,20 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.WebvttDestinationSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"style_control": "styleControl"},
+        name_mapping={"position": "position", "style_control": "styleControl"},
     )
     class WebvttDestinationSettingsProperty:
         def __init__(
             self,
             *,
+            position: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TextCaptionPositionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             style_control: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration of Web VTT captions in the output.
 
             The parent of this entity is CaptionDestinationSettings.
 
+            :param position: 
             :param style_control: Controls whether the color and position of the source captions is passed through to the WebVTT output captions. PASSTHROUGH - Valid only if the source captions are EMBEDDED or TELETEXT. NO_STYLE_DATA - Don't pass through the style. The output captions will not contain any font styling information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-webvttdestinationsettings.html
@@ -26884,15 +27743,31 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 webvtt_destination_settings_property = medialive.CfnChannel.WebvttDestinationSettingsProperty(
+                    position=medialive.CfnChannel.TextCaptionPositionSettingsProperty(
+                        y_position_percentage=123
+                    ),
                     style_control="styleControl"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ebfdc03ea16125a56c4730e92e19fd0b84d4a925fd67235e0790e0eee72ab782)
+                check_type(argname="argument position", value=position, expected_type=type_hints["position"])
                 check_type(argname="argument style_control", value=style_control, expected_type=type_hints["style_control"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if position is not None:
+                self._values["position"] = position
             if style_control is not None:
                 self._values["style_control"] = style_control
+
+        @builtins.property
+        def position(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TextCaptionPositionSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-webvttdestinationsettings.html#cfn-medialive-channel-webvttdestinationsettings-position
+            '''
+            result = self._values.get("position")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TextCaptionPositionSettingsProperty"]], result)
 
         @builtins.property
         def style_control(self) -> typing.Optional[builtins.str]:
@@ -37345,6 +38220,15 @@ def _typecheckingstub__8e31898723313c2a2b115709d5edef386849980fe358a3b468e4f4e06
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__66ca0d557929d01656a460cdd98ceed875fde0f8fc07580e7e424f064e2aaa0e(
+    *,
+    embedding_frequency: typing.Optional[jsii.Number] = None,
+    scene_cut: typing.Optional[jsii.Number] = None,
+    target_psnr: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3438fa867f11ff502b4fa54f1dd5270220ccbbc83de4185add8ae06b3e863348(
     *,
     attenuation_control: typing.Optional[builtins.str] = None,
@@ -37805,6 +38689,13 @@ def _typecheckingstub__a833a02632a589afb5026143cbf8803b2228e0f422ab4c5a2dbf59314
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2ffb796356c07ca1d6575215f69aae2f88b52abbc2350f4fc50507ea2dcce9c1(
+    *,
+    name_modifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6fe9142b6885e8776c3e51af0733250a73fcd8e45bb4ec5f866206680352c7eb(
     *,
     additional_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.AdditionalDestinationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -37824,13 +38715,28 @@ def _typecheckingstub__6fe9142b6885e8776c3e51af0733250a73fcd8e45bb4ec5f866206680
     timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
     timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
     timed_metadata_passthrough: typing.Optional[builtins.str] = None,
+    watermarking_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CmafIngestWatermarkingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6876fb9c63945be0983729df7880b4775c3a167e3cdfb8a192a9f461fe10138e(
+def _typecheckingstub__579ed7fd3826de04807e028b5a1d1d333dc380262880b7d997a9aa30261a5991(
     *,
-    name_modifier: typing.Optional[builtins.str] = None,
+    additional_destinations_alternate_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    alternate_destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.AbWatermarkingCustomProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    license: typing.Optional[builtins.str] = None,
+    operator_id: typing.Optional[jsii.Number] = None,
+    poly_period: typing.Optional[jsii.Number] = None,
+    profile: typing.Optional[builtins.str] = None,
+    watermark_id_length: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b39694a5ce7a3d16685d9b2ef6810c293498934a3f363f40aed95d9da6aa9563(
+    *,
+    cmaf_ingest_ab_watermarker_irdeto_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37962,6 +38868,21 @@ def _typecheckingstub__23559d0249cfbe262bfbd93ab48605fd9c25886b289f89b7e6b86a893
     default_line_height: typing.Optional[jsii.Number] = None,
     fill_line_gap: typing.Optional[builtins.str] = None,
     font_family: typing.Optional[builtins.str] = None,
+    style_control: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3632ead639662ebadd37e89f6885890618114a63902b53b12d49eb30947495c5(
+    *,
+    y_position_line: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc784149ec89e16132672a7f820013cdc2f544427c8545525b896fe576c83c3f(
+    *,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.EmbeddedCaptionPositionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     style_control: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -38407,6 +39328,7 @@ def _typecheckingstub__9127d145510b55400db9ebe097d21c49700c749c5836f277c9ac9da29
 def _typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13(
     *,
     audio_feed_inputs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.AudioFeedInputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enrichment_methods: typing.Optional[typing.Sequence[builtins.str]] = None,
     feed_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -38595,13 +39517,6 @@ def _typecheckingstub__c9392d58176c012cd3edcfd8cba809739bf0435a5bf1d6a207b2696cd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a6ac25b04b1dd9818b55ce4f1c60aa48824eea57c303f2bb649be28cff1fbdf8(
-    *,
-    m2_ts_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.M2tsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ba0feb925fb981d412189ce9bddc6e7f235f1e91db91596d86684c3930cdc7cc(
     *,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -38628,14 +39543,7 @@ def _typecheckingstub__de784512527b5b99829b3f34b3d3b0bebd7b36042e76edff2b5699972
 def _typecheckingstub__3f73c1680f6008c8895fdf330da5ebbe0a7f33a76e77edb89c5d40d309736646(
     *,
     connected_router_inputs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MediaConnectRouterOutputConnectionMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    container_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MediaConnectRouterContainerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e8b10ee21ff2438e6fb9561b09663137ff1b02db22819c6e3f84e41e12a8f6c(
-    *,
+    container_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.UdpMediaConnectRouterContainerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -38673,13 +39581,14 @@ def _typecheckingstub__f3d603bf777a51fcd4a655ef17dcc1a5fa66a4fa5fe69e9918522175d
     audio_rendition_sets: typing.Optional[builtins.str] = None,
     hls_auto_select: typing.Optional[builtins.str] = None,
     hls_default: typing.Optional[builtins.str] = None,
+    output_usage: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4(
     *,
-    additional_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MediaPackageAdditionalDestinationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    additional_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.AdditionalDestinationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     caption_language_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CaptionLanguageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     id3_behavior: typing.Optional[builtins.str] = None,
     klv_behavior: typing.Optional[builtins.str] = None,
@@ -38690,6 +39599,14 @@ def _typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57
     timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
     timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
     timed_metadata_passthrough: typing.Optional[builtins.str] = None,
+    watermarking_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MediaPackageV2WatermarkingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6a76ae4af1435751fe7fe16c94bf5cace73d8ef857d8e3af9656038d667541b(
+    *,
+    media_package_v2_ab_watermarker_irdeto_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CmafIngestMediaPackageV2AbWatermarkerIrdetoSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38857,7 +39774,7 @@ def _typecheckingstub__f3e77cb7fcad1c5904be396c9efa5af888056641c091eed6de9dd32d0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5486358a38d9072aa9cea1007a7ed50c25e020f301a9f22ca820fa859fbd02b5(
+def _typecheckingstub__36638d5821a5c5d276c07a09579cae86091cf6eec9019cded28dd01425283ae5(
     *,
     check_digit_string: typing.Optional[builtins.str] = None,
     sid: typing.Optional[jsii.Number] = None,
@@ -38866,7 +39783,7 @@ def _typecheckingstub__5486358a38d9072aa9cea1007a7ed50c25e020f301a9f22ca820fa859
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c8880569fbcb21f53f2aadeb90349757818c1b56006828e4d9dc301866002213(
+def _typecheckingstub__5486358a38d9072aa9cea1007a7ed50c25e020f301a9f22ca820fa859fbd02b5(
     *,
     check_digit_string: typing.Optional[builtins.str] = None,
     sid: typing.Optional[jsii.Number] = None,
@@ -38880,7 +39797,7 @@ def _typecheckingstub__9e5624fe566342243b7ed3e5c7b82883302c5f225edc78912ef46db75
     nielsen_cbet_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenCBETProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     nielsen_distribution_type: typing.Optional[builtins.str] = None,
     nielsen_naes_ii_nw_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenNaesIiNwProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    nielsen_nw_only_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenNwOnlyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nielsen_nw_only_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.NielsenNaesIiNwOnlySettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38965,7 +39882,7 @@ def _typecheckingstub__a33aaebc955d92537d615c92d210337ac828a0647a81c8d2761ba79e3
 def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b9b4fd24(
     *,
     archive_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.ArchiveOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cmaf_ingest_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CmafIngestOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cmaf_ingest_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.CmafIngestFrameCaptureOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     frame_capture_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.FrameCaptureOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hls_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.HlsOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_connect_router_output_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.MediaConnectRouterOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -39090,7 +40007,7 @@ def _typecheckingstub__6b18d4cb0dcca463f05b4d7bb9ed322d215c92faf8acb5ecca2210acd
 def _typecheckingstub__343e1d351f17b6f558adb1f5986a7b8783e1d22117b61b28d1d0ef318f0073bc(
     *,
     buffer_msec: typing.Optional[jsii.Number] = None,
-    container_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.UdpContainerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.UdpMediaConnectRouterContainerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_type: typing.Optional[builtins.str] = None,
     latency: typing.Optional[jsii.Number] = None,
@@ -39130,6 +40047,13 @@ def _typecheckingstub__4041001c3f58cac0e8727dda099da6151fbeb3d601eca7a05bdf1b889
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7ce888df9183bf35fe9372b1370079ec3ff46a203dac3f0b6a076da81a75fe94(
+    *,
+    y_position_percentage: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4acdfd91d8e420caae7697e44720207ed0a85171d211d0a02a042d3f4fae4806(
     *,
     state: typing.Optional[builtins.str] = None,
@@ -39156,6 +40080,7 @@ def _typecheckingstub__b61ce73d0d5ba2fae4ed90dcdba3020870d646aa62230e9c170100f3a
 
 def _typecheckingstub__2181e12c4fa358ba7b93757ed64a91bee0a4bbcdfd93b078d2112aef707a0ab9(
     *,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TextCaptionPositionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     style_control: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -39173,6 +40098,13 @@ def _typecheckingstub__dd077cf89169f1eefbeed92ea9dd80884c2ed3cf9c1b923c96f56c187
     input_loss_action: typing.Optional[builtins.str] = None,
     timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
     timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e0a71cfb3edf56262b70e3cc23c71f926efc3d8afd4dad72595d6a18aefcd90(
+    *,
+    m2_ts_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.M2tsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39208,13 +40140,26 @@ def _typecheckingstub__c80dde1bf6f6c24a8ef9eb602868cb10de17563bdf49656f508df14ef
 
 def _typecheckingstub__ab7e91a57207801ff35843bc289aeb1c7b782b2fe53f7d6be2f7de9fe3951954(
     *,
+    border: typing.Optional[jsii.Number] = None,
     codec_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.VideoCodecSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    crop_rectangle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.VideoPositionRectangleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     height: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    output_position_rectangle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.VideoPositionRectangleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     respond_to_afd: typing.Optional[builtins.str] = None,
     scaling_behavior: typing.Optional[builtins.str] = None,
     sharpness: typing.Optional[jsii.Number] = None,
     width: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d01a35f00c43c0512840b6b11ee7bb2168f235545020a7dc5fea515b8b98575(
+    *,
+    height: typing.Optional[jsii.Number] = None,
+    width: typing.Optional[jsii.Number] = None,
+    x: typing.Optional[jsii.Number] = None,
+    y: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39278,6 +40223,7 @@ def _typecheckingstub__5711bc232730dd7ebc808a480270bdafcea9c63e2c7a31b1df84906f4
 
 def _typecheckingstub__ebfdc03ea16125a56c4730e92e19fd0b84d4a925fd67235e0790e0eee72ab782(
     *,
+    position: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TextCaptionPositionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     style_control: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

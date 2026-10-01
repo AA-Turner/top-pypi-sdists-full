@@ -26,6 +26,7 @@ from .literals import (
     AgentOutputMessageTypeType,
     AnalyticsStatusType,
     AuthorizationStrategyType,
+    BackupStatusType,
     CmkTypeType,
     DatastoreStatusType,
     ErrorCategoryType,
@@ -45,6 +46,8 @@ __all__ = (
     "AgentInputMessageTypeDef",
     "AgentOutputMessageTypeDef",
     "AnalyticsConfigurationTypeDef",
+    "BackupConfigurationTypeDef",
+    "ContinuousBackupRestoreConfigurationTypeDef",
     "CreateDataTransformationProfileRequestTypeDef",
     "CreateDataTransformationProfileResponseTypeDef",
     "CreateDataTransformationProfileSourceTypeDef",
@@ -53,6 +56,7 @@ __all__ = (
     "DataTransformationProfileSummaryTypeDef",
     "DataTransformationProfileVersionSummaryTypeDef",
     "DataTransformationS3ConfigurationTypeDef",
+    "DatastoreBackupStatusTypeDef",
     "DatastoreFilterTypeDef",
     "DatastorePropertiesTypeDef",
     "DeleteDataTransformationProfileRequestTypeDef",
@@ -110,6 +114,9 @@ __all__ = (
     "PublishDataTransformationProfileRequestTypeDef",
     "PublishDataTransformationProfileResponseTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreConfigurationTypeDef",
+    "RestoreFHIRDatastoreRequestTypeDef",
+    "RestoreFHIRDatastoreResponseTypeDef",
     "S3ConfigurationTypeDef",
     "SampleDataSourceTypeDef",
     "SseConfigurationTypeDef",
@@ -156,6 +163,14 @@ AgentOutputMessageTypeDef = TypedDict(
 
 class AnalyticsConfigurationTypeDef(TypedDict):
     Status: NotRequired[AnalyticsStatusType]
+
+class BackupConfigurationTypeDef(TypedDict):
+    Status: NotRequired[BackupStatusType]
+    BackupType: NotRequired[Literal["CONTINUOUS"]]
+    RetentionPeriodInDays: NotRequired[int]
+    BackupTagsEnabled: NotRequired[bool]
+
+TimestampTypeDef = Union[datetime, str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -214,8 +229,6 @@ class DataTransformationProfileVersionSummaryTypeDef(TypedDict):
 class DataTransformationS3ConfigurationTypeDef(TypedDict):
     S3Uri: str
     KmsKeyId: str
-
-TimestampTypeDef = Union[datetime, str]
 
 class ErrorCauseTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
@@ -342,6 +355,48 @@ class UpdateProfileWithAgentRequestTypeDef(TypedDict):
     InputMessage: AgentInputMessageTypeDef
     ConversationId: NotRequired[str]
 
+class DatastoreBackupStatusTypeDef(TypedDict):
+    Configuration: NotRequired[BackupConfigurationTypeDef]
+    BackupEnabledAt: NotRequired[datetime]
+    EarliestRestorePoint: NotRequired[datetime]
+    LatestRestorePoint: NotRequired[datetime]
+    ScheduledPermanentDeletionTime: NotRequired[datetime]
+
+class ContinuousBackupRestoreConfigurationTypeDef(TypedDict):
+    RestorePointTime: NotRequired[TimestampTypeDef]
+
+class DatastoreFilterTypeDef(TypedDict):
+    DatastoreName: NotRequired[str]
+    DatastoreStatus: NotRequired[DatastoreStatusType]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+
+class ListDataTransformationJobsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    JobStatus: NotRequired[TransformationJobStatusType]
+    JobName: NotRequired[str]
+    SubmittedAfter: NotRequired[TimestampTypeDef]
+    SubmittedBefore: NotRequired[TimestampTypeDef]
+
+class ListFHIRExportJobsRequestTypeDef(TypedDict):
+    DatastoreId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    JobName: NotRequired[str]
+    JobStatus: NotRequired[JobStatusType]
+    SubmittedBefore: NotRequired[TimestampTypeDef]
+    SubmittedAfter: NotRequired[TimestampTypeDef]
+
+class ListFHIRImportJobsRequestTypeDef(TypedDict):
+    DatastoreId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    JobName: NotRequired[str]
+    JobStatus: NotRequired[JobStatusType]
+    SubmittedBefore: NotRequired[TimestampTypeDef]
+    SubmittedAfter: NotRequired[TimestampTypeDef]
+
 class CreateDataTransformationProfileResponseTypeDef(TypedDict):
     ProfileId: str
     Version: int
@@ -390,6 +445,13 @@ class PublishDataTransformationProfileResponseTypeDef(TypedDict):
     TargetFormat: Literal["FHIR_R4"]
     ProfileName: str
     LastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RestoreFHIRDatastoreResponseTypeDef(TypedDict):
+    DatastoreId: str
+    DatastoreArn: str
+    DatastoreStatus: DatastoreStatusType
+    DatastoreEndpoint: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDataTransformationJobResponseTypeDef(TypedDict):
@@ -449,38 +511,6 @@ class ListDataTransformationProfileVersionsResponseTypeDef(TypedDict):
 class TransformationOutputDataConfigTypeDef(TypedDict):
     S3Configuration: DataTransformationS3ConfigurationTypeDef
 
-class DatastoreFilterTypeDef(TypedDict):
-    DatastoreName: NotRequired[str]
-    DatastoreStatus: NotRequired[DatastoreStatusType]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-
-class ListDataTransformationJobsRequestTypeDef(TypedDict):
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    JobStatus: NotRequired[TransformationJobStatusType]
-    JobName: NotRequired[str]
-    SubmittedAfter: NotRequired[TimestampTypeDef]
-    SubmittedBefore: NotRequired[TimestampTypeDef]
-
-class ListFHIRExportJobsRequestTypeDef(TypedDict):
-    DatastoreId: str
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-    JobName: NotRequired[str]
-    JobStatus: NotRequired[JobStatusType]
-    SubmittedBefore: NotRequired[TimestampTypeDef]
-    SubmittedAfter: NotRequired[TimestampTypeDef]
-
-class ListFHIRImportJobsRequestTypeDef(TypedDict):
-    DatastoreId: str
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-    JobName: NotRequired[str]
-    JobStatus: NotRequired[JobStatusType]
-    SubmittedBefore: NotRequired[TimestampTypeDef]
-    SubmittedAfter: NotRequired[TimestampTypeDef]
-
 class DescribeDataTransformationJobRequestWaitTypeDef(TypedDict):
     JobId: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
@@ -533,6 +563,14 @@ ProfileConfigurationUnionTypeDef = Union[
     ProfileConfigurationTypeDef, ProfileConfigurationOutputTypeDef
 ]
 
+class RestoreConfigurationTypeDef(TypedDict):
+    ContinuousBackupRestoreConfiguration: NotRequired[ContinuousBackupRestoreConfigurationTypeDef]
+
+class ListFHIRDatastoresRequestTypeDef(TypedDict):
+    Filter: NotRequired[DatastoreFilterTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class CreateDataTransformationProfileRequestTypeDef(TypedDict):
     SourceFormat: SourceFormatType
     Source: CreateDataTransformationProfileSourceTypeDef
@@ -569,11 +607,6 @@ class TransformationJobPropertiesTypeDef(TypedDict):
     Message: NotRequired[str]
     JobProgressReport: NotRequired[TransformationJobProgressReportTypeDef]
 
-class ListFHIRDatastoresRequestTypeDef(TypedDict):
-    Filter: NotRequired[DatastoreFilterTypeDef]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
 class DatastorePropertiesTypeDef(TypedDict):
     DatastoreId: str
     DatastoreArn: str
@@ -589,6 +622,7 @@ class DatastorePropertiesTypeDef(TypedDict):
     NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
     AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
     ProfileConfiguration: NotRequired[ProfileConfigurationOutputTypeDef]
+    BackupStatusInfo: NotRequired[DatastoreBackupStatusTypeDef]
 
 class ExportJobPropertiesTypeDef(TypedDict):
     JobId: str
@@ -646,6 +680,7 @@ class CreateFHIRDatastoreRequestTypeDef(TypedDict):
     AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
     NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
     ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
+    BackupConfiguration: NotRequired[BackupConfigurationTypeDef]
 
 class UpdateFHIRDatastoreRequestTypeDef(TypedDict):
     DatastoreId: str
@@ -654,6 +689,19 @@ class UpdateFHIRDatastoreRequestTypeDef(TypedDict):
     NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
     ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
     IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
+    BackupConfiguration: NotRequired[BackupConfigurationTypeDef]
+
+class RestoreFHIRDatastoreRequestTypeDef(TypedDict):
+    SourceDatastoreId: str
+    RestoreConfiguration: RestoreConfigurationTypeDef
+    DatastoreName: NotRequired[str]
+    SseConfiguration: NotRequired[SseConfigurationTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
+    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
+    NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
+    ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
 
 class DescribeDataTransformationJobResponseTypeDef(TypedDict):
     TransformationJobProperties: TransformationJobPropertiesTypeDef

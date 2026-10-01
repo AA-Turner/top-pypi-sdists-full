@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mmcif
-Version: 1.1.1
+Version: 1.2.0
 Summary: mmCIF Core Access Library
 Author-email: John Westbrook <john.westbrook@rcsb.org>
 License: Apache-2.0

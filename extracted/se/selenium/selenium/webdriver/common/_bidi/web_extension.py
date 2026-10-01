@@ -26,7 +26,20 @@ from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 from selenium.webdriver.common._bidi.domain import Domain
-from selenium.webdriver.common._bidi.serialization import UNSET, Record, Union, UnsetType, meta, register
+from selenium.webdriver.common._bidi.serialization import Record, Union, meta, register
+
+
+@register("webExtension.InstallParameters")
+@dataclass(frozen=True)
+class InstallParameters(Record):
+    """webExtension.InstallParameters.
+
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-webextensioninstallparameters
+    """
+
+    extension_data: ExtensionDataValue = field(
+        metadata=meta("extensionData", required=True, ref="webExtension.ExtensionData"),
+    )
 
 
 @register("webExtension.ExtensionPath")
@@ -85,21 +98,6 @@ class UninstallParameters(Record):
     """
 
     extension: str = field(metadata=meta("extension", required=True, primitive="str"))
-
-
-@register("webExtension.InstallParameters")
-@dataclass(frozen=True)
-class InstallParameters(Record):
-    """webExtension.InstallParameters.
-
-    See https://w3c.github.io/webdriver-bidi/#cddl-type-webextensioninstallparameters
-    """
-
-    _EXTENSIBLE = True
-    extension_data: ExtensionDataValue = field(
-        metadata=meta("extensionData", required=True, ref="webExtension.ExtensionData"),
-    )
-    extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
 @register("webExtension.ExtensionData")

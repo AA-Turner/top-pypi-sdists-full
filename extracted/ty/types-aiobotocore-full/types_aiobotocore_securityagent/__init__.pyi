@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_securityagent import (
         Client,
+        ListActorMessagesPaginator,
         ListAgentSpacesPaginator,
         ListApplicationsPaginator,
         ListArtifactsPaginator,
@@ -42,6 +43,7 @@ Usage::
         ...
 
 
+    list_actor_messages_paginator: ListActorMessagesPaginator = client.get_paginator("list_actor_messages")
     list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_artifacts_paginator: ListArtifactsPaginator = client.get_paginator("list_artifacts")
@@ -69,6 +71,7 @@ Usage::
 
 from .client import SecurityAgentClient
 from .paginator import (
+    ListActorMessagesPaginator,
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
@@ -97,6 +100,7 @@ Client = SecurityAgentClient
 
 __all__ = (
     "Client",
+    "ListActorMessagesPaginator",
     "ListAgentSpacesPaginator",
     "ListApplicationsPaginator",
     "ListArtifactsPaginator",

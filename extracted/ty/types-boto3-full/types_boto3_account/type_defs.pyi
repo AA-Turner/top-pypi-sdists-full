@@ -24,6 +24,7 @@ from .literals import (
     AccountStateType,
     AlternateContactTypeType,
     AwsAccountStateType,
+    PhoneNumberVerificationStatusType,
     PrimaryEmailUpdateStatusType,
     RegionOptStatusType,
 )
@@ -65,8 +66,12 @@ __all__ = (
     "PutContactInformationRequestTypeDef",
     "RegionTypeDef",
     "ResponseMetadataTypeDef",
+    "SendPhoneNumberVerificationRequestTypeDef",
+    "SendPhoneNumberVerificationResponseTypeDef",
     "StartPrimaryEmailUpdateRequestTypeDef",
     "StartPrimaryEmailUpdateResponseTypeDef",
+    "VerifyPhoneNumberRequestTypeDef",
+    "VerifyPhoneNumberResponseTypeDef",
 )
 
 class AcceptPrimaryEmailUpdateRequestTypeDef(TypedDict):
@@ -164,9 +169,16 @@ class PutAlternateContactRequestTypeDef(TypedDict):
     AlternateContactType: AlternateContactTypeType
     AccountId: NotRequired[str]
 
+class SendPhoneNumberVerificationRequestTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+
 class StartPrimaryEmailUpdateRequestTypeDef(TypedDict):
     AccountId: str
     PrimaryEmail: str
+
+class VerifyPhoneNumberRequestTypeDef(TypedDict):
+    Otp: str
+    AccountId: NotRequired[str]
 
 class AcceptPrimaryEmailUpdateResponseTypeDef(TypedDict):
     Status: PrimaryEmailUpdateStatusType
@@ -201,8 +213,16 @@ class GetRegionOptStatusResponseTypeDef(TypedDict):
     RegionOptStatus: RegionOptStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class SendPhoneNumberVerificationResponseTypeDef(TypedDict):
+    Status: PhoneNumberVerificationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartPrimaryEmailUpdateResponseTypeDef(TypedDict):
     Status: PrimaryEmailUpdateStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class VerifyPhoneNumberResponseTypeDef(TypedDict):
+    Status: PhoneNumberVerificationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAlternateContactResponseTypeDef(TypedDict):
@@ -211,6 +231,7 @@ class GetAlternateContactResponseTypeDef(TypedDict):
 
 class GetContactInformationResponseTypeDef(TypedDict):
     ContactInformation: ContactInformationTypeDef
+    VerificationStatus: PhoneNumberVerificationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutContactInformationRequestTypeDef(TypedDict):

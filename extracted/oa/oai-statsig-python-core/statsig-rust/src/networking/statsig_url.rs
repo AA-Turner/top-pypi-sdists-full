@@ -3,6 +3,7 @@ const MAX_REQUEST_PATH_LENGTH: usize = 64;
 const DOWNLOAD_CONFIG_SPECS_ENDPOINT: &str = "download_config_specs";
 const GET_ID_LISTS_ENDPOINT: &str = "get_id_lists";
 const DOWNLOAD_ID_LIST_FILE_ENDPOINT: &str = "download_id_list_file";
+const DYNAMIC_CONFIG_VALUE_ENDPOINT: &str = "dynamic_config_value";
 const LOG_EVENT_ENDPOINT: &str = "log_event";
 
 // StatsigOptions accepts client-provided endpoint strings for compatibility.
@@ -71,14 +72,19 @@ impl<'a> StatsigUrl<'a> {
     }
 
     fn source_service(&self, path_segments: &[&str]) -> String {
+        // This is a telemetry label, not a request URL. Never include URL credentials.
+        let host_prefix = match (
+            self.scheme,
+            self.host.and_then(|host| host.rsplit_once('@')),
+        ) {
+            (Some(scheme), Some((_, host))) => format!("{scheme}://{host}"),
+            _ => self.host_prefix.to_string(),
+        };
         let source_service_suffix = path_segments.join("/");
-        let source_service = if self.host_prefix.is_empty() {
+        let source_service = if host_prefix.is_empty() {
             source_service_suffix
         } else {
-            join_url(
-                self.host_prefix.trim_end_matches('/'),
-                &source_service_suffix,
-            )
+            join_url(host_prefix.trim_end_matches('/'), &source_service_suffix)
         };
 
         source_service.trim_end_matches('/').to_string()
@@ -195,6 +201,7 @@ fn is_latency_loggable_endpoint(endpoint: &str) -> bool {
     endpoint == DOWNLOAD_CONFIG_SPECS_ENDPOINT
         || endpoint == GET_ID_LISTS_ENDPOINT
         || endpoint == DOWNLOAD_ID_LIST_FILE_ENDPOINT
+        || endpoint == DYNAMIC_CONFIG_VALUE_ENDPOINT
         || endpoint == LOG_EVENT_ENDPOINT
 }
 

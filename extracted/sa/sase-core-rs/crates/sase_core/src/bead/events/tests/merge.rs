@@ -30,6 +30,7 @@ fn plus_one_event(event_id: &str, reporter: &str) -> BeadEventRecordWire {
         reporter: reporter.to_string(),
         note: "independent reproduction".to_string(),
         refs: Vec::new(),
+        attachments: Vec::new(),
     };
     BeadEventRecordWire {
         schema_version: BEAD_EVENT_SCHEMA_VERSION,
@@ -334,6 +335,7 @@ fn note_event(
         issue_id: "sase-165".to_string(),
         payload: BeadEventPayloadWire::NoteAppended {
             entry: entry.to_string(),
+            attachments: Vec::new(),
         },
     }
 }
@@ -377,7 +379,7 @@ fn non_monotonic_upstream_plus_local_note_keeps_upstream_order() {
         .iter()
         .skip(1)
         .map(|event| match &event.payload {
-            BeadEventPayloadWire::NoteAppended { entry } => entry.as_str(),
+            BeadEventPayloadWire::NoteAppended { entry, .. } => entry.as_str(),
             _ => "<other>",
         })
         .collect();
@@ -411,7 +413,7 @@ fn pure_reorder_branch_canonicalizes_to_base_order() {
         .iter()
         .skip(1)
         .map(|event| match &event.payload {
-            BeadEventPayloadWire::NoteAppended { entry } => entry.as_str(),
+            BeadEventPayloadWire::NoteAppended { entry, .. } => entry.as_str(),
             _ => "<other>",
         })
         .collect();

@@ -644,6 +644,45 @@ impl StatsigBasePy {
             )
     }
 
+    #[pyo3(name = "_INTERNAL_get_typed_config", signature = (user, name, options=None))]
+    pub fn _internal_get_typed_config(
+        &self,
+        py: Python<'_>,
+        user: &StatsigUserPy,
+        name: &str,
+        options: Option<DynamicConfigEvaluationOptionsPy>,
+    ) -> PyResult<Py<PyDict>> {
+        let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
+        self.inner.use_typed_config(
+            &user_internal,
+            name,
+            options.map_or(DynamicConfigEvaluationOptions::default(), Into::into),
+            |raw, source, revisions| {
+                crate::typed_config_py::typed_config_to_py_dict(py, raw, source, revisions)
+            },
+        )
+    }
+
+    #[pyo3(name = "_INTERNAL_typed_config_context")]
+    pub fn _internal_typed_config_context(
+        &self,
+        user: &StatsigUserPy,
+        name: &str,
+    ) -> crate::typed_config_py::NativeTypedConfigContext {
+        crate::typed_config_py::NativeTypedConfigContext {
+            statsig: self.inner.clone(),
+            user: user.inner.clone(),
+            name: name.to_string(),
+        }
+    }
+
+    #[pyo3(name = "_INTERNAL_typed_config_updates")]
+    pub fn _internal_typed_config_updates(&self) -> crate::typed_config_py::NativeConfigUpdates {
+        crate::typed_config_py::NativeConfigUpdates {
+            inner: self.inner.typed_config_updates(),
+        }
+    }
+
     #[pyo3(signature = (user, name))]
     pub fn manually_log_dynamic_config_exposure(
         &self,

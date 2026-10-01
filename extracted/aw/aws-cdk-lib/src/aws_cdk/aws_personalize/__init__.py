@@ -1360,6 +1360,353 @@ class CfnEventTrackerProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IFilterRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnFilter(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_personalize.CfnFilter",
+):
+    '''A recommendation filter that defines which items are included or excluded from recommendations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html
+    :cloudformationResource: AWS::Personalize::Filter
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_personalize as personalize
+        
+        cfn_filter = personalize.CfnFilter(self, "MyCfnFilter",
+            dataset_group_arn="datasetGroupArn",
+            filter_expression="filterExpression",
+            name="name",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        dataset_group_arn: builtins.str,
+        filter_expression: builtins.str,
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Personalize::Filter``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param dataset_group_arn: The ARN of the dataset group that the filter belongs to.
+        :param filter_expression: The filter expression that defines which items are included or excluded from recommendations.
+        :param name: The name of the filter.
+        :param tags: Tags to associate with the filter.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__193e3e19b67a73bdda66b396c8d2a792c73d7591aa1ece8eceb378e1d7e31e89)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFilterProps(
+            dataset_group_arn=dataset_group_arn,
+            filter_expression=filter_expression,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFilter")
+    @builtins.classmethod
+    def arn_for_filter(
+        cls,
+        resource: "_aws_personalize_95c6aa61.IFilterRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f234c3a09ccd9c082b5f0229183185d2517ce1660d0170228984a81aadb6a174)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFilter", [resource]))
+
+    @jsii.member(jsii_name="isCfnFilter")
+    @builtins.classmethod
+    def is_cfn_filter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFilter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__41f07015de2afd84fd8a0b8e10aa66b942c62efe7929ac5c0cdfb193bd49b0b9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFilter", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f439fdf84fd0a06b162ab0794cf76ab4439fedc02caa3107d5dd1aa223a822be)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2513ac3eb58fada5fa00cd3497f99a7da0e8c6137a14c3fd3cc21afefa717a9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The time at which the filter was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFilterArn")
+    def attr_filter_arn(self) -> builtins.str:
+        '''The ARN of the filter.
+
+        :cloudformationAttribute: FilterArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFilterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedDateTime")
+    def attr_last_updated_date_time(self) -> builtins.str:
+        '''The time at which the filter was last updated.
+
+        :cloudformationAttribute: LastUpdatedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the filter.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> "_aws_personalize_95c6aa61.FilterReference":
+        '''A reference to a Filter resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.FilterReference", jsii.get(self, "filterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupArn")
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the dataset group that the filter belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "datasetGroupArn"))
+
+    @dataset_group_arn.setter
+    def dataset_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b95fa03838c99ac3f2faddbb4ce94f64eebe33b3e71d69f085878859a7cb336)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datasetGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filterExpression")
+    def filter_expression(self) -> builtins.str:
+        '''The filter expression that defines which items are included or excluded from recommendations.'''
+        return typing.cast(builtins.str, jsii.get(self, "filterExpression"))
+
+    @filter_expression.setter
+    def filter_expression(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87a741b8946e742b566c8dd9f9e36d2c9171d7bfe4ad58ad99eedcc56f779ea4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filterExpression", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the filter.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cd741f5e6c08c86156b69d08b3ed1d5e7f4ccabb2b791f8c308c7e10945d984)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the filter.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b0159347f3b32b5e28b2f92351f370db5bc8519494269c7fc6108cf6ef3dc514)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "filter_expression": "filterExpression",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnFilterProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        filter_expression: builtins.str,
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFilter``.
+
+        :param dataset_group_arn: The ARN of the dataset group that the filter belongs to.
+        :param filter_expression: The filter expression that defines which items are included or excluded from recommendations.
+        :param name: The name of the filter.
+        :param tags: Tags to associate with the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_filter_props = personalize.CfnFilterProps(
+                dataset_group_arn="datasetGroupArn",
+                filter_expression="filterExpression",
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4dfdba28a3dbc499709b02971e1993f51aa4c69d88dda626d5e4ecdee69679bd)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument filter_expression", value=filter_expression, expected_type=type_hints["filter_expression"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "filter_expression": filter_expression,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The ARN of the dataset group that the filter belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html#cfn-personalize-filter-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter_expression(self) -> builtins.str:
+        '''The filter expression that defines which items are included or excluded from recommendations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html#cfn-personalize-filter-filterexpression
+        '''
+        result = self._values.get("filter_expression")
+        assert result is not None, "Required property 'filter_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html#cfn-personalize-filter-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-filter.html#cfn-personalize-filter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IMetricAttributionRef)
 class CfnMetricAttribution(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3663,6 +4010,8 @@ __all__ = [
     "CfnDatasetProps",
     "CfnEventTracker",
     "CfnEventTrackerProps",
+    "CfnFilter",
+    "CfnFilterProps",
     "CfnMetricAttribution",
     "CfnMetricAttributionProps",
     "CfnSchema",
@@ -3911,6 +4260,76 @@ def _typecheckingstub__257f8b5666005f54b1ce1e7ae37fbbfd6111890e6d7b8fc3975364d84
 def _typecheckingstub__20ba98637dd73dd72d9cdeb400ad3a1680ef1259b430ddaac64a8474e685034f(
     *,
     dataset_group_arn: builtins.str,
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__193e3e19b67a73bdda66b396c8d2a792c73d7591aa1ece8eceb378e1d7e31e89(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    dataset_group_arn: builtins.str,
+    filter_expression: builtins.str,
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f234c3a09ccd9c082b5f0229183185d2517ce1660d0170228984a81aadb6a174(
+    resource: _aws_personalize_95c6aa61.IFilterRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41f07015de2afd84fd8a0b8e10aa66b942c62efe7929ac5c0cdfb193bd49b0b9(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f439fdf84fd0a06b162ab0794cf76ab4439fedc02caa3107d5dd1aa223a822be(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2513ac3eb58fada5fa00cd3497f99a7da0e8c6137a14c3fd3cc21afefa717a9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b95fa03838c99ac3f2faddbb4ce94f64eebe33b3e71d69f085878859a7cb336(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87a741b8946e742b566c8dd9f9e36d2c9171d7bfe4ad58ad99eedcc56f779ea4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cd741f5e6c08c86156b69d08b3ed1d5e7f4ccabb2b791f8c308c7e10945d984(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0159347f3b32b5e28b2f92351f370db5bc8519494269c7fc6108cf6ef3dc514(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dfdba28a3dbc499709b02971e1993f51aa4c69d88dda626d5e4ecdee69679bd(
+    *,
+    dataset_group_arn: builtins.str,
+    filter_expression: builtins.str,
     name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

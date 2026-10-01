@@ -25,6 +25,7 @@ else:
 __all__ = (
     "DataTypeType",
     "DistanceMetricType",
+    "IndexModeType",
     "ListIndexesPaginatorName",
     "ListVectorBucketsPaginatorName",
     "ListVectorsPaginatorName",
@@ -39,6 +40,7 @@ __all__ = (
 
 DataTypeType = Literal["float32"]
 DistanceMetricType = Literal["cosine", "euclidean"]
+IndexModeType = Literal["CLASSIC", "ENHANCED"]
 ListIndexesPaginatorName = Literal["list_indexes"]
 ListVectorBucketsPaginatorName = Literal["list_vector_buckets"]
 ListVectorsPaginatorName = Literal["list_vectors"]

@@ -279,6 +279,8 @@ class NotesManager(NotesBase):
         self,
         user_id: str,
         label: str,
+        *,
+        organization_id: str,
         content: str,
         folder_name: str = "",
         tags: list[str] | None = None,
@@ -292,10 +294,22 @@ class NotesManager(NotesBase):
         ``user_id`` stamps the canonical owner column ``created_by``; the
         ``is_public`` affordance maps to ``published_to_web``, always written
         explicitly (never the table default).
+
+        ``organization_id`` is required — workbench.notes.organization_id is NOT
+        NULL and only a folder supplies one by trigger. The caller passes the
+        organization its request carries (``ToolContext.organization_id``); it is
+        never looked up or defaulted here.
         """
+        if not organization_id:
+            return {
+                "success": False,
+                "operation": "create_note",
+                "error": "organization_id is required to create a note; none was carried.",
+            }
         try:
             note = await self.create_notes(
                 created_by=user_id,
+                organization_id=organization_id,
                 label=label,
                 content=content,
                 folder_name=folder_name,

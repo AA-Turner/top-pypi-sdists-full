@@ -97,6 +97,7 @@ from types_aiobotocore_cloudsearchdomain.client import CloudSearchDomainClient
 from types_aiobotocore_cloudtrail.client import CloudTrailClient
 from types_aiobotocore_cloudtrail_data.client import CloudTrailDataServiceClient
 from types_aiobotocore_cloudwatch.client import CloudWatchClient
+from types_aiobotocore_cloudwatchomni.client import CloudWatchOmniClient
 from types_aiobotocore_codeartifact.client import CodeArtifactClient
 from types_aiobotocore_codebuild.client import CodeBuildClient
 from types_aiobotocore_codecatalyst.client import CodeCatalystClient
@@ -171,6 +172,7 @@ from types_aiobotocore_emr_containers.client import EMRContainersClient
 from types_aiobotocore_emr_serverless.client import EMRServerlessClient
 from types_aiobotocore_entityresolution.client import EntityResolutionClient
 from types_aiobotocore_es.client import ElasticsearchServiceClient
+from types_aiobotocore_eventbridgev2.client import EventBridgeV2Client
 from types_aiobotocore_events.client import EventBridgeClient
 from types_aiobotocore_evs.client import EVSClient
 from types_aiobotocore_finspace.client import FinspaceClient
@@ -199,6 +201,7 @@ from types_aiobotocore_guardduty.client import GuardDutyClient
 from types_aiobotocore_health.client import HealthClient
 from types_aiobotocore_healthlake.client import HealthLakeClient
 from types_aiobotocore_iam.client import IAMClient
+from types_aiobotocore_iam_toolbox.client import IAMToolboxPreviewClient
 from types_aiobotocore_identitystore.client import IdentityStoreClient
 from types_aiobotocore_imagebuilder.client import ImagebuilderClient
 from types_aiobotocore_importexport.client import ImportExportClient
@@ -299,6 +302,9 @@ from types_aiobotocore_neptune.client import NeptuneClient
 from types_aiobotocore_neptune_graph.client import NeptuneGraphClient
 from types_aiobotocore_neptunedata.client import NeptuneDataClient
 from types_aiobotocore_network_firewall.client import NetworkFirewallClient
+from types_aiobotocore_network_security_manager.client import (
+    NetworkSecurityManagerCustomerAPIClient,
+)
 from types_aiobotocore_networkflowmonitor.client import NetworkFlowMonitorClient
 from types_aiobotocore_networkmanager.client import NetworkManagerClient
 from types_aiobotocore_networkmonitor.client import CloudWatchNetworkMonitorClient
@@ -2012,6 +2018,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["cloudwatchomni"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[CloudWatchOmniClient]:
+        """
+        Create client for CloudWatchOmni service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["codeartifact"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -3418,6 +3443,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["eventbridgev2"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[EventBridgeV2Client]:
+        """
+        Create client for EventBridgeV2 service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["events"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -3945,6 +3989,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[IAMClient]:
         """
         Create client for IAM service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["iam-toolbox"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[IAMToolboxPreviewClient]:
+        """
+        Create client for IAMToolboxPreview service.
         """
 
     @overload  # type: ignore[override]
@@ -5731,6 +5794,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[NetworkFirewallClient]:
         """
         Create client for NetworkFirewall service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["network-security-manager"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[NetworkSecurityManagerCustomerAPIClient]:
+        """
+        Create client for NetworkSecurityManagerCustomerAPI service.
         """
 
     @overload  # type: ignore[override]

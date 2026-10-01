@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: notebooklm-mcp-cli
-Version: 0.13.0
+Version: 0.14.0
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/gemini-notebook-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/gemini-notebook-mcp-cli
@@ -17,8 +17,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.11
+Requires-Dist: cryptography>=42.0.0
 Requires-Dist: fastmcp<5.0,>=2.0.0
+Requires-Dist: filelock>=3.13.0
 Requires-Dist: httpx[socks]<1.0,>=0.27.0
+Requires-Dist: keyring>=24.0.0
 Requires-Dist: packaging<27,>=24
 Requires-Dist: platformdirs<5.0,>=4.0.0
 Requires-Dist: pydantic<3.0,>=2.0.0
@@ -42,6 +45,14 @@ Description-Content-Type: text/markdown
 [![License](https://img.shields.io/pypi/l/notebooklm-mcp-cli)](https://github.com/jacob-bd/gemini-notebook-mcp-cli/blob/main/LICENSE)
 
 **Programmatic access to Gemini Notebook** — via command-line interface (CLI) or Model Context Protocol (MCP) server.
+
+> 🔒 **New: Protected login storage (recommended)**
+> Your saved Google login can now be encrypted, with its key kept in your computer's keychain instead of a plain file. We highly recommend everyone switch on a personal computer:
+>
+>     nlm auth storage set protected
+>
+> Optional: nothing changes unless you turn it on. Servers, cron, Docker and SSH setups can keep the plain file.
+> [How it works](docs/AUTHENTICATION.md#protected-storage)
 
 > **Note:** Personal/consumer accounts are tested regularly. Gemini Notebook Enterprise support is experimental. The documented `notebook.cloud.google.com` host has been live-verified with a project-qualified `global` deployment; other Enterprise host variants may require additional validation.
 
@@ -154,6 +165,7 @@ Then use natural language: _"Create a notebook about quantum computing and gener
 | Install AI Skills                             | `nlm skill install/update`      | —                                    |
 | Diagnose issues                               | `nlm doctor`                    | —                                    |
 | Check remaining plan usage                    | `nlm usage [--profile <name>]`  | `usage_get`                          |
+| Manage login encryption (Protected mode)      | `nlm auth storage status/set`   | —                                    |
 
 📚 **More Documentation:**
 
@@ -170,6 +182,7 @@ This MCP and CLI use **internal APIs** that:
 
 - Are undocumented and may change without notice
 - Require cookie extraction from your browser (I have a tool for that!)
+- May not be aligned with Google's Terms of Service
 
 Use at your own risk for personal/experimental purposes.
 

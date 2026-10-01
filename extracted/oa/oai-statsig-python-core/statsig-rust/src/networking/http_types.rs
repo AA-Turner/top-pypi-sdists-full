@@ -127,6 +127,26 @@ pub enum HttpMethod {
 pub trait NetworkProvider: Sync + Send {
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response;
 
+    /// Prefers HTTP/2 while allowing the provider's existing HTTP/1 transport.
+    /// Fallback must preserve response limits and redirect policy, and must not replay a
+    /// potentially delivered request just because HTTP/2 failed.
+    #[doc(hidden)]
+    async fn send_http2_preferred(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        max_response_bytes: Option<u64>,
+        disable_redirects: bool,
+    ) -> ResponseLimitOutcome {
+        match (max_response_bytes, disable_redirects) {
+            (Some(limit), _) => self.send_with_response_limit(method, args, limit).await,
+            (None, true) => {
+                ResponseLimitOutcome::Response(self.send_without_redirects(method, args).await)
+            }
+            (None, false) => ResponseLimitOutcome::Response(self.send(method, args).await),
+        }
+    }
+
     /// Sends a request without following redirects. Providers that cannot enforce this
     /// must return an error without sending; delegating to `send` could leak credentials.
     async fn send_without_redirects(&self, _method: &HttpMethod, _args: &RequestArgs) -> Response {

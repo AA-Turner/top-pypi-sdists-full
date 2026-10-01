@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.discovery_denied_scope import DiscoveryDeniedScope
+from arthur_client.api_bindings.models.discovery_device_coverage import DiscoveryDeviceCoverage
 from arthur_client.api_bindings.models.discovery_run_status import DiscoveryRunStatus
 from typing import Optional, Set
 from typing_extensions import Self
@@ -31,16 +32,26 @@ class PutDiscoveryRunOutcome(BaseModel):
     Validate new submissions without applying write policy to history.
     """ # noqa: E501
     schema_version: Optional[StrictInt] = 1
-    status: Optional[DiscoveryRunStatus]
+    status: DiscoveryRunStatus
     started_at: datetime
     finished_at: datetime
-    records_published: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
-    batches_published: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
-    error_count: Optional[Annotated[int, Field(le=-9223372036854775616, strict=True, ge=0)]] = 0
+    records_published: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
+    batches_published: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
+    error_count: Optional[Annotated[int, Field(le=9007199254740991, strict=True, ge=0)]] = 0
     error_code: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="Defined safe error code, not raw exception text. See Discovery Run API documentation.")
     denied_scopes: Optional[Annotated[List[DiscoveryDeniedScope], Field(max_length=1000)]] = None
-    additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["schema_version", "status", "started_at", "finished_at", "records_published", "batches_published", "error_count", "error_code", "denied_scopes"]
+    device_coverage: Optional[DiscoveryDeviceCoverage] = Field(default=None, description="Set by sources that read managed devices (MDMs); null for query-language sources.")
+    __properties: ClassVar[List[str]] = ["schema_version", "status", "started_at", "finished_at", "records_published", "batches_published", "error_count", "error_code", "denied_scopes", "device_coverage"]
+
+    @field_validator('schema_version')
+    def schema_version_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set([1]):
+            raise ValueError("must be one of enum values (1)")
+        return value
 
     @field_validator('error_code')
     def error_code_validate_regular_expression(cls, value):
@@ -82,10 +93,8 @@ class PutDiscoveryRunOutcome(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
-        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
-            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -100,15 +109,13 @@ class PutDiscoveryRunOutcome(BaseModel):
                 if _item_denied_scopes:
                     _items.append(_item_denied_scopes.to_dict())
             _dict['denied_scopes'] = _items
-        # puts key-value pairs in additional_properties in the top level
-        if self.additional_properties is not None:
-            for _key, _value in self.additional_properties.items():
-                _dict[_key] = _value
-
-        # set to None if status (nullable) is None
+        # override the default output from pydantic by calling `to_dict()` of device_coverage
+        if self.device_coverage:
+            _dict['device_coverage'] = self.device_coverage.to_dict()
+        # set to None if error_code (nullable) is None
         # and model_fields_set contains the field
-        if self.status is None and "status" in self.model_fields_set:
-            _dict['status'] = None
+        if self.error_code is None and "error_code" in self.model_fields_set:
+            _dict['error_code'] = None
 
         return _dict
 
@@ -130,13 +137,9 @@ class PutDiscoveryRunOutcome(BaseModel):
             "batches_published": obj.get("batches_published") if obj.get("batches_published") is not None else 0,
             "error_count": obj.get("error_count") if obj.get("error_count") is not None else 0,
             "error_code": obj.get("error_code"),
-            "denied_scopes": [DiscoveryDeniedScope.from_dict(_item) for _item in obj["denied_scopes"]] if obj.get("denied_scopes") is not None else None
+            "denied_scopes": [DiscoveryDeniedScope.from_dict(_item) for _item in obj["denied_scopes"]] if obj.get("denied_scopes") is not None else None,
+            "device_coverage": DiscoveryDeviceCoverage.from_dict(obj["device_coverage"]) if obj.get("device_coverage") is not None else None
         })
-        # store additional fields in additional_properties
-        for _key in obj.keys():
-            if _key not in cls.__properties:
-                _obj.additional_properties[_key] = obj.get(_key)
-
         return _obj
 
 

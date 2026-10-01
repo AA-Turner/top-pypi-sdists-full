@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-lite
-Version: 3.9.1
-Summary: Lite type annotations for aiobotocore 3.9.1 generated with mypy-boto3-builder 8.12.0
+Version: 3.9.2
+Summary: Lite type annotations for aiobotocore 3.9.2 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -33,7 +33,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<3.10.0,>=3.9.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==3.9.1; extra == "aiobotocore"
+Requires-Dist: aiobotocore==3.9.2; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<3.10.0,>=3.9.0; extra == "all"
@@ -114,6 +114,7 @@ Requires-Dist: types-aiobotocore-cloudsearchdomain<3.10.0,>=3.9.0; extra == "all
 Requires-Dist: types-aiobotocore-cloudtrail<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-cloudtrail-data<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-cloudwatch<3.10.0,>=3.9.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudwatchomni<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-codeartifact<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-codebuild<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-codecatalyst<3.10.0,>=3.9.0; extra == "all"
@@ -188,6 +189,7 @@ Requires-Dist: types-aiobotocore-emr-containers<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-emr-serverless<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-entityresolution<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-es<3.10.0,>=3.9.0; extra == "all"
+Requires-Dist: types-aiobotocore-eventbridgev2<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-events<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-evs<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-finspace<3.10.0,>=3.9.0; extra == "all"
@@ -216,6 +218,7 @@ Requires-Dist: types-aiobotocore-guardduty<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-health<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-healthlake<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-iam<3.10.0,>=3.9.0; extra == "all"
+Requires-Dist: types-aiobotocore-iam-toolbox<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-identitystore<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-imagebuilder<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-importexport<3.10.0,>=3.9.0; extra == "all"
@@ -310,6 +313,7 @@ Requires-Dist: types-aiobotocore-neptune<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-neptune-graph<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-neptunedata<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-network-firewall<3.10.0,>=3.9.0; extra == "all"
+Requires-Dist: types-aiobotocore-network-security-manager<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-networkflowmonitor<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-networkmanager<3.10.0,>=3.9.0; extra == "all"
 Requires-Dist: types-aiobotocore-networkmonitor<3.10.0,>=3.9.0; extra == "all"
@@ -630,6 +634,8 @@ Provides-Extra: cloudtrail-data
 Requires-Dist: types-aiobotocore-cloudtrail-data<3.10.0,>=3.9.0; extra == "cloudtrail-data"
 Provides-Extra: cloudwatch
 Requires-Dist: types-aiobotocore-cloudwatch<3.10.0,>=3.9.0; extra == "cloudwatch"
+Provides-Extra: cloudwatchomni
+Requires-Dist: types-aiobotocore-cloudwatchomni<3.10.0,>=3.9.0; extra == "cloudwatchomni"
 Provides-Extra: codeartifact
 Requires-Dist: types-aiobotocore-codeartifact<3.10.0,>=3.9.0; extra == "codeartifact"
 Provides-Extra: codebuild
@@ -778,6 +784,8 @@ Provides-Extra: entityresolution
 Requires-Dist: types-aiobotocore-entityresolution<3.10.0,>=3.9.0; extra == "entityresolution"
 Provides-Extra: es
 Requires-Dist: types-aiobotocore-es<3.10.0,>=3.9.0; extra == "es"
+Provides-Extra: eventbridgev2
+Requires-Dist: types-aiobotocore-eventbridgev2<3.10.0,>=3.9.0; extra == "eventbridgev2"
 Provides-Extra: events
 Requires-Dist: types-aiobotocore-events<3.10.0,>=3.9.0; extra == "events"
 Provides-Extra: evs
@@ -834,6 +842,8 @@ Provides-Extra: healthlake
 Requires-Dist: types-aiobotocore-healthlake<3.10.0,>=3.9.0; extra == "healthlake"
 Provides-Extra: iam
 Requires-Dist: types-aiobotocore-iam<3.10.0,>=3.9.0; extra == "iam"
+Provides-Extra: iam-toolbox
+Requires-Dist: types-aiobotocore-iam-toolbox<3.10.0,>=3.9.0; extra == "iam-toolbox"
 Provides-Extra: identitystore
 Requires-Dist: types-aiobotocore-identitystore<3.10.0,>=3.9.0; extra == "identitystore"
 Provides-Extra: imagebuilder
@@ -1022,6 +1032,8 @@ Provides-Extra: neptunedata
 Requires-Dist: types-aiobotocore-neptunedata<3.10.0,>=3.9.0; extra == "neptunedata"
 Provides-Extra: network-firewall
 Requires-Dist: types-aiobotocore-network-firewall<3.10.0,>=3.9.0; extra == "network-firewall"
+Provides-Extra: network-security-manager
+Requires-Dist: types-aiobotocore-network-security-manager<3.10.0,>=3.9.0; extra == "network-security-manager"
 Provides-Extra: networkflowmonitor
 Requires-Dist: types-aiobotocore-networkflowmonitor<3.10.0,>=3.9.0; extra == "networkflowmonitor"
 Provides-Extra: networkmanager
@@ -1343,7 +1355,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [aiobotocore 3.9.1](https://pypi.org/project/aiobotocore/)
+Type annotations for [aiobotocore 3.9.2](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1400,7 +1412,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.9.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.9.2' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1673,9 +1685,9 @@ repository.
 
 ## Submodules
 
-- `types-aiobotocore-lite[full]` - Type annotations for all 429 services in one
+- `types-aiobotocore-lite[full]` - Type annotations for all 433 services in one
   package (recommended).
-- `types-aiobotocore-lite[all]` - Type annotations for all 429 services in
+- `types-aiobotocore-lite[all]` - Type annotations for all 433 services in
   separate packages.
 - `types-aiobotocore-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/),
@@ -1927,6 +1939,9 @@ repository.
 - `types-aiobotocore-lite[cloudwatch]` - Type annotations for
   [CloudWatch](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/)
   service.
+- `types-aiobotocore-lite[cloudwatchomni]` - Type annotations for
+  [CloudWatchOmni](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatchomni/)
+  service.
 - `types-aiobotocore-lite[codeartifact]` - Type annotations for
   [CodeArtifact](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codeartifact/)
   service.
@@ -2149,6 +2164,9 @@ repository.
 - `types-aiobotocore-lite[es]` - Type annotations for
   [ElasticsearchService](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_es/)
   service.
+- `types-aiobotocore-lite[eventbridgev2]` - Type annotations for
+  [EventBridgeV2](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eventbridgev2/)
+  service.
 - `types-aiobotocore-lite[events]` - Type annotations for
   [EventBridge](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_events/)
   service.
@@ -2232,6 +2250,9 @@ repository.
   service.
 - `types-aiobotocore-lite[iam]` - Type annotations for
   [IAM](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/)
+  service.
+- `types-aiobotocore-lite[iam-toolbox]` - Type annotations for
+  [IAMToolboxPreview](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam_toolbox/)
   service.
 - `types-aiobotocore-lite[identitystore]` - Type annotations for
   [IdentityStore](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_identitystore/)
@@ -2517,6 +2538,9 @@ repository.
   service.
 - `types-aiobotocore-lite[network-firewall]` - Type annotations for
   [NetworkFirewall](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/)
+  service.
+- `types-aiobotocore-lite[network-security-manager]` - Type annotations for
+  [NetworkSecurityManagerCustomerAPI](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_security_manager/)
   service.
 - `types-aiobotocore-lite[networkflowmonitor]` - Type annotations for
   [NetworkFlowMonitor](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/)

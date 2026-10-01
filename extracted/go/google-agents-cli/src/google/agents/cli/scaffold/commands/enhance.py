@@ -210,24 +210,17 @@ def _should_use_different_version(
 
 
 def _ensure_uvx_available(project_version: str) -> None:
-    """Ensure uvx is installed, exit with instructions if not."""
+    """Ensure uvx is installed, raise with install instructions if not."""
     try:
         require_tool("uvx")
-    except ToolNotFoundError:
-        console.print(
-            f"❌ Project requires agents-cli version {project_version}, "
-            "but 'uvx' is not installed",
-            style="bold red",
-        )
-        console.print(
-            "💡 Install uv to use version-locked projects:",
-            style="bold blue",
-        )
-        console.print("   curl -LsSf https://astral.sh/uv/install.sh | sh")
-        console.print(
+    except ToolNotFoundError as e:
+        raise click.ClickException(
+            f"Project requires agents-cli version {project_version}, "
+            "but 'uvx' is not installed.\n"
+            "Install uv to use version-locked projects:\n"
+            "   curl -LsSf https://astral.sh/uv/install.sh | sh\n"
             "   OR visit: https://docs.astral.sh/uv/getting-started/installation/"
-        )
-        sys.exit(1)
+        ) from e
 
 
 def _execute_with_saved_config(

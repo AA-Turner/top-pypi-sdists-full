@@ -69,6 +69,7 @@ __all__ = (
     "BatchStateType",
     "BgpStatusType",
     "BlockPublicAccessModeType",
+    "BootModeOverrideValuesType",
     "BootModeTypeType",
     "BootModeValuesType",
     "BundleTaskCompleteWaiterName",
@@ -84,11 +85,14 @@ __all__ = (
     "CapacityManagerDataExportStatusType",
     "CapacityManagerMonitoredTagKeyStatusType",
     "CapacityManagerStatusType",
+    "CapacityReservationAdjustmentStatusType",
     "CapacityReservationBillingRequestStatusType",
     "CapacityReservationCancellationQuoteStateType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
     "CapacityReservationInstancePlatformType",
+    "CapacityReservationLaunchStatusType",
+    "CapacityReservationModificationQuoteStateType",
     "CapacityReservationPreferenceType",
     "CapacityReservationStateType",
     "CapacityReservationTenancyType",
@@ -98,8 +102,11 @@ __all__ = (
     "ChronologicalOrderType",
     "ClientCertificateRevocationListStatusCodeType",
     "ClientVpnAuthenticationTypeType",
+    "ClientVpnAuthorizationPolicyShadowModeType",
+    "ClientVpnAuthorizationPolicyStatusType",
     "ClientVpnAuthorizationRuleStatusCodeType",
     "ClientVpnConnectionStatusCodeType",
+    "ClientVpnDeviceTrustProviderTypeType",
     "ClientVpnEndpointAttributeStatusCodeType",
     "ClientVpnEndpointStatusCodeType",
     "ClientVpnRouteStatusCodeType",
@@ -136,6 +143,7 @@ __all__ = (
     "DescribeCapacityBlocksPaginatorName",
     "DescribeCapacityManagerDataExportsPaginatorName",
     "DescribeCapacityReservationBillingRequestsPaginatorName",
+    "DescribeCapacityReservationDateChangeQuotesPaginatorName",
     "DescribeCapacityReservationFleetsPaginatorName",
     "DescribeCapacityReservationsPaginatorName",
     "DescribeCarrierGatewaysPaginatorName",
@@ -500,6 +508,7 @@ __all__ = (
     "NatGatewayDeletedWaiterName",
     "NatGatewayStateType",
     "NestedVirtualizationSpecificationType",
+    "NetworkCardInterfaceTypeType",
     "NetworkInterfaceAttributeType",
     "NetworkInterfaceAvailableWaiterName",
     "NetworkInterfaceCreationTypeType",
@@ -546,6 +555,8 @@ __all__ = (
     "ReservationEndDateTypeType",
     "ReservationStateType",
     "ReservationTypeType",
+    "ReservedCapacityAllocationStrategyType",
+    "ReservedCapacityFallbackMarketTypeType",
     "ReservedInstanceStateType",
     "ResetFpgaImageAttributeNameType",
     "ResetImageAttributeNameType",
@@ -717,6 +728,7 @@ __all__ = (
     "VpnTunnelProvisioningStatusType",
     "WaiterName",
     "WeekDayType",
+    "ZeroSizePreferenceType",
 )
 
 AcceleratorManufacturerType = Literal["amazon-web-services", "amd", "habana", "nvidia", "xilinx"]
@@ -836,6 +848,7 @@ BatchStateType = Literal[
 ]
 BgpStatusType = Literal["down", "up"]
 BlockPublicAccessModeType = Literal["block-bidirectional", "block-ingress", "off"]
+BootModeOverrideValuesType = Literal["uefi"]
 BootModeTypeType = Literal["legacy-bios", "uefi"]
 BootModeValuesType = Literal["legacy-bios", "uefi", "uefi-preferred"]
 BundleTaskCompleteWaiterName = Literal["bundle_task_complete"]
@@ -880,6 +893,7 @@ CapacityManagerMonitoredTagKeyStatusType = Literal[
     "activated", "activating", "deactivating", "suspended"
 ]
 CapacityManagerStatusType = Literal["disabled", "enabled"]
+CapacityReservationAdjustmentStatusType = Literal["applied", "rejected", "requested"]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
@@ -916,6 +930,8 @@ CapacityReservationInstancePlatformType = Literal[
     "Windows with SQL Server Standard",
     "Windows with SQL Server Web",
 ]
+CapacityReservationLaunchStatusType = Literal["launchable", "unlaunchable"]
+CapacityReservationModificationQuoteStateType = Literal["active", "expired"]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only", "none", "open"]
 CapacityReservationStateType = Literal[
     "active",
@@ -941,10 +957,15 @@ ClientCertificateRevocationListStatusCodeType = Literal["active", "pending"]
 ClientVpnAuthenticationTypeType = Literal[
     "certificate-authentication", "directory-service-authentication", "federated-authentication"
 ]
+ClientVpnAuthorizationPolicyShadowModeType = Literal["disabled", "enabled"]
+ClientVpnAuthorizationPolicyStatusType = Literal[
+    "active", "creating", "deleting", "failed", "updating"
+]
 ClientVpnAuthorizationRuleStatusCodeType = Literal["active", "authorizing", "failed", "revoking"]
 ClientVpnConnectionStatusCodeType = Literal[
     "active", "failed-to-terminate", "terminated", "terminating"
 ]
+ClientVpnDeviceTrustProviderTypeType = Literal["crowdstrike", "jamf", "jumpcloud"]
 ClientVpnEndpointAttributeStatusCodeType = Literal["applied", "applying"]
 ClientVpnEndpointStatusCodeType = Literal[
     "available", "deleted", "deleting", "pending", "pending-associate"
@@ -994,6 +1015,9 @@ DescribeCapacityBlocksPaginatorName = Literal["describe_capacity_blocks"]
 DescribeCapacityManagerDataExportsPaginatorName = Literal["describe_capacity_manager_data_exports"]
 DescribeCapacityReservationBillingRequestsPaginatorName = Literal[
     "describe_capacity_reservation_billing_requests"
+]
+DescribeCapacityReservationDateChangeQuotesPaginatorName = Literal[
+    "describe_capacity_reservation_date_change_quotes"
 ]
 DescribeCapacityReservationFleetsPaginatorName = Literal["describe_capacity_reservation_fleets"]
 DescribeCapacityReservationsPaginatorName = Literal["describe_capacity_reservations"]
@@ -1251,7 +1275,9 @@ FleetInstanceMatchCriteriaType = Literal["open"]
 FleetInstanceMetadataEndpointStateType = Literal["disabled", "enabled"]
 FleetOnDemandAllocationStrategyType = Literal["lowest-price", "prioritized"]
 FleetReplacementStrategyType = Literal["launch", "launch-before-terminate"]
-FleetReservationTypeType = Literal["interruptible-capacity-reservation"]
+FleetReservationTypeType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand-capacity-reservation"
+]
 FleetStateCodeType = Literal[
     "active",
     "deleted",
@@ -1421,7 +1447,9 @@ InstanceExistsWaiterName = Literal["instance_exists"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthStatusType = Literal["healthy", "unhealthy"]
 InstanceInterruptionBehaviorType = Literal["hibernate", "stop", "terminate"]
-InstanceLifecycleType = Literal["interruptible-capacity-reservation", "on-demand", "spot"]
+InstanceLifecycleType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand", "spot"
+]
 InstanceLifecycleTypeType = Literal[
     "capacity-block", "interruptible-capacity-reservation", "scheduled", "spot"
 ]
@@ -2339,6 +2367,7 @@ InstanceTypeType = Literal[
     "m9g.4xlarge",
     "m9g.8xlarge",
     "m9g.large",
+    "m9g.medium",
     "m9g.metal-24xl",
     "m9g.metal-48xl",
     "m9g.xlarge",
@@ -2713,6 +2742,28 @@ InstanceTypeType = Literal[
     "r8in.metal-48xl",
     "r8in.metal-96xl",
     "r8in.xlarge",
+    "r9g.12xlarge",
+    "r9g.16xlarge",
+    "r9g.24xlarge",
+    "r9g.2xlarge",
+    "r9g.48xlarge",
+    "r9g.4xlarge",
+    "r9g.8xlarge",
+    "r9g.large",
+    "r9g.medium",
+    "r9g.metal-48xl",
+    "r9g.xlarge",
+    "r9gd.12xlarge",
+    "r9gd.16xlarge",
+    "r9gd.24xlarge",
+    "r9gd.2xlarge",
+    "r9gd.48xlarge",
+    "r9gd.4xlarge",
+    "r9gd.8xlarge",
+    "r9gd.large",
+    "r9gd.medium",
+    "r9gd.metal-48xl",
+    "r9gd.xlarge",
     "t1.micro",
     "t2.2xlarge",
     "t2.large",
@@ -2895,6 +2946,9 @@ IpamInternetRegistryAssociationStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+    "disable-complete",
+    "disable-failed",
+    "disable-in-progress",
     "enable-complete",
     "enable-failed",
     "enable-in-progress",
@@ -3123,7 +3177,9 @@ MacModificationTaskTypeType = Literal["sip-modification", "volume-ownership-dele
 MacSystemIntegrityProtectionSettingStatusType = Literal["disabled", "enabled"]
 ManagedByType = Literal["account", "declarative-policy"]
 ManagedResourceDefaultVisibilityType = Literal["hidden", "visible"]
-MarketTypeType = Literal["capacity-block", "interruptible-capacity-reservation", "spot"]
+MarketTypeType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand", "spot"
+]
 MembershipTypeType = Literal["igmp", "static"]
 MetadataDefaultHttpTokensStateType = Literal["no-preference", "optional", "required"]
 MetricType = Literal[
@@ -3194,6 +3250,7 @@ NatGatewayAvailableWaiterName = Literal["nat_gateway_available"]
 NatGatewayDeletedWaiterName = Literal["nat_gateway_deleted"]
 NatGatewayStateType = Literal["available", "deleted", "deleting", "failed", "pending"]
 NestedVirtualizationSpecificationType = Literal["disabled", "enabled"]
+NetworkCardInterfaceTypeType = Literal["efa", "efa-only", "interface", "secondary"]
 NetworkInterfaceAttributeType = Literal[
     "associatePublicIpAddress", "attachment", "description", "groupSet", "sourceDestCheck"
 ]
@@ -3238,9 +3295,11 @@ OperationTypeType = Literal["add", "remove"]
 OutputFormatType = Literal["csv", "parquet"]
 PartitionLoadFrequencyType = Literal["daily", "monthly", "none", "weekly"]
 PasswordDataAvailableWaiterName = Literal["password_data_available"]
-PayerResponsibilityScopeType = Literal["vpc-endpoint-charges"]
+PayerResponsibilityScopeType = Literal["resource-gateway-charges", "vpc-endpoint-charges"]
 PayerResponsibilityType = Literal["ServiceOwner"]
-PayerResponsibilityTypeType = Literal["vpc-endpoint-account", "vpc-endpoint-service-account"]
+PayerResponsibilityTypeType = Literal[
+    "resource-gateway-account", "vpc-endpoint-account", "vpc-endpoint-service-account"
+]
 PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 PeriodTypeType = Literal[
     "fifteen-minutes", "five-minutes", "one-day", "one-hour", "one-week", "three-hours"
@@ -3309,6 +3368,8 @@ ReservationStateType = Literal[
     "unsupported",
 ]
 ReservationTypeType = Literal["capacity-block", "odcr"]
+ReservedCapacityAllocationStrategyType = Literal["prioritized"]
+ReservedCapacityFallbackMarketTypeType = Literal["on-demand"]
 ReservedInstanceStateType = Literal[
     "active", "payment-failed", "payment-pending", "queued", "queued-deleted", "retired"
 ]
@@ -3321,6 +3382,7 @@ ResourceTypeType = Literal[
     "capacity-reservation",
     "capacity-reservation-cancellation-quote",
     "capacity-reservation-fleet",
+    "capacity-reservation-modification-quote",
     "carrier-gateway",
     "client-vpn-endpoint",
     "coip-pool",
@@ -3427,7 +3489,7 @@ ResourceTypeType = Literal[
     "vpn-connection-device-type",
     "vpn-gateway",
 ]
-RirType = Literal["apnic", "arin", "lacnic", "ripe"]
+RirType = Literal["apnic", "arin", "lacnic", "nicbr", "ripe"]
 RootDeviceTypeType = Literal["ebs", "instance-store"]
 RouteOriginType = Literal[
     "Advertisement", "CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"
@@ -3676,7 +3738,7 @@ TransitGatewayStateType = Literal["available", "deleted", "deleting", "modifying
 TransportProtocolType = Literal["tcp", "udp"]
 TrustProviderTypeType = Literal["device", "user"]
 TunnelInsideIpVersionType = Literal["ipv4", "ipv6"]
-UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g"]
+UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g", "t8i"]
 UnsuccessfulInstanceCreditSpecificationErrorCodeType = Literal[
     "IncorrectInstanceState",
     "InstanceCreditSpecification.NotSupported",
@@ -3740,7 +3802,7 @@ VpcEncryptionControlStateType = Literal[
     "monitor-in-progress",
 ]
 VpcEndpointTypeType = Literal[
-    "Gateway", "GatewayLoadBalancer", "Interface", "Resource", "ServiceNetwork"
+    "Gateway", "GatewayLoadBalancer", "Interface", "Resource", "ServiceNetwork", "Tunnel"
 ]
 VpcExistsWaiterName = Literal["vpc_exists"]
 VpcPeeringConnectionDeletedWaiterName = Literal["vpc_peering_connection_deleted"]
@@ -3756,7 +3818,7 @@ VpcPeeringConnectionStateReasonCodeType = Literal[
     "provisioning",
     "rejected",
 ]
-VpcStateType = Literal["available", "pending"]
+VpcStateType = Literal["available", "deleting", "pending"]
 VpcTenancyType = Literal["default"]
 VpnConcentratorTypeType = Literal["ipsec.1"]
 VpnConnectionAvailableWaiterName = Literal["vpn_connection_available"]
@@ -3768,6 +3830,7 @@ VpnStaticRouteSourceType = Literal["Static"]
 VpnTunnelBandwidthType = Literal["large", "standard"]
 VpnTunnelProvisioningStatusType = Literal["available", "failed", "pending"]
 WeekDayType = Literal["friday", "monday", "saturday", "sunday", "thursday", "tuesday", "wednesday"]
+ZeroSizePreferenceType = Literal["default", "retain"]
 EC2ServiceName = Literal["ec2"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -3849,6 +3912,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -3923,6 +3987,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -3951,6 +4016,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -4045,6 +4111,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -4215,6 +4282,7 @@ PaginatorName = Literal[
     "describe_capacity_blocks",
     "describe_capacity_manager_data_exports",
     "describe_capacity_reservation_billing_requests",
+    "describe_capacity_reservation_date_change_quotes",
     "describe_capacity_reservation_fleets",
     "describe_capacity_reservations",
     "describe_carrier_gateways",

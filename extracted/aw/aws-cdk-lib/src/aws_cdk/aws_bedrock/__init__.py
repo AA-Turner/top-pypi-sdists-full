@@ -10602,6 +10602,8 @@ class CfnDataSource(
         from aws_cdk import aws_bedrock as bedrock
         
         # connector_parameters: Any
+        # daily: Any
+        # last_day_of_month: Any
         
         cfn_data_source = bedrock.CfnDataSource(self, "MyCfnDataSource",
             data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
@@ -10651,6 +10653,18 @@ class CfnDataSource(
                         ),
                         video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
                             video_extraction_status="videoExtractionStatus"
+                        )
+                    ),
+                    sync_schedule=bedrock.CfnDataSource.SyncScheduleProperty(
+                        daily=daily,
+                        monthly=bedrock.CfnDataSource.MonthlyScheduleProperty(
+                            day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                                day_number=123,
+                                last_day_of_month=last_day_of_month
+                            )
+                        ),
+                        weekly=bedrock.CfnDataSource.WeeklyScheduleProperty(
+                            day_of_week="dayOfWeek"
                         )
                     )
                 ),
@@ -12100,6 +12114,8 @@ class CfnDataSource(
                 from aws_cdk import aws_bedrock as bedrock
                 
                 # connector_parameters: Any
+                # daily: Any
+                # last_day_of_month: Any
                 
                 data_source_configuration_property = bedrock.CfnDataSource.DataSourceConfigurationProperty(
                     type="type",
@@ -12148,6 +12164,18 @@ class CfnDataSource(
                             ),
                             video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
                                 video_extraction_status="videoExtractionStatus"
+                            )
+                        ),
+                        sync_schedule=bedrock.CfnDataSource.SyncScheduleProperty(
+                            daily=daily,
+                            monthly=bedrock.CfnDataSource.MonthlyScheduleProperty(
+                                day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                                    day_number=123,
+                                    last_day_of_month=last_day_of_month
+                                )
+                            ),
+                            weekly=bedrock.CfnDataSource.WeeklyScheduleProperty(
+                                day_of_week="dayOfWeek"
                             )
                         )
                     ),
@@ -12362,6 +12390,83 @@ class CfnDataSource(
 
         def __repr__(self) -> str:
             return "DataSourceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.DayOfMonthProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "day_number": "dayNumber",
+            "last_day_of_month": "lastDayOfMonth",
+        },
+    )
+    class DayOfMonthProperty:
+        def __init__(
+            self,
+            *,
+            day_number: typing.Optional[jsii.Number] = None,
+            last_day_of_month: typing.Any = None,
+        ) -> None:
+            '''Day of the month on which a monthly refresh runs.
+
+            Exactly one variant is set: an explicit day number, or the last calendar day of the month.
+
+            :param day_number: Specific day of the month, 1 through 28 (capped at 28 to avoid month-length ambiguity).
+            :param last_day_of_month: Run on the last calendar day of each month.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-dayofmonth.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # last_day_of_month: Any
+                
+                day_of_month_property = bedrock.CfnDataSource.DayOfMonthProperty(
+                    day_number=123,
+                    last_day_of_month=last_day_of_month
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__301ad8d5d4c7f2df1b13a0843473e2924b8097e9e2d8aeeafe2b172e43987300)
+                check_type(argname="argument day_number", value=day_number, expected_type=type_hints["day_number"])
+                check_type(argname="argument last_day_of_month", value=last_day_of_month, expected_type=type_hints["last_day_of_month"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if day_number is not None:
+                self._values["day_number"] = day_number
+            if last_day_of_month is not None:
+                self._values["last_day_of_month"] = last_day_of_month
+
+        @builtins.property
+        def day_number(self) -> typing.Optional[jsii.Number]:
+            '''Specific day of the month, 1 through 28 (capped at 28 to avoid month-length ambiguity).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-dayofmonth.html#cfn-bedrock-datasource-dayofmonth-daynumber
+            '''
+            result = self._values.get("day_number")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def last_day_of_month(self) -> typing.Any:
+            '''Run on the last calendar day of each month.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-dayofmonth.html#cfn-bedrock-datasource-dayofmonth-lastdayofmonth
+            '''
+            result = self._values.get("last_day_of_month")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DayOfMonthProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12824,6 +12929,7 @@ class CfnDataSource(
             "connector_parameters": "connectorParameters",
             "deletion_protection_configuration": "deletionProtectionConfiguration",
             "media_extraction_configuration": "mediaExtractionConfiguration",
+            "sync_schedule": "syncSchedule",
         },
     )
     class ManagedKnowledgeBaseConnectorConfigurationProperty:
@@ -12833,12 +12939,14 @@ class CfnDataSource(
             connector_parameters: typing.Any = None,
             deletion_protection_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.DeletionProtectionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_extraction_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.MediaExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sync_schedule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.SyncScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for managed knowledge base connector data sources.
 
             :param connector_parameters: Connector-specific parameters.
             :param deletion_protection_configuration: Configuration for deletion protection.
             :param media_extraction_configuration: Configuration for media extraction settings.
+            :param sync_schedule: Recurring schedule on which the connector automatically refreshes ingested content. Exactly one frequency variant is set.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -12850,6 +12958,8 @@ class CfnDataSource(
                 from aws_cdk import aws_bedrock as bedrock
                 
                 # connector_parameters: Any
+                # daily: Any
+                # last_day_of_month: Any
                 
                 managed_knowledge_base_connector_configuration_property = bedrock.CfnDataSource.ManagedKnowledgeBaseConnectorConfigurationProperty(
                     connector_parameters=connector_parameters,
@@ -12869,6 +12979,18 @@ class CfnDataSource(
                         video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
                             video_extraction_status="videoExtractionStatus"
                         )
+                    ),
+                    sync_schedule=bedrock.CfnDataSource.SyncScheduleProperty(
+                        daily=daily,
+                        monthly=bedrock.CfnDataSource.MonthlyScheduleProperty(
+                            day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                                day_number=123,
+                                last_day_of_month=last_day_of_month
+                            )
+                        ),
+                        weekly=bedrock.CfnDataSource.WeeklyScheduleProperty(
+                            day_of_week="dayOfWeek"
+                        )
                     )
                 )
             '''
@@ -12877,6 +12999,7 @@ class CfnDataSource(
                 check_type(argname="argument connector_parameters", value=connector_parameters, expected_type=type_hints["connector_parameters"])
                 check_type(argname="argument deletion_protection_configuration", value=deletion_protection_configuration, expected_type=type_hints["deletion_protection_configuration"])
                 check_type(argname="argument media_extraction_configuration", value=media_extraction_configuration, expected_type=type_hints["media_extraction_configuration"])
+                check_type(argname="argument sync_schedule", value=sync_schedule, expected_type=type_hints["sync_schedule"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if connector_parameters is not None:
                 self._values["connector_parameters"] = connector_parameters
@@ -12884,6 +13007,8 @@ class CfnDataSource(
                 self._values["deletion_protection_configuration"] = deletion_protection_configuration
             if media_extraction_configuration is not None:
                 self._values["media_extraction_configuration"] = media_extraction_configuration
+            if sync_schedule is not None:
+                self._values["sync_schedule"] = sync_schedule
 
         @builtins.property
         def connector_parameters(self) -> typing.Any:
@@ -12915,6 +13040,19 @@ class CfnDataSource(
             '''
             result = self._values.get("media_extraction_configuration")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.MediaExtractionConfigurationProperty"]], result)
+
+        @builtins.property
+        def sync_schedule(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.SyncScheduleProperty"]]:
+            '''Recurring schedule on which the connector automatically refreshes ingested content.
+
+            Exactly one frequency variant is set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html#cfn-bedrock-datasource-managedknowledgebaseconnectorconfiguration-syncschedule
+            '''
+            result = self._values.get("sync_schedule")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.SyncScheduleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13025,6 +13163,71 @@ class CfnDataSource(
 
         def __repr__(self) -> str:
             return "MediaExtractionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.MonthlyScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"day_of_month": "dayOfMonth"},
+    )
+    class MonthlyScheduleProperty:
+        def __init__(
+            self,
+            *,
+            day_of_month: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.DayOfMonthProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''A monthly refresh on a specified day of the month.
+
+            :param day_of_month: Day of the month on which a monthly refresh runs. Exactly one variant is set: an explicit day number, or the last calendar day of the month.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-monthlyschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # last_day_of_month: Any
+                
+                monthly_schedule_property = bedrock.CfnDataSource.MonthlyScheduleProperty(
+                    day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                        day_number=123,
+                        last_day_of_month=last_day_of_month
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6d72eca02e26bede7bc9429377c7b562157a24519a6e90d8e9895fba5c905b71)
+                check_type(argname="argument day_of_month", value=day_of_month, expected_type=type_hints["day_of_month"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "day_of_month": day_of_month,
+            }
+
+        @builtins.property
+        def day_of_month(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.DayOfMonthProperty"]:
+            '''Day of the month on which a monthly refresh runs.
+
+            Exactly one variant is set: an explicit day number, or the last calendar day of the month.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-monthlyschedule.html#cfn-bedrock-datasource-monthlyschedule-dayofmonth
+            '''
+            result = self._values.get("day_of_month")
+            assert result is not None, "Required property 'day_of_month' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.DayOfMonthProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonthlyScheduleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14296,6 +14499,109 @@ class CfnDataSource(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.SyncScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"daily": "daily", "monthly": "monthly", "weekly": "weekly"},
+    )
+    class SyncScheduleProperty:
+        def __init__(
+            self,
+            *,
+            daily: typing.Any = None,
+            monthly: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.MonthlyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            weekly: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataSource.WeeklyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Recurring schedule on which the connector automatically refreshes ingested content.
+
+            Exactly one frequency variant is set.
+
+            :param daily: A daily refresh. The run time is system-chosen (off-peak) and not customer-configurable.
+            :param monthly: A monthly refresh on a specified day of the month.
+            :param weekly: A weekly refresh on a specified day of the week.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-syncschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # daily: Any
+                # last_day_of_month: Any
+                
+                sync_schedule_property = bedrock.CfnDataSource.SyncScheduleProperty(
+                    daily=daily,
+                    monthly=bedrock.CfnDataSource.MonthlyScheduleProperty(
+                        day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                            day_number=123,
+                            last_day_of_month=last_day_of_month
+                        )
+                    ),
+                    weekly=bedrock.CfnDataSource.WeeklyScheduleProperty(
+                        day_of_week="dayOfWeek"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__343bdc08b1824f70a9201ffd0a134d01c12c5f091cd31f5426ab5db5ed1f0575)
+                check_type(argname="argument daily", value=daily, expected_type=type_hints["daily"])
+                check_type(argname="argument monthly", value=monthly, expected_type=type_hints["monthly"])
+                check_type(argname="argument weekly", value=weekly, expected_type=type_hints["weekly"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if daily is not None:
+                self._values["daily"] = daily
+            if monthly is not None:
+                self._values["monthly"] = monthly
+            if weekly is not None:
+                self._values["weekly"] = weekly
+
+        @builtins.property
+        def daily(self) -> typing.Any:
+            '''A daily refresh.
+
+            The run time is system-chosen (off-peak) and not customer-configurable.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-syncschedule.html#cfn-bedrock-datasource-syncschedule-daily
+            '''
+            result = self._values.get("daily")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def monthly(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.MonthlyScheduleProperty"]]:
+            '''A monthly refresh on a specified day of the month.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-syncschedule.html#cfn-bedrock-datasource-syncschedule-monthly
+            '''
+            result = self._values.get("monthly")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.MonthlyScheduleProperty"]], result)
+
+        @builtins.property
+        def weekly(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.WeeklyScheduleProperty"]]:
+            '''A weekly refresh on a specified day of the week.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-syncschedule.html#cfn-bedrock-datasource-syncschedule-weekly
+            '''
+            result = self._values.get("weekly")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataSource.WeeklyScheduleProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SyncScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.TransformationFunctionProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15167,6 +15473,58 @@ class CfnDataSource(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.WeeklyScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"day_of_week": "dayOfWeek"},
+    )
+    class WeeklyScheduleProperty:
+        def __init__(self, *, day_of_week: builtins.str) -> None:
+            '''A weekly refresh on a specified day of the week.
+
+            :param day_of_week: Day of the week.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-weeklyschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                weekly_schedule_property = bedrock.CfnDataSource.WeeklyScheduleProperty(
+                    day_of_week="dayOfWeek"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1a969e61153d18ef09e09a90e33d899adb88fc6d4cd992cecb26aeb973865469)
+                check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "day_of_week": day_of_week,
+            }
+
+        @builtins.property
+        def day_of_week(self) -> builtins.str:
+            '''Day of the week.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-weeklyschedule.html#cfn-bedrock-datasource-weeklyschedule-dayofweek
+            '''
+            result = self._values.get("day_of_week")
+            assert result is not None, "Required property 'day_of_week' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WeeklyScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSourceProps",
@@ -15213,6 +15571,8 @@ class CfnDataSourceProps:
             from aws_cdk import aws_bedrock as bedrock
             
             # connector_parameters: Any
+            # daily: Any
+            # last_day_of_month: Any
             
             cfn_data_source_props = bedrock.CfnDataSourceProps(
                 data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
@@ -15262,6 +15622,18 @@ class CfnDataSourceProps:
                             ),
                             video_extraction_configuration=bedrock.CfnDataSource.VideoExtractionConfigurationProperty(
                                 video_extraction_status="videoExtractionStatus"
+                            )
+                        ),
+                        sync_schedule=bedrock.CfnDataSource.SyncScheduleProperty(
+                            daily=daily,
+                            monthly=bedrock.CfnDataSource.MonthlyScheduleProperty(
+                                day_of_month=bedrock.CfnDataSource.DayOfMonthProperty(
+                                    day_number=123,
+                                    last_day_of_month=last_day_of_month
+                                )
+                            ),
+                            weekly=bedrock.CfnDataSource.WeeklyScheduleProperty(
+                                day_of_week="dayOfWeek"
                             )
                         )
                     ),
@@ -30877,6 +31249,8 @@ class CfnKnowledgeBase(
         # The values are placeholders you should change.
         from aws_cdk import aws_bedrock as bedrock
         
+        # model_configuration: Any
+        
         cfn_knowledge_base = bedrock.CfnKnowledgeBase(self, "MyCfnKnowledgeBase",
             knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
                 type="type",
@@ -30896,6 +31270,7 @@ class CfnKnowledgeBase(
                             )],
                             dimensions=123,
                             embedding_data_type="embeddingDataType",
+                            model_configuration=model_configuration,
                             video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                 segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                     fixed_length_duration=123
@@ -30906,6 +31281,16 @@ class CfnKnowledgeBase(
                     embedding_model_type="embeddingModelType",
                     server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
                         kms_key_arn="kmsKeyArn"
+                    ),
+                    supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
+                        supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
+                            supplemental_data_storage_location_type="supplementalDataStorageLocationType",
+        
+                            # the properties below are optional
+                            s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
+                                uri="uri"
+                            )
+                        )]
                     )
                 ),
                 sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
@@ -30986,6 +31371,7 @@ class CfnKnowledgeBase(
                             )],
                             dimensions=123,
                             embedding_data_type="embeddingDataType",
+                            model_configuration=model_configuration,
                             video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                 segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                     fixed_length_duration=123
@@ -31523,6 +31909,7 @@ class CfnKnowledgeBase(
             "audio": "audio",
             "dimensions": "dimensions",
             "embedding_data_type": "embeddingDataType",
+            "model_configuration": "modelConfiguration",
             "video": "video",
         },
     )
@@ -31533,6 +31920,7 @@ class CfnKnowledgeBase(
             audio: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKnowledgeBase.AudioConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             dimensions: typing.Optional[jsii.Number] = None,
             embedding_data_type: typing.Optional[builtins.str] = None,
+            model_configuration: typing.Any = None,
             video: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKnowledgeBase.VideoConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The vector configuration details for the Bedrock embeddings model.
@@ -31540,6 +31928,7 @@ class CfnKnowledgeBase(
             :param audio: Configuration settings for processing audio content in multimodal knowledge bases.
             :param dimensions: The dimensions details for the vector configuration used on the Bedrock embeddings model.
             :param embedding_data_type: The data type for the vectors when using a model to convert text into vector embeddings. The model must support the specified data type for vector embeddings. Floating-point (float32) is the default data type, and is supported by most models for vector embeddings. See `Supported embeddings models <https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-supported.html>`_ for information on the available models and their vector data types.
+            :param model_configuration: Model-specific configuration for the embedding model.
             :param video: Configuration settings for processing video content in multimodal knowledge bases.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-bedrockembeddingmodelconfiguration.html
@@ -31551,6 +31940,8 @@ class CfnKnowledgeBase(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # model_configuration: Any
+                
                 bedrock_embedding_model_configuration_property = bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
                     audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
                         segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
@@ -31559,6 +31950,7 @@ class CfnKnowledgeBase(
                     )],
                     dimensions=123,
                     embedding_data_type="embeddingDataType",
+                    model_configuration=model_configuration,
                     video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                         segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                             fixed_length_duration=123
@@ -31571,6 +31963,7 @@ class CfnKnowledgeBase(
                 check_type(argname="argument audio", value=audio, expected_type=type_hints["audio"])
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
                 check_type(argname="argument embedding_data_type", value=embedding_data_type, expected_type=type_hints["embedding_data_type"])
+                check_type(argname="argument model_configuration", value=model_configuration, expected_type=type_hints["model_configuration"])
                 check_type(argname="argument video", value=video, expected_type=type_hints["video"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if audio is not None:
@@ -31579,6 +31972,8 @@ class CfnKnowledgeBase(
                 self._values["dimensions"] = dimensions
             if embedding_data_type is not None:
                 self._values["embedding_data_type"] = embedding_data_type
+            if model_configuration is not None:
+                self._values["model_configuration"] = model_configuration
             if video is not None:
                 self._values["video"] = video
 
@@ -31612,6 +32007,15 @@ class CfnKnowledgeBase(
             '''
             result = self._values.get("embedding_data_type")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def model_configuration(self) -> typing.Any:
+            '''Model-specific configuration for the embedding model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-bedrockembeddingmodelconfiguration.html#cfn-bedrock-knowledgebase-bedrockembeddingmodelconfiguration-modelconfiguration
+            '''
+            result = self._values.get("model_configuration")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def video(
@@ -31732,6 +32136,8 @@ class CfnKnowledgeBase(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # model_configuration: Any
+                
                 embedding_model_configuration_property = bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
                     bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
                         audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
@@ -31741,6 +32147,7 @@ class CfnKnowledgeBase(
                         )],
                         dimensions=123,
                         embedding_data_type="embeddingDataType",
+                        model_configuration=model_configuration,
                         video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                             segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                 fixed_length_duration=123
@@ -31870,6 +32277,8 @@ class CfnKnowledgeBase(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # model_configuration: Any
+                
                 knowledge_base_configuration_property = bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
                     type="type",
                 
@@ -31888,6 +32297,7 @@ class CfnKnowledgeBase(
                                 )],
                                 dimensions=123,
                                 embedding_data_type="embeddingDataType",
+                                model_configuration=model_configuration,
                                 video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                     segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                         fixed_length_duration=123
@@ -31898,6 +32308,16 @@ class CfnKnowledgeBase(
                         embedding_model_type="embeddingModelType",
                         server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
                             kms_key_arn="kmsKeyArn"
+                        ),
+                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
+                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
+                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
+                
+                                # the properties below are optional
+                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
+                                    uri="uri"
+                                )
+                            )]
                         )
                     ),
                     sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
@@ -31978,6 +32398,7 @@ class CfnKnowledgeBase(
                                 )],
                                 dimensions=123,
                                 embedding_data_type="embeddingDataType",
+                                model_configuration=model_configuration,
                                 video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                     segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                         fixed_length_duration=123
@@ -32090,6 +32511,7 @@ class CfnKnowledgeBase(
             "embedding_model_configuration": "embeddingModelConfiguration",
             "embedding_model_type": "embeddingModelType",
             "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+            "supplemental_data_storage_configuration": "supplementalDataStorageConfiguration",
         },
     )
     class ManagedKnowledgeBaseConfigurationProperty:
@@ -32100,6 +32522,7 @@ class CfnKnowledgeBase(
             embedding_model_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKnowledgeBase.EmbeddingModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             embedding_model_type: typing.Optional[builtins.str] = None,
             server_side_encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            supplemental_data_storage_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains details about the model used to create vector embeddings for a managed knowledge base.
 
@@ -32107,6 +32530,7 @@ class CfnKnowledgeBase(
             :param embedding_model_configuration: The embeddings model configuration details for the vector model used in Knowledge Base.
             :param embedding_model_type: The type of embedding model to use for the managed knowledge base.
             :param server_side_encryption_configuration: Contains details about the server-side encryption for the managed knowledge base.
+            :param supplemental_data_storage_configuration: Configurations for supplemental data storage.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -32116,6 +32540,8 @@ class CfnKnowledgeBase(
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
+                
+                # model_configuration: Any
                 
                 managed_knowledge_base_configuration_property = bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
                     embedding_model_arn="embeddingModelArn",
@@ -32128,6 +32554,7 @@ class CfnKnowledgeBase(
                             )],
                             dimensions=123,
                             embedding_data_type="embeddingDataType",
+                            model_configuration=model_configuration,
                             video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                 segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                     fixed_length_duration=123
@@ -32138,6 +32565,16 @@ class CfnKnowledgeBase(
                     embedding_model_type="embeddingModelType",
                     server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
                         kms_key_arn="kmsKeyArn"
+                    ),
+                    supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
+                        supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
+                            supplemental_data_storage_location_type="supplementalDataStorageLocationType",
+                
+                            # the properties below are optional
+                            s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
+                                uri="uri"
+                            )
+                        )]
                     )
                 )
             '''
@@ -32147,6 +32584,7 @@ class CfnKnowledgeBase(
                 check_type(argname="argument embedding_model_configuration", value=embedding_model_configuration, expected_type=type_hints["embedding_model_configuration"])
                 check_type(argname="argument embedding_model_type", value=embedding_model_type, expected_type=type_hints["embedding_model_type"])
                 check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+                check_type(argname="argument supplemental_data_storage_configuration", value=supplemental_data_storage_configuration, expected_type=type_hints["supplemental_data_storage_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if embedding_model_arn is not None:
                 self._values["embedding_model_arn"] = embedding_model_arn
@@ -32156,6 +32594,8 @@ class CfnKnowledgeBase(
                 self._values["embedding_model_type"] = embedding_model_type
             if server_side_encryption_configuration is not None:
                 self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+            if supplemental_data_storage_configuration is not None:
+                self._values["supplemental_data_storage_configuration"] = supplemental_data_storage_configuration
 
         @builtins.property
         def embedding_model_arn(self) -> typing.Optional[builtins.str]:
@@ -32196,6 +32636,17 @@ class CfnKnowledgeBase(
             '''
             result = self._values.get("server_side_encryption_configuration")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty"]], result)
+
+        @builtins.property
+        def supplemental_data_storage_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty"]]:
+            '''Configurations for supplemental data storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html#cfn-bedrock-knowledgebase-managedknowledgebaseconfiguration-supplementaldatastorageconfiguration
+            '''
+            result = self._values.get("supplemental_data_storage_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -35457,6 +35908,8 @@ class CfnKnowledgeBase(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # model_configuration: Any
+                
                 vector_knowledge_base_configuration_property = bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
                     embedding_model_arn="embeddingModelArn",
                 
@@ -35470,6 +35923,7 @@ class CfnKnowledgeBase(
                             )],
                             dimensions=123,
                             embedding_data_type="embeddingDataType",
+                            model_configuration=model_configuration,
                             video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                 segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                     fixed_length_duration=123
@@ -35929,6 +36383,8 @@ class CfnKnowledgeBaseProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_bedrock as bedrock
             
+            # model_configuration: Any
+            
             cfn_knowledge_base_props = bedrock.CfnKnowledgeBaseProps(
                 knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
                     type="type",
@@ -35948,6 +36404,7 @@ class CfnKnowledgeBaseProps:
                                 )],
                                 dimensions=123,
                                 embedding_data_type="embeddingDataType",
+                                model_configuration=model_configuration,
                                 video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                     segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                         fixed_length_duration=123
@@ -35958,6 +36415,16 @@ class CfnKnowledgeBaseProps:
                         embedding_model_type="embeddingModelType",
                         server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
                             kms_key_arn="kmsKeyArn"
+                        ),
+                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
+                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
+                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
+            
+                                # the properties below are optional
+                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
+                                    uri="uri"
+                                )
+                            )]
                         )
                     ),
                     sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
@@ -36038,6 +36505,7 @@ class CfnKnowledgeBaseProps:
                                 )],
                                 dimensions=123,
                                 embedding_data_type="embeddingDataType",
+                                model_configuration=model_configuration,
                                 video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
                                     segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
                                         fixed_length_duration=123
@@ -42042,6 +42510,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_FABLE_5_1")
+    def ANTHROPIC_CLAUDE_FABLE_5_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-fable-5-1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_FABLE_5_1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0")
     def ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-haiku-4-5-20251001-v1:0".'''
@@ -42106,6 +42580,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_8"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_5_5")
+    def ANTHROPIC_CLAUDE_OPUS_5_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-5-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_5_5"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
     def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''
@@ -42128,6 +42608,12 @@ class FoundationModelIdentifier(
     def ANTHROPIC_CLAUDE_SONNET_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_5_5")
+    def ANTHROPIC_CLAUDE_SONNET_5_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-sonnet-5-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V1")
@@ -44460,6 +44946,14 @@ def _typecheckingstub__a2e1b0c807d6904904c91cc13a2f47ee5db24090758446e26a864b57b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__301ad8d5d4c7f2df1b13a0843473e2924b8097e9e2d8aeeafe2b172e43987300(
+    *,
+    day_number: typing.Optional[jsii.Number] = None,
+    last_day_of_month: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__701a7d7156ee961c53b4826af99c739bd232cbc19bff4b975d46ed7183930612(
     *,
     deletion_protection_status: builtins.str,
@@ -44517,6 +45011,7 @@ def _typecheckingstub__45435566cce8b48ac864402fbea540f888df5912d79f285c8ca26834a
     connector_parameters: typing.Any = None,
     deletion_protection_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.DeletionProtectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_extraction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.MediaExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sync_schedule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.SyncScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44526,6 +45021,13 @@ def _typecheckingstub__ff5b0ea4fc4605cb62ffd46990f9f85fe38384e586ba512d594c74983
     audio_extraction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.AudioExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_extraction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.ImageExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     video_extraction_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.VideoExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d72eca02e26bede7bc9429377c7b562157a24519a6e90d8e9895fba5c905b71(
+    *,
+    day_of_month: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.DayOfMonthProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44652,6 +45154,15 @@ def _typecheckingstub__48994fdcb11091f4caa0fb5753c7af914ae9816931a2bef7e3f3324c6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__343bdc08b1824f70a9201ffd0a134d01c12c5f091cd31f5426ab5db5ed1f0575(
+    *,
+    daily: typing.Any = None,
+    monthly: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.MonthlyScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    weekly: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.WeeklyScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b12219aac867927e5b39fb3f23bae62881fb2b3683eda8f7c5b4f84aa1b85b35(
     *,
     transformation_lambda_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.TransformationLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -44729,6 +45240,13 @@ def _typecheckingstub__b1f60d9766ca17f5c37478ae610f90aa4019525520dc8ade1276a6b78
 def _typecheckingstub__eed5469efe26ecca30b65f76f177d0a63ddfd391d6f79ab740dabde0e6ae1c45(
     *,
     url_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.UrlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a969e61153d18ef09e09a90e33d899adb88fc6d4cd992cecb26aeb973865469(
+    *,
+    day_of_week: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -46378,6 +46896,7 @@ def _typecheckingstub__4b911df2c776c9053f061cf36e273662447b61302cf3b4d67af08cec4
     audio: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.AudioConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dimensions: typing.Optional[jsii.Number] = None,
     embedding_data_type: typing.Optional[builtins.str] = None,
+    model_configuration: typing.Any = None,
     video: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.VideoConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -46422,6 +46941,7 @@ def _typecheckingstub__563d2f2b85a2a3de24c4c5fb28fcd2d585c62ac79aa7b626b07236138
     embedding_model_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.EmbeddingModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     embedding_model_type: typing.Optional[builtins.str] = None,
     server_side_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    supplemental_data_storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

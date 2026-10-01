@@ -8,6 +8,17 @@ def test_default_statsig_options():
     assert options.service_name is None
     assert options.runtime_thread_start_callback is None
     assert options.evaluation_cache is None
+    assert options.prefer_http2 is None
+
+
+def test_prefer_http2_supported_option():
+    options = StatsigOptions(prefer_http2=True)
+    assert options.prefer_http2 is True
+    assert options.experimental_flags is None
+    options.prefer_http2 = False
+    assert options.prefer_http2 is False
+    options.prefer_http2 = None
+    assert options.prefer_http2 is None
 
 
 def test_initialize_partial_statsig_options():

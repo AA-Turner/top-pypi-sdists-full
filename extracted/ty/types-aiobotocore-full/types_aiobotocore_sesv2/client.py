@@ -30,6 +30,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListEmailIdentityCertificatesPaginator,
     ListMultiRegionEndpointsPaginator,
     ListReputationEntitiesPaginator,
     ListResourceTenantsPaginator,
@@ -37,6 +38,7 @@ from .paginator import (
     ListTenantsPaginator,
 )
 from .type_defs import (
+    AssociateEmailIdentityCertificateRequestTypeDef,
     BatchGetMetricDataRequestTypeDef,
     BatchGetMetricDataResponseTypeDef,
     CancelExportJobRequestTypeDef,
@@ -75,6 +77,7 @@ from .type_defs import (
     DeleteSuppressedDestinationRequestTypeDef,
     DeleteTenantRequestTypeDef,
     DeleteTenantResourceAssociationRequestTypeDef,
+    DisassociateEmailIdentityCertificateRequestTypeDef,
     GetAccountResponseTypeDef,
     GetBlacklistReportsRequestTypeDef,
     GetBlacklistReportsResponseTypeDef,
@@ -139,6 +142,8 @@ from .type_defs import (
     ListDomainDeliverabilityCampaignsResponseTypeDef,
     ListEmailIdentitiesRequestTypeDef,
     ListEmailIdentitiesResponseTypeDef,
+    ListEmailIdentityCertificatesRequestTypeDef,
+    ListEmailIdentityCertificatesResponseTypeDef,
     ListEmailTemplatesRequestTypeDef,
     ListEmailTemplatesResponseTypeDef,
     ListExportJobsRequestTypeDef,
@@ -197,6 +202,7 @@ from .type_defs import (
     TestRenderEmailTemplateResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateConfigurationSetEventDestinationRequestTypeDef,
+    UpdateConfigurationSetRequestTypeDef,
     UpdateContactListRequestTypeDef,
     UpdateContactRequestTypeDef,
     UpdateCustomVerificationEmailTemplateRequestTypeDef,
@@ -265,6 +271,16 @@ class SESV2Client(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/generate_presigned_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#generate_presigned_url)
+        """
+
+    async def associate_email_identity_certificate(
+        self, **kwargs: Unpack[AssociateEmailIdentityCertificateRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an S/MIME certificate with an email identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/associate_email_identity_certificate.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#associate_email_identity_certificate)
         """
 
     async def batch_get_metric_data(
@@ -563,6 +579,16 @@ class SESV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/delete_tenant_resource_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#delete_tenant_resource_association)
+        """
+
+    async def disassociate_email_identity_certificate(
+        self, **kwargs: Unpack[DisassociateEmailIdentityCertificateRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the association between an S/MIME certificate and an email identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/disassociate_email_identity_certificate.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#disassociate_email_identity_certificate)
         """
 
     async def get_account(self) -> GetAccountResponseTypeDef:
@@ -919,6 +945,17 @@ class SESV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_email_identities.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#list_email_identities)
+        """
+
+    async def list_email_identity_certificates(
+        self, **kwargs: Unpack[ListEmailIdentityCertificatesRequestTypeDef]
+    ) -> ListEmailIdentityCertificatesResponseTypeDef:
+        """
+        Lists the S/MIME certificates that are associated with the specified email
+        identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_email_identity_certificates.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#list_email_identity_certificates)
         """
 
     async def list_email_templates(
@@ -1341,6 +1378,16 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#untag_resource)
         """
 
+    async def update_configuration_set(
+        self, **kwargs: Unpack[UpdateConfigurationSetRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates an existing configuration set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/update_configuration_set.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#update_configuration_set)
+        """
+
     async def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1418,6 +1465,17 @@ class SESV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/update_reputation_entity_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#update_reputation_entity_policy)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_email_identity_certificates"]
+    ) -> ListEmailIdentityCertificatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

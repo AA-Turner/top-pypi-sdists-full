@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Any, Generic, List, Mapping, Optional, TypeVar
 
 import pytest
+import typing_extensions
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import BaseConfig
@@ -11,6 +12,7 @@ from tests.entities import MyGenericDataClass, SerializableTypeGenericList
 
 T = TypeVar("T")
 S = TypeVar("S")
+K = TypeVar("K")
 P = TypeVar("P", Mapping[int, int], List[float])
 
 
@@ -166,6 +168,30 @@ def test_loose_generic_info_with_bound():
     assert obj == B(x=[1.1, 2.2, 3.3, 4.4])
 
 
+def test_loose_generic_info_with_constraints_and_default():
+    DateOrString = typing_extensions.TypeVar(
+        "DateOrString", str, date, default=date
+    )
+
+    @dataclass
+    class Constrained(Generic[DateOrString], DataClassDictMixin):
+        value: DateOrString
+
+    @dataclass
+    class StringConstrained(Constrained[str]):
+        pass
+
+    assert Constrained.from_dict({"value": "2023-01-01"}) == Constrained(
+        value=date(2023, 1, 1)
+    )
+    assert Constrained(value=date(2023, 1, 1)).to_dict() == {
+        "value": "2023-01-01"
+    }
+    assert StringConstrained.from_dict(
+        {"value": "2023-01-01"}
+    ) == StringConstrained(value="2023-01-01")
+
+
 def test_loose_generic_info_in_first_generic():
     @dataclass
     class A(Generic[P]):
@@ -279,3 +305,25 @@ def test_nested_generic_no_inf_recursion(lazy):
         fieldD=A(field=1.2), fieldC=B(fieldB=A(field=2)), fieldB=A(field=2)
     )
     assert D.from_dict(obj.to_dict()) == obj
+
+
+def test_vars_order_when_generic_presented_in_bases() -> None:
+    @dataclass
+    class Base(DataClassDictMixin, Generic[T]):
+        kind: str = "base"
+
+    class NotSerializable:
+        pass
+
+    @dataclass
+    class Extended(Base[K], Generic[S, K]):
+        payload: S | None = None
+
+    @dataclass
+    class Sub(Extended[Base, NotSerializable]):
+        pass
+
+    assert Sub(payload=Base()).to_dict() == {
+        "kind": "base",
+        "payload": {"kind": "base"},
+    }

@@ -119,6 +119,7 @@ __all__ = (
     "CustomizationTechniqueType",
     "DataDistributionTypeType",
     "DataSourceNameType",
+    "DatabaseConfigurationRollbackStatusType",
     "DeepHealthCheckTypeType",
     "DescribeTrainingPlanExtensionHistoryPaginatorName",
     "DetailedAlgorithmStatusType",
@@ -429,6 +430,9 @@ __all__ = (
     "ServiceName",
     "SharingTypeType",
     "SkipModelValidationType",
+    "SlurmHealthComponentType",
+    "SlurmHealthReasonType",
+    "SlurmHealthStatusType",
     "SoftwareUpdateStatusType",
     "SortActionsByType",
     "SortArtifactsByType",
@@ -1214,6 +1218,7 @@ CrossAccountFilterOptionType = Literal["CrossAccount", "SameAccount"]
 CustomizationTechniqueType = Literal["DPO", "RLAIF", "RLVR", "SFT"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
+DatabaseConfigurationRollbackStatusType = Literal["NotApplicable", "RevertFailed", "Reverted"]
 DeepHealthCheckTypeType = Literal["InstanceConnectivity", "InstanceStress"]
 DescribeTrainingPlanExtensionHistoryPaginatorName = Literal[
     "describe_training_plan_extension_history"
@@ -2532,6 +2537,9 @@ SecondaryStatusType = Literal[
 ServerlessJobTypeType = Literal["Evaluation", "FineTuning"]
 SharingTypeType = Literal["Private", "Shared"]
 SkipModelValidationType = Literal["All", "None"]
+SlurmHealthComponentType = Literal["Slurmdbd"]
+SlurmHealthReasonType = Literal["DaemonDisabled", "DaemonDown", "DbUnreachable"]
+SlurmHealthStatusType = Literal["Healthy", "Unhealthy"]
 SoftwareUpdateStatusType = Literal[
     "Failed", "InProgress", "Pending", "RollbackComplete", "RollbackInProgress", "Succeeded"
 ]

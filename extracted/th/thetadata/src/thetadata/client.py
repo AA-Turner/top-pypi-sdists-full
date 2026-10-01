@@ -1259,6 +1259,80 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
+- Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
+> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+
+    """
+    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if stock_price is not None:
+                query_parameters["stock_price"] = str(stock_price)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if min_time is not None:
+                query_parameters["min_time"] = str(min_time)
+            if use_market_value is not None:
+                query_parameters["use_market_value"] = str(use_market_value)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionSnapshotBinomialGreeksAllRequestQuery(contract_spec=contract_spec)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if stock_price:
+            query.stock_price = stock_price
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if min_time:
+            query.min_time = _fmt_time(min_time)
+        if use_market_value:
+            query.use_market_value = use_market_value
+        request = endpoints_pb2.OptionSnapshotBinomialGreeksAllRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionSnapshotBinomialGreeksAll(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+            else:
+                raise e
+
+    """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
 > This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
@@ -1324,6 +1398,80 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_snapshot_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+            else:
+                raise e
+
+    """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
+- Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
+> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+
+    """
+    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if stock_price is not None:
+                query_parameters["stock_price"] = str(stock_price)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if min_time is not None:
+                query_parameters["min_time"] = str(min_time)
+            if use_market_value is not None:
+                query_parameters["use_market_value"] = str(use_market_value)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionSnapshotBinomialGreeksFirstOrderRequestQuery(contract_spec=contract_spec)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if stock_price:
+            query.stock_price = stock_price
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if min_time:
+            query.min_time = _fmt_time(min_time)
+        if use_market_value:
+            query.use_market_value = use_market_value
+        request = endpoints_pb2.OptionSnapshotBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionSnapshotBinomialGreeksFirstOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
             else:
                 raise e
 
@@ -1396,6 +1544,80 @@ of the option respectively. The underlying price represents whatever the last un
             else:
                 raise e
 
+    """- Retrieve a real-time last second order binomial greeks calculation for all option contracts that lie on a provided expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
+- Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
+> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+
+    """
+    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if stock_price is not None:
+                query_parameters["stock_price"] = str(stock_price)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if min_time is not None:
+                query_parameters["min_time"] = str(min_time)
+            if use_market_value is not None:
+                query_parameters["use_market_value"] = str(use_market_value)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionSnapshotBinomialGreeksSecondOrderRequestQuery(contract_spec=contract_spec)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if stock_price:
+            query.stock_price = stock_price
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if min_time:
+            query.min_time = _fmt_time(min_time)
+        if use_market_value:
+            query.use_market_value = use_market_value
+        request = endpoints_pb2.OptionSnapshotBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionSnapshotBinomialGreeksSecondOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+            else:
+                raise e
+
     """- Retrieve a real-time last third order greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
@@ -1462,6 +1684,80 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_snapshot_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+            else:
+                raise e
+
+    """- Retrieve a real-time last third order binomial greeks calculation for all option contracts that lie on a provided expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
+- Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
+> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+
+    """
+    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if stock_price is not None:
+                query_parameters["stock_price"] = str(stock_price)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if min_time is not None:
+                query_parameters["min_time"] = str(min_time)
+            if use_market_value is not None:
+                query_parameters["use_market_value"] = str(use_market_value)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionSnapshotBinomialGreeksThirdOrderRequestQuery(contract_spec=contract_spec)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if stock_price:
+            query.stock_price = stock_price
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if min_time:
+            query.min_time = _fmt_time(min_time)
+        if use_market_value:
+            query.use_market_value = use_market_value
+        request = endpoints_pb2.OptionSnapshotBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionSnapshotBinomialGreeksThirdOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
             else:
                 raise e
 
@@ -1873,6 +2169,75 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Uses Theta Data's EOD reports that get generated at 17:15 ET each day. The closing option price and closing underlying price are used for the greeks calculation.
+- **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
+
+    """
+    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            query_parameters["start_date"] = str(start_date)
+            query_parameters["end_date"] = str(end_date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if underlyer_use_nbbo is not None:
+                query_parameters["underlyer_use_nbbo"] = str(underlyer_use_nbbo)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialGreeksEodRequestQuery(contract_spec=contract_spec)
+        query.start_date = start_date.strftime('%Y-%m-%d')
+        query.end_date = end_date.strftime('%Y-%m-%d')
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if underlyer_use_nbbo:
+            query.underlyer_use_nbbo = underlyer_use_nbbo
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        request = endpoints_pb2.OptionHistoryBinomialGreeksEodRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialGreeksEod(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
@@ -1944,6 +2309,86 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_history_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data.
+
+    """
+    def option_history_binomial_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            query_parameters["interval"] = str(interval)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=expiration.strftime('%Y-%m-%d'), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialGreeksAllRequestQuery(contract_spec=contract_spec)
+        query.interval = interval
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.OptionHistoryBinomialGreeksAllRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialGreeksAll(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
             else:
                 raise e
 
@@ -2029,6 +2474,92 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data, and must specify an expiration.
+
+    """
+    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            if perf_boost_intraday is not None:
+                query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialTradeGreeksAllRequestQuery(contract_spec=contract_spec)
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        if perf_boost_intraday:
+            query.perf_boost_intraday = perf_boost_intraday
+        request = endpoints_pb2.OptionHistoryBinomialTradeGreeksAllRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialTradeGreeksAll(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
@@ -2100,6 +2631,86 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_history_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data.
+
+    """
+    def option_history_binomial_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            query_parameters["interval"] = str(interval)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=expiration.strftime('%Y-%m-%d'), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialGreeksFirstOrderRequestQuery(contract_spec=contract_spec)
+        query.interval = interval
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.OptionHistoryBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialGreeksFirstOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
             else:
                 raise e
 
@@ -2184,6 +2795,92 @@ of the option respectively. The underlying price represents whatever the last un
             else:
                 raise e
 
+    """- Returns the data for all contracts that share the same provided symbol and expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data, and must specify an expiration.
+
+    """
+    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            if perf_boost_intraday is not None:
+                query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequestQuery(contract_spec=contract_spec)
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        if perf_boost_intraday:
+            query.perf_boost_intraday = perf_boost_intraday
+        request = endpoints_pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialTradeGreeksFirstOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+            else:
+                raise e
+
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
@@ -2256,6 +2953,86 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_history_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data.
+
+    """
+    def option_history_binomial_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            query_parameters["interval"] = str(interval)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=expiration.strftime('%Y-%m-%d'), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialGreeksSecondOrderRequestQuery(contract_spec=contract_spec)
+        query.interval = interval
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.OptionHistoryBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialGreeksSecondOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
             else:
                 raise e
 
@@ -2340,6 +3117,92 @@ of the option respectively. The underlying price represents whatever the last un
             else:
                 raise e
 
+    """- Returns the data for all contracts that share the same provided symbol and expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data, and must specify an expiration.
+
+    """
+    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            if perf_boost_intraday is not None:
+                query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequestQuery(contract_spec=contract_spec)
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        if perf_boost_intraday:
+            query.perf_boost_intraday = perf_boost_intraday
+        request = endpoints_pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialTradeGreeksSecondOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+            else:
+                raise e
+
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
@@ -2412,6 +3275,86 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_history_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ strike_range },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration. 
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data.
+
+    """
+    def option_history_binomial_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            query_parameters["interval"] = str(interval)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=expiration.strftime('%Y-%m-%d'), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialGreeksThirdOrderRequestQuery(contract_spec=contract_spec)
+        query.interval = interval
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.OptionHistoryBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialGreeksThirdOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date })")
             else:
                 raise e
 
@@ -2493,6 +3436,92 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: option_history_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
+            else:
+                raise e
+
+    """- Returns the data for all contracts that share the same provided symbol and expiration.
+- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
+- The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
+- Multi-day requests are limited to 1 month of data, and must specify an expiration.
+
+    """
+    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["expiration"] = str(expiration)
+            if date is not None:
+                query_parameters["date"] = str(date)
+            if strike is not None:
+                query_parameters["strike"] = str(strike)
+            if right is not None:
+                query_parameters["right"] = str(right)
+            if start_time is not None:
+                query_parameters["start_time"] = str(start_time)
+            if end_time is not None:
+                query_parameters["end_time"] = str(end_time)
+            if annual_dividend is not None:
+                query_parameters["annual_dividend"] = str(annual_dividend)
+            if rate_type is not None:
+                query_parameters["rate_type"] = str(rate_type)
+            if rate_value is not None:
+                query_parameters["rate_value"] = str(rate_value)
+            if binomial_steps is not None:
+                query_parameters["binomial_steps"] = str(binomial_steps)
+            if version is not None:
+                query_parameters["version"] = str(version)
+            if max_dte is not None:
+                query_parameters["max_dte"] = str(max_dte)
+            if strike_range is not None:
+                query_parameters["strike_range"] = str(strike_range)
+            if start_date is not None:
+                query_parameters["start_date"] = str(start_date)
+            if end_date is not None:
+                query_parameters["end_date"] = str(end_date)
+            if perf_boost_intraday is not None:
+                query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
+        query = endpoints_pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequestQuery(contract_spec=contract_spec)
+        if date:
+            query.date = date.strftime('%Y-%m-%d')
+        if start_time:
+            query.start_time = _fmt_time(start_time)
+        if end_time:
+            query.end_time = _fmt_time(end_time)
+        if annual_dividend:
+            query.annual_dividend = annual_dividend
+        if rate_type:
+            query.rate_type = rate_type
+        if rate_value:
+            query.rate_value = rate_value
+        if binomial_steps:
+            query.binomial_steps = binomial_steps
+        if version:
+            query.version = version
+        if max_dte:
+            query.max_dte = max_dte
+        if strike_range:
+            query.strike_range = strike_range
+        if start_date:
+            query.start_date = start_date.strftime('%Y-%m-%d')
+        if end_date:
+            query.end_date = end_date.strftime('%Y-%m-%d')
+        if perf_boost_intraday:
+            query.perf_boost_intraday = perf_boost_intraday
+        request = endpoints_pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetOptionHistoryBinomialTradeGreeksThirdOrder(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday })")
             else:
                 raise e
 

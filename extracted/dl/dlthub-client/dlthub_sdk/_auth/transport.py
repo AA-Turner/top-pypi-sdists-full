@@ -39,6 +39,7 @@ from dlthub_sdk._gen.auth.models import (
 from dlthub_sdk.errors import (
     ApiError,
     BadRequest,
+    ClientUpdate,
     ConnectionFailed,
     InvalidResponse,
     NotAuthenticated,
@@ -71,6 +72,7 @@ class AuthTransport:
                 the SDK adds nothing of its own.
             verify_ssl: Whether to verify the service's certificate.
         """
+        self._client_update: ClientUpdate | None = None
         # Undeclared statuses must raise rather than parse to None, so the
         # device flow's pending 403 stays distinguishable from a failure.
         self._client = AuthClient(
@@ -78,6 +80,7 @@ class AuthTransport:
             headers=headers or {},
             verify_ssl=verify_ssl,
             raise_on_unexpected_status=True,
+            httpx_args={"event_hooks": {"response": [self._record_client_update]}},
         )
 
     def device_flow_start(self) -> DeviceFlowStart:
@@ -89,8 +92,10 @@ class AuthTransport:
         Raises:
             ApiError: The service refused to start a flow.
         """
-        parsed = _unwrap(
-            _call(lambda: workos_device_flow_start.sync_detailed(client=self._client)),
+        parsed = self._unwrap(
+            self._call(
+                lambda: workos_device_flow_start.sync_detailed(client=self._client)
+            ),
             WorkosDeviceFlowStartResponse,
         )
         return DeviceFlowStart(
@@ -114,7 +119,7 @@ class AuthTransport:
         Raises:
             ApiError: The code was rejected, or has expired.
         """
-        resp = _call_pollable(
+        resp = self._call_pollable(
             lambda: workos_device_flow_complete.sync_detailed(
                 client=self._client,
                 body=WorkosDeviceFlowLoginRequest(device_code=device_code),
@@ -122,7 +127,7 @@ class AuthTransport:
         )
         if isinstance(resp, Pending):
             return resp
-        login = _unwrap(resp, LoginResponse)
+        login = self._unwrap(resp, LoginResponse)
         return Tokens(access_token=login.jwt, refresh_token=login.refresh_token)
 
     def auth_code_start(
@@ -141,8 +146,8 @@ class AuthTransport:
         Raises:
             ApiError: The service refused to start a flow.
         """
-        parsed = _unwrap(
-            _call(
+        parsed = self._unwrap(
+            self._call(
                 lambda: workos_auth_code_start.sync_detailed(
                     client=self._client,
                     body=WorkosAuthCodeStartRequest(
@@ -169,8 +174,8 @@ class AuthTransport:
         Raises:
             ApiError: The code or verifier was rejected.
         """
-        login = _unwrap(
-            _call(
+        login = self._unwrap(
+            self._call(
                 lambda: workos_auth_code_exchange.sync_detailed(
                     client=self._client,
                     body=WorkosAuthCodeExchangeRequest(
@@ -196,7 +201,7 @@ class AuthTransport:
         Raises:
             ApiError: The service failed for a reason other than rejection.
         """
-        resp = _call(
+        resp = self._call(
             lambda: refresh.sync_detailed(
                 client=self._client, body=RefreshRequest(refresh_token=refresh_token)
             )
@@ -219,7 +224,7 @@ class AuthTransport:
         Raises:
             ApiError: The service failed for a reason other than rejection.
         """
-        resp = _call(
+        resp = self._call(
             lambda: create_session_swap_code.sync_detailed(
                 client=self._client, body=SwapCodeRequest(refresh_token=refresh_token)
             )
@@ -228,80 +233,84 @@ class AuthTransport:
             return None
         return resp.parsed.swap_code
 
+    def _record_client_update(self, response: httpx.Response) -> None:
+        # The generated `UnexpectedStatus` drops headers, so read them off the wire.
+        self._client_update = ClientUpdate.from_headers(response.headers)
 
-def _call(op: Callable[[], T]) -> T:
-    """Run one generated operation, turning every failure into an SDK error.
+    def _call(self, op: Callable[[], T]) -> T:
+        """Run one generated operation, turning every failure into an SDK error.
 
-    Args:
-        op: Calls the generated operation.
+        Args:
+            op: Calls the generated operation.
 
-    Returns:
-        Its response.
+        Returns:
+            Its response.
 
-    Raises:
-        TransportTimeout: The request timed out.
-        ConnectionFailed: The service could not be reached.
-        ApiError: The service answered a status the operation does not declare.
-    """
-    try:
-        return op()
-    except UnexpectedStatus as e:
-        raise _status_error(int(e.status_code), None) from e
-    except httpx.TimeoutException as e:
-        raise TransportTimeout(f"auth service timed out: {e}") from e
-    except httpx.HTTPError as e:
-        raise ConnectionFailed(f"auth service could not be reached: {e}") from e
+        Raises:
+            TransportTimeout: The request timed out.
+            ConnectionFailed: The service could not be reached.
+            ApiError: The service answered a status the operation does not declare.
+        """
+        try:
+            return op()
+        except UnexpectedStatus as e:
+            raise _status_error(int(e.status_code), None, self._client_update) from e
+        except httpx.TimeoutException as e:
+            raise TransportTimeout(f"auth service timed out: {e}") from e
+        except httpx.HTTPError as e:
+            raise ConnectionFailed(f"auth service could not be reached: {e}") from e
 
+    def _call_pollable(self, op: Callable[[], T]) -> T | Pending:
+        """Run an operation whose "not finished yet" answer is a status, not a body.
 
-def _call_pollable(op: Callable[[], T]) -> T | Pending:
-    """Run an operation whose "not finished yet" answer is a status, not a body.
+        Args:
+            op: Calls the generated operation.
 
-    Args:
-        op: Calls the generated operation.
+        Returns:
+            Its response, or :class:`~dlthub_sdk._auth.types.Pending`.
 
-    Returns:
-        Its response, or :class:`~dlthub_sdk._auth.types.Pending`.
+        Raises:
+            ApiError: The service answered any other undeclared status.
+        """
+        try:
+            return op()
+        except UnexpectedStatus as e:
+            if int(e.status_code) == _PENDING_STATUS:
+                return Pending(slow_down=b"slow_down" in e.content)
+            raise _status_error(int(e.status_code), None, self._client_update) from e
+        except httpx.TimeoutException as e:
+            raise TransportTimeout(f"auth service timed out: {e}") from e
+        except httpx.HTTPError as e:
+            raise ConnectionFailed(f"auth service could not be reached: {e}") from e
 
-    Raises:
-        ApiError: The service answered any other undeclared status.
-    """
-    try:
-        return op()
-    except UnexpectedStatus as e:
-        if int(e.status_code) == _PENDING_STATUS:
-            return Pending()
-        raise _status_error(int(e.status_code), None) from e
-    except httpx.TimeoutException as e:
-        raise TransportTimeout(f"auth service timed out: {e}") from e
-    except httpx.HTTPError as e:
-        raise ConnectionFailed(f"auth service could not be reached: {e}") from e
+    def _unwrap(self, resp: Any, model: type[T]) -> T:
+        """Return the success model off a generated response, or raise.
 
+        Args:
+            resp: The generated ``Response``.
+            model: The success model this operation declares.
 
-def _unwrap(resp: Any, model: type[T]) -> T:
-    """Return the success model off a generated response, or raise.
+        Returns:
+            The parsed success model.
 
-    Args:
-        resp: The generated ``Response``.
-        model: The success model this operation declares.
-
-    Returns:
-        The parsed success model.
-
-    Raises:
-        ApiError: The service answered with an error status.
-        InvalidResponse: A success status whose body did not parse.
-    """
-    if isinstance(resp.parsed, model):
-        return resp.parsed
-    raise _status_error(int(resp.status_code), resp.parsed)
+        Raises:
+            ApiError: The service answered with an error status.
+            InvalidResponse: A success status whose body did not parse.
+        """
+        if isinstance(resp.parsed, model):
+            return resp.parsed
+        raise _status_error(int(resp.status_code), resp.parsed, self._client_update)
 
 
-def _status_error(status: int, parsed: object) -> ApiError | NotAuthenticated:
+def _status_error(
+    status: int, parsed: object, client_update: ClientUpdate | None
+) -> ApiError | NotAuthenticated:
     """Map an auth-service status onto an SDK error.
 
     Args:
         status: The HTTP status.
         parsed: The parsed error model, when there was one.
+        client_update: The upgrade hint the failing response advertised.
 
     Returns:
         The error to raise.
@@ -309,11 +318,14 @@ def _status_error(status: int, parsed: object) -> ApiError | NotAuthenticated:
     detail = getattr(parsed, "detail", None) or getattr(parsed, "message", None)
     text = str(detail) if detail else f"auth service returned {status}"
     if status == 401:
-        return NotAuthenticated(text, status=status)
+        return NotAuthenticated(text, status=status, client_update=client_update)
     if status == 400:
-        return BadRequest(text, status=status)
+        return BadRequest(text, status=status, client_update=client_update)
     if status >= 500:
-        return ServerError(text, status=status)
+        return ServerError(text, status=status, client_update=client_update)
     if 200 <= status < 300:
-        return InvalidResponse(f"auth service returned an unreadable {status} body")
-    return ApiError(text, status=status)
+        return InvalidResponse(
+            f"auth service returned an unreadable {status} body",
+            client_update=client_update,
+        )
+    return ApiError(text, status=status, client_update=client_update)

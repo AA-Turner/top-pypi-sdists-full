@@ -1770,6 +1770,9 @@ class CfnResourceConfiguration(
             resource_configuration_auth_type="resourceConfigurationAuthType",
             resource_configuration_definition=vpclattice.CfnResourceConfiguration.ResourceConfigurationDefinitionProperty(
                 arn_resource="arnResource",
+                cidr_resource=vpclattice.CfnResourceConfiguration.CidrResourceProperty(
+                    cidr_ranges=["cidrRanges"]
+                ),
                 dns_resource=vpclattice.CfnResourceConfiguration.DnsResourceProperty(
                     domain_name="domainName",
                     ip_address_type="ipAddressType"
@@ -2134,6 +2137,56 @@ class CfnResourceConfiguration(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceConfiguration.CidrResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cidr_ranges": "cidrRanges"},
+    )
+    class CidrResourceProperty:
+        def __init__(self, *, cidr_ranges: typing.Sequence[builtins.str]) -> None:
+            '''
+            :param cidr_ranges: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-cidrresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_vpclattice as vpclattice
+                
+                cidr_resource_property = vpclattice.CfnResourceConfiguration.CidrResourceProperty(
+                    cidr_ranges=["cidrRanges"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__13af34ca74f55e414a5e9696a2bbad9acb73e2e2c585b2587ab43dc3f75d616b)
+                check_type(argname="argument cidr_ranges", value=cidr_ranges, expected_type=type_hints["cidr_ranges"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cidr_ranges": cidr_ranges,
+            }
+
+        @builtins.property
+        def cidr_ranges(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-cidrresource.html#cfn-vpclattice-resourceconfiguration-cidrresource-cidrranges
+            '''
+            result = self._values.get("cidr_ranges")
+            assert result is not None, "Required property 'cidr_ranges' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CidrResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceConfiguration.DnsResourceProperty",
         jsii_struct_bases=[],
         name_mapping={"domain_name": "domainName", "ip_address_type": "ipAddressType"},
@@ -2211,6 +2264,7 @@ class CfnResourceConfiguration(
         jsii_struct_bases=[],
         name_mapping={
             "arn_resource": "arnResource",
+            "cidr_resource": "cidrResource",
             "dns_resource": "dnsResource",
             "ip_resource": "ipResource",
         },
@@ -2220,6 +2274,7 @@ class CfnResourceConfiguration(
             self,
             *,
             arn_resource: typing.Optional[builtins.str] = None,
+            cidr_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceConfiguration.CidrResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dns_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceConfiguration.DnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_resource: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2230,6 +2285,7 @@ class CfnResourceConfiguration(
             - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
 
             :param arn_resource: The Amazon Resource Name (ARN) of the resource configuration. For the ARN syntax and format, see `ARN format <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html#arns-syntax>`_ in the *AWS Identity and Access Management user guide* .
+            :param cidr_resource: 
             :param dns_resource: The DNS name of the resource configuration.
             :param ip_resource: The IP address of the resource configuration.
 
@@ -2244,6 +2300,9 @@ class CfnResourceConfiguration(
                 
                 resource_configuration_definition_property = vpclattice.CfnResourceConfiguration.ResourceConfigurationDefinitionProperty(
                     arn_resource="arnResource",
+                    cidr_resource=vpclattice.CfnResourceConfiguration.CidrResourceProperty(
+                        cidr_ranges=["cidrRanges"]
+                    ),
                     dns_resource=vpclattice.CfnResourceConfiguration.DnsResourceProperty(
                         domain_name="domainName",
                         ip_address_type="ipAddressType"
@@ -2254,11 +2313,14 @@ class CfnResourceConfiguration(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__9121263d95571010bd6dc19e1c8287b50bf9733de5f1bdf0bc8a14a7f1387be0)
                 check_type(argname="argument arn_resource", value=arn_resource, expected_type=type_hints["arn_resource"])
+                check_type(argname="argument cidr_resource", value=cidr_resource, expected_type=type_hints["cidr_resource"])
                 check_type(argname="argument dns_resource", value=dns_resource, expected_type=type_hints["dns_resource"])
                 check_type(argname="argument ip_resource", value=ip_resource, expected_type=type_hints["ip_resource"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arn_resource is not None:
                 self._values["arn_resource"] = arn_resource
+            if cidr_resource is not None:
+                self._values["cidr_resource"] = cidr_resource
             if dns_resource is not None:
                 self._values["dns_resource"] = dns_resource
             if ip_resource is not None:
@@ -2274,6 +2336,16 @@ class CfnResourceConfiguration(
             '''
             result = self._values.get("arn_resource")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cidr_resource(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceConfiguration.CidrResourceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-resourceconfigurationdefinition.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationdefinition-cidrresource
+            '''
+            result = self._values.get("cidr_resource")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceConfiguration.CidrResourceProperty"]], result)
 
         @builtins.property
         def dns_resource(
@@ -2384,6 +2456,9 @@ class CfnResourceConfigurationProps:
                 resource_configuration_auth_type="resourceConfigurationAuthType",
                 resource_configuration_definition=vpclattice.CfnResourceConfiguration.ResourceConfigurationDefinitionProperty(
                     arn_resource="arnResource",
+                    cidr_resource=vpclattice.CfnResourceConfiguration.CidrResourceProperty(
+                        cidr_ranges=["cidrRanges"]
+                    ),
                     dns_resource=vpclattice.CfnResourceConfiguration.DnsResourceProperty(
                         domain_name="domainName",
                         ip_address_type="ipAddressType"
@@ -8461,6 +8536,13 @@ def _typecheckingstub__4f5f1b5a9415ccd7fa5ca852ef4adaa16d7ede062f9c3e53659f7d704
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__13af34ca74f55e414a5e9696a2bbad9acb73e2e2c585b2587ab43dc3f75d616b(
+    *,
+    cidr_ranges: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__212741d5ebd626df186794616e24cc8f6fcb02d54ad7417694e6a4646f6c553c(
     *,
     domain_name: builtins.str,
@@ -8472,6 +8554,7 @@ def _typecheckingstub__212741d5ebd626df186794616e24cc8f6fcb02d54ad7417694e6a4646
 def _typecheckingstub__9121263d95571010bd6dc19e1c8287b50bf9733de5f1bdf0bc8a14a7f1387be0(
     *,
     arn_resource: typing.Optional[builtins.str] = None,
+    cidr_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceConfiguration.CidrResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dns_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceConfiguration.DnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_resource: typing.Optional[builtins.str] = None,
 ) -> None:

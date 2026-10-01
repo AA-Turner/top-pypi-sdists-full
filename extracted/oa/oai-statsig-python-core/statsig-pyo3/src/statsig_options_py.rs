@@ -128,6 +128,9 @@ pub struct StatsigOptionsPy {
     pub disable_network: Option<bool>,
     #[pyo3(get, set)]
     pub log_event_connection_reuse: Option<bool>,
+    /// Prefer HTTP/2 while allowing HTTP/1.1. Unset enables it; False restores the existing transport.
+    #[pyo3(get, set)]
+    pub prefer_http2: Option<bool>,
     #[pyo3(get, set)]
     pub event_logging_flush_interval_ms: Option<u32>,
     #[pyo3(get, set)]
@@ -237,6 +240,7 @@ impl StatsigOptionsPy {
         experimental_flags=None,
         event_logging_adapter=None,
         evaluation_cache=None,
+        prefer_http2=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -289,6 +293,7 @@ impl StatsigOptionsPy {
             imports = ("typing", "statsig_python_core as _statsig_python_core", "statsig_python_core.evaluation_cache")
         ))]
         evaluation_cache: Option<Py<PyAny>>,
+        prefer_http2: Option<bool>,
     ) -> Self {
         Self {
             specs_url,
@@ -297,6 +302,7 @@ impl StatsigOptionsPy {
             log_event_url,
             disable_all_logging,
             log_event_connection_reuse,
+            prefer_http2,
             event_logging_flush_interval_ms,
             event_logging_max_queue_size,
             event_logging_max_pending_batch_queue_size,
@@ -487,6 +493,7 @@ fn create_inner_statsig_options(
         global_custom_fields,
         disable_network: opts.disable_network,
         log_event_connection_reuse: opts.log_event_connection_reuse,
+        prefer_http2: opts.prefer_http2,
         disable_country_lookup: opts.disable_country_lookup,
         persistent_storage: opts.persistent_storage.as_ref().map(|s| {
             Arc::new(StatsigPersistentStorageOverrideAdapter::new(

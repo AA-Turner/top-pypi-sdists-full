@@ -31,18 +31,24 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribeStreamPaginator,
+    ListChannelsPaginator,
     ListShardsPaginator,
     ListStreamConsumersPaginator,
     ListStreamsPaginator,
 )
 from .type_defs import (
     AddTagsToStreamInputTypeDef,
+    CreateChannelInputTypeDef,
+    CreateChannelOutputTypeDef,
     CreateStreamInputTypeDef,
     DecreaseStreamRetentionPeriodInputTypeDef,
+    DeleteChannelInputTypeDef,
     DeleteResourcePolicyInputTypeDef,
     DeleteStreamInputTypeDef,
     DeregisterStreamConsumerInputTypeDef,
     DescribeAccountSettingsOutputTypeDef,
+    DescribeChannelInputTypeDef,
+    DescribeChannelOutputTypeDef,
     DescribeLimitsOutputTypeDef,
     DescribeStreamConsumerInputTypeDef,
     DescribeStreamConsumerOutputTypeDef,
@@ -61,6 +67,8 @@ from .type_defs import (
     GetShardIteratorInputTypeDef,
     GetShardIteratorOutputTypeDef,
     IncreaseStreamRetentionPeriodInputTypeDef,
+    ListChannelsInputTypeDef,
+    ListChannelsOutputTypeDef,
     ListShardsInputTypeDef,
     ListShardsOutputTypeDef,
     ListStreamConsumersInputTypeDef,
@@ -89,14 +97,17 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateAccountSettingsInputTypeDef,
     UpdateAccountSettingsOutputTypeDef,
+    UpdateChannelInputTypeDef,
+    UpdateChannelOutputTypeDef,
     UpdateMaxRecordSizeInputTypeDef,
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
     UpdateStreamModeInputTypeDef,
+    UpdateStreamRecordDistributionStrategyInputTypeDef,
     UpdateStreamWarmThroughputInputTypeDef,
     UpdateStreamWarmThroughputOutputTypeDef,
 )
-from .waiter import StreamExistsWaiter, StreamNotExistsWaiter
+from .waiter import ChannelActiveWaiter, StreamExistsWaiter, StreamNotExistsWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
@@ -110,6 +121,7 @@ __all__ = ("KinesisClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
     ExpiredIteratorException: type[BotocoreClientError]
     ExpiredNextTokenException: type[BotocoreClientError]
     InternalFailureException: type[BotocoreClientError]
@@ -172,6 +184,17 @@ class KinesisClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#add_tags_to_stream)
         """
 
+    async def create_channel(
+        self, **kwargs: Unpack[CreateChannelInputTypeDef]
+    ) -> CreateChannelOutputTypeDef:
+        """
+        Creates a channel that delivers records from a Kinesis data stream to a
+        destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/create_channel.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#create_channel)
+        """
+
     async def create_stream(
         self, **kwargs: Unpack[CreateStreamInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -191,6 +214,16 @@ class KinesisClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/decrease_stream_retention_period.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#decrease_stream_retention_period)
+        """
+
+    async def delete_channel(
+        self, **kwargs: Unpack[DeleteChannelInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/delete_channel.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#delete_channel)
         """
 
     async def delete_resource_policy(
@@ -229,6 +262,16 @@ class KinesisClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_account_settings.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#describe_account_settings)
+        """
+
+    async def describe_channel(
+        self, **kwargs: Unpack[DescribeChannelInputTypeDef]
+    ) -> DescribeChannelOutputTypeDef:
+        """
+        Describes the specified channel, including its configuration and current status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_channel.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#describe_channel)
         """
 
     async def describe_limits(self) -> DescribeLimitsOutputTypeDef:
@@ -330,6 +373,16 @@ class KinesisClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/increase_stream_retention_period.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#increase_stream_retention_period)
+        """
+
+    async def list_channels(
+        self, **kwargs: Unpack[ListChannelsInputTypeDef]
+    ) -> ListChannelsOutputTypeDef:
+        """
+        Lists the channels in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/list_channels.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#list_channels)
         """
 
     async def list_shards(
@@ -517,6 +570,17 @@ class KinesisClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#update_account_settings)
         """
 
+    async def update_channel(
+        self, **kwargs: Unpack[UpdateChannelInputTypeDef]
+    ) -> UpdateChannelOutputTypeDef:
+        """
+        Updates the data freshness interval or the Amazon CloudWatch Logs configuration
+        of an existing channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_channel.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#update_channel)
+        """
+
     async def update_max_record_size(
         self, **kwargs: Unpack[UpdateMaxRecordSizeInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -549,6 +613,17 @@ class KinesisClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#update_stream_mode)
         """
 
+    async def update_stream_record_distribution_strategy(
+        self, **kwargs: Unpack[UpdateStreamRecordDistributionStrategyInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the record distribution strategy for the specified Amazon Kinesis Data
+        Streams on-demand data stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_stream_record_distribution_strategy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#update_stream_record_distribution_strategy)
+        """
+
     async def update_stream_warm_throughput(
         self, **kwargs: Unpack[UpdateStreamWarmThroughputInputTypeDef]
     ) -> UpdateStreamWarmThroughputOutputTypeDef:
@@ -564,6 +639,17 @@ class KinesisClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_stream"]
     ) -> DescribeStreamPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_channels"]
+    ) -> ListChannelsPaginator:
         """
         Create a paginator for an operation.
 
@@ -602,6 +688,17 @@ class KinesisClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_paginator.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["channel_active"]
+    ) -> ChannelActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]

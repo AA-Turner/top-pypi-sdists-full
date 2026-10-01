@@ -538,6 +538,13 @@ class CfnLocationAzureBlob(
                 secret_access_role_arn="secretAccessRoleArn",
                 secret_arn="secretArn"
             ),
+            federated_identity=datasync.CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty(
+                aws_iam_role="awsIamRole",
+                azure_oidc=datasync.CfnLocationAzureBlob.AzureOidcConfigProperty(
+                    client_id="clientId",
+                    tenant_id="tenantId"
+                )
+            ),
             subdirectory="subdirectory",
             tags=[CfnTag(
                 key="key",
@@ -559,6 +566,7 @@ class CfnLocationAzureBlob(
         azure_blob_type: typing.Optional[builtins.str] = None,
         cmk_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federated_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subdirectory: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -574,6 +582,7 @@ class CfnLocationAzureBlob(
         :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
         :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param federated_identity: Specifies the identity federation configuration that DataSync uses to access your Azure Blob Storage container using an OpenID Connect (OIDC) token.
         :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
         :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
         '''
@@ -590,6 +599,7 @@ class CfnLocationAzureBlob(
             azure_blob_type=azure_blob_type,
             cmk_secret_config=cmk_secret_config,
             custom_secret_config=custom_secret_config,
+            federated_identity=federated_identity,
             subdirectory=subdirectory,
             tags=tags,
         )
@@ -822,6 +832,24 @@ class CfnLocationAzureBlob(
         jsii.set(self, "customSecretConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="federatedIdentity")
+    def federated_identity(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty"]]:
+        '''Specifies the identity federation configuration that DataSync uses to access your Azure Blob Storage container using an OpenID Connect (OIDC) token.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty"]], jsii.get(self, "federatedIdentity"))
+
+    @federated_identity.setter
+    def federated_identity(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f9068b39cff118c2b753e95cf985a99f55b34352f9aa739d04a766667e219628)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "federatedIdentity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="subdirectory")
     def subdirectory(self) -> typing.Optional[builtins.str]:
         '''Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).'''
@@ -905,6 +933,147 @@ class CfnLocationAzureBlob(
 
         def __repr__(self) -> str:
             return "AzureBlobSasConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"aws_iam_role": "awsIamRole", "azure_oidc": "azureOidc"},
+    )
+    class AzureFederatedIdentityConfigProperty:
+        def __init__(
+            self,
+            *,
+            aws_iam_role: typing.Optional[builtins.str] = None,
+            azure_oidc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.AzureOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the identity federation configuration that DataSync uses to access your Azure Blob Storage container using an OpenID Connect (OIDC) token.
+
+            :param aws_iam_role: Specifies the ARN of the AWS Identity and Access Management (IAM) role that DataSync assumes to mint the OIDC token used to authenticate with the identity provider.
+            :param azure_oidc: Specifies the Microsoft Entra (Azure AD) identity that DataSync federates with to obtain an access token for your Azure Blob Storage container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azurefederatedidentityconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                azure_federated_identity_config_property = datasync.CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty(
+                    aws_iam_role="awsIamRole",
+                    azure_oidc=datasync.CfnLocationAzureBlob.AzureOidcConfigProperty(
+                        client_id="clientId",
+                        tenant_id="tenantId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__444e194e80856533d624a32c890fdae94c453e607b0d02be4a910486d373d285)
+                check_type(argname="argument aws_iam_role", value=aws_iam_role, expected_type=type_hints["aws_iam_role"])
+                check_type(argname="argument azure_oidc", value=azure_oidc, expected_type=type_hints["azure_oidc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_iam_role is not None:
+                self._values["aws_iam_role"] = aws_iam_role
+            if azure_oidc is not None:
+                self._values["azure_oidc"] = azure_oidc
+
+        @builtins.property
+        def aws_iam_role(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN of the AWS Identity and Access Management (IAM) role that DataSync assumes to mint the OIDC token used to authenticate with the identity provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azurefederatedidentityconfig.html#cfn-datasync-locationazureblob-azurefederatedidentityconfig-awsiamrole
+            '''
+            result = self._values.get("aws_iam_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def azure_oidc(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureOidcConfigProperty"]]:
+            '''Specifies the Microsoft Entra (Azure AD) identity that DataSync federates with to obtain an access token for your Azure Blob Storage container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azurefederatedidentityconfig.html#cfn-datasync-locationazureblob-azurefederatedidentityconfig-azureoidc
+            '''
+            result = self._values.get("azure_oidc")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureOidcConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureFederatedIdentityConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationAzureBlob.AzureOidcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_id": "clientId", "tenant_id": "tenantId"},
+    )
+    class AzureOidcConfigProperty:
+        def __init__(self, *, client_id: builtins.str, tenant_id: builtins.str) -> None:
+            '''Specifies the Microsoft Entra (Azure AD) identity that DataSync federates with to obtain an access token for your Azure Blob Storage container.
+
+            :param client_id: Specifies the client ID of the Microsoft Entra (Azure AD) identity that DataSync uses to obtain an access token.
+            :param tenant_id: Specifies the Microsoft Entra (Azure AD) tenant ID that the identity belongs to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureoidcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                azure_oidc_config_property = datasync.CfnLocationAzureBlob.AzureOidcConfigProperty(
+                    client_id="clientId",
+                    tenant_id="tenantId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2db7df96468b81ea07869972c95871c8ac6bbd27b370f2e5a4dd76536984c7c5)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "tenant_id": tenant_id,
+            }
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''Specifies the client ID of the Microsoft Entra (Azure AD) identity that DataSync uses to obtain an access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureoidcconfig.html#cfn-datasync-locationazureblob-azureoidcconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tenant_id(self) -> builtins.str:
+            '''Specifies the Microsoft Entra (Azure AD) tenant ID that the identity belongs to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-azureoidcconfig.html#cfn-datasync-locationazureblob-azureoidcconfig-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            assert result is not None, "Required property 'tenant_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureOidcConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1132,6 +1301,7 @@ class CfnLocationAzureBlob(
         "azure_blob_type": "azureBlobType",
         "cmk_secret_config": "cmkSecretConfig",
         "custom_secret_config": "customSecretConfig",
+        "federated_identity": "federatedIdentity",
         "subdirectory": "subdirectory",
         "tags": "tags",
     },
@@ -1148,6 +1318,7 @@ class CfnLocationAzureBlobProps:
         azure_blob_type: typing.Optional[builtins.str] = None,
         cmk_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federated_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subdirectory: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1161,6 +1332,7 @@ class CfnLocationAzureBlobProps:
         :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
         :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token, secret key, password, or Kerberos keytab that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location credentials is stored in Secrets Manager as plain text (for authentication token, secret key, or password) or as binary (for Kerberos keytab). This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param federated_identity: Specifies the identity federation configuration that DataSync uses to access your Azure Blob Storage container using an OpenID Connect (OIDC) token.
         :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
         :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
 
@@ -1193,6 +1365,13 @@ class CfnLocationAzureBlobProps:
                     secret_access_role_arn="secretAccessRoleArn",
                     secret_arn="secretArn"
                 ),
+                federated_identity=datasync.CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty(
+                    aws_iam_role="awsIamRole",
+                    azure_oidc=datasync.CfnLocationAzureBlob.AzureOidcConfigProperty(
+                        client_id="clientId",
+                        tenant_id="tenantId"
+                    )
+                ),
                 subdirectory="subdirectory",
                 tags=[CfnTag(
                     key="key",
@@ -1210,6 +1389,7 @@ class CfnLocationAzureBlobProps:
             check_type(argname="argument azure_blob_type", value=azure_blob_type, expected_type=type_hints["azure_blob_type"])
             check_type(argname="argument cmk_secret_config", value=cmk_secret_config, expected_type=type_hints["cmk_secret_config"])
             check_type(argname="argument custom_secret_config", value=custom_secret_config, expected_type=type_hints["custom_secret_config"])
+            check_type(argname="argument federated_identity", value=federated_identity, expected_type=type_hints["federated_identity"])
             check_type(argname="argument subdirectory", value=subdirectory, expected_type=type_hints["subdirectory"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1229,6 +1409,8 @@ class CfnLocationAzureBlobProps:
             self._values["cmk_secret_config"] = cmk_secret_config
         if custom_secret_config is not None:
             self._values["custom_secret_config"] = custom_secret_config
+        if federated_identity is not None:
+            self._values["federated_identity"] = federated_identity
         if subdirectory is not None:
             self._values["subdirectory"] = subdirectory
         if tags is not None:
@@ -1344,6 +1526,17 @@ class CfnLocationAzureBlobProps:
         '''
         result = self._values.get("custom_secret_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.CustomSecretConfigProperty"]], result)
+
+    @builtins.property
+    def federated_identity(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty"]]:
+        '''Specifies the identity federation configuration that DataSync uses to access your Azure Blob Storage container using an OpenID Connect (OIDC) token.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-federatedidentity
+        '''
+        result = self._values.get("federated_identity")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty"]], result)
 
     @builtins.property
     def subdirectory(self) -> typing.Optional[builtins.str]:
@@ -6322,6 +6515,17 @@ class CfnLocationObjectStorage(
                 secret_access_role_arn="secretAccessRoleArn",
                 secret_arn="secretArn"
             ),
+            federated_identity=datasync.CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty(
+                aws_iam_role="awsIamRole",
+                external_identity=datasync.CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty(
+                    google_oidc=datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty(
+                        identity_pool_name="identityPoolName",
+                        identity_provider_name="identityProviderName",
+                        project_name="projectName",
+                        project_number="projectNumber"
+                    )
+                )
+            ),
             secret_key="secretKey",
             server_certificate="serverCertificate",
             server_hostname="serverHostname",
@@ -6345,6 +6549,7 @@ class CfnLocationObjectStorage(
         bucket_name: typing.Optional[builtins.str] = None,
         cmk_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federated_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         secret_key: typing.Optional[builtins.str] = None,
         server_certificate: typing.Optional[builtins.str] = None,
         server_hostname: typing.Optional[builtins.str] = None,
@@ -6362,6 +6567,7 @@ class CfnLocationObjectStorage(
         :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
         :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this parameter as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure that DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
         :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param federated_identity: Specifies the identity federation configuration that DataSync uses to access your object storage location using an OpenID Connect (OIDC) token.
         :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
         :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
         :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
@@ -6380,6 +6586,7 @@ class CfnLocationObjectStorage(
             bucket_name=bucket_name,
             cmk_secret_config=cmk_secret_config,
             custom_secret_config=custom_secret_config,
+            federated_identity=federated_identity,
             secret_key=secret_key,
             server_certificate=server_certificate,
             server_hostname=server_hostname,
@@ -6571,6 +6778,24 @@ class CfnLocationObjectStorage(
             type_hints = cached_type_hints(_typecheckingstub__f8e807a4053a1cf75e73e9841ea082806de0e3097bc4b377492cf4268c03a8c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customSecretConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="federatedIdentity")
+    def federated_identity(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty"]]:
+        '''Specifies the identity federation configuration that DataSync uses to access your object storage location using an OpenID Connect (OIDC) token.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty"]], jsii.get(self, "federatedIdentity"))
+
+    @federated_identity.setter
+    def federated_identity(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3c26b5db0584d2fd765e72fb8f0348ce648959fe29e6824c7212516c59aa1351)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "federatedIdentity", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="secretKey")
@@ -6824,6 +7049,112 @@ class CfnLocationObjectStorage(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "identity_pool_name": "identityPoolName",
+            "identity_provider_name": "identityProviderName",
+            "project_name": "projectName",
+            "project_number": "projectNumber",
+        },
+    )
+    class GoogleOidcConfigProperty:
+        def __init__(
+            self,
+            *,
+            identity_pool_name: builtins.str,
+            identity_provider_name: builtins.str,
+            project_name: builtins.str,
+            project_number: builtins.str,
+        ) -> None:
+            '''Specifies the Google Cloud workload identity federation configuration that DataSync uses to obtain an access token for your Google Cloud Storage bucket.
+
+            :param identity_pool_name: The name of the Google Cloud workload identity pool that DataSync federates with.
+            :param identity_provider_name: The name of the OIDC identity provider configured in the Google Cloud workload identity pool.
+            :param project_name: The human-readable Google Cloud project name.
+            :param project_number: The numeric Google Cloud project ID, as a string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-googleoidcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                google_oidc_config_property = datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty(
+                    identity_pool_name="identityPoolName",
+                    identity_provider_name="identityProviderName",
+                    project_name="projectName",
+                    project_number="projectNumber"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fa335627d98b52725f0611d0373c885c8b954b92ce3068ac5ceca7e672c69c61)
+                check_type(argname="argument identity_pool_name", value=identity_pool_name, expected_type=type_hints["identity_pool_name"])
+                check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
+                check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+                check_type(argname="argument project_number", value=project_number, expected_type=type_hints["project_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "identity_pool_name": identity_pool_name,
+                "identity_provider_name": identity_provider_name,
+                "project_name": project_name,
+                "project_number": project_number,
+            }
+
+        @builtins.property
+        def identity_pool_name(self) -> builtins.str:
+            '''The name of the Google Cloud workload identity pool that DataSync federates with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-googleoidcconfig.html#cfn-datasync-locationobjectstorage-googleoidcconfig-identitypoolname
+            '''
+            result = self._values.get("identity_pool_name")
+            assert result is not None, "Required property 'identity_pool_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def identity_provider_name(self) -> builtins.str:
+            '''The name of the OIDC identity provider configured in the Google Cloud workload identity pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-googleoidcconfig.html#cfn-datasync-locationobjectstorage-googleoidcconfig-identityprovidername
+            '''
+            result = self._values.get("identity_provider_name")
+            assert result is not None, "Required property 'identity_provider_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def project_name(self) -> builtins.str:
+            '''The human-readable Google Cloud project name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-googleoidcconfig.html#cfn-datasync-locationobjectstorage-googleoidcconfig-projectname
+            '''
+            result = self._values.get("project_name")
+            assert result is not None, "Required property 'project_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def project_number(self) -> builtins.str:
+            '''The numeric Google Cloud project ID, as a string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-googleoidcconfig.html#cfn-datasync-locationobjectstorage-googleoidcconfig-projectnumber
+            '''
+            result = self._values.get("project_number")
+            assert result is not None, "Required property 'project_number' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GoogleOidcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorage.ManagedSecretConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"secret_arn": "secretArn"},
@@ -6877,6 +7208,150 @@ class CfnLocationObjectStorage(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"google_oidc": "googleOidc"},
+    )
+    class ObjectStorageExternalIdentityConfigProperty:
+        def __init__(
+            self,
+            *,
+            google_oidc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.GoogleOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the external (non-AWS) identity provider that DataSync federates with to access your object storage location.
+
+            :param google_oidc: Specifies the Google Cloud workload identity federation configuration that DataSync uses to obtain an access token for your Google Cloud Storage bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-objectstorageexternalidentityconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                object_storage_external_identity_config_property = datasync.CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty(
+                    google_oidc=datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty(
+                        identity_pool_name="identityPoolName",
+                        identity_provider_name="identityProviderName",
+                        project_name="projectName",
+                        project_number="projectNumber"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__12d1b0e5eb01ec5387b931df2528343287473505c59ce31b3efb4546e7b55a4d)
+                check_type(argname="argument google_oidc", value=google_oidc, expected_type=type_hints["google_oidc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if google_oidc is not None:
+                self._values["google_oidc"] = google_oidc
+
+        @builtins.property
+        def google_oidc(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.GoogleOidcConfigProperty"]]:
+            '''Specifies the Google Cloud workload identity federation configuration that DataSync uses to obtain an access token for your Google Cloud Storage bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-objectstorageexternalidentityconfig.html#cfn-datasync-locationobjectstorage-objectstorageexternalidentityconfig-googleoidc
+            '''
+            result = self._values.get("google_oidc")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.GoogleOidcConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ObjectStorageExternalIdentityConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_iam_role": "awsIamRole",
+            "external_identity": "externalIdentity",
+        },
+    )
+    class ObjectStorageFederatedIdentityConfigProperty:
+        def __init__(
+            self,
+            *,
+            aws_iam_role: typing.Optional[builtins.str] = None,
+            external_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the identity federation configuration that DataSync uses to access your object storage location using an OpenID Connect (OIDC) token.
+
+            :param aws_iam_role: Specifies the ARN of the AWS Identity and Access Management (IAM) role that DataSync assumes to mint the OIDC token used to authenticate with the identity provider.
+            :param external_identity: Specifies the external (non-AWS) identity provider that DataSync federates with to access your object storage location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-objectstoragefederatedidentityconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datasync as datasync
+                
+                object_storage_federated_identity_config_property = datasync.CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty(
+                    aws_iam_role="awsIamRole",
+                    external_identity=datasync.CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty(
+                        google_oidc=datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty(
+                            identity_pool_name="identityPoolName",
+                            identity_provider_name="identityProviderName",
+                            project_name="projectName",
+                            project_number="projectNumber"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7a61667d7b915a4080f0169105188799a23b34a26d208aedffe9b433c4366ffb)
+                check_type(argname="argument aws_iam_role", value=aws_iam_role, expected_type=type_hints["aws_iam_role"])
+                check_type(argname="argument external_identity", value=external_identity, expected_type=type_hints["external_identity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_iam_role is not None:
+                self._values["aws_iam_role"] = aws_iam_role
+            if external_identity is not None:
+                self._values["external_identity"] = external_identity
+
+        @builtins.property
+        def aws_iam_role(self) -> typing.Optional[builtins.str]:
+            '''Specifies the ARN of the AWS Identity and Access Management (IAM) role that DataSync assumes to mint the OIDC token used to authenticate with the identity provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-objectstoragefederatedidentityconfig.html#cfn-datasync-locationobjectstorage-objectstoragefederatedidentityconfig-awsiamrole
+            '''
+            result = self._values.get("aws_iam_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_identity(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty"]]:
+            '''Specifies the external (non-AWS) identity provider that DataSync federates with to access your object storage location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-objectstoragefederatedidentityconfig.html#cfn-datasync-locationobjectstorage-objectstoragefederatedidentityconfig-externalidentity
+            '''
+            result = self._values.get("external_identity")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ObjectStorageFederatedIdentityConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_datasync.CfnLocationObjectStorageProps",
@@ -6887,6 +7362,7 @@ class CfnLocationObjectStorage(
         "bucket_name": "bucketName",
         "cmk_secret_config": "cmkSecretConfig",
         "custom_secret_config": "customSecretConfig",
+        "federated_identity": "federatedIdentity",
         "secret_key": "secretKey",
         "server_certificate": "serverCertificate",
         "server_hostname": "serverHostname",
@@ -6905,6 +7381,7 @@ class CfnLocationObjectStorageProps:
         bucket_name: typing.Optional[builtins.str] = None,
         cmk_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.CmkSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_secret_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.CustomSecretConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federated_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         secret_key: typing.Optional[builtins.str] = None,
         server_certificate: typing.Optional[builtins.str] = None,
         server_hostname: typing.Optional[builtins.str] = None,
@@ -6920,6 +7397,7 @@ class CfnLocationObjectStorageProps:
         :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
         :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this parameter as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure that DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
         :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text, in Secrets Manager. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param federated_identity: Specifies the identity federation configuration that DataSync uses to access your object storage location using an OpenID Connect (OIDC) token.
         :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
         :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
         :param server_hostname: Specifies the domain name or IP address (IPv4 or IPv6) of the object storage server that your DataSync agent connects to.
@@ -6950,6 +7428,17 @@ class CfnLocationObjectStorageProps:
                     secret_access_role_arn="secretAccessRoleArn",
                     secret_arn="secretArn"
                 ),
+                federated_identity=datasync.CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty(
+                    aws_iam_role="awsIamRole",
+                    external_identity=datasync.CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty(
+                        google_oidc=datasync.CfnLocationObjectStorage.GoogleOidcConfigProperty(
+                            identity_pool_name="identityPoolName",
+                            identity_provider_name="identityProviderName",
+                            project_name="projectName",
+                            project_number="projectNumber"
+                        )
+                    )
+                ),
                 secret_key="secretKey",
                 server_certificate="serverCertificate",
                 server_hostname="serverHostname",
@@ -6969,6 +7458,7 @@ class CfnLocationObjectStorageProps:
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
             check_type(argname="argument cmk_secret_config", value=cmk_secret_config, expected_type=type_hints["cmk_secret_config"])
             check_type(argname="argument custom_secret_config", value=custom_secret_config, expected_type=type_hints["custom_secret_config"])
+            check_type(argname="argument federated_identity", value=federated_identity, expected_type=type_hints["federated_identity"])
             check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
             check_type(argname="argument server_certificate", value=server_certificate, expected_type=type_hints["server_certificate"])
             check_type(argname="argument server_hostname", value=server_hostname, expected_type=type_hints["server_hostname"])
@@ -6987,6 +7477,8 @@ class CfnLocationObjectStorageProps:
             self._values["cmk_secret_config"] = cmk_secret_config
         if custom_secret_config is not None:
             self._values["custom_secret_config"] = custom_secret_config
+        if federated_identity is not None:
+            self._values["federated_identity"] = federated_identity
         if secret_key is not None:
             self._values["secret_key"] = secret_key
         if server_certificate is not None:
@@ -7067,6 +7559,17 @@ class CfnLocationObjectStorageProps:
         '''
         result = self._values.get("custom_secret_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.CustomSecretConfigProperty"]], result)
+
+    @builtins.property
+    def federated_identity(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty"]]:
+        '''Specifies the identity federation configuration that DataSync uses to access your object storage location using an OpenID Connect (OIDC) token.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-federatedidentity
+        '''
+        result = self._values.get("federated_identity")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty"]], result)
 
     @builtins.property
     def secret_key(self) -> typing.Optional[builtins.str]:
@@ -8715,6 +9218,7 @@ class CfnTask(
                 gid="gid",
                 log_level="logLevel",
                 mtime="mtime",
+                object_metadata="objectMetadata",
                 object_tags="objectTags",
                 overwrite_mode="overwriteMode",
                 posix_permissions="posixPermissions",
@@ -9535,6 +10039,7 @@ class CfnTask(
             "gid": "gid",
             "log_level": "logLevel",
             "mtime": "mtime",
+            "object_metadata": "objectMetadata",
             "object_tags": "objectTags",
             "overwrite_mode": "overwriteMode",
             "posix_permissions": "posixPermissions",
@@ -9556,6 +10061,7 @@ class CfnTask(
             gid: typing.Optional[builtins.str] = None,
             log_level: typing.Optional[builtins.str] = None,
             mtime: typing.Optional[builtins.str] = None,
+            object_metadata: typing.Optional[builtins.str] = None,
             object_tags: typing.Optional[builtins.str] = None,
             overwrite_mode: typing.Optional[builtins.str] = None,
             posix_permissions: typing.Optional[builtins.str] = None,
@@ -9576,6 +10082,7 @@ class CfnTask(
             :param gid: The group ID (GID) of the file's owners. Default value: ``INT_VALUE`` ``INT_VALUE`` : Preserve the integer value of the user ID (UID) and group ID (GID) (recommended). ``NAME`` : Currently not supported. ``NONE`` : Ignore the UID and GID.
             :param log_level: Specifies the type of logs that DataSync publishes to a Amazon CloudWatch Logs log group. To specify the log group, see `CloudWatchLogGroupArn <https://docs.aws.amazon.com/datasync/latest/userguide/API_CreateTask.html#DataSync-CreateTask-request-CloudWatchLogGroupArn>`_ . - ``BASIC`` - Publishes logs with only basic information (such as transfer errors). - ``TRANSFER`` - Publishes logs for all files or objects that your DataSync task transfers and performs data-integrity checks on. - ``OFF`` - No logs are published.
             :param mtime: A value that indicates the last time that a file was modified (that is, a file was written to) before the PREPARING phase. This option is required for cases when you need to run the same task more than one time. Default value: ``PRESERVE`` ``PRESERVE`` : Preserve original ``Mtime`` (recommended) ``NONE`` : Ignore ``Mtime`` . .. epigraph:: If ``Mtime`` is set to ``PRESERVE`` , ``Atime`` must be set to ``BEST_EFFORT`` . If ``Mtime`` is set to ``NONE`` , ``Atime`` must also be set to ``NONE`` .
+            :param object_metadata: A value that determines whether source object metadata should be copied to the destination. PRESERVE copies metadata; NONE copies only file-mtime.
             :param object_tags: Specifies whether you want DataSync to ``PRESERVE`` object tags (default behavior) when transferring between object storage systems. If you want your DataSync task to ignore object tags, specify the ``NONE`` value.
             :param overwrite_mode: Specifies whether DataSync should modify or preserve data at the destination location. - ``ALWAYS`` (default) - DataSync modifies data in the destination location when source data (including metadata) has changed. If DataSync overwrites objects, you might incur additional charges for certain Amazon S3 storage classes (for example, for retrieval or early deletion). For more information, see `Storage class considerations with Amazon S3 transfers <https://docs.aws.amazon.com/datasync/latest/userguide/create-s3-location.html#using-storage-classes>`_ . - ``NEVER`` - DataSync doesn't overwrite data in the destination location even if the source data has changed. You can use this option to protect against overwriting changes made to files or objects in the destination.
             :param posix_permissions: A value that determines which users or groups can access a file for a specific purpose, such as reading, writing, or execution of the file. This option should be set only for Network File System (NFS), Amazon EFS, and Amazon S3 locations. For more information about what metadata is copied by DataSync, see `Metadata Copied by DataSync <https://docs.aws.amazon.com/datasync/latest/userguide/special-files.html#metadata-copied>`_ . Default value: ``PRESERVE`` ``PRESERVE`` : Preserve POSIX-style permissions (recommended). ``NONE`` : Ignore permissions. .. epigraph:: AWS DataSync can preserve extant permissions of a source location.
@@ -9602,6 +10109,7 @@ class CfnTask(
                     gid="gid",
                     log_level="logLevel",
                     mtime="mtime",
+                    object_metadata="objectMetadata",
                     object_tags="objectTags",
                     overwrite_mode="overwriteMode",
                     posix_permissions="posixPermissions",
@@ -9621,6 +10129,7 @@ class CfnTask(
                 check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
                 check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
                 check_type(argname="argument mtime", value=mtime, expected_type=type_hints["mtime"])
+                check_type(argname="argument object_metadata", value=object_metadata, expected_type=type_hints["object_metadata"])
                 check_type(argname="argument object_tags", value=object_tags, expected_type=type_hints["object_tags"])
                 check_type(argname="argument overwrite_mode", value=overwrite_mode, expected_type=type_hints["overwrite_mode"])
                 check_type(argname="argument posix_permissions", value=posix_permissions, expected_type=type_hints["posix_permissions"])
@@ -9642,6 +10151,8 @@ class CfnTask(
                 self._values["log_level"] = log_level
             if mtime is not None:
                 self._values["mtime"] = mtime
+            if object_metadata is not None:
+                self._values["object_metadata"] = object_metadata
             if object_tags is not None:
                 self._values["object_tags"] = object_tags
             if overwrite_mode is not None:
@@ -9748,6 +10259,17 @@ class CfnTask(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-options.html#cfn-datasync-task-options-mtime
             '''
             result = self._values.get("mtime")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def object_metadata(self) -> typing.Optional[builtins.str]:
+            '''A value that determines whether source object metadata should be copied to the destination.
+
+            PRESERVE copies metadata; NONE copies only file-mtime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-options.html#cfn-datasync-task-options-objectmetadata
+            '''
+            result = self._values.get("object_metadata")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -10714,6 +11236,7 @@ class CfnTaskProps:
                     gid="gid",
                     log_level="logLevel",
                     mtime="mtime",
+                    object_metadata="objectMetadata",
                     object_tags="objectTags",
                     overwrite_mode="overwriteMode",
                     posix_permissions="posixPermissions",
@@ -11090,6 +11613,7 @@ def _typecheckingstub__2a49f57a1ab4813b1537b04053be19b99e3fa8f143f30fac9d1bc72ca
     azure_blob_type: typing.Optional[builtins.str] = None,
     cmk_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federated_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -11162,6 +11686,12 @@ def _typecheckingstub__3276084bb32edc8f06759cb50268fc7821cd740602d985f3b1b967d52
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f9068b39cff118c2b753e95cf985a99f55b34352f9aa739d04a766667e219628(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__861788b0a9a32f402ab93793acdec22ae6bb15d217371b8ba36d7cb8ba33fc6b(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -11177,6 +11707,22 @@ def _typecheckingstub__49f572b838ff9ece4d89d77403924adeec2030197b239758db39cea71
 def _typecheckingstub__3b97bd3f13ec4166f121eb8229b7a3322702a4782d767aca2fc1323e923cced8(
     *,
     azure_blob_sas_token: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__444e194e80856533d624a32c890fdae94c453e607b0d02be4a910486d373d285(
+    *,
+    aws_iam_role: typing.Optional[builtins.str] = None,
+    azure_oidc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.AzureOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2db7df96468b81ea07869972c95871c8ac6bbd27b370f2e5a4dd76536984c7c5(
+    *,
+    client_id: builtins.str,
+    tenant_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11214,6 +11760,7 @@ def _typecheckingstub__d386b9f5845962fa66385393ccc6424f66b9aee312fecdc96fe3ec242
     azure_blob_type: typing.Optional[builtins.str] = None,
     cmk_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federated_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationAzureBlob.AzureFederatedIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subdirectory: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -12023,6 +12570,7 @@ def _typecheckingstub__6afc4365b2246b057f5b97e5d62cc10a54cff3be74dae8a9bb184f54b
     bucket_name: typing.Optional[builtins.str] = None,
     cmk_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federated_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     secret_key: typing.Optional[builtins.str] = None,
     server_certificate: typing.Optional[builtins.str] = None,
     server_hostname: typing.Optional[builtins.str] = None,
@@ -12078,6 +12626,12 @@ def _typecheckingstub__750d7a103b8b00f0ab06ca1128b92bb839b2b91e71e5a388ec467dacd
 
 def _typecheckingstub__f8e807a4053a1cf75e73e9841ea082806de0e3097bc4b377492cf4268c03a8c5(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLocationObjectStorage.CustomSecretConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c26b5db0584d2fd765e72fb8f0348ce648959fe29e6824c7212516c59aa1351(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12140,9 +12694,34 @@ def _typecheckingstub__630b549b792c8efcdd58178e432579f521d2a86cc91c662fd9c77d74c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fa335627d98b52725f0611d0373c885c8b954b92ce3068ac5ceca7e672c69c61(
+    *,
+    identity_pool_name: builtins.str,
+    identity_provider_name: builtins.str,
+    project_name: builtins.str,
+    project_number: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__65c61b34a40852805ad1d8c34da183c741fa3a1957daae2b986eb1a616335549(
     *,
     secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12d1b0e5eb01ec5387b931df2528343287473505c59ce31b3efb4546e7b55a4d(
+    *,
+    google_oidc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.GoogleOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a61667d7b915a4080f0169105188799a23b34a26d208aedffe9b433c4366ffb(
+    *,
+    aws_iam_role: typing.Optional[builtins.str] = None,
+    external_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.ObjectStorageExternalIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12154,6 +12733,7 @@ def _typecheckingstub__d542a26da4e93d9d103e234c98ed367d8b6bea7d295017a32de5525e1
     bucket_name: typing.Optional[builtins.str] = None,
     cmk_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.CmkSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_secret_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.CustomSecretConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federated_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLocationObjectStorage.ObjectStorageFederatedIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     secret_key: typing.Optional[builtins.str] = None,
     server_certificate: typing.Optional[builtins.str] = None,
     server_hostname: typing.Optional[builtins.str] = None,
@@ -12590,6 +13170,7 @@ def _typecheckingstub__c7557db697c0c06b71a63bdcbecc24fb94bbe4de1de1980fd9b1a7e36
     gid: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[builtins.str] = None,
     mtime: typing.Optional[builtins.str] = None,
+    object_metadata: typing.Optional[builtins.str] = None,
     object_tags: typing.Optional[builtins.str] = None,
     overwrite_mode: typing.Optional[builtins.str] = None,
     posix_permissions: typing.Optional[builtins.str] = None,

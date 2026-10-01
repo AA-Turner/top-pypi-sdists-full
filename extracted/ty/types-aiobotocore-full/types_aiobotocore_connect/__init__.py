@@ -32,6 +32,7 @@ Usage::
         ListDataTablesPaginator,
         ListDefaultVocabulariesPaginator,
         ListEntitySecurityProfilesPaginator,
+        ListEvaluationFormAIVersionsPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
         ListExtractionDefinitionsPaginator,
@@ -57,6 +58,7 @@ Usage::
         ListRoutingProfilesPaginator,
         ListRulesPaginator,
         ListSecurityKeysPaginator,
+        ListSecurityProfileAIAgentsPaginator,
         ListSecurityProfileApplicationsPaginator,
         ListSecurityProfileFlowModulesPaginator,
         ListSecurityProfilePermissionsPaginator,
@@ -125,6 +127,7 @@ Usage::
     list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
     list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator("list_default_vocabularies")
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
+    list_evaluation_form_ai_versions_paginator: ListEvaluationFormAIVersionsPaginator = client.get_paginator("list_evaluation_form_ai_versions")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
     list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
@@ -150,6 +153,7 @@ Usage::
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
     list_rules_paginator: ListRulesPaginator = client.get_paginator("list_rules")
     list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("list_security_keys")
+    list_security_profile_ai_agents_paginator: ListSecurityProfileAIAgentsPaginator = client.get_paginator("list_security_profile_ai_agents")
     list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = client.get_paginator("list_security_profile_applications")
     list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = client.get_paginator("list_security_profile_flow_modules")
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
@@ -215,6 +219,7 @@ from .paginator import (
     ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
     ListEntitySecurityProfilesPaginator,
+    ListEvaluationFormAIVersionsPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListExtractionDefinitionsPaginator,
@@ -240,6 +245,7 @@ from .paginator import (
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
+    ListSecurityProfileAIAgentsPaginator,
     ListSecurityProfileApplicationsPaginator,
     ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
@@ -308,6 +314,7 @@ __all__ = (
     "ListDataTablesPaginator",
     "ListDefaultVocabulariesPaginator",
     "ListEntitySecurityProfilesPaginator",
+    "ListEvaluationFormAIVersionsPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
     "ListExtractionDefinitionsPaginator",
@@ -333,6 +340,7 @@ __all__ = (
     "ListRoutingProfilesPaginator",
     "ListRulesPaginator",
     "ListSecurityKeysPaginator",
+    "ListSecurityProfileAIAgentsPaginator",
     "ListSecurityProfileApplicationsPaginator",
     "ListSecurityProfileFlowModulesPaginator",
     "ListSecurityProfilePermissionsPaginator",

@@ -34,6 +34,7 @@ __all__ = (
     "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
     "IcebergCompressionTypeType",
+    "JwtSigningAlgorithmType",
     "KafkaClusterEncryptionInTransitTypeType",
     "KafkaClusterSaslScramMechanismType",
     "KafkaServiceName",
@@ -66,6 +67,7 @@ __all__ = (
     "ServiceName",
     "StorageModeType",
     "TargetCompressionTypeType",
+    "TokenEndpointAuthenticationMethodType",
     "TopicStateType",
     "UserIdentityTypeType",
     "ValueConverterType",
@@ -97,6 +99,7 @@ EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
 IcebergCompressionTypeType = Literal["SNAPPY", "ZSTD"]
+JwtSigningAlgorithmType = Literal["ES384", "RS256"]
 KafkaClusterEncryptionInTransitTypeType = Literal["TLS"]
 KafkaClusterSaslScramMechanismType = Literal["SHA256", "SHA512"]
 KafkaVersionStatusType = Literal["ACTIVE", "DEPRECATED"]
@@ -126,6 +129,7 @@ S3CompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
 S3StorageClassType = Literal["GLACIER_IR", "INTELLIGENT_TIERING", "STANDARD"]
 StorageModeType = Literal["LOCAL", "TIERED"]
 TargetCompressionTypeType = Literal["GZIP", "LZ4", "NONE", "SNAPPY", "ZSTD"]
+TokenEndpointAuthenticationMethodType = Literal["BASIC", "NONE", "POST"]
 TopicStateType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 UserIdentityTypeType = Literal["AWSACCOUNT", "AWSSERVICE"]
 ValueConverterType = Literal["BYTE_ARRAY", "JSON", "JSON_SCHEMA_GSR", "STRING"]
@@ -220,6 +224,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -294,6 +299,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -322,6 +328,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -416,6 +423,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

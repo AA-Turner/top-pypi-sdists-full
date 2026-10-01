@@ -1137,6 +1137,359 @@ class CfnDocumentClassifier(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_comprehend_3d939c31.IDocumentClassifierEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDocumentClassifierEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnDocumentClassifierEndpoint",
+):
+    '''An Amazon Comprehend endpoint that hosts a custom document classification model for real-time inference.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html
+    :cloudformationResource: AWS::Comprehend::DocumentClassifierEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_comprehend as comprehend
+        
+        cfn_document_classifier_endpoint = comprehend.CfnDocumentClassifierEndpoint(self, "MyCfnDocumentClassifierEndpoint",
+            desired_inference_units=123,
+            endpoint_name="endpointName",
+            model_arn="modelArn",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        desired_inference_units: jsii.Number,
+        endpoint_name: builtins.str,
+        model_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Comprehend::DocumentClassifierEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param desired_inference_units: The desired number of inference units to be used by the model. Each inference unit represents throughput of 100 characters per second.
+        :param endpoint_name: The name of the endpoint. The name must be unique within the AWS Region and account.
+        :param model_arn: The Amazon Resource Name (ARN) of the document classifier model to which the endpoint is attached.
+        :param tags: Tags associated with the endpoint being created.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d01d5005b313b364843f49aefd0be84f1720af0eac50dcccfcd081d7dbb27815)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDocumentClassifierEndpointProps(
+            desired_inference_units=desired_inference_units,
+            endpoint_name=endpoint_name,
+            model_arn=model_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDocumentClassifierEndpoint")
+    @builtins.classmethod
+    def arn_for_document_classifier_endpoint(
+        cls,
+        resource: "_aws_comprehend_3d939c31.IDocumentClassifierEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4b9f6ce4645176ea32bd3e80447b698ac863768ed53a737a8b61ba9261026c9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDocumentClassifierEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnDocumentClassifierEndpoint")
+    @builtins.classmethod
+    def is_cfn_document_classifier_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDocumentClassifierEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4e2a645d0749b6b473a9b038a89d0f699e51049bda80d26ec7a1748d2cd24544)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDocumentClassifierEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73c1bf16db7a684f6c10205c7debc9cc113791eccbad386675205022faf0a155)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a09a0f07e1c99ac06458bea5e3243d9c54ca0ba57c002a780c6fbcd0735379b7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the document classifier endpoint.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The creation date and time of the endpoint.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCurrentInferenceUnits")
+    def attr_current_inference_units(self) -> jsii.Number:
+        '''The number of inference units currently used by the model using this endpoint.
+
+        :cloudformationAttribute: CurrentInferenceUnits
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrCurrentInferenceUnits"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The date and time that the endpoint was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="documentClassifierEndpointRef")
+    def document_classifier_endpoint_ref(
+        self,
+    ) -> "_aws_comprehend_3d939c31.DocumentClassifierEndpointReference":
+        '''A reference to a DocumentClassifierEndpoint resource.'''
+        return typing.cast("_aws_comprehend_3d939c31.DocumentClassifierEndpointReference", jsii.get(self, "documentClassifierEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="desiredInferenceUnits")
+    def desired_inference_units(self) -> jsii.Number:
+        '''The desired number of inference units to be used by the model.'''
+        return typing.cast(jsii.Number, jsii.get(self, "desiredInferenceUnits"))
+
+    @desired_inference_units.setter
+    def desired_inference_units(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c931729db880e1d4d30e997f571aa4d9c05f1e47088256dc407aa062d4197bb6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "desiredInferenceUnits", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointName")
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "endpointName"))
+
+    @endpoint_name.setter
+    def endpoint_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d75d5525e05dad6c371504061d6278f28c3b85eb03bd8e1f5961c41431a0273e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the document classifier model to which the endpoint is attached.'''
+        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
+
+    @model_arn.setter
+    def model_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9485587dfc3f40708512aad47c8d9ce5df71d9409bbb9855a597585c45d7de7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags associated with the endpoint being created.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fea4300fec88e873263d5ef55879c2e10d7a84052899259423060e307e6ec594)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnDocumentClassifierEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "desired_inference_units": "desiredInferenceUnits",
+        "endpoint_name": "endpointName",
+        "model_arn": "modelArn",
+        "tags": "tags",
+    },
+)
+class CfnDocumentClassifierEndpointProps:
+    def __init__(
+        self,
+        *,
+        desired_inference_units: jsii.Number,
+        endpoint_name: builtins.str,
+        model_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDocumentClassifierEndpoint``.
+
+        :param desired_inference_units: The desired number of inference units to be used by the model. Each inference unit represents throughput of 100 characters per second.
+        :param endpoint_name: The name of the endpoint. The name must be unique within the AWS Region and account.
+        :param model_arn: The Amazon Resource Name (ARN) of the document classifier model to which the endpoint is attached.
+        :param tags: Tags associated with the endpoint being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            cfn_document_classifier_endpoint_props = comprehend.CfnDocumentClassifierEndpointProps(
+                desired_inference_units=123,
+                endpoint_name="endpointName",
+                model_arn="modelArn",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__977dfa406452b828badbcc0b79169e6d8fbf22876cbb6bc1dc05121632b196ad)
+            check_type(argname="argument desired_inference_units", value=desired_inference_units, expected_type=type_hints["desired_inference_units"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "desired_inference_units": desired_inference_units,
+            "endpoint_name": endpoint_name,
+            "model_arn": model_arn,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def desired_inference_units(self) -> jsii.Number:
+        '''The desired number of inference units to be used by the model.
+
+        Each inference unit represents throughput of 100 characters per second.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html#cfn-comprehend-documentclassifierendpoint-desiredinferenceunits
+        '''
+        result = self._values.get("desired_inference_units")
+        assert result is not None, "Required property 'desired_inference_units' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.
+
+        The name must be unique within the AWS Region and account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html#cfn-comprehend-documentclassifierendpoint-endpointname
+        '''
+        result = self._values.get("endpoint_name")
+        assert result is not None, "Required property 'endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the document classifier model to which the endpoint is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html#cfn-comprehend-documentclassifierendpoint-modelarn
+        '''
+        result = self._values.get("model_arn")
+        assert result is not None, "Required property 'model_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags associated with the endpoint being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html#cfn-comprehend-documentclassifierendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDocumentClassifierEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_comprehend.CfnDocumentClassifierProps",
     jsii_struct_bases=[],
@@ -1442,6 +1795,1268 @@ class CfnDocumentClassifierProps:
 
     def __repr__(self) -> str:
         return "CfnDocumentClassifierProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_comprehend_3d939c31.IEntityRecognizerRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnEntityRecognizer(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer",
+):
+    '''An Amazon Comprehend custom entity recognizer: a trained model that identifies custom entity types in text, created via an asynchronous training job.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html
+    :cloudformationResource: AWS::Comprehend::EntityRecognizer
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_comprehend as comprehend
+        
+        cfn_entity_recognizer = comprehend.CfnEntityRecognizer(self, "MyCfnEntityRecognizer",
+            data_access_role_arn="dataAccessRoleArn",
+            input_data_config=comprehend.CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty(
+                entity_types=[comprehend.CfnEntityRecognizer.EntityTypesListItemProperty(
+                    type="type"
+                )],
+        
+                # the properties below are optional
+                annotations=comprehend.CfnEntityRecognizer.EntityRecognizerAnnotationsProperty(
+                    s3_uri="s3Uri",
+        
+                    # the properties below are optional
+                    test_s3_uri="testS3Uri"
+                ),
+                augmented_manifests=[comprehend.CfnEntityRecognizer.AugmentedManifestsListItemProperty(
+                    attribute_names=["attributeNames"],
+                    s3_uri="s3Uri",
+        
+                    # the properties below are optional
+                    annotation_data_s3_uri="annotationDataS3Uri",
+                    document_type="documentType",
+                    source_documents_s3_uri="sourceDocumentsS3Uri",
+                    split="split"
+                )],
+                data_format="dataFormat",
+                documents=comprehend.CfnEntityRecognizer.EntityRecognizerDocumentsProperty(
+                    s3_uri="s3Uri",
+        
+                    # the properties below are optional
+                    input_format="inputFormat",
+                    test_s3_uri="testS3Uri"
+                ),
+                entity_list=comprehend.CfnEntityRecognizer.EntityRecognizerEntityListProperty(
+                    s3_uri="s3Uri"
+                )
+            ),
+            language_code="languageCode",
+            recognizer_name="recognizerName",
+        
+            # the properties below are optional
+            model_kms_key_id="modelKmsKeyId",
+            model_policy="modelPolicy",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            version_name="versionName",
+            volume_kms_key_id="volumeKmsKeyId",
+            vpc_config=comprehend.CfnEntityRecognizer.VpcConfigProperty(
+                security_group_ids=["securityGroupIds"],
+                subnets=["subnets"]
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        data_access_role_arn: builtins.str,
+        input_data_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        language_code: builtins.str,
+        recognizer_name: builtins.str,
+        model_kms_key_id: typing.Optional[builtins.str] = None,
+        model_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_name: typing.Optional[builtins.str] = None,
+        volume_kms_key_id: typing.Optional[builtins.str] = None,
+        vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Comprehend::EntityRecognizer``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
+        :param input_data_config: Specifies the format and location of the input data for an entity recognizer.
+        :param language_code: The language of the input documents. All documents must be in the same language.
+        :param recognizer_name: The name given to the entity recognizer.
+        :param model_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.
+        :param model_policy: The JSON resource-based policy to attach to your custom entity recognizer model.
+        :param tags: Tags to associate with the entity recognizer.
+        :param version_name: The version name given to the entity recognizer.
+        :param volume_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s).
+        :param vpc_config: Configuration parameters for an optional private Virtual Private Cloud (VPC) containing the resources you are using for the job.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66ec6e94a40eb461a4c1d4f7367756c5d733bf7646b120e1464dd77c954773a7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEntityRecognizerProps(
+            data_access_role_arn=data_access_role_arn,
+            input_data_config=input_data_config,
+            language_code=language_code,
+            recognizer_name=recognizer_name,
+            model_kms_key_id=model_kms_key_id,
+            model_policy=model_policy,
+            tags=tags,
+            version_name=version_name,
+            volume_kms_key_id=volume_kms_key_id,
+            vpc_config=vpc_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForEntityRecognizer")
+    @builtins.classmethod
+    def arn_for_entity_recognizer(
+        cls,
+        resource: "_aws_comprehend_3d939c31.IEntityRecognizerRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88eb77aa30c22d88c988e2894d881dffc2e691d75944a087a9bec9efde7ad5b0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEntityRecognizer", [resource]))
+
+    @jsii.member(jsii_name="isCfnEntityRecognizer")
+    @builtins.classmethod
+    def is_cfn_entity_recognizer(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEntityRecognizer.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66f20eb516d44eb16abf5e855322bf63a65eb938ff1ea9e5f98154eaff3e8206)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEntityRecognizer", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3247e7445e15a8da17e8c4856dd3a3f6f30a58e4a9c6620c8e9a4f099d11bcd)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a64366a4e857d2fd830317c0ff4e656ded6a4c84a4f0846b5d47eee759daa3f7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that identifies the entity recognizer.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRecognizerRef")
+    def entity_recognizer_ref(
+        self,
+    ) -> "_aws_comprehend_3d939c31.EntityRecognizerReference":
+        '''A reference to a EntityRecognizer resource.'''
+        return typing.cast("_aws_comprehend_3d939c31.EntityRecognizerReference", jsii.get(self, "entityRecognizerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessRoleArn")
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.'''
+        return typing.cast(builtins.str, jsii.get(self, "dataAccessRoleArn"))
+
+    @data_access_role_arn.setter
+    def data_access_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08ce9834519011d893459ce762f8a172227ef7cd2d7d4bf1332218b6b18b0c05)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataAccessRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="inputDataConfig")
+    def input_data_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty"]:
+        '''Specifies the format and location of the input data for an entity recognizer.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty"], jsii.get(self, "inputDataConfig"))
+
+    @input_data_config.setter
+    def input_data_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6168a00572cb917f17b432fe84ba830230cef6b5f20d7bd23041d81495a20bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputDataConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="languageCode")
+    def language_code(self) -> builtins.str:
+        '''The language of the input documents.'''
+        return typing.cast(builtins.str, jsii.get(self, "languageCode"))
+
+    @language_code.setter
+    def language_code(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__beb35aa01fc345e4a0f2648ed42ac274dd1e1f5e940a15204a25ca90d1911953)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "languageCode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recognizerName")
+    def recognizer_name(self) -> builtins.str:
+        '''The name given to the entity recognizer.'''
+        return typing.cast(builtins.str, jsii.get(self, "recognizerName"))
+
+    @recognizer_name.setter
+    def recognizer_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2637f0000c86b8059c9f99d337f0e3ffb5d7554d7abf48805023dd3cd5cf2ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recognizerName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelKmsKeyId")
+    def model_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modelKmsKeyId"))
+
+    @model_kms_key_id.setter
+    def model_kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad7f2fc5cb9b3e3969772e3f50bda748fcd6f9e36bfd10256b238b0a99f838df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelKmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelPolicy")
+    def model_policy(self) -> typing.Optional[builtins.str]:
+        '''The JSON resource-based policy to attach to your custom entity recognizer model.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modelPolicy"))
+
+    @model_policy.setter
+    def model_policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c96a38856499df43529e309d7d108c0dcdc0bf0ad6731d02c9b9e507d4de7c9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the entity recognizer.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1558981fb3757e619827691b1471670a7cb9ba2fefc326fe0d935f22f1808043)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="versionName")
+    def version_name(self) -> typing.Optional[builtins.str]:
+        '''The version name given to the entity recognizer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "versionName"))
+
+    @version_name.setter
+    def version_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c42d4aa33b5e83bb0ce1e434479993689d37c0805fafeea14ce8f21480c3c10f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "versionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeKmsKeyId")
+    def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "volumeKmsKeyId"))
+
+    @volume_kms_key_id.setter
+    def volume_kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__060bf69e800b506c46f109ad64087c74cd680e5e91447458f6728de0e2bbfc79)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "volumeKmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcConfig")
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.VpcConfigProperty"]]:
+        '''Configuration parameters for an optional private Virtual Private Cloud (VPC) containing the resources you are using for the job.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
+
+    @vpc_config.setter
+    def vpc_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.VpcConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7201935b3fc11e5b441171d65ebf5e7f0be0b40a2ea2cecafdd4f054a1abcbd7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.AugmentedManifestsListItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attribute_names": "attributeNames",
+            "s3_uri": "s3Uri",
+            "annotation_data_s3_uri": "annotationDataS3Uri",
+            "document_type": "documentType",
+            "source_documents_s3_uri": "sourceDocumentsS3Uri",
+            "split": "split",
+        },
+    )
+    class AugmentedManifestsListItemProperty:
+        def __init__(
+            self,
+            *,
+            attribute_names: typing.Sequence[builtins.str],
+            s3_uri: builtins.str,
+            annotation_data_s3_uri: typing.Optional[builtins.str] = None,
+            document_type: typing.Optional[builtins.str] = None,
+            source_documents_s3_uri: typing.Optional[builtins.str] = None,
+            split: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An augmented manifest file that provides training data for your custom model.
+
+            :param attribute_names: The JSON attribute that contains the annotations for your training documents.
+            :param s3_uri: The Amazon S3 location of the augmented manifest file.
+            :param annotation_data_s3_uri: The S3 prefix to the annotation files that are referred in the augmented manifest file.
+            :param document_type: The type of augmented manifest.
+            :param source_documents_s3_uri: The S3 prefix to the source files (PDFs) that are referred to in the augmented manifest file.
+            :param split: The purpose of the data you've provided in the augmented manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                augmented_manifests_list_item_property = comprehend.CfnEntityRecognizer.AugmentedManifestsListItemProperty(
+                    attribute_names=["attributeNames"],
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    annotation_data_s3_uri="annotationDataS3Uri",
+                    document_type="documentType",
+                    source_documents_s3_uri="sourceDocumentsS3Uri",
+                    split="split"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__458f4fd4e2073448e5edb0fae6f1cc0d16f5cb38db6607bd0922cdb683c03d69)
+                check_type(argname="argument attribute_names", value=attribute_names, expected_type=type_hints["attribute_names"])
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument annotation_data_s3_uri", value=annotation_data_s3_uri, expected_type=type_hints["annotation_data_s3_uri"])
+                check_type(argname="argument document_type", value=document_type, expected_type=type_hints["document_type"])
+                check_type(argname="argument source_documents_s3_uri", value=source_documents_s3_uri, expected_type=type_hints["source_documents_s3_uri"])
+                check_type(argname="argument split", value=split, expected_type=type_hints["split"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_names": attribute_names,
+                "s3_uri": s3_uri,
+            }
+            if annotation_data_s3_uri is not None:
+                self._values["annotation_data_s3_uri"] = annotation_data_s3_uri
+            if document_type is not None:
+                self._values["document_type"] = document_type
+            if source_documents_s3_uri is not None:
+                self._values["source_documents_s3_uri"] = source_documents_s3_uri
+            if split is not None:
+                self._values["split"] = split
+
+        @builtins.property
+        def attribute_names(self) -> typing.List[builtins.str]:
+            '''The JSON attribute that contains the annotations for your training documents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-attributenames
+            '''
+            result = self._values.get("attribute_names")
+            assert result is not None, "Required property 'attribute_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''The Amazon S3 location of the augmented manifest file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def annotation_data_s3_uri(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix to the annotation files that are referred in the augmented manifest file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-annotationdatas3uri
+            '''
+            result = self._values.get("annotation_data_s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def document_type(self) -> typing.Optional[builtins.str]:
+            '''The type of augmented manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-documenttype
+            '''
+            result = self._values.get("document_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_documents_s3_uri(self) -> typing.Optional[builtins.str]:
+            '''The S3 prefix to the source files (PDFs) that are referred to in the augmented manifest file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-sourcedocumentss3uri
+            '''
+            result = self._values.get("source_documents_s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def split(self) -> typing.Optional[builtins.str]:
+            '''The purpose of the data you've provided in the augmented manifest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-augmentedmanifestslistitem.html#cfn-comprehend-entityrecognizer-augmentedmanifestslistitem-split
+            '''
+            result = self._values.get("split")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AugmentedManifestsListItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.EntityRecognizerAnnotationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_uri": "s3Uri", "test_s3_uri": "testS3Uri"},
+    )
+    class EntityRecognizerAnnotationsProperty:
+        def __init__(
+            self,
+            *,
+            s3_uri: builtins.str,
+            test_s3_uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the annotations associated with an entity recognizer.
+
+            :param s3_uri: Specifies the Amazon S3 location where the annotations are located.
+            :param test_s3_uri: Specifies the Amazon S3 location where the test annotations are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerannotations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                entity_recognizer_annotations_property = comprehend.CfnEntityRecognizer.EntityRecognizerAnnotationsProperty(
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    test_s3_uri="testS3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4fd60f5d74626031601663dce2c73c779fa6a847b9caaf563da1f998f47df2ef)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument test_s3_uri", value=test_s3_uri, expected_type=type_hints["test_s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_uri": s3_uri,
+            }
+            if test_s3_uri is not None:
+                self._values["test_s3_uri"] = test_s3_uri
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''Specifies the Amazon S3 location where the annotations are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerannotations.html#cfn-comprehend-entityrecognizer-entityrecognizerannotations-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def test_s3_uri(self) -> typing.Optional[builtins.str]:
+            '''Specifies the Amazon S3 location where the test annotations are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerannotations.html#cfn-comprehend-entityrecognizer-entityrecognizerannotations-tests3uri
+            '''
+            result = self._values.get("test_s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityRecognizerAnnotationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.EntityRecognizerDocumentsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_uri": "s3Uri",
+            "input_format": "inputFormat",
+            "test_s3_uri": "testS3Uri",
+        },
+    )
+    class EntityRecognizerDocumentsProperty:
+        def __init__(
+            self,
+            *,
+            s3_uri: builtins.str,
+            input_format: typing.Optional[builtins.str] = None,
+            test_s3_uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the training documents submitted with an entity recognizer.
+
+            :param s3_uri: Specifies the Amazon S3 location where the training documents are located.
+            :param input_format: Specifies how the text in an input file should be processed.
+            :param test_s3_uri: Specifies the Amazon S3 location where the test documents are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerdocuments.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                entity_recognizer_documents_property = comprehend.CfnEntityRecognizer.EntityRecognizerDocumentsProperty(
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    input_format="inputFormat",
+                    test_s3_uri="testS3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8b0080ec709d53145f380ea72b34013a7ef7a3d1a796fa877b3dda9238190c41)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument input_format", value=input_format, expected_type=type_hints["input_format"])
+                check_type(argname="argument test_s3_uri", value=test_s3_uri, expected_type=type_hints["test_s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_uri": s3_uri,
+            }
+            if input_format is not None:
+                self._values["input_format"] = input_format
+            if test_s3_uri is not None:
+                self._values["test_s3_uri"] = test_s3_uri
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''Specifies the Amazon S3 location where the training documents are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerdocuments.html#cfn-comprehend-entityrecognizer-entityrecognizerdocuments-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def input_format(self) -> typing.Optional[builtins.str]:
+            '''Specifies how the text in an input file should be processed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerdocuments.html#cfn-comprehend-entityrecognizer-entityrecognizerdocuments-inputformat
+            '''
+            result = self._values.get("input_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def test_s3_uri(self) -> typing.Optional[builtins.str]:
+            '''Specifies the Amazon S3 location where the test documents are located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerdocuments.html#cfn-comprehend-entityrecognizer-entityrecognizerdocuments-tests3uri
+            '''
+            result = self._values.get("test_s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityRecognizerDocumentsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.EntityRecognizerEntityListProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_uri": "s3Uri"},
+    )
+    class EntityRecognizerEntityListProperty:
+        def __init__(self, *, s3_uri: builtins.str) -> None:
+            '''Describes the entity list submitted with an entity recognizer.
+
+            :param s3_uri: Specifies the Amazon S3 location where the entity list is located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerentitylist.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                entity_recognizer_entity_list_property = comprehend.CfnEntityRecognizer.EntityRecognizerEntityListProperty(
+                    s3_uri="s3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__989f273bef207a2c77a13094a633f95c202a1d5ca8d89ff2da70ece5e416039b)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_uri": s3_uri,
+            }
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''Specifies the Amazon S3 location where the entity list is located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerentitylist.html#cfn-comprehend-entityrecognizer-entityrecognizerentitylist-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityRecognizerEntityListProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entity_types": "entityTypes",
+            "annotations": "annotations",
+            "augmented_manifests": "augmentedManifests",
+            "data_format": "dataFormat",
+            "documents": "documents",
+            "entity_list": "entityList",
+        },
+    )
+    class EntityRecognizerInputDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            entity_types: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityTypesListItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            annotations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityRecognizerAnnotationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            augmented_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.AugmentedManifestsListItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            data_format: typing.Optional[builtins.str] = None,
+            documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityRecognizerDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            entity_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityRecognizerEntityListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the format and location of the input data for an entity recognizer.
+
+            :param entity_types: The entity types in the labeled training data.
+            :param annotations: Describes the annotations associated with an entity recognizer.
+            :param augmented_manifests: A list of augmented manifest files that provide training data for a custom model.
+            :param data_format: The format of your training data.
+            :param documents: Describes the training documents submitted with an entity recognizer.
+            :param entity_list: Describes the entity list submitted with an entity recognizer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                entity_recognizer_input_data_config_property = comprehend.CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty(
+                    entity_types=[comprehend.CfnEntityRecognizer.EntityTypesListItemProperty(
+                        type="type"
+                    )],
+                
+                    # the properties below are optional
+                    annotations=comprehend.CfnEntityRecognizer.EntityRecognizerAnnotationsProperty(
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        test_s3_uri="testS3Uri"
+                    ),
+                    augmented_manifests=[comprehend.CfnEntityRecognizer.AugmentedManifestsListItemProperty(
+                        attribute_names=["attributeNames"],
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        annotation_data_s3_uri="annotationDataS3Uri",
+                        document_type="documentType",
+                        source_documents_s3_uri="sourceDocumentsS3Uri",
+                        split="split"
+                    )],
+                    data_format="dataFormat",
+                    documents=comprehend.CfnEntityRecognizer.EntityRecognizerDocumentsProperty(
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        input_format="inputFormat",
+                        test_s3_uri="testS3Uri"
+                    ),
+                    entity_list=comprehend.CfnEntityRecognizer.EntityRecognizerEntityListProperty(
+                        s3_uri="s3Uri"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d934c63f684d916cecba31754593f505666910d1161ece7e1d1502b77bf17b2e)
+                check_type(argname="argument entity_types", value=entity_types, expected_type=type_hints["entity_types"])
+                check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
+                check_type(argname="argument augmented_manifests", value=augmented_manifests, expected_type=type_hints["augmented_manifests"])
+                check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
+                check_type(argname="argument documents", value=documents, expected_type=type_hints["documents"])
+                check_type(argname="argument entity_list", value=entity_list, expected_type=type_hints["entity_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "entity_types": entity_types,
+            }
+            if annotations is not None:
+                self._values["annotations"] = annotations
+            if augmented_manifests is not None:
+                self._values["augmented_manifests"] = augmented_manifests
+            if data_format is not None:
+                self._values["data_format"] = data_format
+            if documents is not None:
+                self._values["documents"] = documents
+            if entity_list is not None:
+                self._values["entity_list"] = entity_list
+
+        @builtins.property
+        def entity_types(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityTypesListItemProperty"]]]:
+            '''The entity types in the labeled training data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-entitytypes
+            '''
+            result = self._values.get("entity_types")
+            assert result is not None, "Required property 'entity_types' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityTypesListItemProperty"]]], result)
+
+        @builtins.property
+        def annotations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerAnnotationsProperty"]]:
+            '''Describes the annotations associated with an entity recognizer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-annotations
+            '''
+            result = self._values.get("annotations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerAnnotationsProperty"]], result)
+
+        @builtins.property
+        def augmented_manifests(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.AugmentedManifestsListItemProperty"]]]]:
+            '''A list of augmented manifest files that provide training data for a custom model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-augmentedmanifests
+            '''
+            result = self._values.get("augmented_manifests")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.AugmentedManifestsListItemProperty"]]]], result)
+
+        @builtins.property
+        def data_format(self) -> typing.Optional[builtins.str]:
+            '''The format of your training data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-dataformat
+            '''
+            result = self._values.get("data_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def documents(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerDocumentsProperty"]]:
+            '''Describes the training documents submitted with an entity recognizer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-documents
+            '''
+            result = self._values.get("documents")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerDocumentsProperty"]], result)
+
+        @builtins.property
+        def entity_list(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerEntityListProperty"]]:
+            '''Describes the entity list submitted with an entity recognizer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entityrecognizerinputdataconfig.html#cfn-comprehend-entityrecognizer-entityrecognizerinputdataconfig-entitylist
+            '''
+            result = self._values.get("entity_list")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerEntityListProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityRecognizerInputDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.EntityTypesListItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type"},
+    )
+    class EntityTypesListItemProperty:
+        def __init__(self, *, type: builtins.str) -> None:
+            '''An entity type within a labeled training dataset that Amazon Comprehend uses to train a custom entity recognizer.
+
+            :param type: An entity type within a labeled training dataset.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entitytypeslistitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                entity_types_list_item_property = comprehend.CfnEntityRecognizer.EntityTypesListItemProperty(
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ddf3331465a612416dee28916dd7aa30cc93cd9265817ab8e8fdaa26616a70a3)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''An entity type within a labeled training dataset.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-entitytypeslistitem.html#cfn-comprehend-entityrecognizer-entitytypeslistitem-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityTypesListItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizer.VpcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"security_group_ids": "securityGroupIds", "subnets": "subnets"},
+    )
+    class VpcConfigProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnets: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Configuration parameters for an optional private Virtual Private Cloud (VPC) containing the resources you are using for the job.
+
+            :param security_group_ids: The ID number for a security group on an instance of your private VPC.
+            :param subnets: The ID for each subnet being used in your private VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-vpcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_comprehend as comprehend
+                
+                vpc_config_property = comprehend.CfnEntityRecognizer.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cbda144eca9106054712dff084bbe27cefd05229ffd8f12c83174c4ffc6f826a)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnets": subnets,
+            }
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The ID number for a security group on an instance of your private VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-vpcconfig.html#cfn-comprehend-entityrecognizer-vpcconfig-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnets(self) -> typing.List[builtins.str]:
+            '''The ID for each subnet being used in your private VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-entityrecognizer-vpcconfig.html#cfn-comprehend-entityrecognizer-vpcconfig-subnets
+            '''
+            result = self._values.get("subnets")
+            assert result is not None, "Required property 'subnets' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_access_role_arn": "dataAccessRoleArn",
+        "input_data_config": "inputDataConfig",
+        "language_code": "languageCode",
+        "recognizer_name": "recognizerName",
+        "model_kms_key_id": "modelKmsKeyId",
+        "model_policy": "modelPolicy",
+        "tags": "tags",
+        "version_name": "versionName",
+        "volume_kms_key_id": "volumeKmsKeyId",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnEntityRecognizerProps:
+    def __init__(
+        self,
+        *,
+        data_access_role_arn: builtins.str,
+        input_data_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        language_code: builtins.str,
+        recognizer_name: builtins.str,
+        model_kms_key_id: typing.Optional[builtins.str] = None,
+        model_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_name: typing.Optional[builtins.str] = None,
+        volume_kms_key_id: typing.Optional[builtins.str] = None,
+        vpc_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEntityRecognizer.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEntityRecognizer``.
+
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
+        :param input_data_config: Specifies the format and location of the input data for an entity recognizer.
+        :param language_code: The language of the input documents. All documents must be in the same language.
+        :param recognizer_name: The name given to the entity recognizer.
+        :param model_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.
+        :param model_policy: The JSON resource-based policy to attach to your custom entity recognizer model.
+        :param tags: Tags to associate with the entity recognizer.
+        :param version_name: The version name given to the entity recognizer.
+        :param volume_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s).
+        :param vpc_config: Configuration parameters for an optional private Virtual Private Cloud (VPC) containing the resources you are using for the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            cfn_entity_recognizer_props = comprehend.CfnEntityRecognizerProps(
+                data_access_role_arn="dataAccessRoleArn",
+                input_data_config=comprehend.CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty(
+                    entity_types=[comprehend.CfnEntityRecognizer.EntityTypesListItemProperty(
+                        type="type"
+                    )],
+            
+                    # the properties below are optional
+                    annotations=comprehend.CfnEntityRecognizer.EntityRecognizerAnnotationsProperty(
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        test_s3_uri="testS3Uri"
+                    ),
+                    augmented_manifests=[comprehend.CfnEntityRecognizer.AugmentedManifestsListItemProperty(
+                        attribute_names=["attributeNames"],
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        annotation_data_s3_uri="annotationDataS3Uri",
+                        document_type="documentType",
+                        source_documents_s3_uri="sourceDocumentsS3Uri",
+                        split="split"
+                    )],
+                    data_format="dataFormat",
+                    documents=comprehend.CfnEntityRecognizer.EntityRecognizerDocumentsProperty(
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        input_format="inputFormat",
+                        test_s3_uri="testS3Uri"
+                    ),
+                    entity_list=comprehend.CfnEntityRecognizer.EntityRecognizerEntityListProperty(
+                        s3_uri="s3Uri"
+                    )
+                ),
+                language_code="languageCode",
+                recognizer_name="recognizerName",
+            
+                # the properties below are optional
+                model_kms_key_id="modelKmsKeyId",
+                model_policy="modelPolicy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version_name="versionName",
+                volume_kms_key_id="volumeKmsKeyId",
+                vpc_config=comprehend.CfnEntityRecognizer.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc7547c3f6d4616075a217dfd89c6ee08437a57d9d33b01fe63f29ab3b0bd05a)
+            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+            check_type(argname="argument input_data_config", value=input_data_config, expected_type=type_hints["input_data_config"])
+            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument recognizer_name", value=recognizer_name, expected_type=type_hints["recognizer_name"])
+            check_type(argname="argument model_kms_key_id", value=model_kms_key_id, expected_type=type_hints["model_kms_key_id"])
+            check_type(argname="argument model_policy", value=model_policy, expected_type=type_hints["model_policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
+            check_type(argname="argument volume_kms_key_id", value=volume_kms_key_id, expected_type=type_hints["volume_kms_key_id"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_access_role_arn": data_access_role_arn,
+            "input_data_config": input_data_config,
+            "language_code": language_code,
+            "recognizer_name": recognizer_name,
+        }
+        if model_kms_key_id is not None:
+            self._values["model_kms_key_id"] = model_kms_key_id
+        if model_policy is not None:
+            self._values["model_policy"] = model_policy
+        if tags is not None:
+            self._values["tags"] = tags
+        if version_name is not None:
+            self._values["version_name"] = version_name
+        if volume_kms_key_id is not None:
+            self._values["volume_kms_key_id"] = volume_kms_key_id
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-dataaccessrolearn
+        '''
+        result = self._values.get("data_access_role_arn")
+        assert result is not None, "Required property 'data_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_data_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty"]:
+        '''Specifies the format and location of the input data for an entity recognizer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-inputdataconfig
+        '''
+        result = self._values.get("input_data_config")
+        assert result is not None, "Required property 'input_data_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty"], result)
+
+    @builtins.property
+    def language_code(self) -> builtins.str:
+        '''The language of the input documents.
+
+        All documents must be in the same language.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-languagecode
+        '''
+        result = self._values.get("language_code")
+        assert result is not None, "Required property 'language_code' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recognizer_name(self) -> builtins.str:
+        '''The name given to the entity recognizer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-recognizername
+        '''
+        result = self._values.get("recognizer_name")
+        assert result is not None, "Required property 'recognizer_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-modelkmskeyid
+        '''
+        result = self._values.get("model_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def model_policy(self) -> typing.Optional[builtins.str]:
+        '''The JSON resource-based policy to attach to your custom entity recognizer model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-modelpolicy
+        '''
+        result = self._values.get("model_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the entity recognizer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def version_name(self) -> typing.Optional[builtins.str]:
+        '''The version name given to the entity recognizer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-versionname
+        '''
+        result = self._values.get("version_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-volumekmskeyid
+        '''
+        result = self._values.get("volume_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.VpcConfigProperty"]]:
+        '''Configuration parameters for an optional private Virtual Private Cloud (VPC) containing the resources you are using for the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizer.html#cfn-comprehend-entityrecognizer-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEntityRecognizer.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEntityRecognizerProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2457,7 +4072,11 @@ class CfnFlywheelProps:
 
 __all__ = [
     "CfnDocumentClassifier",
+    "CfnDocumentClassifierEndpoint",
+    "CfnDocumentClassifierEndpointProps",
     "CfnDocumentClassifierProps",
+    "CfnEntityRecognizer",
+    "CfnEntityRecognizerProps",
     "CfnFlywheel",
     "CfnFlywheelProps",
 ]
@@ -2636,6 +4255,76 @@ def _typecheckingstub__4e8c9eb83a42e141603118fff6dba5cc0774a8a4602d73ce0f9caec1b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d01d5005b313b364843f49aefd0be84f1720af0eac50dcccfcd081d7dbb27815(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    desired_inference_units: jsii.Number,
+    endpoint_name: builtins.str,
+    model_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4b9f6ce4645176ea32bd3e80447b698ac863768ed53a737a8b61ba9261026c9(
+    resource: _aws_comprehend_3d939c31.IDocumentClassifierEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e2a645d0749b6b473a9b038a89d0f699e51049bda80d26ec7a1748d2cd24544(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73c1bf16db7a684f6c10205c7debc9cc113791eccbad386675205022faf0a155(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a09a0f07e1c99ac06458bea5e3243d9c54ca0ba57c002a780c6fbcd0735379b7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c931729db880e1d4d30e997f571aa4d9c05f1e47088256dc407aa062d4197bb6(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d75d5525e05dad6c371504061d6278f28c3b85eb03bd8e1f5961c41431a0273e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9485587dfc3f40708512aad47c8d9ce5df71d9409bbb9855a597585c45d7de7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fea4300fec88e873263d5ef55879c2e10d7a84052899259423060e307e6ec594(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__977dfa406452b828badbcc0b79169e6d8fbf22876cbb6bc1dc05121632b196ad(
+    *,
+    desired_inference_units: jsii.Number,
+    endpoint_name: builtins.str,
+    model_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce52312e20(
     *,
     data_access_role_arn: builtins.str,
@@ -2650,6 +4339,187 @@ def _typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce5
     version_name: typing.Optional[builtins.str] = None,
     volume_kms_key_id: typing.Optional[builtins.str] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDocumentClassifier.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66ec6e94a40eb461a4c1d4f7367756c5d733bf7646b120e1464dd77c954773a7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    data_access_role_arn: builtins.str,
+    input_data_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    language_code: builtins.str,
+    recognizer_name: builtins.str,
+    model_kms_key_id: typing.Optional[builtins.str] = None,
+    model_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_name: typing.Optional[builtins.str] = None,
+    volume_kms_key_id: typing.Optional[builtins.str] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88eb77aa30c22d88c988e2894d881dffc2e691d75944a087a9bec9efde7ad5b0(
+    resource: _aws_comprehend_3d939c31.IEntityRecognizerRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66f20eb516d44eb16abf5e855322bf63a65eb938ff1ea9e5f98154eaff3e8206(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3247e7445e15a8da17e8c4856dd3a3f6f30a58e4a9c6620c8e9a4f099d11bcd(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a64366a4e857d2fd830317c0ff4e656ded6a4c84a4f0846b5d47eee759daa3f7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08ce9834519011d893459ce762f8a172227ef7cd2d7d4bf1332218b6b18b0c05(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6168a00572cb917f17b432fe84ba830230cef6b5f20d7bd23041d81495a20bd(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beb35aa01fc345e4a0f2648ed42ac274dd1e1f5e940a15204a25ca90d1911953(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2637f0000c86b8059c9f99d337f0e3ffb5d7554d7abf48805023dd3cd5cf2ef(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad7f2fc5cb9b3e3969772e3f50bda748fcd6f9e36bfd10256b238b0a99f838df(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c96a38856499df43529e309d7d108c0dcdc0bf0ad6731d02c9b9e507d4de7c9e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1558981fb3757e619827691b1471670a7cb9ba2fefc326fe0d935f22f1808043(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c42d4aa33b5e83bb0ce1e434479993689d37c0805fafeea14ce8f21480c3c10f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__060bf69e800b506c46f109ad64087c74cd680e5e91447458f6728de0e2bbfc79(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7201935b3fc11e5b441171d65ebf5e7f0be0b40a2ea2cecafdd4f054a1abcbd7(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEntityRecognizer.VpcConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__458f4fd4e2073448e5edb0fae6f1cc0d16f5cb38db6607bd0922cdb683c03d69(
+    *,
+    attribute_names: typing.Sequence[builtins.str],
+    s3_uri: builtins.str,
+    annotation_data_s3_uri: typing.Optional[builtins.str] = None,
+    document_type: typing.Optional[builtins.str] = None,
+    source_documents_s3_uri: typing.Optional[builtins.str] = None,
+    split: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fd60f5d74626031601663dce2c73c779fa6a847b9caaf563da1f998f47df2ef(
+    *,
+    s3_uri: builtins.str,
+    test_s3_uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b0080ec709d53145f380ea72b34013a7ef7a3d1a796fa877b3dda9238190c41(
+    *,
+    s3_uri: builtins.str,
+    input_format: typing.Optional[builtins.str] = None,
+    test_s3_uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__989f273bef207a2c77a13094a633f95c202a1d5ca8d89ff2da70ece5e416039b(
+    *,
+    s3_uri: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d934c63f684d916cecba31754593f505666910d1161ece7e1d1502b77bf17b2e(
+    *,
+    entity_types: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityTypesListItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    annotations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityRecognizerAnnotationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    augmented_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.AugmentedManifestsListItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_format: typing.Optional[builtins.str] = None,
+    documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityRecognizerDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entity_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityRecognizerEntityListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddf3331465a612416dee28916dd7aa30cc93cd9265817ab8e8fdaa26616a70a3(
+    *,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbda144eca9106054712dff084bbe27cefd05229ffd8f12c83174c4ffc6f826a(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnets: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc7547c3f6d4616075a217dfd89c6ee08437a57d9d33b01fe63f29ab3b0bd05a(
+    *,
+    data_access_role_arn: builtins.str,
+    input_data_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.EntityRecognizerInputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    language_code: builtins.str,
+    recognizer_name: builtins.str,
+    model_kms_key_id: typing.Optional[builtins.str] = None,
+    model_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_name: typing.Optional[builtins.str] = None,
+    volume_kms_key_id: typing.Optional[builtins.str] = None,
+    vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEntityRecognizer.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

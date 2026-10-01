@@ -24,6 +24,20 @@ import click
 
 from google.agents.cli._experiments import resolve_experiment
 
+# Key under which the dispatched subcommand chain is recorded on ``ctx.meta``
+# (root -> leaf, e.g. ``["scaffold", "create"]``). ``ctx.meta`` is shared across
+# the whole context tree, so every level appends to the same list and any
+# context can read the full path. Consumed by ``_telemetry``.
+COMMAND_PATH_META_KEY = "agents_cli.command_path"
+# Set on ``ctx.meta`` once the resolved leaf command actually runs, so a help
+# view (``--help``, or a group given no subcommand) can be told apart from a
+# run. Consumed by ``_telemetry``.
+COMMAND_INVOKED_META_KEY = "agents_cli.command_invoked"
+# Marks a recorded path segment that an extension serves: ``generate~ext`` for
+# an overridden built-in. A command an extension adds is recorded as the bare
+# marker, never by name, since the extension author chose that name.
+EXTENSION_PATH_MARKER = "~ext"
+
 
 class LazyGroup(click.Group):
     """Click group that defers importing subcommand modules until needed.
@@ -104,6 +118,33 @@ class LazyGroup(click.Group):
             self.commands[cmd_name] = cmd
         return super().get_command(ctx, cmd_name)
 
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
+        cmd_name, cmd, rest = super().resolve_command(ctx, args)
+        if cmd_name is not None and cmd is not None:
+            # Record the dispatched command chain on ctx.meta as Click resolves
+            # each level, so we can avoid parsing arguments later. Recorded here
+            # rather than in get_command, which also runs for lookups that
+            # aren't dispatch (e.g. listing commands for shell completion).
+            ctx.meta.setdefault(COMMAND_PATH_META_KEY, []).append(
+                self._path_segment(cmd_name)
+            )
+            _flag_invocation(cmd)
+        return cmd_name, cmd, rest
+
+    def _path_segment(self, cmd_name: str) -> str:
+        """The recorded path segment for a dispatched ``cmd_name``.
+
+        Overrides only apply to built-ins and added commands never share a
+        built-in's name, so an extension-served built-in name is an override.
+        """
+        if cmd_name not in self._overrides:
+            return cmd_name
+        if cmd_name in self._lazy_commands or cmd_name in self.commands:
+            return f"{cmd_name}{EXTENSION_PATH_MARKER}"
+        return EXTENSION_PATH_MARKER
+
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         rows: list[tuple[str, str]] = []
         for name in self.list_commands(ctx):
@@ -120,6 +161,30 @@ class LazyGroup(click.Group):
         if rows:
             with formatter.section("Commands"):
                 formatter.write_dl(rows)
+
+
+def _flag_invocation(cmd: Any) -> None:
+    """Make a leaf command set ``COMMAND_INVOKED_META_KEY`` when it runs.
+
+    Click handles ``--help`` while parsing arguments and exits before calling
+    ``invoke``, so the flag stays unset for help views. Groups only dispatch,
+    so they are left alone.
+
+    This wraps ``invoke`` on the command object itself, which is shared for the
+    whole process, the same way ``patch_source_in_help`` wraps
+    ``format_epilog``. The ``_invocation_flagged`` marker keeps it idempotent.
+    """
+    if isinstance(cmd, click.Group) or getattr(cmd, "_invocation_flagged", False):
+        return
+
+    original = cmd.invoke
+
+    def _invoke(ctx: click.Context) -> Any:
+        ctx.meta[COMMAND_INVOKED_META_KEY] = True
+        return original(ctx)
+
+    cmd.invoke = _invoke
+    cmd._invocation_flagged = True
 
 
 def _source_path(cmd: Any) -> str | None:

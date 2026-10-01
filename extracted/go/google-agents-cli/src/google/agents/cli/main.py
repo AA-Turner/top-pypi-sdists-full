@@ -25,12 +25,14 @@ import io
 import logging
 import os
 import sys
+import time
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
+from google.agents.cli import _telemetry
 from google.agents.cli.__init__ import __version__
 from google.agents.cli._click import LazyGroup, patch_source_in_help
 from google.agents.cli._project import find_project_root, is_project_moved
@@ -317,26 +319,59 @@ class _MainGroup(LazyGroup):
         return True
 
     def invoke(self, ctx: click.Context) -> None:
+        # duration_ms covers dispatch through exit. Interpreter startup, imports
+        # and extension loading happen before this and aren't included.
+        started = time.monotonic()
+        exit_code = 0
+        error_class: str | None = None
         try:
             super().invoke(ctx)
-        except click.exceptions.Exit:
+        except click.exceptions.Exit as e:
+            # Also how extension commands exit with their script's code.
+            exit_code = e.exit_code
             raise
-        except click.ClickException:
+        # Abort (user cancelled) goes to Click, which prints "Aborted!" and exits 1,
+        # instead of the traceback handler below.
+        except click.Abort:
+            exit_code = 1
+            error_class = "Abort"
+            raise
+        except SystemExit as e:
+            code = e.code
+            exit_code = code if isinstance(code, int) else (0 if code is None else 1)
+            raise
+        except click.ClickException as e:
+            from google.agents.cli._output import print_click_exception
+
+            exit_code = e.exit_code
+            error_class = _telemetry.error_class_of(e)
             click.echo(f"agents-cli v{__version__}", err=True)
             _print_is_project_moved_tip()
-            raise
+            print_click_exception(e)
+            ctx.exit(e.exit_code)
         except KeyboardInterrupt:
+            exit_code = 130
+            error_class = "KeyboardInterrupt"
             from google.agents.cli._output import Console
 
             console = Console(stderr=True)
             console.print(f"\nagents-cli v{__version__}", style="dim")
             console.print("Operation cancelled by user", style="yellow")
             ctx.exit(130)
-        except Exception:
+        except Exception as exc:
+            exit_code = 1
+            error_class = _telemetry.error_class_of(exc)
             click.echo(f"agents-cli v{__version__}", err=True)
             _print_is_project_moved_tip()
             traceback.print_exc()
             ctx.exit(1)
+        finally:
+            _telemetry.record_invocation(
+                ctx,
+                exit_code,
+                int((time.monotonic() - started) * 1000),
+                error_class,
+            )
 
 
 @click.group(cls=_MainGroup)

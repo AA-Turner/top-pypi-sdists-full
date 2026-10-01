@@ -22,6 +22,7 @@ pool, the code of every method, and the calls that code makes with string argume
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 # How many bytes of operand each instruction carries. Only the three opcodes this module reads
 # matter by name, but every length has to be right: a walker that mistakes an operand byte for
@@ -198,6 +199,17 @@ def field_name(pool: dict[int, tuple[int, object]], index: int) -> str | None:
     return text(pool, described[1][0])  # type: ignore[index]
 
 
+def field_descriptor(pool: dict[int, tuple[int, object]], index: int) -> str | None:
+    """The type descriptor of a field reference (`Lpkg/Type;`), or None when the entry is not one."""
+    entry = pool.get(index)
+    if not entry or entry[0] != 9:  # fieldref
+        return None
+    described = pool.get(entry[1][1])  # type: ignore[index]
+    if not described or described[0] != 12:
+        return None
+    return text(pool, described[1][1])  # type: ignore[index]
+
+
 def _method_code(blob: bytes, pool: dict[int, tuple[int, object]], position: int) -> list[bytes]:
     """The bytecode of every method of the class, in declaration order."""
 
@@ -305,6 +317,57 @@ def builder_calls(blob: bytes) -> list[tuple[str, list[str]]]:
     ]
 
 
+_STRING_PARAMETER = "Ljava/lang/String;"
+_OBJECT_PAIR_INIT = "com/e1c/g5rt/utils/common/collections/Pair.<init>"
+_OBJECT_PAIR_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/Object;)V"
+
+
+def _string_parameters(descriptor: str) -> int:
+    """How many parameters of a method descriptor are strings - an array of them is not one."""
+    count, at, end = 0, 1, descriptor.find(")")
+    while 0 < at < end:
+        start = at
+        while descriptor[at] == "[":
+            at += 1
+        if descriptor[at] == "L":
+            at = descriptor.index(";", at)
+        if descriptor[start:at + 1] == _STRING_PARAMETER:
+            count += 1
+        at += 1
+    return count
+
+
+def string_arguments(blob: bytes) -> list[tuple[str, tuple[str, ...]]]:
+    """[(the called method, the string constants it takes for its string parameters)].
+
+    A call takes the strings pushed last before it - as many as its descriptor has string
+    parameters. A constant pushed earlier belongs to an outer call: the key of a map is pushed
+    before the value built for it, and the call that builds the value does not take the key.
+    A string argument the code computes is no constant, and the call then takes fewer of them.
+    The platform Pair constructor declares both name spellings as Object parameters, so its
+    two directly pushed string constants count too. Other Object calls do not.
+    """
+    pool, position = constant_pool(blob)
+    found: list[tuple[str, tuple[str, ...]]] = []
+    for code in _method_code(blob, pool, position):
+        pushed: list[str] = []
+        for opcode, operand in _walk(code):
+            if opcode in (_LDC, _LDC_W):
+                value = text(pool, operand)
+                if value is not None:
+                    pushed.append(value)
+            elif opcode in _INVOKE:
+                name = called_method(pool, operand)
+                descriptor = method_descriptor(pool, operand) or ""
+                count = _string_parameters(descriptor)
+                if name == _OBJECT_PAIR_INIT and descriptor == _OBJECT_PAIR_DESCRIPTOR:
+                    count = 2
+                if name:
+                    found.append((name, tuple(pushed[-count:]) if count else ()))
+                pushed = []
+    return found
+
+
 def constructions(blob: bytes) -> list[tuple[str, str]]:
     """[(the class the code constructs, the descriptor of the constructor it calls)].
 
@@ -358,6 +421,84 @@ def declared_terms(blob: bytes) -> list[tuple[str, str, str]]:
             elif built is not None:
                 found.append((name, *built))
                 built = None
+    return found
+
+
+@dataclass(frozen=True)
+class DeclaredConstant:
+    """One constant an enumeration class builds, with what went into building it.
+
+    `field` - the static field the constant is stored into (its name); `strings` - every
+    string constant pushed for it, in order; `terms` - the terms built from two of them,
+    (English, Russian) as TERM_FACTORIES take them; `modes` - the compatibility modes the code
+    reads for it (`CMODE_9_0` -> `9.0`); `mode_calls` - the same modes with the call that takes
+    each of them, (the called method, the mode): the mode alone does not say what it means, the
+    call does - a value added in the mode, or one the platform keeps up to it.
+    """
+
+    field: str
+    strings: tuple[str, ...]
+    terms: tuple[tuple[str, str], ...]
+    modes: tuple[str, ...]
+    mode_calls: tuple[tuple[str, str], ...] = ()
+
+
+def declared_constants(blob: bytes) -> list[DeclaredConstant]:
+    """[the constants an enumeration class builds, in the order it builds them].
+
+    A Java enumeration builds each of its constants in the static initializer: an object of
+    the class ITSELF is reserved (`new`), the arguments are pushed, the class's own
+    constructor is called, and the object is stored into the static field named after the
+    constant - a field of the class's own type. Whatever the code pushes and builds in between
+    belongs to that constant - an object of another class made on the way included, since it
+    is an argument and not a constant. A construction that is never stored into such a field
+    is not a constant either.
+
+    Nothing here knows what the arguments mean: the caller reads its own shape out of the
+    strings, the terms and the modes (see extract.terms.language_rows). A mode goes to the
+    first call made after it is read - the call that takes it as an argument.
+    """
+    pool, position = constant_pool(blob)
+    own = text(pool, int.from_bytes(blob[position + 2:position + 4], "big"))
+    found: list[DeclaredConstant] = []
+    for code in _method_code(blob, pool, position):
+        building: dict | None = None
+        for opcode, operand in _walk(code):
+            if opcode == _NEW and text(pool, operand) == own:
+                building = {"strings": [], "terms": [], "modes": [], "pushed": [], "built": False,
+                            "pending": [], "mode_calls": []}
+            elif building is None:
+                continue
+            elif opcode in (_LDC, _LDC_W):
+                value = text(pool, operand)
+                if value is not None:
+                    building["strings"].append(value)
+                    building["pushed"].append(value)
+            elif opcode == _GETSTATIC:
+                mode = _mode(field_name(pool, operand))
+                if mode is not None:
+                    building["modes"].append(mode)
+                    building["pending"].append(mode)
+            elif opcode in _INVOKE:
+                name = called_method(pool, operand) or ""
+                pushed = building["pushed"]
+                if any(name.endswith(factory) for factory in TERM_FACTORIES) and len(pushed) >= 2:
+                    english, russian = pushed[-2], pushed[-1]
+                    if english.isascii():
+                        building["terms"].append((english, russian))
+                if name == f"{own}.<init>":
+                    building["built"] = True
+                building["mode_calls"].extend((name, mode) for mode in building["pending"])
+                building["pushed"], building["pending"] = [], []
+            elif opcode == _PUTSTATIC:
+                field = field_name(pool, operand)
+                own_typed = field_descriptor(pool, operand) == f"L{own};"
+                if building["built"] and field and own_typed:
+                    found.append(DeclaredConstant(
+                        field, tuple(building["strings"]), tuple(building["terms"]),
+                        tuple(building["modes"]), tuple(building["mode_calls"]),
+                    ))
+                building = None
     return found
 
 

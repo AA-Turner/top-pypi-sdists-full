@@ -77,6 +77,442 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_outposts_621ae39e.IOutpostRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnOutpost(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_outposts.CfnOutpost",
+):
+    '''Definition of AWS::Outposts::Outpost Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html
+    :cloudformationResource: AWS::Outposts::Outpost
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_outposts as outposts
+        
+        cfn_outpost = outposts.CfnOutpost(self, "MyCfnOutpost",
+            name="name",
+            site_id="siteId",
+        
+            # the properties below are optional
+            availability_zone="availabilityZone",
+            availability_zone_id="availabilityZoneId",
+            description="description",
+            supported_hardware_type="supportedHardwareType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        site_id: builtins.str,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        supported_hardware_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Outposts::Outpost``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: 
+        :param site_id: 
+        :param availability_zone: 
+        :param availability_zone_id: 
+        :param description: 
+        :param supported_hardware_type: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8971624592e127fd49b80bfd3f7d1773b1a737fe09f1a384044eca07f3debd33)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOutpostProps(
+            name=name,
+            site_id=site_id,
+            availability_zone=availability_zone,
+            availability_zone_id=availability_zone_id,
+            description=description,
+            supported_hardware_type=supported_hardware_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOutpost")
+    @builtins.classmethod
+    def arn_for_outpost(
+        cls,
+        resource: "_aws_outposts_621ae39e.IOutpostRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61961d4e0566bf05f2597978a460d3a976e7809bc7a0eb487e3151e739032665)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOutpost", [resource]))
+
+    @jsii.member(jsii_name="isCfnOutpost")
+    @builtins.classmethod
+    def is_cfn_outpost(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOutpost.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec4a5c12c2db8d5527e5117fc089ee107f51ba55fca66a6efa7c61cc2f7d690b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOutpost", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc0bfd25164f3247f518e913212c5050d68069062057269d8ef5d0c5b45a460a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c268c09db91b390484e524eda84f82b70e6d5e98810828db955c728c9d010f2c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLifeCycleStatus")
+    def attr_life_cycle_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LifeCycleStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifeCycleStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutpostArn")
+    def attr_outpost_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OutpostArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOutpostArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutpostId")
+    def attr_outpost_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OutpostId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOutpostId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerId")
+    def attr_owner_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OwnerId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSiteArn")
+    def attr_site_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: SiteArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSiteArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outpostRef")
+    def outpost_ref(self) -> "_aws_outposts_621ae39e.OutpostReference":
+        '''A reference to a Outpost resource.'''
+        return typing.cast("_aws_outposts_621ae39e.OutpostReference", jsii.get(self, "outpostRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96878466b18f3fde129ce715176b1a8b6971e0c697710523524e28015fc9e26f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="siteId")
+    def site_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "siteId"))
+
+    @site_id.setter
+    def site_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__813dc2d433fde86852245dad96c7408426d135ff51aabfc35f5e2e58bdcf7f0b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
+
+    @availability_zone.setter
+    def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f515cd9608704083448cb4e153fcd2e7fe3b5d04ed3ac905e18982b828eb47c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneId")
+    def availability_zone_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneId"))
+
+    @availability_zone_id.setter
+    def availability_zone_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de836b50791de14bc30b6d2267611fea2146dd4fd508dcd9200c6be5695a8214)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZoneId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3746ec72319677760081ffe1b0c31593a486e124b4bef46a86eaee5834259f34)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportedHardwareType")
+    def supported_hardware_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportedHardwareType"))
+
+    @supported_hardware_type.setter
+    def supported_hardware_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e5393eba0e1264b7792630bf2941d28ac6590e8a457d5d29010fd84bec24108)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportedHardwareType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__289cf60bd40b5709a59f9ab5a3c84626d213bc19d3400937b7dc798b024dc67e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_outposts.CfnOutpostProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "site_id": "siteId",
+        "availability_zone": "availabilityZone",
+        "availability_zone_id": "availabilityZoneId",
+        "description": "description",
+        "supported_hardware_type": "supportedHardwareType",
+        "tags": "tags",
+    },
+)
+class CfnOutpostProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        site_id: builtins.str,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        supported_hardware_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOutpost``.
+
+        :param name: 
+        :param site_id: 
+        :param availability_zone: 
+        :param availability_zone_id: 
+        :param description: 
+        :param supported_hardware_type: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_outposts as outposts
+            
+            cfn_outpost_props = outposts.CfnOutpostProps(
+                name="name",
+                site_id="siteId",
+            
+                # the properties below are optional
+                availability_zone="availabilityZone",
+                availability_zone_id="availabilityZoneId",
+                description="description",
+                supported_hardware_type="supportedHardwareType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c560f1fe019e8891a9423ca456866618c21af5d07eb2c1020c2a762fd4752b81)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument site_id", value=site_id, expected_type=type_hints["site_id"])
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument supported_hardware_type", value=supported_hardware_type, expected_type=type_hints["supported_hardware_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "site_id": site_id,
+        }
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if availability_zone_id is not None:
+            self._values["availability_zone_id"] = availability_zone_id
+        if description is not None:
+            self._values["description"] = description
+        if supported_hardware_type is not None:
+            self._values["supported_hardware_type"] = supported_hardware_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def site_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-siteid
+        '''
+        result = self._values.get("site_id")
+        assert result is not None, "Required property 'site_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-availabilityzoneid
+        '''
+        result = self._values.get("availability_zone_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def supported_hardware_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-supportedhardwaretype
+        '''
+        result = self._values.get("supported_hardware_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-outposts-outpost.html#cfn-outposts-outpost-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOutpostProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_outposts_621ae39e.ISiteRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSite(
     _aws_cdk_0cae9daa.CfnResource,
@@ -967,11 +1403,107 @@ class CfnSiteProps:
 
 
 __all__ = [
+    "CfnOutpost",
+    "CfnOutpostProps",
     "CfnSite",
     "CfnSiteProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__8971624592e127fd49b80bfd3f7d1773b1a737fe09f1a384044eca07f3debd33(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    site_id: builtins.str,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    supported_hardware_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61961d4e0566bf05f2597978a460d3a976e7809bc7a0eb487e3151e739032665(
+    resource: _aws_outposts_621ae39e.IOutpostRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec4a5c12c2db8d5527e5117fc089ee107f51ba55fca66a6efa7c61cc2f7d690b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc0bfd25164f3247f518e913212c5050d68069062057269d8ef5d0c5b45a460a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c268c09db91b390484e524eda84f82b70e6d5e98810828db955c728c9d010f2c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96878466b18f3fde129ce715176b1a8b6971e0c697710523524e28015fc9e26f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__813dc2d433fde86852245dad96c7408426d135ff51aabfc35f5e2e58bdcf7f0b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f515cd9608704083448cb4e153fcd2e7fe3b5d04ed3ac905e18982b828eb47c4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de836b50791de14bc30b6d2267611fea2146dd4fd508dcd9200c6be5695a8214(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3746ec72319677760081ffe1b0c31593a486e124b4bef46a86eaee5834259f34(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e5393eba0e1264b7792630bf2941d28ac6590e8a457d5d29010fd84bec24108(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__289cf60bd40b5709a59f9ab5a3c84626d213bc19d3400937b7dc798b024dc67e(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c560f1fe019e8891a9423ca456866618c21af5d07eb2c1020c2a762fd4752b81(
+    *,
+    name: builtins.str,
+    site_id: builtins.str,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    supported_hardware_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f3d714077b9a690b88c6fc96e15456f27991a8d901eb70ea9ecb9b46e55b8328(
     scope: _constructs_77d1e7e8.Construct,

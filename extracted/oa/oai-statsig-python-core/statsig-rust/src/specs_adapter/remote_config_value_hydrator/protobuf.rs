@@ -17,13 +17,13 @@ use crate::networking::ResponseData;
 use crate::specs_response::proto_stream_reader::ProtoStreamReader;
 use crate::specs_response::statsig_config_specs::{self as pb, return_value};
 
-use super::{
-    DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, HydrationFailureReason, HydrationOutcome,
-    HydrationResult, RemoteConfigValueHydrator, RemoteConfigValueMetadata,
-    RemoteConfigValueMetadataWire, RemoteValueReference, TAG, add_raw_value_reference,
-    hydrated_value, hydration_error, insert_reference, total_timeout_error,
-    validate_reference_limits,
+use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
+use super::metadata::{
+    RemoteConfigValueMetadata, RemoteConfigValueMetadataWire, RemoteValueReference,
+    add_raw_value_reference, hydrated_value, insert_reference, validate_reference_limits,
 };
+use super::telemetry::{HydrationOutcome, HydrationPhase, HydrationResult};
+use super::{DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG};
 
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_TAG: &str = "proto::RemoteConfigMetadata";
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_MESSAGE: &str =
@@ -192,118 +192,128 @@ impl RemoteConfigValueHydrator {
     ) -> Result<Option<PreparedProtobufStream>, StatsigErr> {
         data.rewind()?;
         let result = async {
-            let mut reader = ProtoStreamReader::new_for_response(data)?;
-            let first_encoded = reader.read_next_delimited_proto()?;
-            let mut buffered = VecDeque::from([first_encoded]);
-            let (response_mode, may_have_remote_metadata) = {
-                let first = decode_protobuf_envelope(
-                    buffered.front().expect("first frame is buffered").as_ref(),
-                )
-                .ok();
-                let first_kind = first
-                    .as_ref()
-                    .and_then(|envelope| decode_protobuf_envelope_kind(envelope).ok());
+            let started_at = Instant::now();
+            let parsed = (|| {
+                let mut reader = ProtoStreamReader::new_for_response(data)?;
+                let first_encoded = reader.read_next_delimited_proto()?;
+                let mut buffered = VecDeque::from([first_encoded]);
+                let (response_mode, may_have_remote_metadata) = {
+                    let first = decode_protobuf_envelope(
+                        buffered.front().expect("first frame is buffered").as_ref(),
+                    )
+                    .ok();
+                    let first_kind = first
+                        .as_ref()
+                        .and_then(|envelope| decode_protobuf_envelope_kind(envelope).ok());
 
-                match (first.as_ref(), first_kind) {
-                    (Some(first), Some(pb::SpecsEnvelopeKind::TopLevel)) => (
-                        ProtobufResponseMode::Full,
-                        protobuf_top_level_hint_for_mode(ProtobufResponseMode::Full, first)?,
-                    ),
-                    (_, Some(pb::SpecsEnvelopeKind::CopyPrev)) => {
-                        let second_encoded = reader.read_next_delimited_proto()?;
-                        let second = decode_protobuf_envelope(second_encoded.as_ref())?;
-                        let second_kind = decode_protobuf_envelope_kind(&second)?;
-                        buffered.push_back(second_encoded);
-                        if second_kind == pb::SpecsEnvelopeKind::TopLevel {
-                            (
-                                ProtobufResponseMode::Delta,
-                                protobuf_top_level_hint_for_mode(
+                    match (first.as_ref(), first_kind) {
+                        (Some(first), Some(pb::SpecsEnvelopeKind::TopLevel)) => (
+                            ProtobufResponseMode::Full,
+                            protobuf_top_level_hint_for_mode(ProtobufResponseMode::Full, first)?,
+                        ),
+                        (_, Some(pb::SpecsEnvelopeKind::CopyPrev)) => {
+                            let second_encoded = reader.read_next_delimited_proto()?;
+                            let second = decode_protobuf_envelope(second_encoded.as_ref())?;
+                            let second_kind = decode_protobuf_envelope_kind(&second)?;
+                            buffered.push_back(second_encoded);
+                            if second_kind == pb::SpecsEnvelopeKind::TopLevel {
+                                (
                                     ProtobufResponseMode::Delta,
-                                    &second,
-                                )?,
+                                    protobuf_top_level_hint_for_mode(
+                                        ProtobufResponseMode::Delta,
+                                        &second,
+                                    )?,
+                                )
+                            } else {
+                                (ProtobufResponseMode::Delta, None)
+                            }
+                        }
+                        _ => (ProtobufResponseMode::Full, None),
+                    }
+                };
+
+                if may_have_remote_metadata != Some(true) {
+                    return Ok(None);
+                }
+
+                let mut references = HashMap::<String, RemoteValueReference>::new();
+                let mut envelopes = Vec::new();
+                let mut marked_top_level = false;
+
+                loop {
+                    let encoded = match buffered.pop_front() {
+                        Some(encoded) => encoded,
+                        None => reader.read_next_delimited_proto()?,
+                    };
+                    let Some(envelope) = tolerate_malformed_full_response(
+                        response_mode,
+                        decode_protobuf_envelope(encoded.as_ref()),
+                    )?
+                    else {
+                        envelopes.push(PreparedProtobufEnvelope::Bytes(encoded.to_vec()));
+                        continue;
+                    };
+                    let Some(envelope_kind) = tolerate_malformed_full_response(
+                        response_mode,
+                        decode_protobuf_envelope_kind(&envelope),
+                    )?
+                    else {
+                        envelopes.push(PreparedProtobufEnvelope::Bytes(encoded.to_vec()));
+                        continue;
+                    };
+                    let is_done = envelope_kind == pb::SpecsEnvelopeKind::Done;
+
+                    let prepared_envelope = match envelope_kind {
+                        pb::SpecsEnvelopeKind::DynamicConfig => self
+                            .prepare_dynamic_config_envelope(
+                                encoded.as_ref(),
+                                &envelope,
+                                source_url,
+                                response_mode,
+                                &mut references,
+                                hydration_result,
+                            )?
+                            .unwrap_or_else(|| PreparedProtobufEnvelope::Bytes(encoded.to_vec())),
+                        pb::SpecsEnvelopeKind::TopLevel if !marked_top_level => {
+                            let rewritten = tolerate_malformed_full_response(
+                                response_mode,
+                                rewrite_top_level_envelope(encoded.as_ref(), &envelope),
+                            )?;
+                            if rewritten.is_some() {
+                                marked_top_level = true;
+                            }
+                            PreparedProtobufEnvelope::Bytes(
+                                rewritten.unwrap_or_else(|| encoded.to_vec()),
                             )
-                        } else {
-                            (ProtobufResponseMode::Delta, None)
                         }
-                    }
-                    _ => (ProtobufResponseMode::Full, None),
-                }
-            };
+                        _ => PreparedProtobufEnvelope::Bytes(encoded.to_vec()),
+                    };
 
-            if may_have_remote_metadata != Some(true) {
+                    envelopes.push(prepared_envelope);
+
+                    if is_done {
+                        break;
+                    }
+                }
+
+                if references.is_empty() {
+                    return Err(remote_metadata_marker_without_metadata_error());
+                }
+
+                let (reference_count, total_bytes) =
+                    validate_reference_limits(references.values())?;
+                Ok::<_, StatsigErr>(Some((envelopes, references, reference_count, total_bytes)))
+            })();
+            self.log_phase_latency(started_at.elapsed(), HydrationPhase::ProtobufParse);
+            let Some((envelopes, references, reference_count, total_bytes)) = parsed? else {
                 return Ok(None);
-            }
-
-            let mut references = HashMap::<String, RemoteValueReference>::new();
-            let mut envelopes = Vec::new();
-            let mut marked_top_level = false;
-
-            loop {
-                let encoded = match buffered.pop_front() {
-                    Some(encoded) => encoded,
-                    None => reader.read_next_delimited_proto()?,
-                };
-                let Some(envelope) = tolerate_malformed_full_response(
-                    response_mode,
-                    decode_protobuf_envelope(encoded.as_ref()),
-                )?
-                else {
-                    envelopes.push(PreparedProtobufEnvelope::Bytes(encoded.to_vec()));
-                    continue;
-                };
-                let Some(envelope_kind) = tolerate_malformed_full_response(
-                    response_mode,
-                    decode_protobuf_envelope_kind(&envelope),
-                )?
-                else {
-                    envelopes.push(PreparedProtobufEnvelope::Bytes(encoded.to_vec()));
-                    continue;
-                };
-                let is_done = envelope_kind == pb::SpecsEnvelopeKind::Done;
-
-                let prepared_envelope = match envelope_kind {
-                    pb::SpecsEnvelopeKind::DynamicConfig => self
-                        .prepare_dynamic_config_envelope(
-                            encoded.as_ref(),
-                            &envelope,
-                            source_url,
-                            response_mode,
-                            &mut references,
-                            hydration_result,
-                        )?
-                        .unwrap_or_else(|| PreparedProtobufEnvelope::Bytes(encoded.to_vec())),
-                    pb::SpecsEnvelopeKind::TopLevel if !marked_top_level => {
-                        let rewritten = tolerate_malformed_full_response(
-                            response_mode,
-                            rewrite_top_level_envelope(encoded.as_ref(), &envelope),
-                        )?;
-                        if rewritten.is_some() {
-                            marked_top_level = true;
-                        }
-                        PreparedProtobufEnvelope::Bytes(
-                            rewritten.unwrap_or_else(|| encoded.to_vec()),
-                        )
-                    }
-                    _ => PreparedProtobufEnvelope::Bytes(encoded.to_vec()),
-                };
-
-                envelopes.push(prepared_envelope);
-
-                if is_done {
-                    break;
-                }
-            }
-
-            if references.is_empty() {
-                return Err(remote_metadata_marker_without_metadata_error());
-            }
-
-            let (reference_count, total_bytes) = validate_reference_limits(references.values())?;
+            };
             let response_budget = self.reserve_response_bytes(total_bytes).await?;
             let hydrated = self
                 .download_all(references.into_values())
                 .await
                 .inspect_err(|error| hydration_result.record_download_error(error))?;
+            let started_at = Instant::now();
             let mut prepared = Vec::new();
             for envelope in envelopes {
                 match envelope {
@@ -323,6 +333,7 @@ impl RemoteConfigValueHydrator {
                     }
                 }
             }
+            self.log_phase_latency(started_at.elapsed(), HydrationPhase::ProtobufApply);
             Ok(Some(PreparedProtobufStream {
                 bytes: prepared,
                 reference_count,
@@ -418,7 +429,7 @@ impl ProtobufHydrationSession<'_> {
         if values.is_empty()
             || values.iter().any(|(sha256, value)| {
                 self.references.get(sha256).is_none_or(|reference| {
-                    super::verify_body(
+                    super::download::verify_body(
                         value.as_slice(),
                         &reference.metadata,
                         reference.metadata.content_type.as_str(),
@@ -470,7 +481,10 @@ impl ProtobufHydrationSession<'_> {
 
         let remaining = HYDRATION_TIMEOUT
             .checked_sub(self.started_at.elapsed())
-            .ok_or_else(total_timeout_error)?;
+            .ok_or_else(|| {
+                self.hydrator
+                    .total_timeout_error(self.started_at, HydrationTimeoutStep::PermitPrecheck)
+            })?;
         if let Some(reservation) = &self.response_budget {
             let expansion =
                 (self.hydrator.response_budget.capacity - reservation.num_permits()) as u64;
@@ -479,7 +493,10 @@ impl ProtobufHydrationSession<'_> {
                 self.hydrator.reserve_response_expansion_bytes(expansion),
             )
             .await
-            .map_err(|_| total_timeout_error())??;
+            .map_err(|_| {
+                self.hydrator
+                    .total_timeout_error(self.started_at, HydrationTimeoutStep::PermitWait)
+            })??;
             self.response_expansion_budget = Some(permit);
         } else {
             let permit = timeout(
@@ -487,7 +504,10 @@ impl ProtobufHydrationSession<'_> {
                 self.hydrator.reserve_response_bytes(self.total_bytes),
             )
             .await
-            .map_err(|_| total_timeout_error())??;
+            .map_err(|_| {
+                self.hydrator
+                    .total_timeout_error(self.started_at, HydrationTimeoutStep::PermitWait)
+            })??;
             self.response_budget = Some(permit);
         }
         Ok(())
@@ -568,10 +588,19 @@ impl ProtobufHydrationSession<'_> {
     async fn await_one_download(&mut self) -> Result<(), StatsigErr> {
         let remaining = HYDRATION_TIMEOUT
             .checked_sub(self.started_at.elapsed())
-            .ok_or_else(total_timeout_error)?;
-        let download = timeout(remaining, self.in_flight_downloads.next())
-            .await
-            .map_err(|_| total_timeout_error())?
+            .ok_or_else(|| {
+                self.hydrator
+                    .total_timeout_error(self.started_at, HydrationTimeoutStep::DownloadPrecheck)
+            })?;
+        let started_at = Instant::now();
+        let download = timeout(remaining, self.in_flight_downloads.next()).await;
+        self.hydrator
+            .log_phase_latency(started_at.elapsed(), HydrationPhase::DownloadWait);
+        let download = download
+            .map_err(|_| {
+                self.hydrator
+                    .total_timeout_error(self.started_at, HydrationTimeoutStep::DownloadWait)
+            })?
             .expect("pending remote references must have an active download");
         let (sha256, value) =
             download.inspect_err(|error| self.result.record_download_error(error))?;

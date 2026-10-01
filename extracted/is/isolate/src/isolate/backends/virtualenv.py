@@ -51,6 +51,7 @@ class VirtualPythonEnvironment(BaseEnvironment[Path]):
     extra_index_urls: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     resolver: str | None = None
+    compile_bytecode: bool = False
 
     @classmethod
     def from_config(
@@ -81,6 +82,8 @@ class VirtualPythonEnvironment(BaseEnvironment[Path]):
         extras = []
         if self.resolver is not None:
             extras.append(f"resolver={self.resolver}")
+        if self.compile_bytecode:
+            extras.append("compile_bytecode=true")
 
         active_python_version = self.python_version or active_python()
         return sha256_digest_of(
@@ -122,8 +125,10 @@ class VirtualPythonEnvironment(BaseEnvironment[Path]):
         pip_cmd: list[str | os.PathLike] = [
             *base_pip_cmd,  # type: ignore
             "install",
-            *requirements,
         ]
+        if self.resolver == "uv" and self.compile_bytecode:
+            pip_cmd.append("--compile-bytecode")
+        pip_cmd.extend(requirements)
         if self.constraints_file:
             pip_cmd.extend(["-c", self.constraints_file])
 

@@ -333,6 +333,53 @@ class _IProtectConfigurationRefProxy(
 typing.cast(typing.Any, IProtectConfigurationRef).__jsii_proxy_class__ = lambda : _IProtectConfigurationRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IRegistrationAttachmentRef"
+)
+class IRegistrationAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RegistrationAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationAttachmentRef")
+    def registration_attachment_ref(self) -> "RegistrationAttachmentReference":
+        '''(experimental) A reference to a RegistrationAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRegistrationAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RegistrationAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_smsvoice.IRegistrationAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationAttachmentRef")
+    def registration_attachment_ref(self) -> "RegistrationAttachmentReference":
+        '''(experimental) A reference to a RegistrationAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RegistrationAttachmentReference", jsii.get(self, "registrationAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRegistrationAttachmentRef).__jsii_proxy_class__ = lambda : _IRegistrationAttachmentRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IRegistrationRef")
 class IRegistrationRef(
     _constructs_77d1e7e8.IConstruct,
@@ -466,6 +513,53 @@ class _ISenderIdRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISenderIdRef).__jsii_proxy_class__ = lambda : _ISenderIdRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IVerifiedDestinationNumberRef"
+)
+class IVerifiedDestinationNumberRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a VerifiedDestinationNumber.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="verifiedDestinationNumberRef")
+    def verified_destination_number_ref(self) -> "VerifiedDestinationNumberReference":
+        '''(experimental) A reference to a VerifiedDestinationNumber resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVerifiedDestinationNumberRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VerifiedDestinationNumber.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_smsvoice.IVerifiedDestinationNumberRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="verifiedDestinationNumberRef")
+    def verified_destination_number_ref(self) -> "VerifiedDestinationNumberReference":
+        '''(experimental) A reference to a VerifiedDestinationNumber resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VerifiedDestinationNumberReference", jsii.get(self, "verifiedDestinationNumberRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVerifiedDestinationNumberRef).__jsii_proxy_class__ = lambda : _IVerifiedDestinationNumberRefProxy
 
 
 @jsii.data_type(
@@ -733,6 +827,55 @@ class ProtectConfigurationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.RegistrationAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"registration_attachment_arn": "registrationAttachmentArn"},
+)
+class RegistrationAttachmentReference:
+    def __init__(self, *, registration_attachment_arn: builtins.str) -> None:
+        '''A reference to a RegistrationAttachment resource.
+
+        :param registration_attachment_arn: The RegistrationAttachmentArn of the RegistrationAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_smsvoice as interfaces_smsvoice
+            
+            registration_attachment_reference = interfaces_smsvoice.RegistrationAttachmentReference(
+                registration_attachment_arn="registrationAttachmentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c5c8a4c5317b8ec50063adb5014114123125bfcbe569ecfcecec2e6e53f602f4)
+            check_type(argname="argument registration_attachment_arn", value=registration_attachment_arn, expected_type=type_hints["registration_attachment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "registration_attachment_arn": registration_attachment_arn,
+        }
+
+    @builtins.property
+    def registration_attachment_arn(self) -> builtins.str:
+        '''The RegistrationAttachmentArn of the RegistrationAttachment resource.'''
+        result = self._values.get("registration_attachment_arn")
+        assert result is not None, "Required property 'registration_attachment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RegistrationAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.RegistrationReference",
     jsii_struct_bases=[],
     name_mapping={"registration_arn": "registrationArn"},
@@ -911,6 +1054,55 @@ class SenderIdReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.VerifiedDestinationNumberReference",
+    jsii_struct_bases=[],
+    name_mapping={"verified_destination_number_arn": "verifiedDestinationNumberArn"},
+)
+class VerifiedDestinationNumberReference:
+    def __init__(self, *, verified_destination_number_arn: builtins.str) -> None:
+        '''A reference to a VerifiedDestinationNumber resource.
+
+        :param verified_destination_number_arn: The VerifiedDestinationNumberArn of the VerifiedDestinationNumber resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_smsvoice as interfaces_smsvoice
+            
+            verified_destination_number_reference = interfaces_smsvoice.VerifiedDestinationNumberReference(
+                verified_destination_number_arn="verifiedDestinationNumberArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e61aa8d8c74e179af124003f4de54b0f3cc9332f35bded7c3a45a1bda6df0f0a)
+            check_type(argname="argument verified_destination_number_arn", value=verified_destination_number_arn, expected_type=type_hints["verified_destination_number_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "verified_destination_number_arn": verified_destination_number_arn,
+        }
+
+    @builtins.property
+    def verified_destination_number_arn(self) -> builtins.str:
+        '''The VerifiedDestinationNumberArn of the VerifiedDestinationNumber resource.'''
+        result = self._values.get("verified_destination_number_arn")
+        assert result is not None, "Required property 'verified_destination_number_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VerifiedDestinationNumberReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ConfigurationSetReference",
     "IConfigurationSetRef",
@@ -918,16 +1110,20 @@ __all__ = [
     "IPhoneNumberRef",
     "IPoolRef",
     "IProtectConfigurationRef",
+    "IRegistrationAttachmentRef",
     "IRegistrationRef",
     "IResourcePolicyRef",
     "ISenderIdRef",
+    "IVerifiedDestinationNumberRef",
     "OptOutListReference",
     "PhoneNumberReference",
     "PoolReference",
     "ProtectConfigurationReference",
+    "RegistrationAttachmentReference",
     "RegistrationReference",
     "ResourcePolicyReference",
     "SenderIdReference",
+    "VerifiedDestinationNumberReference",
 ]
 
 publication.publish()
@@ -972,6 +1168,13 @@ def _typecheckingstub__d7a573c31ffa2a3dbcab67f8fc27bcefd307f49af5d533c3d96ed3f9e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c5c8a4c5317b8ec50063adb5014114123125bfcbe569ecfcecec2e6e53f602f4(
+    *,
+    registration_attachment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__84b4597d7f74520c0d8bacd6314c62e1208992066bbb5e3631c3c302c0f9eb8c(
     *,
     registration_arn: builtins.str,
@@ -995,5 +1198,12 @@ def _typecheckingstub__0ba8d95c82cd8ae22b8aa29f3c0b6b9b02e4d8ffd2e2cf690bd27ab2e
     """Type checking stubs"""
     pass
 
-for cls in [IConfigurationSetRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IRegistrationRef, IResourcePolicyRef, ISenderIdRef]:
+def _typecheckingstub__e61aa8d8c74e179af124003f4de54b0f3cc9332f35bded7c3a45a1bda6df0f0a(
+    *,
+    verified_destination_number_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IConfigurationSetRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IRegistrationAttachmentRef, IRegistrationRef, IResourcePolicyRef, ISenderIdRef, IVerifiedDestinationNumberRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

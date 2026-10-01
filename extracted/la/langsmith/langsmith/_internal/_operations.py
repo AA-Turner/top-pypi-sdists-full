@@ -181,14 +181,6 @@ def serialize_feedback_dict(
         feedback_create["id"] = uuid.uuid4()
     elif isinstance(feedback_create["id"], str):
         feedback_create["id"] = uuid.UUID(feedback_create["id"])
-    # `model_dump()` emits every field, and "provided" is meaningful to the
-    # endpoint, so a null must not read as provided. Whatever *is* set goes out,
-    # half a pair included, for the endpoint to answer with its own 400 -- same
-    # reasoning as the run parts: dropping it would attach the feedback
-    # somewhere the caller didn't name.
-    for _addressing_key in ("agent_id", "agent_environment"):
-        if feedback_create.get(_addressing_key) is None:
-            feedback_create.pop(_addressing_key, None)
     if "trace_id" not in feedback_create:
         feedback_create["trace_id"] = uuid.uuid4()
     elif isinstance(feedback_create["trace_id"], str):
@@ -226,14 +218,42 @@ def serialize_run_dict(
     )
 
 
+# Allow-list of routing fields the collision warning may log; never credentials.
+_DESTINATION_FIELDS = ("session_name", "session_id", "agent_id", "agent_environment")
+
+
+def _warn_if_destinations_differ(
+    kept: SerializedRunOperation, dropped: SerializedRunOperation
+) -> None:
+    """Warn when two posts share a run id but go to different destinations."""
+    kept_dest, dropped_dest = _destination(kept), _destination(dropped)
+    if kept_dest == dropped_dest:
+        return
+    logger.warning(
+        "LangSmith run %s was queued for two destinations with the same id (%r and "
+        "%r); only the last is sent. This usually means two write replicas both "
+        "keep the original run ids, for example a replica marked `primary` plus "
+        "one for the run's own project.",
+        dropped.id,
+        dropped_dest,
+        kept_dest,
+    )
+
+
+def _destination(op: SerializedRunOperation) -> dict:
+    body = _orjson.loads(op._none)
+    return {f: body[f] for f in _DESTINATION_FIELDS if body.get(f) is not None}
+
+
 def combine_serialized_queue_operations(
     ops: list[Union[SerializedRunOperation, SerializedFeedbackOperation]],
 ) -> list[Union[SerializedRunOperation, SerializedFeedbackOperation]]:
-    create_ops_by_id = {
-        op.id: op
-        for op in ops
-        if isinstance(op, SerializedRunOperation) and op.operation == "post"
-    }
+    create_ops_by_id: dict[uuid.UUID, SerializedRunOperation] = {}
+    for op in ops:
+        if isinstance(op, SerializedRunOperation) and op.operation == "post":
+            if op.id in create_ops_by_id:
+                _warn_if_destinations_differ(op, create_ops_by_id[op.id])
+            create_ops_by_id[op.id] = op
     passthrough_ops: list[
         Union[SerializedRunOperation, SerializedFeedbackOperation]
     ] = []

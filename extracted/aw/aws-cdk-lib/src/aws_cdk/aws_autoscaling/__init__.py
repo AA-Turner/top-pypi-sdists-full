@@ -4357,8 +4357,9 @@ class CfnAutoScalingGroup(
             *,
             target_capacity_types: typing.Sequence[builtins.str],
         ) -> None:
-            '''
-            :param target_capacity_types: 
+            '''Use this structure to specify the capacity types that Amazon EC2 Auto Scaling prioritizes when it launches instances.
+
+            :param target_capacity_types: The capacity types to prioritize, in order. Amazon EC2 Auto Scaling attempts to launch instances in the priority order of the capacity types, and within each capacity type, in the order of instance types listed in your launch template ``Overrides``. The following lists the valid values: - on-demand-capacity-reservation On-Demand Capacity Reservations. + capacity-block Capacity Blocks. + interruptible-capacity-reservation Interruptible Capacity Reservations. + on-demand On-Demand capacity. Include this value to allow the group to fall back to On-Demand capacity when the preceding capacity types are unavailable.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-distributionsegment.html
             :exampleMetadata: fixture=_generated
@@ -4382,7 +4383,13 @@ class CfnAutoScalingGroup(
 
         @builtins.property
         def target_capacity_types(self) -> typing.List[builtins.str]:
-            '''
+            '''The capacity types to prioritize, in order.
+
+            Amazon EC2 Auto Scaling attempts to launch instances in the priority order of the capacity types, and within each capacity type, in the order of instance types listed in your launch template ``Overrides``.
+            The following lists the valid values:
+
+            - on-demand-capacity-reservation On-Demand Capacity Reservations. + capacity-block Capacity Blocks. + interruptible-capacity-reservation Interruptible Capacity Reservations. + on-demand On-Demand capacity. Include this value to allow the group to fall back to On-Demand capacity when the preceding capacity types are unavailable.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-distributionsegment.html#cfn-autoscaling-autoscalinggroup-distributionsegment-targetcapacitytypes
             '''
             result = self._values.get("target_capacity_types")
@@ -5177,7 +5184,7 @@ class CfnAutoScalingGroup(
 
             ``InstancesDistribution`` is a property of the `AWS::AutoScaling::AutoScalingGroup MixedInstancesPolicy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-mixedinstancespolicy.html>`_ property type.
 
-            :param distribution_segments: 
+            :param distribution_segments: The Distribution Segments configuration. Each segment contains an ordered list of capacity types to prioritize. For more information, see `Use Distribution Segments to target multiple capacity types <https://docs.aws.amazon.com/autoscaling/ec2/userguide/use-distribution-segments.html>`_ in the *Amazon EC2 Auto Scaling User Guide*.
             :param on_demand_allocation_strategy: The allocation strategy to apply to your On-Demand Instances when they are launched. Possible instance types are determined by the launch template overrides that you specify. The following lists the valid values: - **lowest-price** - Uses price to determine which instance types are the highest priority, launching the lowest priced instance types within an Availability Zone first. This is the default value for Auto Scaling groups that specify ``InstanceRequirements`` . - **prioritized** - You set the order of instance types for the launch template overrides from highest to lowest priority (from first to last in the list). Amazon EC2 Auto Scaling launches your highest priority instance types first. If all your On-Demand capacity cannot be fulfilled using your highest priority instance type, then Amazon EC2 Auto Scaling launches the remaining capacity using the second priority instance type, and so on. This is the default value for Auto Scaling groups that don't specify ``InstanceRequirements`` and cannot be used for groups that do.
             :param on_demand_base_capacity: The minimum amount of the Auto Scaling group's capacity that must be fulfilled by On-Demand Instances. This base portion is launched first as your group scales. This number has the same unit of measurement as the group's desired capacity. If you change the default unit of measurement (number of instances) by specifying weighted capacity values in your launch template overrides list, or by changing the default desired capacity type setting of the group, you must specify this number using the same unit of measurement. Default: 0 .. epigraph:: An update to this setting means a gradual replacement of instances to adjust the current On-Demand Instance levels. When replacing instances, Amazon EC2 Auto Scaling launches new instances before terminating the previous ones.
             :param on_demand_percentage_above_base_capacity: Controls the percentages of On-Demand Instances and Spot Instances for your additional capacity beyond ``OnDemandBaseCapacity`` . Expressed as a number (for example, 20 specifies 20% On-Demand Instances, 80% Spot Instances). If set to 100, only On-Demand Instances are used. Default: 100 .. epigraph:: An update to this setting means a gradual replacement of instances to adjust the current On-Demand and Spot Instance levels for your additional capacity higher than the base capacity. When replacing instances, Amazon EC2 Auto Scaling launches new instances before terminating the previous ones.
@@ -5235,7 +5242,11 @@ class CfnAutoScalingGroup(
         def distribution_segments(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutoScalingGroup.DistributionSegmentProperty"]]]]:
-            '''
+            '''The Distribution Segments configuration.
+
+            Each segment contains an ordered list of capacity types to prioritize.
+            For more information, see `Use Distribution Segments to target multiple capacity types <https://docs.aws.amazon.com/autoscaling/ec2/userguide/use-distribution-segments.html>`_ in the *Amazon EC2 Auto Scaling User Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancesdistribution.html#cfn-autoscaling-autoscalinggroup-instancesdistribution-distributionsegments
             '''
             result = self._values.get("distribution_segments")

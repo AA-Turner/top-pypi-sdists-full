@@ -227,6 +227,7 @@ __all__ = (
     "ImageBuilderStateChangeReasonTypeDef",
     "ImageBuilderTypeDef",
     "ImagePermissionsTypeDef",
+    "ImageSoftwareMetadataTypeDef",
     "ImageStateChangeReasonTypeDef",
     "ImageTypeDef",
     "LastReportGenerationExecutionErrorTypeDef",
@@ -821,6 +822,10 @@ class NetworkAccessConfigurationTypeDef(TypedDict):
 class ImagePermissionsTypeDef(TypedDict):
     allowFleet: NotRequired[bool]
     allowImageBuilder: NotRequired[bool]
+
+
+class ImageSoftwareMetadataTypeDef(TypedDict):
+    nvidiaGridDriverVersion: NotRequired[str]
 
 
 class ImageStateChangeReasonTypeDef(TypedDict):
@@ -1495,6 +1500,7 @@ class ImageTypeDef(TypedDict):
     ImageSharedWithOthers: NotRequired[ImageSharedWithOthersType]
     ManagedSoftwareIncluded: NotRequired[bool]
     ImageType: NotRequired[ImageTypeType]
+    ImageSoftwareMetadata: NotRequired[ImageSoftwareMetadataTypeDef]
 
 
 class UpdateApplicationResultTypeDef(TypedDict):

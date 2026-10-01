@@ -107,6 +107,55 @@ class AccessPolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_arn: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The Arn of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iotsitewise as interfaces_iotsitewise
+            
+            application_reference = interfaces_iotsitewise.ApplicationReference(
+                application_arn="applicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a507d497009d41d6b86320ea0b1fdbc6e7a1b01aa4fa3cc89658f211819b4b51)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The Arn of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.AssetModelReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -519,6 +568,51 @@ class _IAccessPolicyRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAccessPolicyRef).__jsii_proxy_class__ = lambda : _IAccessPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IApplicationRef")
+class IApplicationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> "ApplicationReference":
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iotsitewise.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> "ApplicationReference":
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ApplicationReference", jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IAssetModelRef")
@@ -1287,6 +1381,7 @@ class WorkspaceReference:
 
 __all__ = [
     "AccessPolicyReference",
+    "ApplicationReference",
     "AssetModelReference",
     "AssetReference",
     "ComputationModelReference",
@@ -1294,6 +1389,7 @@ __all__ = [
     "DatasetReference",
     "GatewayReference",
     "IAccessPolicyRef",
+    "IApplicationRef",
     "IAssetModelRef",
     "IAssetRef",
     "IComputationModelRef",
@@ -1318,6 +1414,13 @@ def _typecheckingstub__4e9b62b3a35e2e33ea2fe71af556eefe7952c4e8fd6c2259e70f4f792
     *,
     access_policy_arn: builtins.str,
     access_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a507d497009d41d6b86320ea0b1fdbc6e7a1b01aa4fa3cc89658f211819b4b51(
+    *,
+    application_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1406,5 +1509,5 @@ def _typecheckingstub__04bc951152d6e4454bb1b0e9b55d25799b9f186739baaab7d5eed6cb0
     """Type checking stubs"""
     pass
 
-for cls in [IAccessPolicyRef, IAssetModelRef, IAssetRef, IComputationModelRef, IDashboardRef, IDatasetRef, IGatewayRef, IPipelineRef, IPortalRef, IProjectRef, ITaskRef, IWorkspaceRef]:
+for cls in [IAccessPolicyRef, IApplicationRef, IAssetModelRef, IAssetRef, IComputationModelRef, IDashboardRef, IDatasetRef, IGatewayRef, IPipelineRef, IPortalRef, IProjectRef, ITaskRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

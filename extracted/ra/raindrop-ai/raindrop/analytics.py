@@ -3,11 +3,13 @@ import time
 import threading
 import os
 import base64
+import functools
+import inspect
 import io
 import math
 from contextlib import contextmanager, redirect_stdout
 from itertools import groupby
-from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union, cast
 import requests
 from datetime import datetime, timezone
 import logging
@@ -34,6 +36,7 @@ from raindrop.local_debugger import (
     resolve_local_workshop_url,
 )
 from raindrop.model_usage import normalize_model_usage_span
+from raindrop.prompt_tools import ToolsInput
 from raindrop.redact import perform_pii_redaction
 from raindrop._state import ClientState, ModuleBackedState, RaindropState
 from raindrop import _tracing as _rd_tracing
@@ -1528,6 +1531,31 @@ def _should_send_prompts() -> Any:
     ).lower() == "true" or context_api.get_value("override_enable_content_tracing")
 
 
+# Late-bound so a patched ``_should_send_prompts`` governs the export path too.
+_rd_tracing.set_content_capture_resolver(lambda: bool(_should_send_prompts()))
+
+
+@contextmanager
+def prompt_tools(tools: ToolsInput, *, source: Optional[str] = None) -> Iterator[None]:
+    """Record ``tools`` as ``ai.prompt.tools`` on model spans in the block.
+
+    Overrides whatever the instrumentation captured; ``[]`` records that the
+    model had no tools. Accepts the canonical
+    ``{"type": "function", "name", "description", "inputSchema"}`` shape as
+    well as OpenAI ``{"type": "function", "function": {...}}`` and Anthropic
+    ``{"name", "description", "input_schema"}`` tool definitions. Subject to
+    the ``TRACELOOP_TRACE_CONTENT`` content gate like every other prompt
+    attribute: with content capture off nothing is recorded.
+
+    ``source`` marks a catalog-derived list (one taken from a framework's
+    agent registry, which may overstate what a single call received) by also
+    stamping ``ai.prompt.tools.source`` on the same spans, e.g.
+    ``source="agno.agent.tools"``. Leave it unset for an exact list.
+    """
+    with _rd_tracing.prompt_tools_scope(tools, source=source):
+        yield
+
+
 def set_llm_span_io(
     input: Any = None,
     output: Any = None,
@@ -1691,6 +1719,7 @@ def begin(
     convo_id: Optional[str] = None,
     model: Optional[str] = None,
     state: Optional[RaindropState] = None,
+    tools: Optional[ToolsInput] = None,
 ) -> Interaction:
     """
     Starts (or resumes) an interaction and returns a helper object.
@@ -1698,6 +1727,11 @@ def begin(
     ``model`` is nested under ``ai_data`` on the wire (the partial-ai-fields
     nested contract), matching the TS ``begin()`` model parameter. Use
     ``Interaction.set_model()`` to attach or change the model mid-lifecycle.
+
+    ``tools`` records the tool list as ``ai.prompt.tools`` on model spans
+    started inside this interaction, overriding what auto-instrumentation
+    captured (see :func:`prompt_tools` for the accepted shapes and the
+    content gate). Use ``Interaction.set_tools()`` to change it mid-lifecycle.
 
     Note: ``model`` alone is metadata, not AI text. An interaction opened with
     only ``model`` (no ``input``) and then finished with no ``output`` is
@@ -1803,6 +1837,10 @@ def begin(
             client_identity=id(st),
         )
         interaction._bound_ctx = bound_ctx
+        if tools is not None:
+            interaction._tools_frame = _rd_tracing.bind_prompt_tools(
+                tools, owner=interaction
+            )
         st.INTERACTION_EVENT_ID_REGISTRY[eid] = interaction
         if current_trace_id is not None and current_trace_id != 0:
             st.INTERACTION_TRACE_ID_REGISTRY[current_trace_id] = interaction
@@ -1825,6 +1863,7 @@ def begin(
         _rd_tracing.unbind_current(bound_ctx)
         if "interaction" in locals():
             _rd_tracing.unbind_span_attributes(interaction._app_git_frame)
+            _rd_tracing.unbind_span_attributes(interaction._tools_frame)
         logger.error(
             "[raindrop] begin() failed; returning disabled interaction.",
             exc_info=True,
@@ -1842,6 +1881,7 @@ def begin(
         _rd_tracing.unbind_current(bound_ctx)
         if "interaction" in locals():
             _rd_tracing.unbind_span_attributes(interaction._app_git_frame)
+            _rd_tracing.unbind_span_attributes(interaction._tools_frame)
         raise
     return interaction
 
@@ -2259,13 +2299,41 @@ def interaction(
     name: Optional[str] = None,
     version: Optional[int] = None,
     method_name: Optional[str] = None,
+    tools: Optional[ToolsInput] = None,
 ) -> Callable[[F], F]:
-    return tlp_workflow(
+    """Trace the decorated function as a workflow.
+
+    ``tools`` scopes a ``prompt_tools`` override over each call, so model
+    spans made inside the workflow record it as ``ai.prompt.tools``.
+    """
+    decorate = tlp_workflow(
         name=name,
         version=version,
         method_name=method_name,
         tlp_span_kind=TraceloopSpanKindValues.WORKFLOW,
     )
+    if tools is None:
+        return decorate
+
+    def with_tools(fn: F) -> F:
+        traced = decorate(fn)
+        if inspect.iscoroutinefunction(fn):
+
+            @functools.wraps(traced)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                with prompt_tools(tools):
+                    return await traced(*args, **kwargs)
+
+            return cast(F, async_wrapper)
+
+        @functools.wraps(traced)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            with prompt_tools(tools):
+                return traced(*args, **kwargs)
+
+        return cast(F, wrapper)
+
+    return with_tools
 
 
 def task(

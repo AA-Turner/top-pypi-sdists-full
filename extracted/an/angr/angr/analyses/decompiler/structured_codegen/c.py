@@ -149,6 +149,19 @@ def qualifies_for_implicit_cast(ty1, ty2):
     return ty1.size <= ty2.size if ty1.size is not None and ty2.size is not None else False
 
 
+def c_return_type(returnty: SimType) -> SimType:
+    """
+    Convert a return type to a C-compatible type.
+    - Arrays are converted to pointers to their element type.
+    """
+    if not isinstance(returnty, SimTypeArray):
+        return returnty
+    elem_type = returnty.elem_type
+    while isinstance(elem_type, SimTypeArray):
+        elem_type = elem_type.elem_type
+    return SimTypePointer(elem_type).with_arch(returnty._arch)
+
+
 def extract_terms(expr: CExpression) -> tuple[int, list[tuple[int, CExpression]]]:
     # handle unnecessary type casts
     if isinstance(expr, CTypeCast):
@@ -672,7 +685,7 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
         self.variables_in_use = variables_in_use
         self.variable_manager: VariableManagerInternal = variable_manager
         self.demangled_name = demangled_name
-        self.unified_local_vars: dict[SimVariable, set[tuple[CVariable, SimType]]] = {}
+        self.unified_local_vars: dict[SimVariable, list[tuple[CVariable, SimType]]] = {}
         self.show_demangled_name = show_demangled_name
         self.omit_header = omit_header
 
@@ -681,8 +694,8 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
     def refresh(self):
         self.unified_local_vars = self.get_unified_local_vars()
 
-    def get_unified_local_vars(self) -> dict[SimVariable, set[tuple[CVariable, SimType]]]:
-        unified_to_var_and_types: dict[SimVariable, set[tuple[CVariable, SimType]]] = defaultdict(set)
+    def get_unified_local_vars(self) -> dict[SimVariable, list[tuple[CVariable, SimType]]]:
+        unified_to_var_and_types: dict[SimVariable, list[tuple[CVariable, SimType]]] = defaultdict(list)
 
         arg_set: set[SimVariable] = set()
         for arg in self.arg_list:
@@ -713,7 +726,9 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
             if var_type is None:
                 var_type = SimTypeBottom().with_arch(self.codegen.project.arch)
 
-            unified_to_var_and_types[key].add((cvar, var_type))
+            entry = (cvar, var_type)
+            if entry not in unified_to_var_and_types[key]:  # keeps the set's de-duplication
+                unified_to_var_and_types[key].append(entry)
 
         return unified_to_var_and_types
 
@@ -968,7 +983,7 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
 
         # return type
         assert self.functy.returnty is not None
-        yield self.functy.returnty.c_repr(name="").strip(" "), self.functy.returnty
+        yield c_return_type(self.functy.returnty).c_repr(name="").strip(" "), self.functy.returnty
         yield " ", None
         # function name
         if self.demangled_name and self.show_demangled_name:
@@ -2475,27 +2490,27 @@ class CBinaryOp(CExpression):
         yield from self._c_repr_chunks(" | ")
 
     def _c_repr_chunks_shr(self):
-        yield from self._c_repr_chunks(" >> ")
+        yield from self._c_repr_chunks_right_shift(signed=False)
 
     def _c_repr_chunks_shl(self):
         yield from self._c_repr_chunks(" << ")
 
     def _c_repr_chunks_sar(self):
-        # Sar is an arithmetic (signed) right shift, but it renders as the C `>>` operator, which only performs an
-        # arithmetic shift when its left operand is signed. If the left operand renders as an unsigned integer, emit
-        # an explicit signed cast; otherwise `>>` would be a logical shift and silently drop the sign bit. The cast is
-        # emitted here at render time because the earlier typecast-collapsing passes treat same-size signed/unsigned
-        # integer casts as redundant and would strip a cast added during code generation.
-        lhs_ty = self.lhs.type
+        yield from self._c_repr_chunks_right_shift(signed=True)
+
+    def _c_repr_chunks_right_shift(self, signed: bool):
+        # C's >> uses the left operand's signedness. Cast at render time so same-width cast collapsing cannot
+        # erase the distinction between AIL's logical Shr and arithmetic Sar.
+        lhs_ty = unpack_typeref(self.lhs.type)
         if (
             isinstance(lhs_ty, (SimTypeInt, SimTypeChar, SimTypeNum))
-            and getattr(lhs_ty, "signed", None) is False
+            and getattr(lhs_ty, "signed", None) is (not signed)
             and lhs_ty.size is not None
         ):
-            signed_ty = self.codegen.default_simtype_from_bits(lhs_ty.size, signed=True)
+            cast_ty = self.codegen.default_simtype_from_bits(lhs_ty.size, signed=signed)
             paren = CClosingObject("(")
             yield "(", paren
-            yield f"{signed_ty.c_repr(name=None)}", signed_ty
+            yield f"{cast_ty.c_repr(name=None)}", cast_ty
             yield ")", paren
             yield "(", paren
             yield from self._try_c_repr_chunks(self.lhs)

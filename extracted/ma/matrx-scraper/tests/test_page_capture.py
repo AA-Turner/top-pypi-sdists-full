@@ -373,6 +373,7 @@ async def test_backlink_screenshot_stores_against_the_admitted_organization(
         async def upload_for_organization(self, _data: bytes, **kwargs: object) -> dict[str, str]:
             seen["organization_id"] = kwargs["organization_id"]
             seen["metadata_organization_id"] = kwargs["metadata"]["organization_id"]
+            seen["shown_to"] = kwargs.get("shown_to")
             return {"file_id": "file-1"}
 
     monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
@@ -400,6 +401,10 @@ async def test_backlink_screenshot_stores_against_the_admitted_organization(
     assert result["screenshot_file_id"] == "file-1"
     assert seen["organization_id"] == ORG_ID
     assert seen["metadata_organization_id"] == ORG_ID
+    # Organization evidence, never personal: an unstated audience is born "only_me".
+    from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
+
+    assert seen["shown_to"] == SHOWN_TO_TYPE_DEFAULT
 
 
 @pytest.mark.asyncio

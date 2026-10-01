@@ -31,6 +31,7 @@ import logging
 import re
 from typing import Optional
 
+from ..retrieval.verdict import symbol_not_found
 from ..storage import IndexStore
 from ._utils import resolve_repo
 from .flow_edges import resolve_flow_edges
@@ -162,7 +163,7 @@ def _impact_for_handler(
         for r in render_edges if r.get("src_id") == hid
     ]
     label = f'{handler.get("verb", "ANY")} {handler.get("path", "")}'.strip()
-    return {
+    out = {
         "endpoint": label,
         "handler": {
             "id": hid,
@@ -176,6 +177,14 @@ def _impact_for_handler(
         "caller_count": br.get("caller_count", 0),
         "rendered_views": views,
     }
+    # `get_blast_radius` runs its cross-repo channel whenever `cross_repo_default`
+    # is on; dropping it left `affected_file_count: 0` for a handler whose only
+    # dependents live in another repository (#877).
+    cross = br.get("cross_repo_confirmed") or []
+    if cross:
+        out["cross_repo_affected_files"] = cross
+        out["cross_repo_affected_count"] = len(cross)
+    return out
 
 
 def _norm_rel(p: str) -> str:
@@ -432,10 +441,7 @@ def get_endpoint_impact(
         if not matched:
             sym = next((s for s in index.symbols if s.get("id") == handler_symbol_id), None)
             if sym is None:
-                return {
-                    "error": f"No symbol {handler_symbol_id!r} in index.",
-                    "matched_endpoints": [],
-                }
+                return {**symbol_not_found(handler_symbol_id, index.symbols), "matched_endpoints": []}
             matched = [{
                 "verb": "ANY", "path": "",
                 "handler_id": sym.get("id"), "handler_name": sym.get("name"),

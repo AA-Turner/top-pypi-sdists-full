@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.58.2
+Version: 0.58.3
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -390,14 +390,8 @@ assert evaluation.errors() == [
     }
 ]
 
-assert evaluation.annotations() == [
-    {
-        "schemaLocation": "/prefixItems",
-        "absoluteKeywordLocation": None,
-        "instanceLocation": "",
-        "annotations": 0,
-    }
-]
+# A failing schema produces no annotations
+assert evaluation.annotations() == []
 ```
 
 ### Arbitrary-Precision Numbers

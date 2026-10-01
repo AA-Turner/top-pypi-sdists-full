@@ -173,7 +173,13 @@ setup(
         # means that failure is SILENT: no traceback, no report, just an
         # endpoint that never hears from those machines. ~160 KB, pure
         # data, no transitive deps. See docs/TELEMETRY.md.
-        "certifi>=2024.2.2",
+        # Floor is the first release that drops the distrusted GLOBALTRUST
+        # root (CVE-2024-39689), not the oldest version that imports:
+        # a resolve that satisfies the floor with an older certifi ships
+        # a bundle still trusting it. 2024.7.4 carries the same
+        # requires_python (>=3.6) as the floor it replaces, so nothing
+        # this package already supports loses a resolve.
+        "certifi>=2024.7.4",
     ],
     extras_require={
         "otel": ["opentelemetry-proto>=1.20.0", "protobuf>=4.21.0"],

@@ -24,7 +24,7 @@ pub(crate) fn position_in_ranges(
         .any(|(start, end)| *start <= pos && pos < *end)
 }
 
-fn jinja_tag_ranges(text: &str) -> Vec<(usize, usize)> {
+pub(crate) fn jinja_tag_ranges(text: &str) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     let mut offset = 0;
     while offset < text.len() {
@@ -45,7 +45,10 @@ fn jinja_tag_ranges(text: &str) -> Vec<(usize, usize)> {
     ranges
 }
 
-fn next_jinja_tag(text: &str, offset: usize) -> Option<(usize, &'static str)> {
+pub(crate) fn next_jinja_tag(
+    text: &str,
+    offset: usize,
+) -> Option<(usize, &'static str)> {
     let tail = text.get(offset..)?;
     [("{{", "}}"), ("{%", "%}"), ("{#", "#}")]
         .into_iter()
@@ -56,8 +59,15 @@ fn next_jinja_tag(text: &str, offset: usize) -> Option<(usize, &'static str)> {
                 let start = search_from + relative;
                 // `%{` opens an alternation brace, not a Jinja tag: without
                 // this, the `{` in `%{...}` reads as an unclosed `{%` and the
-                // zone swallows the rest of the document.
+                // zone swallows the rest of the document. The same holds for
+                // a `{%` whose `%` begins an alternation opener (`{%{`, `{%(`,
+                // `{%alt(`): launch fans those out before any Jinja rendering,
+                // and they are never valid Jinja ("tag name expected").
                 if open == "{%" && tail[..start].ends_with('%') {
+                    search_from = start + 1;
+                    continue;
+                }
+                if open == "{%" && is_alt_opener_after_jinja_open(tail, start) {
                     search_from = start + 1;
                     continue;
                 }
@@ -67,7 +77,17 @@ fn next_jinja_tag(text: &str, offset: usize) -> Option<(usize, &'static str)> {
         .min_by_key(|(start, _)| *start)
 }
 
-fn frontmatter_block_len(text: &str) -> Option<usize> {
+/// Whether the `{%` at `start` (relative to `tail`) is really an alternation
+/// opener: the `%` begins `%{`, `%(` or `%alt(`. `{` is a directive boundary,
+/// so launch always fans those out; they are never valid Jinja tags.
+fn is_alt_opener_after_jinja_open(tail: &str, start: usize) -> bool {
+    let after = tail.get(start + 2..).unwrap_or("");
+    after.starts_with('{')
+        || after.starts_with('(')
+        || after.starts_with("alt(")
+}
+
+pub(crate) fn frontmatter_block_len(text: &str) -> Option<usize> {
     let mut lines = text.split_inclusive('\n');
     let first = lines.next()?;
     if first.trim() != "---" {
@@ -81,4 +101,23 @@ fn frontmatter_block_len(text: &str) -> Option<usize> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn alternation_openers_after_literal_brace_start_no_jinja_range() {
+        for text in ["{%{a | b}", "{%(a,b)", "{%alt(a,b)", "x {%{a | b} y"] {
+            assert_eq!(jinja_tag_ranges(text), Vec::new(), "{text}");
+        }
+    }
+
+    #[test]
+    fn real_and_unclosed_jinja_tags_still_start_ranges() {
+        assert_ne!(jinja_tag_ranges("{% if x %}y"), Vec::new());
+        assert_ne!(jinja_tag_ranges("{%- if x %}y"), Vec::new());
+        assert_ne!(jinja_tag_ranges("{% if"), Vec::new());
+    }
 }

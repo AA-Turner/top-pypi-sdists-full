@@ -1155,6 +1155,7 @@ def auto_train(
     tabpfn_params: dict = None,
     causilo_params: dict = None,
     limix_params: dict = None,
+    kumo_params: dict = None,
 ):
     """
     Train a model using specified parameters and optionally perform hyperparameter optimization.
@@ -1904,6 +1905,27 @@ def auto_train(
             _cz.update(causilo_params or {})
             _cz["random_state"] = int(seed)
             model = CausiloRegressor(**_cz)
+        elif model_name == "kumo":
+            # NVIDIA Kumo Tabular (2026) through NVIDIA's structured-data-models
+            # (`sdm`, git-only) -- in-context tabular foundation model in the
+            # tabpfn/causilo family: support set + queries in one forward pass,
+            # no gradient step at fit time.
+            #
+            # The regression head emits 999 NATIVE QUANTILES, so estimate_ci()
+            # below leaves it unwrapped like causilo -- see
+            # Geocif._predict_kumo_with_ci. Weights: nvidia/Kumo-Tabular under
+            # OpenMDW 1.1, not gated. Install + launch notes in ml/kumo.py.
+            if model_type != "REGRESSION":
+                raise ValueError(
+                    "model = 'kumo' is wired for REGRESSION only; geocif's "
+                    "CLASSIFICATION path is itself unreliable -- use a "
+                    "regression target."
+                )
+            from .kumo import KumoTabularRegressor
+
+            _kt = dict(size="large", device="auto", num_estimators=8)
+            _kt.update(kumo_params or {})
+            model = KumoTabularRegressor(seed=int(seed), **_kt)
         elif model_name == "pygrf":
             # Geographical Random Forest (geoai-lab/PyGRF). Coords come from
             # the lat/lon feature columns; band_width/local_weight default to
@@ -2017,7 +2039,7 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     # (Geocif._predict_mitra_with_ci).
     if model_name in [
         "ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft", "bnn",
-        "mitra", "mitra_ft", "causilo",
+        "mitra", "mitra_ft", "causilo", "kumo",
     ]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":

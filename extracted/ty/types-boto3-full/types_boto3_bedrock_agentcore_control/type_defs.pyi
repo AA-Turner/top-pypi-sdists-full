@@ -185,6 +185,7 @@ __all__ = (
     "CapacityReservationTargetTypeDef",
     "CategoricalScaleDefinitionTypeDef",
     "CedarPolicyTypeDef",
+    "CertificateConfigurationTypeDef",
     "CertificateLocationTypeDef",
     "CertificateTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
@@ -908,6 +909,7 @@ __all__ = (
     "RuleUnionTypeDef",
     "RuntimeMetadataConfigurationTypeDef",
     "RuntimeTargetConfigurationTypeDef",
+    "S3CertificateConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
     "S3FilesConfigurationTypeDef",
@@ -920,6 +922,7 @@ __all__ = (
     "SchemaDefinitionTypeDef",
     "SecretReferenceTypeDef",
     "SecretTypeDef",
+    "SecretsManagerCertificateConfigurationTypeDef",
     "SecretsManagerLocationTypeDef",
     "SelfManagedConfigurationInputTypeDef",
     "SelfManagedConfigurationTypeDef",
@@ -1275,6 +1278,13 @@ class CategoricalScaleDefinitionTypeDef(TypedDict):
 
 class CedarPolicyTypeDef(TypedDict):
     statement: str
+
+class S3CertificateConfigurationTypeDef(TypedDict):
+    uri: str
+    bucketOwnerAccountId: NotRequired[str]
+
+class SecretsManagerCertificateConfigurationTypeDef(TypedDict):
+    secretArn: str
 
 class SecretsManagerLocationTypeDef(TypedDict):
     secretArn: str
@@ -2882,6 +2892,7 @@ class DeleteCodeInterpreterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteConfigurationBundleResponseTypeDef(TypedDict):
+    bundleArn: str
     bundleId: str
     status: ConfigurationBundleStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3385,6 +3396,10 @@ class ListCapacityProvidersOutputTypeDef(TypedDict):
 class CapacityReservationSpecificationTypeDef(TypedDict):
     capacityReservationPreference: NotRequired[CapacityReservationPreferenceType]
     capacityReservationTarget: NotRequired[CapacityReservationTargetTypeDef]
+
+class CertificateConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3CertificateConfigurationTypeDef]
+    secretsManager: NotRequired[SecretsManagerCertificateConfigurationTypeDef]
 
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
@@ -4490,12 +4505,12 @@ class CreateConfigurationBundleRequestTypeDef(TypedDict):
 class UpdateConfigurationBundleRequestTypeDef(TypedDict):
     bundleId: str
     parentVersionIds: Sequence[str]
+    commitMessage: str
     clientToken: NotRequired[str]
     bundleName: NotRequired[str]
     description: NotRequired[str]
     components: NotRequired[Mapping[str, ComponentConfigurationUnionTypeDef]]
     branchName: NotRequired[str]
-    commitMessage: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]
     kmsKeyArn: NotRequired[str]
 
@@ -6133,6 +6148,7 @@ class CreateGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GatewayTargetTypeDef(TypedDict):
@@ -6152,6 +6168,7 @@ class GatewayTargetTypeDef(TypedDict):
     privateEndpointManagedResources: NotRequired[list[ManagedResourceDetailsTypeDef]]
     authorizationData: NotRequired[AuthorizationDataTypeDef]
     protocolType: NotRequired[TargetProtocolTypeType]
+    certificateConfigurations: NotRequired[list[CertificateConfigurationTypeDef]]
 
 class GetGatewayTargetResponseTypeDef(TypedDict):
     gatewayArn: str
@@ -6170,6 +6187,7 @@ class GetGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateGatewayTargetResponseTypeDef(TypedDict):
@@ -6189,6 +6207,7 @@ class UpdateGatewayTargetResponseTypeDef(TypedDict):
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     authorizationData: AuthorizationDataTypeDef
     protocolType: TargetProtocolTypeType
+    certificateConfigurations: list[CertificateConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 TargetConfigurationUnionTypeDef = Union[
@@ -6259,6 +6278,7 @@ class CreateGatewayTargetRequestTypeDef(TypedDict):
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
 
 class UpdateGatewayTargetRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -6271,6 +6291,7 @@ class UpdateGatewayTargetRequestTypeDef(TypedDict):
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
 
 class CustomReflectionConfigurationTypeDef(TypedDict):
     episodicReflectionOverride: NotRequired[EpisodicReflectionOverrideTypeDef]

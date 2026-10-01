@@ -13,7 +13,13 @@ except ImportError:  # pragma: no cover
         pass
 
 
-from typing_extensions import NamedTuple, ReadOnly, TypedDict, TypeVar
+from typing_extensions import (
+    NamedTuple,
+    ReadOnly,
+    Required,
+    TypedDict,
+    TypeVar,
+)
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import TO_DICT_ADD_OMIT_NONE_FLAG, BaseConfig
@@ -152,6 +158,12 @@ class MyDataClassWithOptional(DataClassDictMixin):
 
 
 @dataclass
+class MyDataClassWithPEP604Optional(DataClassDictMixin):
+    a: int | None = None
+    b: int | None = None
+
+
+@dataclass
 class MyDataClassWithOptionalAndOmitNoneFlag(DataClassDictMixin):
     a: Optional[int] = None
     b: Optional[int] = None
@@ -258,6 +270,26 @@ class TypedDictWithReadOnly(TypedDict):
     x: ReadOnly[int]
 
 
+class TypedDictWithExplicitRequired(TypedDict, total=False):
+    x: Required[int]
+    y: int
+
+
+class TypedDictClosed(TypedDict, closed=True):
+    x: int
+    y: int
+
+
+class TypedDictNotClosed(TypedDict, closed=False):
+    x: int
+    y: int
+
+
+class TypedDictWithExtraItems(TypedDict, extra_items=str):
+    x: int
+    y: int
+
+
 class GenericTypedDict(TypedDict, Generic[T]):
     x: T
     y: int
@@ -271,6 +303,12 @@ class MyNamedTuple(NamedTuple):
 class MyNamedTupleWithDefaults(NamedTuple):
     i: int = 1
     f: float = 2.0
+
+
+class MyNamedTupleWithRequiredAndDefaults(NamedTuple):
+    i: int
+    s: str = "default"
+    f: float = 42.0
 
 
 class MyNamedTupleWithOptional(NamedTuple):

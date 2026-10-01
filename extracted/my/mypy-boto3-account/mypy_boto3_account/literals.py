@@ -29,6 +29,7 @@ __all__ = (
     "AwsAccountStateType",
     "ListRegionsPaginatorName",
     "PaginatorName",
+    "PhoneNumberVerificationStatusType",
     "PrimaryEmailUpdateStatusType",
     "RegionOptStatusType",
     "ResourceServiceName",
@@ -40,14 +41,18 @@ AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"
 AlternateContactTypeType = Literal["BILLING", "OPERATIONS", "SECURITY"]
 AwsAccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"]
 ListRegionsPaginatorName = Literal["list_regions"]
+PhoneNumberVerificationStatusType = Literal["NOT_SUPPORTED", "PENDING", "UNVERIFIED", "VERIFIED"]
 PrimaryEmailUpdateStatusType = Literal["ACCEPTED", "COMPLETED", "FAILED", "PENDING"]
 RegionOptStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLED_BY_DEFAULT", "ENABLING"]
 AccountServiceName = Literal["account"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -120,6 +125,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -194,6 +200,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -222,6 +229,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -316,6 +324,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -352,6 +361,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

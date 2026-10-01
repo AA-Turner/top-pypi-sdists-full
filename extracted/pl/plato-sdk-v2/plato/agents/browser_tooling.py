@@ -1,6 +1,6 @@
 """Shared instruction block + shell setup for ``agent-browser`` tooling.
 
-Agent packages (claude-code, gemini-cli, codex) opt in by setting
+Agent packages (claude-code, codex) opt in by setting
 ``AgentConfig.browser_tooling = True``; the base ``BaseAgent`` reads the flag
 and splices the block into the effective system prompt plus prepends the bun
 bin to ``PATH`` so the ``agent-browser`` CLI resolves in the agent subshell.

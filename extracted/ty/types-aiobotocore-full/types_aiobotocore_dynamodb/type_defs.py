@@ -197,6 +197,9 @@ __all__ = (
     "ExportTableToPointInTimeInputTypeDef",
     "ExportTableToPointInTimeOutputTypeDef",
     "FailureExceptionTypeDef",
+    "FilterSpecificationOutputTypeDef",
+    "FilterSpecificationTypeDef",
+    "FilterSpecificationUnionTypeDef",
     "GetItemInputTableGetItemTypeDef",
     "GetItemInputTypeDef",
     "GetItemOutputTableTypeDef",
@@ -892,6 +895,14 @@ class DeleteRequestOutputTypeDef(TypedDict):
     Key: dict[str, AttributeValueTypeDef]
 
 
+class FilterSpecificationOutputTypeDef(TypedDict):
+    FilterExpression: NotRequired[str]
+    ProjectionExpression: NotRequired[str]
+    KeyConditionExpression: NotRequired[str]
+    ExpressionAttributeNames: NotRequired[dict[str, str]]
+    ExpressionAttributeValues: NotRequired[dict[str, AttributeValueTypeDef]]
+
+
 class ItemCollectionMetricsTypeDef(TypedDict):
     ItemCollectionKey: NotRequired[dict[str, AttributeValueTypeDef]]
     SizeEstimateRangeGB: NotRequired[list[float]]
@@ -1237,30 +1248,6 @@ class KinesisStreamingDestinationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ExportDescriptionTypeDef(TypedDict):
-    ExportArn: NotRequired[str]
-    ExportStatus: NotRequired[ExportStatusType]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    ExportManifest: NotRequired[str]
-    TableArn: NotRequired[str]
-    TableId: NotRequired[str]
-    ExportTime: NotRequired[datetime]
-    ClientToken: NotRequired[str]
-    S3Bucket: NotRequired[str]
-    S3BucketOwner: NotRequired[str]
-    S3Prefix: NotRequired[str]
-    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
-    S3SseKmsKeyId: NotRequired[str]
-    FailureCode: NotRequired[str]
-    FailureMessage: NotRequired[str]
-    ExportFormat: NotRequired[ExportFormatType]
-    BilledSizeBytes: NotRequired[int]
-    ItemCount: NotRequired[int]
-    ExportType: NotRequired[ExportTypeType]
-    IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationOutputTypeDef]
-
-
 class ListExportsOutputTypeDef(TypedDict):
     ExportSummaries: list[ExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1433,6 +1420,31 @@ class BatchStatementResponseTypeDef(TypedDict):
     Item: NotRequired[dict[str, AttributeValueTypeDef]]
 
 
+class ExportDescriptionTypeDef(TypedDict):
+    ExportArn: NotRequired[str]
+    ExportStatus: NotRequired[ExportStatusType]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ExportManifest: NotRequired[str]
+    TableArn: NotRequired[str]
+    TableId: NotRequired[str]
+    ExportTime: NotRequired[datetime]
+    ClientToken: NotRequired[str]
+    S3Bucket: NotRequired[str]
+    S3BucketOwner: NotRequired[str]
+    S3Prefix: NotRequired[str]
+    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
+    S3SseKmsKeyId: NotRequired[str]
+    FailureCode: NotRequired[str]
+    FailureMessage: NotRequired[str]
+    ExportFormat: NotRequired[ExportFormatType]
+    BilledSizeBytes: NotRequired[int]
+    ItemCount: NotRequired[int]
+    ExportType: NotRequired[ExportTypeType]
+    IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationOutputTypeDef]
+    FilterSpecification: NotRequired[FilterSpecificationOutputTypeDef]
+
+
 class WriteRequestOutputTypeDef(TypedDict):
     PutRequest: NotRequired[PutRequestOutputTypeDef]
     DeleteRequest: NotRequired[DeleteRequestOutputTypeDef]
@@ -1498,6 +1510,14 @@ class ExpectedAttributeValueTypeDef(TypedDict):
     Exists: NotRequired[bool]
     ComparisonOperator: NotRequired[ComparisonOperatorType]
     AttributeValueList: NotRequired[Sequence[UniversalAttributeValueTypeDef]]
+
+
+class FilterSpecificationTypeDef(TypedDict):
+    FilterExpression: NotRequired[str]
+    ProjectionExpression: NotRequired[str]
+    KeyConditionExpression: NotRequired[str]
+    ExpressionAttributeNames: NotRequired[Mapping[str, str]]
+    ExpressionAttributeValues: NotRequired[Mapping[str, UniversalAttributeValueTypeDef]]
 
 
 class GetItemInputTypeDef(TypedDict):
@@ -1856,16 +1876,6 @@ class UpdateGlobalTableInputTypeDef(TypedDict):
     ReplicaUpdates: Sequence[ReplicaUpdateTypeDef]
 
 
-class DescribeExportOutputTypeDef(TypedDict):
-    ExportDescription: ExportDescriptionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ExportTableToPointInTimeOutputTypeDef(TypedDict):
-    ExportDescription: ExportDescriptionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 IncrementalExportSpecificationUnionTypeDef = Union[
     IncrementalExportSpecificationTypeDef, IncrementalExportSpecificationOutputTypeDef
 ]
@@ -1961,6 +1971,16 @@ class VectorIndexTypeDef(TypedDict):
 class BatchExecuteStatementOutputTypeDef(TypedDict):
     Responses: list[BatchStatementResponseTypeDef]
     ConsumedCapacity: list[ConsumedCapacityTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeExportOutputTypeDef(TypedDict):
+    ExportDescription: ExportDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ExportTableToPointInTimeOutputTypeDef(TypedDict):
+    ExportDescription: ExportDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2099,6 +2119,11 @@ class UpdateItemInputTypeDef(TypedDict):
     ReturnValuesOnConditionCheckFailure: NotRequired[ReturnValuesOnConditionCheckFailureType]
 
 
+FilterSpecificationUnionTypeDef = Union[
+    FilterSpecificationTypeDef, FilterSpecificationOutputTypeDef
+]
+
+
 class TransactGetItemTypeDef(TypedDict):
     Get: GetTypeDef
 
@@ -2181,20 +2206,6 @@ class ReplicationGroupUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicationGroupMemberActionTypeDef]
     Update: NotRequired[UpdateReplicationGroupMemberActionTypeDef]
     Delete: NotRequired[DeleteReplicationGroupMemberActionTypeDef]
-
-
-class ExportTableToPointInTimeInputTypeDef(TypedDict):
-    TableArn: str
-    S3Bucket: str
-    ExportTime: NotRequired[TimestampTypeDef]
-    ClientToken: NotRequired[str]
-    S3BucketOwner: NotRequired[str]
-    S3Prefix: NotRequired[str]
-    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
-    S3SseKmsKeyId: NotRequired[str]
-    ExportFormat: NotRequired[ExportFormatType]
-    ExportType: NotRequired[ExportTypeType]
-    IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationUnionTypeDef]
 
 
 class GlobalTableDescriptionTypeDef(TypedDict):
@@ -2294,6 +2305,21 @@ class TableCreationParametersTypeDef(TypedDict):
 
 
 VectorIndexUnionTypeDef = Union[VectorIndexTypeDef, VectorIndexOutputTypeDef]
+
+
+class ExportTableToPointInTimeInputTypeDef(TypedDict):
+    TableArn: str
+    S3Bucket: str
+    ExportTime: NotRequired[TimestampTypeDef]
+    ClientToken: NotRequired[str]
+    S3BucketOwner: NotRequired[str]
+    S3Prefix: NotRequired[str]
+    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
+    S3SseKmsKeyId: NotRequired[str]
+    ExportFormat: NotRequired[ExportFormatType]
+    ExportType: NotRequired[ExportTypeType]
+    IncrementalExportSpecification: NotRequired[IncrementalExportSpecificationUnionTypeDef]
+    FilterSpecification: NotRequired[FilterSpecificationUnionTypeDef]
 
 
 class TransactGetItemsInputTypeDef(TypedDict):

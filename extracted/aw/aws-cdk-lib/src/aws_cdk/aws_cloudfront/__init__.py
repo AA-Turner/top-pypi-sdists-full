@@ -14277,6 +14277,471 @@ class CfnDistributionTenantProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudfront_1f2facf0.IFieldLevelEncryptionProfileRef)
+class CfnFieldLevelEncryptionProfile(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionProfile",
+):
+    '''Resource Type definition for AWS::CloudFront::FieldLevelEncryptionProfile.
+
+    A field-level encryption profile maps CloudFront public keys and provider identities to the request-body field patterns that CloudFront encrypts with them.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionprofile.html
+    :cloudformationResource: AWS::CloudFront::FieldLevelEncryptionProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudfront as cloudfront
+        
+        cfn_field_level_encryption_profile = cloudfront.CfnFieldLevelEncryptionProfile(self, "MyCfnFieldLevelEncryptionProfile",
+            field_level_encryption_profile_config=cloudfront.CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty(
+                caller_reference="callerReference",
+                encryption_entities=[cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty(
+                    field_patterns=["fieldPatterns"],
+                    provider_id="providerId",
+                    public_key_id="publicKeyId"
+                )],
+                name="name",
+        
+                # the properties below are optional
+                comment="comment"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        field_level_encryption_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Create a new ``AWS::CloudFront::FieldLevelEncryptionProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param field_level_encryption_profile_config: The configuration of a field-level encryption profile.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__874a02e94c2d8a988baed7527f7b4f8c3ffea9c30cdc598d32108957ea8c98da)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFieldLevelEncryptionProfileProps(
+            field_level_encryption_profile_config=field_level_encryption_profile_config
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFieldLevelEncryptionProfile")
+    @builtins.classmethod
+    def arn_for_field_level_encryption_profile(
+        cls,
+        resource: "_aws_cloudfront_1f2facf0.IFieldLevelEncryptionProfileRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__255245fb9fceff1ccc94d78af433e0fce9ba590a7f3ac996d7879c3daf78b170)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFieldLevelEncryptionProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnFieldLevelEncryptionProfile")
+    @builtins.classmethod
+    def is_cfn_field_level_encryption_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFieldLevelEncryptionProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2851a19d7c8f80a1c7c60b962b0ec6cf8866376b6cdc41e8b03b1bd7b1d04573)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFieldLevelEncryptionProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__82cc203de1d7ab11972deba587ef96db73b4b604f05e98265866353231a95375)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61e32c88229508a79068337fd0e6c35b879c319e7f4686943c6c53e1262a7e7e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the field-level encryption profile.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier that CloudFront assigns to the field-level encryption profile.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time the field-level encryption profile was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fieldLevelEncryptionProfileRef")
+    def field_level_encryption_profile_ref(
+        self,
+    ) -> "_aws_cloudfront_1f2facf0.FieldLevelEncryptionProfileReference":
+        '''A reference to a FieldLevelEncryptionProfile resource.'''
+        return typing.cast("_aws_cloudfront_1f2facf0.FieldLevelEncryptionProfileReference", jsii.get(self, "fieldLevelEncryptionProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fieldLevelEncryptionProfileConfig")
+    def field_level_encryption_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty"]:
+        '''The configuration of a field-level encryption profile.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty"], jsii.get(self, "fieldLevelEncryptionProfileConfig"))
+
+    @field_level_encryption_profile_config.setter
+    def field_level_encryption_profile_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__893d7673ac549e671fb9cb0bb6d0b5cc08ad73def28725b07a151e910af2cb7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fieldLevelEncryptionProfileConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "field_patterns": "fieldPatterns",
+            "provider_id": "providerId",
+            "public_key_id": "publicKeyId",
+        },
+    )
+    class EncryptionEntityProperty:
+        def __init__(
+            self,
+            *,
+            field_patterns: typing.Sequence[builtins.str],
+            provider_id: builtins.str,
+            public_key_id: builtins.str,
+        ) -> None:
+            '''A public key, its provider identity, and the field patterns CloudFront encrypts with that key.
+
+            :param field_patterns: The request-body field names to encrypt. A pattern is either a full field name or leading characters followed by a wildcard (*). Patterns are case-sensitive and must not overlap.
+            :param provider_id: The provider associated with the public key. The same value must be supplied with the private key for an application to decrypt the data.
+            :param public_key_id: The identifier of the CloudFront public key used to encrypt the fields that match the patterns.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-encryptionentity.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                encryption_entity_property = cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty(
+                    field_patterns=["fieldPatterns"],
+                    provider_id="providerId",
+                    public_key_id="publicKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__831733c60c3938e801e9c57edb50650f6d0711c8c721a25786e585f555267413)
+                check_type(argname="argument field_patterns", value=field_patterns, expected_type=type_hints["field_patterns"])
+                check_type(argname="argument provider_id", value=provider_id, expected_type=type_hints["provider_id"])
+                check_type(argname="argument public_key_id", value=public_key_id, expected_type=type_hints["public_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_patterns": field_patterns,
+                "provider_id": provider_id,
+                "public_key_id": public_key_id,
+            }
+
+        @builtins.property
+        def field_patterns(self) -> typing.List[builtins.str]:
+            '''The request-body field names to encrypt.
+
+            A pattern is either a full field name or leading characters followed by a wildcard (*). Patterns are case-sensitive and must not overlap.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-encryptionentity.html#cfn-cloudfront-fieldlevelencryptionprofile-encryptionentity-fieldpatterns
+            '''
+            result = self._values.get("field_patterns")
+            assert result is not None, "Required property 'field_patterns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def provider_id(self) -> builtins.str:
+            '''The provider associated with the public key.
+
+            The same value must be supplied with the private key for an application to decrypt the data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-encryptionentity.html#cfn-cloudfront-fieldlevelencryptionprofile-encryptionentity-providerid
+            '''
+            result = self._values.get("provider_id")
+            assert result is not None, "Required property 'provider_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def public_key_id(self) -> builtins.str:
+            '''The identifier of the CloudFront public key used to encrypt the fields that match the patterns.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-encryptionentity.html#cfn-cloudfront-fieldlevelencryptionprofile-encryptionentity-publickeyid
+            '''
+            result = self._values.get("public_key_id")
+            assert result is not None, "Required property 'public_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionEntityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "caller_reference": "callerReference",
+            "encryption_entities": "encryptionEntities",
+            "name": "name",
+            "comment": "comment",
+        },
+    )
+    class FieldLevelEncryptionProfileConfigProperty:
+        def __init__(
+            self,
+            *,
+            caller_reference: builtins.str,
+            encryption_entities: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionProfile.EncryptionEntityProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            name: builtins.str,
+            comment: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration of a field-level encryption profile.
+
+            :param caller_reference: A unique value that identifies the creation request. Caller references are unique within an AWS account and cannot be changed after creation.
+            :param encryption_entities: The encryption entities of the field-level encryption profile. At least one entity is required.
+            :param name: The name of the field-level encryption profile. Names are unique within an AWS account.
+            :param comment: An optional comment describing the field-level encryption profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                field_level_encryption_profile_config_property = cloudfront.CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty(
+                    caller_reference="callerReference",
+                    encryption_entities=[cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty(
+                        field_patterns=["fieldPatterns"],
+                        provider_id="providerId",
+                        public_key_id="publicKeyId"
+                    )],
+                    name="name",
+                
+                    # the properties below are optional
+                    comment="comment"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3481c188b136cebbeb2ab039a5740d9190af65ba4293558c12e72534a2874ef2)
+                check_type(argname="argument caller_reference", value=caller_reference, expected_type=type_hints["caller_reference"])
+                check_type(argname="argument encryption_entities", value=encryption_entities, expected_type=type_hints["encryption_entities"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "caller_reference": caller_reference,
+                "encryption_entities": encryption_entities,
+                "name": name,
+            }
+            if comment is not None:
+                self._values["comment"] = comment
+
+        @builtins.property
+        def caller_reference(self) -> builtins.str:
+            '''A unique value that identifies the creation request.
+
+            Caller references are unique within an AWS account and cannot be changed after creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html#cfn-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig-callerreference
+            '''
+            result = self._values.get("caller_reference")
+            assert result is not None, "Required property 'caller_reference' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def encryption_entities(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.EncryptionEntityProperty"]]]:
+            '''The encryption entities of the field-level encryption profile.
+
+            At least one entity is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html#cfn-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig-encryptionentities
+            '''
+            result = self._values.get("encryption_entities")
+            assert result is not None, "Required property 'encryption_entities' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.EncryptionEntityProperty"]]], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the field-level encryption profile.
+
+            Names are unique within an AWS account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html#cfn-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def comment(self) -> typing.Optional[builtins.str]:
+            '''An optional comment describing the field-level encryption profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html#cfn-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig-comment
+            '''
+            result = self._values.get("comment")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FieldLevelEncryptionProfileConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "field_level_encryption_profile_config": "fieldLevelEncryptionProfileConfig",
+    },
+)
+class CfnFieldLevelEncryptionProfileProps:
+    def __init__(
+        self,
+        *,
+        field_level_encryption_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnFieldLevelEncryptionProfile``.
+
+        :param field_level_encryption_profile_config: The configuration of a field-level encryption profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudfront as cloudfront
+            
+            cfn_field_level_encryption_profile_props = cloudfront.CfnFieldLevelEncryptionProfileProps(
+                field_level_encryption_profile_config=cloudfront.CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty(
+                    caller_reference="callerReference",
+                    encryption_entities=[cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty(
+                        field_patterns=["fieldPatterns"],
+                        provider_id="providerId",
+                        public_key_id="publicKeyId"
+                    )],
+                    name="name",
+            
+                    # the properties below are optional
+                    comment="comment"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e0efafdba1b14a60cda760f97903d52a74e88f75164c7cfe14f74c62f89466b4)
+            check_type(argname="argument field_level_encryption_profile_config", value=field_level_encryption_profile_config, expected_type=type_hints["field_level_encryption_profile_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "field_level_encryption_profile_config": field_level_encryption_profile_config,
+        }
+
+    @builtins.property
+    def field_level_encryption_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty"]:
+        '''The configuration of a field-level encryption profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionprofile.html#cfn-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig
+        '''
+        result = self._values.get("field_level_encryption_profile_config")
+        assert result is not None, "Required property 'field_level_encryption_profile_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFieldLevelEncryptionProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudfront_1f2facf0.IFunctionRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFunction(
     _aws_cdk_0cae9daa.CfnResource,
@@ -33213,6 +33678,8 @@ __all__ = [
     "CfnDistributionProps",
     "CfnDistributionTenant",
     "CfnDistributionTenantProps",
+    "CfnFieldLevelEncryptionProfile",
+    "CfnFieldLevelEncryptionProfileProps",
     "CfnFunction",
     "CfnFunctionProps",
     "CfnKeyGroup",
@@ -34620,6 +35087,71 @@ def _typecheckingstub__a7e7108347c4dbf8d509df9b928e7c2257744baad28d87264b1969519
     managed_certificate_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDistributionTenant.ManagedCertificateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDistributionTenant.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__874a02e94c2d8a988baed7527f7b4f8c3ffea9c30cdc598d32108957ea8c98da(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    field_level_encryption_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__255245fb9fceff1ccc94d78af433e0fce9ba590a7f3ac996d7879c3daf78b170(
+    resource: _aws_cloudfront_1f2facf0.IFieldLevelEncryptionProfileRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2851a19d7c8f80a1c7c60b962b0ec6cf8866376b6cdc41e8b03b1bd7b1d04573(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82cc203de1d7ab11972deba587ef96db73b4b604f05e98265866353231a95375(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61e32c88229508a79068337fd0e6c35b879c319e7f4686943c6c53e1262a7e7e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__893d7673ac549e671fb9cb0bb6d0b5cc08ad73def28725b07a151e910af2cb7c(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__831733c60c3938e801e9c57edb50650f6d0711c8c721a25786e585f555267413(
+    *,
+    field_patterns: typing.Sequence[builtins.str],
+    provider_id: builtins.str,
+    public_key_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3481c188b136cebbeb2ab039a5740d9190af65ba4293558c12e72534a2874ef2(
+    *,
+    caller_reference: builtins.str,
+    encryption_entities: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionProfile.EncryptionEntityProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    comment: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0efafdba1b14a60cda760f97903d52a74e88f75164c7cfe14f74c62f89466b4(
+    *,
+    field_level_encryption_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionProfile.FieldLevelEncryptionProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

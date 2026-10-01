@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: w3lib
-Version: 2.4.1
+Version: 2.5.0
 Summary: Library of web-related functions
 Project-URL: Homepage, https://github.com/scrapy/w3lib
 Project-URL: Documentation, https://w3lib.readthedocs.io/en/latest/
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -31,11 +32,11 @@ Description-Content-Type: text/x-rst
 w3lib
 =====
 
-.. image:: https://github.com/scrapy/w3lib/actions/workflows/tests-ubuntu.yml/badge.svg
-   :target: https://github.com/scrapy/w3lib/actions/workflows/tests-ubuntu.yml
+.. image:: https://github.com/scrapy/w3lib/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/scrapy/w3lib/actions/workflows/test.yml
 
 .. image:: https://img.shields.io/codecov/c/github/scrapy/w3lib/master.svg
-   :target: http://codecov.io/github/scrapy/w3lib?branch=master
+   :target: https://codecov.io/github/scrapy/w3lib?branch=master
    :alt: Coverage report
 
 
@@ -46,7 +47,7 @@ This is a Python library of web-related functions, such as:
 
 * remove comments, or tags from HTML snippets
 * extract base url from HTML snippets
-* translate entites on HTML strings
+* translate entities on HTML strings
 * convert raw HTTP headers to dicts and vice-versa
 * construct HTTP auth header
 * converting HTML pages to unicode
@@ -66,7 +67,7 @@ Install
 Documentation
 =============
 
-See http://w3lib.readthedocs.org/
+See https://w3lib.readthedocs.io/
 
 License
 =======

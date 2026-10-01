@@ -1404,6 +1404,19 @@ class CfnFunction(
             function_type="functionType",
         
             # the properties below are optional
+            concurrent_executor_configuration=mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty(
+                function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                    alias="alias",
+                    function_id="functionId",
+                    run_condition="runCondition"
+                )],
+                max_concurrency=123,
+                output={
+                    "output_key": "output"
+                },
+                runtime="runtime",
+                timeout_milliseconds=123
+            ),
             custom_output_configuration=mediatailor.CfnFunction.CustomOutputConfigurationProperty(
                 runtime="runtime",
         
@@ -1430,6 +1443,7 @@ class CfnFunction(
             ),
             sequential_executor_configuration=mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
                 function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                    alias="alias",
                     function_id="functionId",
                     run_condition="runCondition"
                 )],
@@ -1455,6 +1469,7 @@ class CfnFunction(
         *,
         function_id: builtins.str,
         function_type: builtins.str,
+        concurrent_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.ConcurrentExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1467,10 +1482,11 @@ class CfnFunction(
         :param id: Construct identifier for this resource (unique in its scope).
         :param function_id: The unique identifier for the function.
         :param function_type: 
+        :param concurrent_executor_configuration: The configuration for a CONCURRENT_EXECUTOR function. A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param custom_output_configuration: Configuration for custom output functions.
         :param description: A description of the function.
         :param http_request_configuration: Configuration for HTTP request functions.
-        :param sequential_executor_configuration: Configuration for sequential executor functions.
+        :param sequential_executor_configuration: The configuration for a SEQUENTIAL_EXECUTOR function. A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param tags: The tags to assign to the function resource.
         '''
         if __debug__:
@@ -1480,6 +1496,7 @@ class CfnFunction(
         props = CfnFunctionProps(
             function_id=function_id,
             function_type=function_type,
+            concurrent_executor_configuration=concurrent_executor_configuration,
             custom_output_configuration=custom_output_configuration,
             description=description,
             http_request_configuration=http_request_configuration,
@@ -1602,6 +1619,24 @@ class CfnFunction(
         jsii.set(self, "functionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="concurrentExecutorConfiguration")
+    def concurrent_executor_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.ConcurrentExecutorConfigurationProperty"]]:
+        '''The configuration for a CONCURRENT_EXECUTOR function.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.ConcurrentExecutorConfigurationProperty"]], jsii.get(self, "concurrentExecutorConfiguration"))
+
+    @concurrent_executor_configuration.setter
+    def concurrent_executor_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.ConcurrentExecutorConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7881dd44052d7a7cfe200f4556de1fc9a705e530c1e461e83ad35044d7d4fba4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "concurrentExecutorConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="customOutputConfiguration")
     def custom_output_configuration(
         self,
@@ -1655,7 +1690,7 @@ class CfnFunction(
     def sequential_executor_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]]:
-        '''Configuration for sequential executor functions.'''
+        '''The configuration for a SEQUENTIAL_EXECUTOR function.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]], jsii.get(self, "sequentialExecutorConfiguration"))
 
     @sequential_executor_configuration.setter
@@ -1685,6 +1720,150 @@ class CfnFunction(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "function_list": "functionList",
+            "max_concurrency": "maxConcurrency",
+            "output": "output",
+            "runtime": "runtime",
+            "timeout_milliseconds": "timeoutMilliseconds",
+        },
+    )
+    class ConcurrentExecutorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            function_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.FunctionRefProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            max_concurrency: jsii.Number,
+            output: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+            runtime: builtins.str,
+            timeout_milliseconds: jsii.Number,
+        ) -> None:
+            '''The configuration for a CONCURRENT_EXECUTOR function.
+
+            A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
+
+            :param function_list: The list of 1 to 10 child functions that MediaTailor runs in parallel. Each entry specifies a child function to execute and an optional run condition expression that controls whether the function runs. Child functions cannot themselves be executors, and each child function's resolved namespace must be unique across the list.
+            :param max_concurrency: The maximum number of child functions that MediaTailor runs simultaneously. When the list contains more functions than MaxConcurrency, MediaTailor starts additional functions as running ones complete, so that no more than MaxConcurrency functions run at the same time. Valid values are 1 to 2.
+            :param output: A map of output bindings that controls which bindings the executor commits to the session state after all child functions complete. Each key is a namespaced output path, and each value is an expression that MediaTailor evaluates against the combined results of the child functions.
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
+            :param timeout_milliseconds: The maximum time, in milliseconds, for all child functions to complete. This timeout covers every function in the list, including any HTTP calls the child functions make. If the executor exceeds this timeout, MediaTailor discards all output from the executor and proceeds with default behavior. Valid values are 100 to 2000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                concurrent_executor_configuration_property = mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty(
+                    function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        alias="alias",
+                        function_id="functionId",
+                        run_condition="runCondition"
+                    )],
+                    max_concurrency=123,
+                    output={
+                        "output_key": "output"
+                    },
+                    runtime="runtime",
+                    timeout_milliseconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__178948756e734ee68c9d1fe0aa6ae03bc94447092d71fbf586f1f0c568c19ef9)
+                check_type(argname="argument function_list", value=function_list, expected_type=type_hints["function_list"])
+                check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument timeout_milliseconds", value=timeout_milliseconds, expected_type=type_hints["timeout_milliseconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "function_list": function_list,
+                "max_concurrency": max_concurrency,
+                "output": output,
+                "runtime": runtime,
+                "timeout_milliseconds": timeout_milliseconds,
+            }
+
+        @builtins.property
+        def function_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.FunctionRefProperty"]]]:
+            '''The list of 1 to 10 child functions that MediaTailor runs in parallel.
+
+            Each entry specifies a child function to execute and an optional run condition expression that controls whether the function runs. Child functions cannot themselves be executors, and each child function's resolved namespace must be unique across the list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html#cfn-mediatailor-function-concurrentexecutorconfiguration-functionlist
+            '''
+            result = self._values.get("function_list")
+            assert result is not None, "Required property 'function_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.FunctionRefProperty"]]], result)
+
+        @builtins.property
+        def max_concurrency(self) -> jsii.Number:
+            '''The maximum number of child functions that MediaTailor runs simultaneously.
+
+            When the list contains more functions than MaxConcurrency, MediaTailor starts additional functions as running ones complete, so that no more than MaxConcurrency functions run at the same time. Valid values are 1 to 2.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html#cfn-mediatailor-function-concurrentexecutorconfiguration-maxconcurrency
+            '''
+            result = self._values.get("max_concurrency")
+            assert result is not None, "Required property 'max_concurrency' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
+            '''A map of output bindings that controls which bindings the executor commits to the session state after all child functions complete.
+
+            Each key is a namespaced output path, and each value is an expression that MediaTailor evaluates against the combined results of the child functions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html#cfn-mediatailor-function-concurrentexecutorconfiguration-output
+            '''
+            result = self._values.get("output")
+            assert result is not None, "Required property 'output' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html#cfn-mediatailor-function-concurrentexecutorconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timeout_milliseconds(self) -> jsii.Number:
+            '''The maximum time, in milliseconds, for all child functions to complete.
+
+            This timeout covers every function in the list, including any HTTP calls the child functions make. If the executor exceeds this timeout, MediaTailor discards all output from the executor and proceeds with default behavior. Valid values are 100 to 2000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-concurrentexecutorconfiguration.html#cfn-mediatailor-function-concurrentexecutorconfiguration-timeoutmilliseconds
+            '''
+            result = self._values.get("timeout_milliseconds")
+            assert result is not None, "Required property 'timeout_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConcurrentExecutorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.CustomOutputConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"runtime": "runtime", "output": "output"},
@@ -1698,7 +1877,7 @@ class CfnFunction(
         ) -> None:
             '''Configuration for custom output functions.
 
-            :param runtime: 
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
             :param output: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html
@@ -1731,7 +1910,10 @@ class CfnFunction(
 
         @builtins.property
         def runtime(self) -> builtins.str:
-            '''
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html#cfn-mediatailor-function-customoutputconfiguration-runtime
             '''
             result = self._values.get("runtime")
@@ -1762,19 +1944,25 @@ class CfnFunction(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.FunctionRefProperty",
         jsii_struct_bases=[],
-        name_mapping={"function_id": "functionId", "run_condition": "runCondition"},
+        name_mapping={
+            "alias": "alias",
+            "function_id": "functionId",
+            "run_condition": "runCondition",
+        },
     )
     class FunctionRefProperty:
         def __init__(
             self,
             *,
+            alias: typing.Optional[builtins.str] = None,
             function_id: typing.Optional[builtins.str] = None,
             run_condition: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''A reference to a function with an optional run condition.
+            '''A reference to a child function within an executor function.
 
-            :param function_id: The identifier of the function to execute.
-            :param run_condition: A conditional expression that determines whether this function should execute.
+            :param alias: An optional alternate name for the child function within the executor. MediaTailor uses this value as the namespace for the child function's output. If omitted, MediaTailor uses the function identifier. The resolved namespace must be unique across all child functions in the list.
+            :param function_id: The identifier of the child function to execute.
+            :param run_condition: An optional expression that evaluates to a boolean. MediaTailor evaluates this expression immediately before running the child function, using the accumulated state at that point. If the expression evaluates to false, MediaTailor skips the child function. If omitted, the child function always runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html
             :exampleMetadata: fixture=_generated
@@ -1786,23 +1974,38 @@ class CfnFunction(
                 from aws_cdk import aws_mediatailor as mediatailor
                 
                 function_ref_property = mediatailor.CfnFunction.FunctionRefProperty(
+                    alias="alias",
                     function_id="functionId",
                     run_condition="runCondition"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__5737ad8fdf57086197584ef5d9e43c62428f917f712bc50c4302371649b0c300)
+                check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
                 check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
                 check_type(argname="argument run_condition", value=run_condition, expected_type=type_hints["run_condition"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alias is not None:
+                self._values["alias"] = alias
             if function_id is not None:
                 self._values["function_id"] = function_id
             if run_condition is not None:
                 self._values["run_condition"] = run_condition
 
         @builtins.property
+        def alias(self) -> typing.Optional[builtins.str]:
+            '''An optional alternate name for the child function within the executor.
+
+            MediaTailor uses this value as the namespace for the child function's output. If omitted, MediaTailor uses the function identifier. The resolved namespace must be unique across all child functions in the list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html#cfn-mediatailor-function-functionref-alias
+            '''
+            result = self._values.get("alias")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def function_id(self) -> typing.Optional[builtins.str]:
-            '''The identifier of the function to execute.
+            '''The identifier of the child function to execute.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html#cfn-mediatailor-function-functionref-functionid
             '''
@@ -1811,7 +2014,9 @@ class CfnFunction(
 
         @builtins.property
         def run_condition(self) -> typing.Optional[builtins.str]:
-            '''A conditional expression that determines whether this function should execute.
+            '''An optional expression that evaluates to a boolean.
+
+            MediaTailor evaluates this expression immediately before running the child function, using the accumulated state at that point. If the expression evaluates to false, MediaTailor skips the child function. If omitted, the child function always runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html#cfn-mediatailor-function-functionref-runcondition
             '''
@@ -1858,7 +2063,7 @@ class CfnFunction(
 
             :param method_type: 
             :param request_timeout_milliseconds: The timeout in milliseconds for the HTTP request. Maximum value is 2000.
-            :param runtime: 
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
             :param url: The URL endpoint for the HTTP request.
             :param body: The body of the HTTP request.
             :param headers: 
@@ -1934,7 +2139,10 @@ class CfnFunction(
 
         @builtins.property
         def runtime(self) -> builtins.str:
-            '''
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html#cfn-mediatailor-function-httprequestconfiguration-runtime
             '''
             result = self._values.get("runtime")
@@ -2010,12 +2218,14 @@ class CfnFunction(
             timeout_milliseconds: jsii.Number,
             output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
-            '''Configuration for sequential executor functions.
+            '''The configuration for a SEQUENTIAL_EXECUTOR function.
 
-            :param function_list: The list of functions to execute sequentially.
-            :param runtime: 
-            :param timeout_milliseconds: The timeout in milliseconds for the entire sequential execution chain.
-            :param output: 
+            A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
+
+            :param function_list: An ordered list of 1 to 10 steps. Each step specifies a child function to execute and an optional run condition expression that controls whether the step runs. MediaTailor executes the steps in order, passing data between steps through temporary data. Each step's resolved namespace must be unique across the list.
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
+            :param timeout_milliseconds: The maximum time, in milliseconds, for the entire sequence to complete. This timeout covers all steps, including any HTTP calls made by child functions. If the sequence exceeds this timeout, MediaTailor discards all output from the sequence and proceeds with default behavior. Valid values are 100 to 2000.
+            :param output: A map of output bindings that controls which bindings the sequence commits to the session state after all steps complete. Each key is a namespaced output path, and each value is an expression that MediaTailor evaluates against the accumulated results of the steps.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2028,6 +2238,7 @@ class CfnFunction(
                 
                 sequential_executor_configuration_property = mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
                     function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        alias="alias",
                         function_id="functionId",
                         run_condition="runCondition"
                     )],
@@ -2058,7 +2269,9 @@ class CfnFunction(
         def function_list(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.FunctionRefProperty"]]]:
-            '''The list of functions to execute sequentially.
+            '''An ordered list of 1 to 10 steps.
+
+            Each step specifies a child function to execute and an optional run condition expression that controls whether the step runs. MediaTailor executes the steps in order, passing data between steps through temporary data. Each step's resolved namespace must be unique across the list.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-functionlist
             '''
@@ -2068,7 +2281,10 @@ class CfnFunction(
 
         @builtins.property
         def runtime(self) -> builtins.str:
-            '''
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-runtime
             '''
             result = self._values.get("runtime")
@@ -2077,7 +2293,9 @@ class CfnFunction(
 
         @builtins.property
         def timeout_milliseconds(self) -> jsii.Number:
-            '''The timeout in milliseconds for the entire sequential execution chain.
+            '''The maximum time, in milliseconds, for the entire sequence to complete.
+
+            This timeout covers all steps, including any HTTP calls made by child functions. If the sequence exceeds this timeout, MediaTailor discards all output from the sequence and proceeds with default behavior. Valid values are 100 to 2000.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-timeoutmilliseconds
             '''
@@ -2089,7 +2307,10 @@ class CfnFunction(
         def output(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
-            '''
+            '''A map of output bindings that controls which bindings the sequence commits to the session state after all steps complete.
+
+            Each key is a namespaced output path, and each value is an expression that MediaTailor evaluates against the accumulated results of the steps.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html#cfn-mediatailor-function-sequentialexecutorconfiguration-output
             '''
             result = self._values.get("output")
@@ -2113,6 +2334,7 @@ class CfnFunction(
     name_mapping={
         "function_id": "functionId",
         "function_type": "functionType",
+        "concurrent_executor_configuration": "concurrentExecutorConfiguration",
         "custom_output_configuration": "customOutputConfiguration",
         "description": "description",
         "http_request_configuration": "httpRequestConfiguration",
@@ -2126,6 +2348,7 @@ class CfnFunctionProps:
         *,
         function_id: builtins.str,
         function_type: builtins.str,
+        concurrent_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.ConcurrentExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2136,10 +2359,11 @@ class CfnFunctionProps:
 
         :param function_id: The unique identifier for the function.
         :param function_type: 
+        :param concurrent_executor_configuration: The configuration for a CONCURRENT_EXECUTOR function. A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param custom_output_configuration: Configuration for custom output functions.
         :param description: A description of the function.
         :param http_request_configuration: Configuration for HTTP request functions.
-        :param sequential_executor_configuration: Configuration for sequential executor functions.
+        :param sequential_executor_configuration: The configuration for a SEQUENTIAL_EXECUTOR function. A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param tags: The tags to assign to the function resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html
@@ -2157,6 +2381,19 @@ class CfnFunctionProps:
                 function_type="functionType",
             
                 # the properties below are optional
+                concurrent_executor_configuration=mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty(
+                    function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        alias="alias",
+                        function_id="functionId",
+                        run_condition="runCondition"
+                    )],
+                    max_concurrency=123,
+                    output={
+                        "output_key": "output"
+                    },
+                    runtime="runtime",
+                    timeout_milliseconds=123
+                ),
                 custom_output_configuration=mediatailor.CfnFunction.CustomOutputConfigurationProperty(
                     runtime="runtime",
             
@@ -2183,6 +2420,7 @@ class CfnFunctionProps:
                 ),
                 sequential_executor_configuration=mediatailor.CfnFunction.SequentialExecutorConfigurationProperty(
                     function_list=[mediatailor.CfnFunction.FunctionRefProperty(
+                        alias="alias",
                         function_id="functionId",
                         run_condition="runCondition"
                     )],
@@ -2204,6 +2442,7 @@ class CfnFunctionProps:
             type_hints = cached_type_hints(_typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f9506eddc5e)
             check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
             check_type(argname="argument function_type", value=function_type, expected_type=type_hints["function_type"])
+            check_type(argname="argument concurrent_executor_configuration", value=concurrent_executor_configuration, expected_type=type_hints["concurrent_executor_configuration"])
             check_type(argname="argument custom_output_configuration", value=custom_output_configuration, expected_type=type_hints["custom_output_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument http_request_configuration", value=http_request_configuration, expected_type=type_hints["http_request_configuration"])
@@ -2213,6 +2452,8 @@ class CfnFunctionProps:
             "function_id": function_id,
             "function_type": function_type,
         }
+        if concurrent_executor_configuration is not None:
+            self._values["concurrent_executor_configuration"] = concurrent_executor_configuration
         if custom_output_configuration is not None:
             self._values["custom_output_configuration"] = custom_output_configuration
         if description is not None:
@@ -2242,6 +2483,19 @@ class CfnFunctionProps:
         result = self._values.get("function_type")
         assert result is not None, "Required property 'function_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def concurrent_executor_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.ConcurrentExecutorConfigurationProperty"]]:
+        '''The configuration for a CONCURRENT_EXECUTOR function.
+
+        A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-concurrentexecutorconfiguration
+        '''
+        result = self._values.get("concurrent_executor_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.ConcurrentExecutorConfigurationProperty"]], result)
 
     @builtins.property
     def custom_output_configuration(
@@ -2278,7 +2532,9 @@ class CfnFunctionProps:
     def sequential_executor_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.SequentialExecutorConfigurationProperty"]]:
-        '''Configuration for sequential executor functions.
+        '''The configuration for a SEQUENTIAL_EXECUTOR function.
+
+        A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-sequentialexecutorconfiguration
         '''
@@ -8311,6 +8567,7 @@ def _typecheckingstub__cd96c58f31f24adb3cea08347b5cb88afb7a1644c1d49acf5ea18ef7e
     *,
     function_id: builtins.str,
     function_type: builtins.str,
+    concurrent_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.ConcurrentExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8356,6 +8613,12 @@ def _typecheckingstub__fb28c3052dd431563a7b26a7dce4b50d1c29abc2106f42fa0a5329270
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7881dd44052d7a7cfe200f4556de1fc9a705e530c1e461e83ad35044d7d4fba4(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.ConcurrentExecutorConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d34312157c19e7408ec3ea1cda432a669a0967161e5df7dda4eab223f9a0b044(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.CustomOutputConfigurationProperty]],
 ) -> None:
@@ -8386,6 +8649,17 @@ def _typecheckingstub__b65b0a9bacbd0f65526afeb7cf1e0c3ca3773c11abb883bbf33a47ef7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__178948756e734ee68c9d1fe0aa6ae03bc94447092d71fbf586f1f0c568c19ef9(
+    *,
+    function_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.FunctionRefProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    max_concurrency: jsii.Number,
+    output: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+    runtime: builtins.str,
+    timeout_milliseconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61544711aa26c5056e9b4d3cfab7dee3d6eaa0f011cb57fde19c711b08a922de(
     *,
     runtime: builtins.str,
@@ -8396,6 +8670,7 @@ def _typecheckingstub__61544711aa26c5056e9b4d3cfab7dee3d6eaa0f011cb57fde19c711b0
 
 def _typecheckingstub__5737ad8fdf57086197584ef5d9e43c62428f917f712bc50c4302371649b0c300(
     *,
+    alias: typing.Optional[builtins.str] = None,
     function_id: typing.Optional[builtins.str] = None,
     run_condition: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -8429,6 +8704,7 @@ def _typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f950
     *,
     function_id: builtins.str,
     function_type: builtins.str,
+    concurrent_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.ConcurrentExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

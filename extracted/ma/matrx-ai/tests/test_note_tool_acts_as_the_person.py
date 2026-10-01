@@ -105,6 +105,13 @@ class RlsNotesTable:
 
     async def create_notes(self, _mgr: Any, **data: Any) -> _Row:
         who = self._who("create_notes")
+        if not data.get("organization_id"):
+            # workbench.notes.organization_id is NOT NULL and only a folder can supply
+            # one by trigger — a loose note with no organization is refused exactly so.
+            raise RuntimeError(
+                'null value in column "organization_id" of relation "notes" '
+                "violates not-null constraint"
+            )
         self.seq += 1
         nid = f"6e0f7a1b-0000-4000-8000-{self.seq + 100:012d}"
         row = {"id": nid, "version": 1, "deleted_at": None, **data}
@@ -216,11 +223,13 @@ def person_session(monkeypatch: pytest.MonkeyPatch):
     return current
 
 
-def _ctx(monkeypatch: pytest.MonkeyPatch, current: dict[str, str] | None, user: str) -> ToolContext:
+def _ctx(
+    monkeypatch: pytest.MonkeyPatch, current: dict[str, str] | None, user: str, org: str | None = CLINIC_ORG
+) -> ToolContext:
     if current is not None:
         current["user"] = user
     monkeypatch.setattr(ToolContext, "user_id", property(lambda self: user))
-    monkeypatch.setattr(ToolContext, "organization_id", property(lambda self: CLINIC_ORG))
+    monkeypatch.setattr(ToolContext, "organization_id", property(lambda self: org))
     return ToolContext(call_id=f"call-{user[-4:]}")
 
 
@@ -344,3 +353,30 @@ async def test_without_a_person_session_the_tool_refuses_and_never_touches_the_d
         assert result.error.error_type == "unavailable", (args, result.error)
 
     assert table.db_calls == 0, "a refused call must not reach the database on any connection"
+
+
+@pytest.mark.asyncio
+async def test_create_writes_the_organization_the_conversation_carries(table, person_session, monkeypatch):
+    """FX-N, 2026-09-30: `note` create died with IntegrityError (organization_id null on
+    workbench.notes) on the server door and the web chat, although both runs carried the
+    organization — the tool never handed it to the insert."""
+    ctx = _ctx(monkeypatch, person_session, OWNER)
+
+    created = await _note({"action": "create", "label": "Order more sharps containers"}, ctx)
+
+    assert created.success, created.error
+    assert table.rows[created.output["id"]]["organization_id"] == CLINIC_ORG
+    assert table.violations == [], table.violations
+
+
+@pytest.mark.asyncio
+async def test_create_without_an_organization_is_held_and_never_touches_the_db(table, person_session, monkeypatch):
+    ctx = _ctx(monkeypatch, person_session, OWNER, org=None)
+    calls_before = table.db_calls
+
+    created = await _note({"action": "create", "label": "Order more sharps containers"}, ctx)
+
+    assert not created.success
+    assert created.error.error_type == "organization_required", created.error
+    assert created.output and "hold" in created.output
+    assert table.db_calls == calls_before, "a held create still reached workbench.notes"

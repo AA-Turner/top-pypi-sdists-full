@@ -2186,6 +2186,13 @@ class CfnPricingRule(
                 value="value"
             )],
             tiering=billingconductor.CfnPricingRule.TieringProperty(
+                custom_tiers=[billingconductor.CfnPricingRule.CustomTierProperty(
+                    begin_range_inclusive=123,
+                    rate_value=123,
+        
+                    # the properties below are optional
+                    end_range_exclusive=123
+                )],
                 free_tier=billingconductor.CfnPricingRule.FreeTierProperty(
                     activated=False
                 )
@@ -2513,6 +2520,100 @@ class CfnPricingRule(
         jsii.set(self, "usageType", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_billingconductor.CfnPricingRule.CustomTierProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "begin_range_inclusive": "beginRangeInclusive",
+            "rate_value": "rateValue",
+            "end_range_exclusive": "endRangeExclusive",
+        },
+    )
+    class CustomTierProperty:
+        def __init__(
+            self,
+            *,
+            begin_range_inclusive: jsii.Number,
+            rate_value: jsii.Number,
+            end_range_exclusive: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A custom volume tier that defines the rate applied to usage within the given range.
+
+            :param begin_range_inclusive: The inclusive beginning of the tier's usage range.
+            :param rate_value: The custom rate applied to usage within the tier's range.
+            :param end_range_exclusive: The exclusive end of the tier's usage range. Omit for the last tier (infinity).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-customtier.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_billingconductor as billingconductor
+                
+                custom_tier_property = billingconductor.CfnPricingRule.CustomTierProperty(
+                    begin_range_inclusive=123,
+                    rate_value=123,
+                
+                    # the properties below are optional
+                    end_range_exclusive=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__25d9e4cf88bbbdeaa8f17a7fd9eeae2f2c4ba9e10c6d66c91c0c9e9bd6fa4c91)
+                check_type(argname="argument begin_range_inclusive", value=begin_range_inclusive, expected_type=type_hints["begin_range_inclusive"])
+                check_type(argname="argument rate_value", value=rate_value, expected_type=type_hints["rate_value"])
+                check_type(argname="argument end_range_exclusive", value=end_range_exclusive, expected_type=type_hints["end_range_exclusive"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "begin_range_inclusive": begin_range_inclusive,
+                "rate_value": rate_value,
+            }
+            if end_range_exclusive is not None:
+                self._values["end_range_exclusive"] = end_range_exclusive
+
+        @builtins.property
+        def begin_range_inclusive(self) -> jsii.Number:
+            '''The inclusive beginning of the tier's usage range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-customtier.html#cfn-billingconductor-pricingrule-customtier-beginrangeinclusive
+            '''
+            result = self._values.get("begin_range_inclusive")
+            assert result is not None, "Required property 'begin_range_inclusive' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def rate_value(self) -> jsii.Number:
+            '''The custom rate applied to usage within the tier's range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-customtier.html#cfn-billingconductor-pricingrule-customtier-ratevalue
+            '''
+            result = self._values.get("rate_value")
+            assert result is not None, "Required property 'rate_value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def end_range_exclusive(self) -> typing.Optional[jsii.Number]:
+            '''The exclusive end of the tier's usage range.
+
+            Omit for the last tier (infinity).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-customtier.html#cfn-billingconductor-pricingrule-customtier-endrangeexclusive
+            '''
+            result = self._values.get("end_range_exclusive")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomTierProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_billingconductor.CfnPricingRule.FreeTierProperty",
         jsii_struct_bases=[],
         name_mapping={"activated": "activated"},
@@ -2573,16 +2674,18 @@ class CfnPricingRule(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_billingconductor.CfnPricingRule.TieringProperty",
         jsii_struct_bases=[],
-        name_mapping={"free_tier": "freeTier"},
+        name_mapping={"custom_tiers": "customTiers", "free_tier": "freeTier"},
     )
     class TieringProperty:
         def __init__(
             self,
             *,
+            custom_tiers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPricingRule.CustomTierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             free_tier: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPricingRule.FreeTierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The set of tiering configurations for the pricing rule.
 
+            :param custom_tiers: The set of custom volume tiers for a SKU-scoped TIERING pricing rule. Tiers must start at 0, be contiguous, and the last tier must have no end range.
             :param free_tier: The possible AWS Free Tier configurations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-tiering.html
@@ -2595,6 +2698,13 @@ class CfnPricingRule(
                 from aws_cdk import aws_billingconductor as billingconductor
                 
                 tiering_property = billingconductor.CfnPricingRule.TieringProperty(
+                    custom_tiers=[billingconductor.CfnPricingRule.CustomTierProperty(
+                        begin_range_inclusive=123,
+                        rate_value=123,
+                
+                        # the properties below are optional
+                        end_range_exclusive=123
+                    )],
                     free_tier=billingconductor.CfnPricingRule.FreeTierProperty(
                         activated=False
                     )
@@ -2602,10 +2712,26 @@ class CfnPricingRule(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__0f3be0f4100fb92bfec0156ed2357fb7eb28b01d7081db0419a1583b15b33511)
+                check_type(argname="argument custom_tiers", value=custom_tiers, expected_type=type_hints["custom_tiers"])
                 check_type(argname="argument free_tier", value=free_tier, expected_type=type_hints["free_tier"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_tiers is not None:
+                self._values["custom_tiers"] = custom_tiers
             if free_tier is not None:
                 self._values["free_tier"] = free_tier
+
+        @builtins.property
+        def custom_tiers(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPricingRule.CustomTierProperty"]]]]:
+            '''The set of custom volume tiers for a SKU-scoped TIERING pricing rule.
+
+            Tiers must start at 0, be contiguous, and the last tier must have no end range.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-pricingrule-tiering.html#cfn-billingconductor-pricingrule-tiering-customtiers
+            '''
+            result = self._values.get("custom_tiers")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPricingRule.CustomTierProperty"]]]], result)
 
         @builtins.property
         def free_tier(
@@ -2703,6 +2829,13 @@ class CfnPricingRuleProps:
                     value="value"
                 )],
                 tiering=billingconductor.CfnPricingRule.TieringProperty(
+                    custom_tiers=[billingconductor.CfnPricingRule.CustomTierProperty(
+                        begin_range_inclusive=123,
+                        rate_value=123,
+            
+                        # the properties below are optional
+                        end_range_exclusive=123
+                    )],
                     free_tier=billingconductor.CfnPricingRule.FreeTierProperty(
                         activated=False
                     )
@@ -3319,6 +3452,15 @@ def _typecheckingstub__baf93d2b8fd207bde20614839c395d563684be63797e50c8d823f9277
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__25d9e4cf88bbbdeaa8f17a7fd9eeae2f2c4ba9e10c6d66c91c0c9e9bd6fa4c91(
+    *,
+    begin_range_inclusive: jsii.Number,
+    rate_value: jsii.Number,
+    end_range_exclusive: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c45d1c415857793db226459664e7a94bd5dd1a825a10fc6bae37cda80b69fde4(
     *,
     activated: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
@@ -3328,6 +3470,7 @@ def _typecheckingstub__c45d1c415857793db226459664e7a94bd5dd1a825a10fc6bae37cda80
 
 def _typecheckingstub__0f3be0f4100fb92bfec0156ed2357fb7eb28b01d7081db0419a1583b15b33511(
     *,
+    custom_tiers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPricingRule.CustomTierProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     free_tier: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPricingRule.FreeTierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

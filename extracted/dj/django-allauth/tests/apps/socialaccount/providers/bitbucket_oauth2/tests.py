@@ -15,75 +15,67 @@ from tests.mocking import MockedResponse
 class BitbucketOAuth2Tests(OAuth2TestsMixin, TestCase):
     provider_id = BitbucketOAuth2Provider.id
 
-    response_data = """
-        {
-            "created_on": "2011-12-20T16:34:07.132459+00:00",
-            "display_name": "tutorials account",
-            "links": {
-                "avatar": {
-                    "href":
-                    "https://bitbucket-assetroot.s3.amazonaws.com/c/photos/2013/Nov/25/tutorials-avatar-1563784409-6_avatar.png"
-                },
-                "followers": {
-                    "href":
-                    "https://api.bitbucket.org/2.0/users/tutorials/followers"
-                },
-                "following": {
-                    "href":
-                    "https://api.bitbucket.org/2.0/users/tutorials/following"
-                },
-                "html": {
-                    "href": "https://bitbucket.org/tutorials"
-                },
-                "repositories": {
-                    "href":
-                    "https://api.bitbucket.org/2.0/repositories/tutorials"
-                },
-                "self": {
-                    "href": "https://api.bitbucket.org/2.0/users/tutorials"
-                }
+    response_data = {
+        "account_id": "557123:51e26c4c-1234-dead-cafe-ec0cb6962000",
+        "account_status": "active",
+        "created_on": "2010-05-19T08:33:59.197853+00:00",
+        "display_name": "pennersr",
+        "has_2fa_enabled": None,
+        "is_staff": False,
+        "links": {
+            "avatar": {"href": "https://secure.gravatar.com/avatar/some.png"},
+            "hooks": {
+                "href": "https://api.bitbucket.org/2.0/workspaces/{41c6d04b-dead-cafe-1234-9bffd94346b3}/hooks"
             },
-            "location": "Santa Monica, CA",
-            "type": "user",
-            "username": "tutorials",
-            "uuid": "{c788b2da-b7a2-404c-9e26-d3f077557007}",
-            "website": "https://tutorials.bitbucket.org/"
-        }
-    """  # noqa
+            "html": {
+                "href": "https://bitbucket.org/%7B41c6d04b-dead-cafe-1234-9bffd94346b3%7D/"
+            },
+            "repositories": {
+                "href": "https://api.bitbucket.org/2.0/repositories/%7B41c6d04b-dead-cafe-1234-9bffd94346b3%7D"
+            },
+            "self": {
+                "href": "https://api.bitbucket.org/2.0/users/%7B41c6d04b-dead-cafe-1234-9bffd94346b3%7D"
+            },
+            "snippets": {
+                "href": "https://api.bitbucket.org/2.0/snippets/%7B41c6d04b-dead-cafe-1234-9bffd94346b3%7D"
+            },
+        },
+        "location": None,
+        "nickname": "pennersr",
+        "type": "user",
+        "username": "pennersr",
+        "uuid": "{41c6d04b-dead-cafe-1234-9bffd94346b3}",
+    }
 
-    email_response_data = """
-        {
-            "page": 1,
-            "pagelen": 10,
-            "size": 1,
-            "values": [
-                {
-                    "email": "tutorials@bitbucket.org",
-                    "is_confirmed": true,
-                    "is_primary": true,
-                    "links": {
-                        "self": {
-                            "href":
-                            "https://api.bitbucket.org/2.0/user/emails/tutorials@bitbucket.org"
-                        }
-                    },
-                    "type": "email"
+    email_response_data = {
+        "page": 1,
+        "pagelen": 10,
+        "size": 1,
+        "values": [
+            {
+                "email": "tutorials@bitbucket.org",
+                "is_confirmed": True,
+                "is_primary": True,
+                "links": {
+                    "self": {
+                        "href": "https://api.bitbucket.org/2.0/user/emails/tutorials@bitbucket.org"
+                    }
                 },
-                {
-                    "email": "tutorials+secondary@bitbucket.org",
-                    "is_confirmed": true,
-                    "is_primary": true,
-                    "links": {
-                        "self": {
-                            "href":
-                            "https://api.bitbucket.org/2.0/user/emails/tutorials+secondary@bitbucket.org"
-                        }
-                    },
-                    "type": "email"
-                }
-            ]
-        }
-    """  # noqa
+                "type": "email",
+            },
+            {
+                "email": "tutorials+secondary@bitbucket.org",
+                "is_confirmed": True,
+                "is_primary": True,
+                "links": {
+                    "self": {
+                        "href": "https://api.bitbucket.org/2.0/user/emails/tutorials+secondary@bitbucket.org"
+                    }
+                },
+                "type": "email",
+            },
+        ],
+    }
 
     def get_mocked_response(self):
         return [
@@ -94,17 +86,16 @@ class BitbucketOAuth2Tests(OAuth2TestsMixin, TestCase):
         ]
 
     def get_expected_to_str(self):
-        return "tutorials"
+        return "pennersr"
 
     def test_provider_account(self):
         self.login(self.get_mocked_response())
-        socialaccount = SocialAccount.objects.get(uid="tutorials")
-        self.assertEqual(socialaccount.user.username, "tutorials")
+        socialaccount = SocialAccount.objects.get(uid=self.response_data["account_id"])
+        self.assertEqual(socialaccount.user.username, "pennersr")
         self.assertEqual(socialaccount.user.email, "tutorials@bitbucket.org")
         account = socialaccount.get_provider_account()
-        self.assertEqual(account.to_str(), "tutorials")
-        self.assertEqual(account.get_profile_url(), "https://bitbucket.org/tutorials")
+        self.assertEqual(account.to_str(), "pennersr")
+        self.assertEqual(account.get_profile_url(), "https://bitbucket.org/pennersr")
         self.assertEqual(
-            account.get_avatar_url(),
-            "https://bitbucket-assetroot.s3.amazonaws.com/c/photos/2013/Nov/25/tutorials-avatar-1563784409-6_avatar.png",  # noqa
+            account.get_avatar_url(), "https://secure.gravatar.com/avatar/some.png"
         )

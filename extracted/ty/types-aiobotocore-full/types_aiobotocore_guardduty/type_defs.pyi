@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     AdminStatusType,
+    AssociationModeType,
     AutoEnableMembersType,
     ClusterStatusType,
     ConfidenceLevelType,
@@ -36,6 +37,9 @@ from .literals import (
     CriterionKeyType,
     DataSourceStatusType,
     DataSourceType,
+    DetectionRuleConfigurationStatusType,
+    DetectionRuleFilterConditionType,
+    DetectionRuleSeverityType,
     DetectionSourceType,
     DetectorFeatureResultType,
     DetectorFeatureType,
@@ -47,6 +51,7 @@ from .literals import (
     FeatureStatusType,
     FeedbackType,
     FilterActionType,
+    FilterFieldNameType,
     FindingPublishingFrequencyType,
     FindingResourceTypeType,
     FreeTrialFeatureResultType,
@@ -115,6 +120,7 @@ __all__ = (
     "AccountStatisticsTypeDef",
     "AccountTypeDef",
     "ActionTypeDef",
+    "ActivityTypeDef",
     "ActorProcessTypeDef",
     "ActorTypeDef",
     "AdditionalInfoTypeDef",
@@ -125,11 +131,15 @@ __all__ = (
     "AnomalyObjectTypeDef",
     "AnomalyTypeDef",
     "AnomalyUnusualTypeDef",
+    "ApiCallTypeDef",
     "ArchiveFindingsRequestTypeDef",
+    "AssociationDetailTypeDef",
+    "AssociationSummaryTypeDef",
     "AutonomousSystemTypeDef",
     "AutoscalingAutoScalingGroupTypeDef",
     "AwsApiCallActionTypeDef",
     "BedrockGuardrailDetailsTypeDef",
+    "BedrockGuardrailResourceTypeDef",
     "BedrockGuardrailTypeDef",
     "BlockPublicAccessTypeDef",
     "BucketLevelPermissionsTypeDef",
@@ -156,6 +166,9 @@ __all__ = (
     "CoverageResourceTypeDef",
     "CoverageSortCriteriaTypeDef",
     "CoverageStatisticsTypeDef",
+    "CreateCustomDetectionRuleAssociationRequestTypeDef",
+    "CreateCustomDetectionRuleAssociationResponseTypeDef",
+    "CreateCustomDetectionRuleOrgConfigurationRequestTypeDef",
     "CreateDetectorRequestTypeDef",
     "CreateDetectorResponseTypeDef",
     "CreateFilterRequestTypeDef",
@@ -191,6 +204,8 @@ __all__ = (
     "DeclineInvitationsRequestTypeDef",
     "DeclineInvitationsResponseTypeDef",
     "DefaultServerSideEncryptionTypeDef",
+    "DeleteCustomDetectionRuleAssociationRequestTypeDef",
+    "DeleteCustomDetectionRuleOrgConfigurationRequestTypeDef",
     "DeleteDetectorRequestTypeDef",
     "DeleteFilterRequestTypeDef",
     "DeleteIPSetRequestTypeDef",
@@ -212,6 +227,9 @@ __all__ = (
     "DescribePublishingDestinationResponseTypeDef",
     "DestinationPropertiesTypeDef",
     "DestinationTypeDef",
+    "DetectionRuleFilterTypeDef",
+    "DetectionRuleOrgConfigurationSummaryTypeDef",
+    "DetectionRuleOrgConfigurationTypeDef",
     "DetectionTypeDef",
     "DetectorAdditionalConfigurationResultTypeDef",
     "DetectorAdditionalConfigurationTypeDef",
@@ -261,6 +279,12 @@ __all__ = (
     "GetAdministratorAccountResponseTypeDef",
     "GetCoverageStatisticsRequestTypeDef",
     "GetCoverageStatisticsResponseTypeDef",
+    "GetCustomDetectionRuleAssociationRequestTypeDef",
+    "GetCustomDetectionRuleAssociationResponseTypeDef",
+    "GetCustomDetectionRuleOrgConfigurationRequestTypeDef",
+    "GetCustomDetectionRuleOrgConfigurationResponseTypeDef",
+    "GetCustomDetectionRuleRequestTypeDef",
+    "GetCustomDetectionRuleResponseTypeDef",
     "GetDetectorRequestTypeDef",
     "GetDetectorResponseTypeDef",
     "GetFilterRequestTypeDef",
@@ -333,6 +357,15 @@ __all__ = (
     "ListCoverageRequestPaginateTypeDef",
     "ListCoverageRequestTypeDef",
     "ListCoverageResponseTypeDef",
+    "ListCustomDetectionRuleAssociationsRequestPaginateTypeDef",
+    "ListCustomDetectionRuleAssociationsRequestTypeDef",
+    "ListCustomDetectionRuleAssociationsResponseTypeDef",
+    "ListCustomDetectionRuleOrgConfigurationsRequestPaginateTypeDef",
+    "ListCustomDetectionRuleOrgConfigurationsRequestTypeDef",
+    "ListCustomDetectionRuleOrgConfigurationsResponseTypeDef",
+    "ListCustomDetectionRulesRequestPaginateTypeDef",
+    "ListCustomDetectionRulesRequestTypeDef",
+    "ListCustomDetectionRulesResponseTypeDef",
     "ListDetectorsRequestPaginateTypeDef",
     "ListDetectorsRequestTypeDef",
     "ListDetectorsResponseTypeDef",
@@ -453,6 +486,9 @@ __all__ = (
     "ResourceTypeDef",
     "ResourceV2TypeDef",
     "ResponseMetadataTypeDef",
+    "RuleDefinitionTypeDef",
+    "RuleDetailTypeDef",
+    "RuleSummaryTypeDef",
     "RuntimeContextTypeDef",
     "RuntimeDetailsTypeDef",
     "S3BucketDetailTypeDef",
@@ -512,6 +548,8 @@ __all__ = (
     "UnprocessedAccountTypeDef",
     "UnprocessedDataSourcesResultTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateCustomDetectionRuleAssociationRequestTypeDef",
+    "UpdateCustomDetectionRuleOrgConfigurationRequestTypeDef",
     "UpdateDetectorRequestTypeDef",
     "UpdateFilterRequestTypeDef",
     "UpdateFilterResponseTypeDef",
@@ -620,6 +658,12 @@ class KubernetesRoleDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
     Uid: NotRequired[str]
 
+class ApiCallTypeDef(TypedDict):
+    Operation: NotRequired[str]
+    Service: NotRequired[str]
+    Error: NotRequired[str]
+    UserAgent: NotRequired[str]
+
 class ActorProcessTypeDef(TypedDict):
     Name: str
     Path: str
@@ -664,6 +708,25 @@ class ArchiveFindingsRequestTypeDef(TypedDict):
     DetectorId: str
     FindingIds: Sequence[str]
 
+class AssociationDetailTypeDef(TypedDict):
+    AssociationId: str
+    Arn: str
+    RuleId: str
+    AccountId: str
+    Mode: AssociationModeType
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ExpiresAt: NotRequired[datetime]
+
+class AssociationSummaryTypeDef(TypedDict):
+    AssociationId: str
+    Arn: str
+    RuleId: str
+    Mode: AssociationModeType
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ExpiresAt: NotRequired[datetime]
+
 class AutonomousSystemTypeDef(TypedDict):
     Name: str
     Number: int
@@ -677,6 +740,7 @@ class DomainDetailsTypeDef(TypedDict):
 class RemoteAccountDetailsTypeDef(TypedDict):
     AccountId: NotRequired[str]
     Affiliated: NotRequired[bool]
+    AwsServiceName: NotRequired[str]
 
 class BedrockGuardrailTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -690,6 +754,11 @@ ContentPolicyFilterTypeDef = TypedDict(
         "Action": NotRequired[ContentPolicyFilterActionType],
     },
 )
+
+class BedrockGuardrailResourceTypeDef(TypedDict):
+    Version: NotRequired[str]
+    GuardrailAction: NotRequired[GuardrailActionType]
+    GuardrailSource: NotRequired[GuardrailSourceType]
 
 class BucketPolicyTypeDef(TypedDict):
     AllowsPublicReadAccess: NotRequired[bool]
@@ -779,12 +848,25 @@ class CoverageStatisticsTypeDef(TypedDict):
     CountByResourceType: NotRequired[dict[ResourceTypeType, int]]
     CountByCoverageStatus: NotRequired[dict[CoverageStatusType, int]]
 
+class CreateCustomDetectionRuleAssociationRequestTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class CreateCustomDetectionRuleOrgConfigurationRequestTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+    IncludeAccountIds: NotRequired[Sequence[str]]
+    ExcludeAccountIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
 
 class CreateIPSetRequestTypeDef(TypedDict):
     DetectorId: str
@@ -879,6 +961,14 @@ class DefaultServerSideEncryptionTypeDef(TypedDict):
     EncryptionType: NotRequired[str]
     KmsMasterKeyArn: NotRequired[str]
 
+class DeleteCustomDetectionRuleAssociationRequestTypeDef(TypedDict):
+    RuleId: str
+    AssociationId: str
+
+class DeleteCustomDetectionRuleOrgConfigurationRequestTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+
 class DeleteDetectorRequestTypeDef(TypedDict):
     DetectorId: str
 
@@ -939,10 +1029,36 @@ class DestinationTypeDef(TypedDict):
     DestinationType: Literal["S3"]
     Status: PublishingStatusType
 
+class DetectionRuleFilterTypeDef(TypedDict):
+    Name: FilterFieldNameType
+    Values: Sequence[str]
+    Condition: NotRequired[DetectionRuleFilterConditionType]
+
+class DetectionRuleOrgConfigurationSummaryTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+    Status: DetectionRuleConfigurationStatusType
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    StatusReason: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+
+class DetectionRuleOrgConfigurationTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+    Status: DetectionRuleConfigurationStatusType
+    IncludeAccountIds: list[str]
+    ExcludeAccountIds: list[str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    StatusReason: NotRequired[str]
+    ExpiresAt: NotRequired[datetime]
+
 class DetectorAdditionalConfigurationResultTypeDef(TypedDict):
     Name: NotRequired[FeatureAdditionalConfigurationType]
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 class DetectorAdditionalConfigurationTypeDef(TypedDict):
     Name: NotRequired[FeatureAdditionalConfigurationType]
@@ -1066,6 +1182,17 @@ class GeoLocationTypeDef(TypedDict):
 
 class GetAdministratorAccountRequestTypeDef(TypedDict):
     DetectorId: str
+
+class GetCustomDetectionRuleAssociationRequestTypeDef(TypedDict):
+    RuleId: str
+    AssociationId: str
+
+class GetCustomDetectionRuleOrgConfigurationRequestTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+
+class GetCustomDetectionRuleRequestTypeDef(TypedDict):
+    RuleId: str
 
 class GetDetectorRequestTypeDef(TypedDict):
     DetectorId: str
@@ -1224,6 +1351,32 @@ class LineageObjectTypeDef(TypedDict):
     Euid: NotRequired[int]
     ParentUuid: NotRequired[str]
 
+class ListCustomDetectionRuleAssociationsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    RuleId: NotRequired[str]
+    Mode: NotRequired[AssociationModeType]
+
+class ListCustomDetectionRuleOrgConfigurationsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Status: NotRequired[DetectionRuleConfigurationStatusType]
+
+class RuleSummaryTypeDef(TypedDict):
+    RuleId: str
+    Arn: str
+    Name: str
+    Description: str
+    Severity: DetectionRuleSeverityType
+    DataSource: Literal["CloudTrailManagementEvent"]
+    Tactic: str
+    Technique: str
+    Service: str
+    CreatedAt: datetime
+    Language: NotRequired[Literal["SQL"]]
+    Schema: NotRequired[Literal["CloudTrail"]]
+    UpdatedAt: NotRequired[datetime]
+
 class ListDetectorsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -1315,6 +1468,7 @@ class MemberAdditionalConfigurationResultTypeDef(TypedDict):
     Name: NotRequired[OrgFeatureAdditionalConfigurationType]
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 class MemberAdditionalConfigurationTypeDef(TypedDict):
     Name: NotRequired[OrgFeatureAdditionalConfigurationType]
@@ -1400,6 +1554,9 @@ class S3ObjectTypeDef(TypedDict):
 class ResourceDetailsTypeDef(TypedDict):
     InstanceArn: NotRequired[str]
 
+class RuleDefinitionTypeDef(TypedDict):
+    Expression: str
+
 class S3ObjectDetailTypeDef(TypedDict):
     ObjectArn: NotRequired[str]
     Key: NotRequired[str]
@@ -1470,6 +1627,17 @@ class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
 
+class UpdateCustomDetectionRuleAssociationRequestTypeDef(TypedDict):
+    RuleId: str
+    AssociationId: str
+    Mode: AssociationModeType
+
+class UpdateCustomDetectionRuleOrgConfigurationRequestTypeDef(TypedDict):
+    RuleId: str
+    Mode: AssociationModeType
+    IncludeAccountIds: NotRequired[Sequence[str]]
+    ExcludeAccountIds: NotRequired[Sequence[str]]
+
 class UpdateFindingsFeedbackRequestTypeDef(TypedDict):
     DetectorId: str
     FindingIds: Sequence[str]
@@ -1526,6 +1694,13 @@ UserTypeDef = TypedDict(
         "Type": str,
         "CredentialUid": NotRequired[str],
         "Account": NotRequired[AccountTypeDef],
+    },
+)
+ActivityTypeDef = TypedDict(
+    "ActivityTypeDef",
+    {
+        "Type": Literal["API_CALL"],
+        "Api": NotRequired[ApiCallTypeDef],
     },
 )
 
@@ -1595,6 +1770,10 @@ class CoverageFilterCriterionTypeDef(TypedDict):
     CriterionKey: NotRequired[CoverageFilterCriterionKeyType]
     FilterCondition: NotRequired[CoverageFilterConditionTypeDef]
 
+class CreateCustomDetectionRuleAssociationResponseTypeDef(TypedDict):
+    RuleAssociation: AssociationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateFilterResponseTypeDef(TypedDict):
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1636,6 +1815,11 @@ class GetAdministratorAccountResponseTypeDef(TypedDict):
 
 class GetCoverageStatisticsResponseTypeDef(TypedDict):
     CoverageStatistics: CoverageStatisticsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCustomDetectionRuleAssociationResponseTypeDef(TypedDict):
+    RuleAssociation: AssociationDetailTypeDef
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIPSetResponseTypeDef(TypedDict):
@@ -1683,6 +1867,11 @@ class GetTrustedEntitySetResponseTypeDef(TypedDict):
     UpdatedAt: datetime
     ErrorDetails: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCustomDetectionRuleAssociationsResponseTypeDef(TypedDict):
+    RuleAssociations: list[AssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ListDetectorsResponseTypeDef(TypedDict):
     DetectorIds: list[str]
@@ -1805,6 +1994,15 @@ class KubernetesDataSourceFreeTrialTypeDef(TypedDict):
 class MalwareProtectionDataSourceFreeTrialTypeDef(TypedDict):
     ScanEc2InstanceWithFindings: NotRequired[DataSourceFreeTrialTypeDef]
 
+class ListCustomDetectionRuleAssociationsRequestPaginateTypeDef(TypedDict):
+    RuleId: NotRequired[str]
+    Mode: NotRequired[AssociationModeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCustomDetectionRuleOrgConfigurationsRequestPaginateTypeDef(TypedDict):
+    Status: NotRequired[DetectionRuleConfigurationStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDetectorsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1849,11 +2047,30 @@ class ListPublishingDestinationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListCustomDetectionRulesRequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[DetectionRuleFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCustomDetectionRulesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[DetectionRuleFilterTypeDef]]
+
+class ListCustomDetectionRuleOrgConfigurationsResponseTypeDef(TypedDict):
+    Configurations: list[DetectionRuleOrgConfigurationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetCustomDetectionRuleOrgConfigurationResponseTypeDef(TypedDict):
+    Configuration: DetectionRuleOrgConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DetectorFeatureConfigurationResultTypeDef(TypedDict):
     Name: NotRequired[DetectorFeatureResultType]
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
     AdditionalConfiguration: NotRequired[list[DetectorAdditionalConfigurationResultTypeDef]]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 class DetectorFeatureConfigurationTypeDef(TypedDict):
     Name: NotRequired[DetectorFeatureType]
@@ -1989,26 +2206,6 @@ class MalwareProtectionFindingsScanConfigurationTypeDef(TypedDict):
     TriggerType: NotRequired[TriggerTypeType]
     IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
 
-SignalTypeDef = TypedDict(
-    "SignalTypeDef",
-    {
-        "Uid": str,
-        "Type": SignalTypeType,
-        "Name": str,
-        "CreatedAt": datetime,
-        "UpdatedAt": datetime,
-        "FirstSeenAt": datetime,
-        "LastSeenAt": datetime,
-        "Count": int,
-        "Description": NotRequired[str],
-        "Severity": NotRequired[float],
-        "ResourceUids": NotRequired[list[str]],
-        "ActorIds": NotRequired[list[str]],
-        "EndpointIds": NotRequired[list[str]],
-        "SignalIndicators": NotRequired[list[IndicatorTypeDef]],
-    },
-)
-
 class InvestigationMetadataTypeDef(TypedDict):
     Version: str
     Product: ProductTypeDef
@@ -2055,6 +2252,11 @@ class ProcessDetailsTypeDef(TypedDict):
     Euid: NotRequired[int]
     Lineage: NotRequired[list[LineageObjectTypeDef]]
 
+class ListCustomDetectionRulesResponseTypeDef(TypedDict):
+    Rules: list[RuleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListMalwareProtectionPlansResponseTypeDef(TypedDict):
     MalwareProtectionPlans: list[MalwareProtectionPlanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2076,6 +2278,7 @@ class MemberFeaturesConfigurationResultTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
     UpdatedAt: NotRequired[datetime]
     AdditionalConfiguration: NotRequired[list[MemberAdditionalConfigurationResultTypeDef]]
+    ManagedBy: NotRequired[Literal["GUARDDUTY_POLICY"]]
 
 class MemberFeaturesConfigurationTypeDef(TypedDict):
     Name: NotRequired[OrgFeatureType]
@@ -2149,6 +2352,22 @@ class ScanConfigurationRecoveryPointTypeDef(TypedDict):
     BackupVaultName: NotRequired[str]
     ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
 
+class RuleDetailTypeDef(TypedDict):
+    RuleId: str
+    Arn: str
+    Name: str
+    Description: str
+    Severity: DetectionRuleSeverityType
+    DataSource: Literal["CloudTrailManagementEvent"]
+    Tactic: str
+    Technique: str
+    Service: str
+    Definition: RuleDefinitionTypeDef
+    CreatedAt: datetime
+    Language: NotRequired[Literal["SQL"]]
+    Schema: NotRequired[Literal["CloudTrail"]]
+    UpdatedAt: NotRequired[datetime]
+
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectForSendObjectMalwareScanTypeDef]
 
@@ -2209,6 +2428,27 @@ class ActorTypeDef(TypedDict):
     User: NotRequired[UserTypeDef]
     Session: NotRequired[SessionTypeDef]
     Process: NotRequired[ActorProcessTypeDef]
+
+SignalTypeDef = TypedDict(
+    "SignalTypeDef",
+    {
+        "Uid": str,
+        "Type": SignalTypeType,
+        "Name": str,
+        "CreatedAt": datetime,
+        "UpdatedAt": datetime,
+        "FirstSeenAt": datetime,
+        "LastSeenAt": datetime,
+        "Count": int,
+        "Description": NotRequired[str],
+        "Severity": NotRequired[float],
+        "ResourceUids": NotRequired[list[str]],
+        "ActorIds": NotRequired[list[str]],
+        "EndpointIds": NotRequired[list[str]],
+        "SignalIndicators": NotRequired[list[IndicatorTypeDef]],
+        "Activities": NotRequired[list[ActivityTypeDef]],
+    },
+)
 
 class ScanResultThreatTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -2496,6 +2736,7 @@ ResourceDataTypeDef = TypedDict(
         "Ec2Vpc": NotRequired[Ec2VpcTypeDef],
         "Ec2Image": NotRequired[Ec2ImageTypeDef],
         "CloudformationStack": NotRequired[CloudformationStackTypeDef],
+        "BedrockGuardrail": NotRequired[BedrockGuardrailResourceTypeDef],
     },
 )
 
@@ -2504,6 +2745,10 @@ class ScanConfigurationTypeDef(TypedDict):
     TriggerDetails: NotRequired[TriggerDetailsTypeDef]
     IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
     RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
+
+class GetCustomDetectionRuleResponseTypeDef(TypedDict):
+    Rule: RuleDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]

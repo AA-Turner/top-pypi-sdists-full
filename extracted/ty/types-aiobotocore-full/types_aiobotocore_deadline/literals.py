@@ -51,6 +51,7 @@ __all__ = (
     "EnvironmentTemplateTypeType",
     "FileSystemLocationTypeType",
     "FleetActiveWaiterName",
+    "FleetSoftwareAddOnNameType",
     "FleetStatusType",
     "GetSessionsStatisticsAggregationPaginatorName",
     "JobAttachmentsFileSystemType",
@@ -216,6 +217,7 @@ Ec2MarketTypeType = Literal["on-demand", "spot", "wait-and-save"]
 EnvironmentTemplateTypeType = Literal["JSON", "YAML"]
 FileSystemLocationTypeType = Literal["LOCAL", "SHARED"]
 FleetActiveWaiterName = Literal["fleet_active"]
+FleetSoftwareAddOnNameType = Literal["docker"]
 FleetStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",
@@ -459,6 +461,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -533,6 +536,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -561,6 +565,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -655,6 +660,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

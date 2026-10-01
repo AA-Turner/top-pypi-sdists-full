@@ -759,6 +759,16 @@ class ToolResult(BaseModel):
     # See docs/tool_delegation/DELEGATION_LOOP_BUGS.md.
     delegated_pending: bool = False
 
+    # Mandate-candidate containment (matrx_ai.tools.candidate_containment).
+    # ``candidate_stopped`` is TERMINAL, never a suspension: the call was NOT
+    # executed, the candidate run ends with status ``candidate_stopped``, and
+    # this result is NEVER fed to the model (handle_tool_calls_v2 drops it). It
+    # is not ``delegated_pending`` — nothing resumes it. ``candidate_disposition``
+    # is the call's decision record (disposition / class / seq / args_digest …),
+    # also stamped on the tool-call row.
+    candidate_stopped: bool = False
+    candidate_disposition: dict[str, Any] | None = None
+
     # Value-store linkage (Pattern 2 grooming). value_ref_key: this result's
     # content lives in (or was served from) the host's conversation value store
     # under this key — the logger stamps it onto cx_tool_call.value_ref_key so

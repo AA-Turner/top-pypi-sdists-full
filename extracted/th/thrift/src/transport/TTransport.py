@@ -23,6 +23,24 @@ from struct import pack, unpack
 from thrift.Thrift import TException
 
 
+# The largest frame a layered transport will accept by default. Matches
+# THeaderTransport in this binding, and TConfiguration.DEFAULT_MAX_FRAME_SIZE
+# in the Java, netstd and C++ bindings.
+DEFAULT_MAX_FRAME_SIZE = 16384000
+
+# The frame length field is 30 bits in the header protocol, so no frame can
+# usefully be larger than this whatever a caller configures.
+HARD_MAX_FRAME_SIZE = 0x3FFFFFFF
+
+# The largest SASL negotiation payload a client will accept from a server.
+# Deliberately far below the frame maximum: a negotiation message is a mechanism
+# name or a challenge, it is exchanged before either side has authenticated the
+# other, and five bytes on the wire are enough to ask for all of it. One
+# megabyte leaves generous room for a Kerberos token carrying a large PAC --
+# Cyrus SASL's own default maximum buffer is 64 KB.
+DEFAULT_MAX_SASL_NEGOTIATION_SIZE = 1048576
+
+
 class TTransportException(TException):
     """Custom Transport Exception class"""
 
@@ -254,18 +272,25 @@ class TMemoryBuffer(TTransportBase, CReadableTransport):
 class TFramedTransportFactory(object):
     """Factory transport that builds framed transports"""
 
+    def __init__(self, max_frame_size=DEFAULT_MAX_FRAME_SIZE):
+        self.__max_frame_size = max_frame_size
+
     def getTransport(self, trans):
-        framed = TFramedTransport(trans)
+        framed = TFramedTransport(trans, self.__max_frame_size)
         return framed
 
 
 class TFramedTransport(TTransportBase, CReadableTransport):
     """Class that wraps another transport and frames its I/O when writing."""
 
-    def __init__(self, trans,):
+    def __init__(self, trans, max_frame_size=DEFAULT_MAX_FRAME_SIZE):
+        if not 0 < max_frame_size <= HARD_MAX_FRAME_SIZE:
+            raise ValueError(
+                "max_frame_size should be > 0 and <= %d" % HARD_MAX_FRAME_SIZE)
         self.__trans = trans
         self.__rbuf = BytesIO(b'')
         self.__wbuf = BytesIO()
+        self.__max_frame_size = max_frame_size
 
     def isOpen(self):
         return self.__trans.isOpen()
@@ -287,6 +312,20 @@ class TFramedTransport(TTransportBase, CReadableTransport):
     def readFrame(self):
         buff = self.__trans.readAll(4)
         sz, = unpack('!i', buff)
+        # Check before reading, not after: readAll() would hold everything the
+        # size declares while the peer decides how much of it to actually send.
+        # A zero-length frame is legitimate -- flush() with an empty buffer
+        # writes one, and the Java reader accepts one -- so only negatives are
+        # refused here.
+        if sz < 0:
+            raise TTransportException(
+                TTransportException.NEGATIVE_SIZE,
+                "Read a negative frame size (%d)" % sz)
+        if sz > self.__max_frame_size:
+            raise TTransportException(
+                TTransportException.SIZE_LIMIT,
+                "Frame size (%d) larger than the maximum (%d)"
+                % (sz, self.__max_frame_size))
         self.__rbuf = BytesIO(self.__trans.readAll(sz))
 
     def write(self, buf):
@@ -355,12 +394,16 @@ class TSaslClientTransport(TTransportBase, CReadableTransport):
     COMPLETE = 5
 
     def __init__(self, transport, host, service, mechanism='GSSAPI',
+                 max_negotiation_size=DEFAULT_MAX_SASL_NEGOTIATION_SIZE,
+                 max_frame_size=DEFAULT_MAX_FRAME_SIZE,
                  **sasl_kwargs):
         """
         transport: an underlying transport to use, typically just a TSocket
         host: the name of the server, from a SASL perspective
         service: the name of the server's service, from a SASL perspective
         mechanism: the name of the preferred mechanism to use
+        max_negotiation_size: largest SASL negotiation payload to accept
+        max_frame_size: largest wrapped data frame to accept
 
         All other kwargs will be passed to the puresasl.client.SASLClient
         constructor.
@@ -373,6 +416,8 @@ class TSaslClientTransport(TTransportBase, CReadableTransport):
 
         self.__wbuf = BytesIO()
         self.__rbuf = BytesIO(b'')
+        self._max_negotiation_size = max_negotiation_size
+        self._max_frame_size = max_frame_size
 
     def open(self):
         if not self.transport.isOpen():
@@ -418,6 +463,14 @@ class TSaslClientTransport(TTransportBase, CReadableTransport):
     def recv_sasl_msg(self):
         header = self.transport.readAll(5)
         status, length = unpack(">BI", header)
+        # Checked before reading it. This runs during the handshake, so the peer
+        # declaring the size has not authenticated yet, and readAll() would hold
+        # everything it declares while it decides how much to send.
+        if length > self._max_negotiation_size:
+            raise TTransportException(
+                TTransportException.SIZE_LIMIT,
+                "SASL negotiation payload (%d) larger than the maximum (%d)"
+                % (length, self._max_negotiation_size))
         if length > 0:
             payload = self.transport.readAll(length)
         else:
@@ -445,6 +498,18 @@ class TSaslClientTransport(TTransportBase, CReadableTransport):
     def _read_frame(self):
         header = self.transport.readAll(4)
         length, = unpack('!i', header)
+        # Same reasoning as TFramedTransport.readFrame(): check the declared
+        # size before reading it. A negative length reached readAll() unchecked
+        # and came back empty, which sasl.unwrap() is in no position to explain.
+        if length < 0:
+            raise TTransportException(
+                TTransportException.NEGATIVE_SIZE,
+                "Read a negative frame size (%d)" % length)
+        if length > self._max_frame_size:
+            raise TTransportException(
+                TTransportException.SIZE_LIMIT,
+                "Frame size (%d) larger than the maximum (%d)"
+                % (length, self._max_frame_size))
         encoded = self.transport.readAll(length)
         self.__rbuf = BytesIO(self.sasl.unwrap(encoded))
 

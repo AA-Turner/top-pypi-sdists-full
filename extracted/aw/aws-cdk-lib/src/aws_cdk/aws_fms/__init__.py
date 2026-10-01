@@ -67,6 +67,417 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fms_4bd42e61.IApplicationsListRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnApplicationsList(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_fms.CfnApplicationsList",
+):
+    '''Creates an AWS Firewall Manager applications list.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-applicationslist.html
+    :cloudformationResource: AWS::FMS::ApplicationsList
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_fms as fms
+        
+        cfn_applications_list = fms.CfnApplicationsList(self, "MyCfnApplicationsList",
+            apps_list=[fms.CfnApplicationsList.AppProperty(
+                app_name="appName",
+                port=123,
+                protocol="protocol"
+            )],
+            list_name="listName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        apps_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationsList.AppProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        list_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::FMS::ApplicationsList``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param apps_list: An array of applications in the Firewall Manager applications list.
+        :param list_name: The name of the Firewall Manager applications list.
+        :param tags: An array of key-value pairs to apply to the applications list.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eb99fe4dde5bb70f10f8445d8739bde3a9020469bb1f03b15816d174ebe70e21)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApplicationsListProps(
+            apps_list=apps_list, list_name=list_name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForApplicationsList")
+    @builtins.classmethod
+    def arn_for_applications_list(
+        cls,
+        resource: "_aws_fms_4bd42e61.IApplicationsListRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd77de83f7dc3b2d418530f2972575bfab5ed7a81efc708104d0b7327479a9e9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplicationsList", [resource]))
+
+    @jsii.member(jsii_name="isCfnApplicationsList")
+    @builtins.classmethod
+    def is_cfn_applications_list(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplicationsList.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8783d2cb6e3a3ff7956df53173fb46b820f2c0ea0b26618e9f7063f3423ac23)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationsList", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dc26398a04879c1ad8d53c404abe9089cc629cf74f1d7da3fb45b8628440d844)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6743fa69c21d7ac45d0c4cde29768cd5c95413db72497345cf38adeee930ab0e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationsListRef")
+    def applications_list_ref(self) -> "_aws_fms_4bd42e61.ApplicationsListReference":
+        '''A reference to a ApplicationsList resource.'''
+        return typing.cast("_aws_fms_4bd42e61.ApplicationsListReference", jsii.get(self, "applicationsListRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the applications list.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''The time that the Firewall Manager applications list was created.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdateTime")
+    def attr_last_update_time(self) -> builtins.str:
+        '''The time that the Firewall Manager applications list was last updated.
+
+        :cloudformationAttribute: LastUpdateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListId")
+    def attr_list_id(self) -> builtins.str:
+        '''The ID of the Firewall Manager applications list.
+
+        :cloudformationAttribute: ListId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appsList")
+    def apps_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationsList.AppProperty"]]]:
+        '''An array of applications in the Firewall Manager applications list.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationsList.AppProperty"]]], jsii.get(self, "appsList"))
+
+    @apps_list.setter
+    def apps_list(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationsList.AppProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6af971a1d7cb1e318032ac5384d78b075a35303f223d14c549b19c4468c35997)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appsList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="listName")
+    def list_name(self) -> builtins.str:
+        '''The name of the Firewall Manager applications list.'''
+        return typing.cast(builtins.str, jsii.get(self, "listName"))
+
+    @list_name.setter
+    def list_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6af9a3f16f10168a13ac01912c0fb7b0114c12a5f8e17f7873e14b15ce71126a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the applications list.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d0838368a13cf0ce2417d53c88f71e635d494a2df9d2601eb3945a4a8d82201)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fms.CfnApplicationsList.AppProperty",
+        jsii_struct_bases=[],
+        name_mapping={"app_name": "appName", "port": "port", "protocol": "protocol"},
+    )
+    class AppProperty:
+        def __init__(
+            self,
+            *,
+            app_name: builtins.str,
+            port: jsii.Number,
+            protocol: builtins.str,
+        ) -> None:
+            '''An individual Firewall Manager application.
+
+            :param app_name: The application's name.
+            :param port: The application's port number, for example 80.
+            :param protocol: The IP protocol name or number. The name can be one of tcp, udp, or icmp. For information on possible numbers, see Protocol Numbers (https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fms-applicationslist-app.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fms as fms
+                
+                app_property = fms.CfnApplicationsList.AppProperty(
+                    app_name="appName",
+                    port=123,
+                    protocol="protocol"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__720ca27a0a061a3ff76ee5bc9c24ddbfbe6f1daf5a26b059aaede891e3b2435b)
+                check_type(argname="argument app_name", value=app_name, expected_type=type_hints["app_name"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "app_name": app_name,
+                "port": port,
+                "protocol": protocol,
+            }
+
+        @builtins.property
+        def app_name(self) -> builtins.str:
+            '''The application's name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fms-applicationslist-app.html#cfn-fms-applicationslist-app-appname
+            '''
+            result = self._values.get("app_name")
+            assert result is not None, "Required property 'app_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def port(self) -> jsii.Number:
+            '''The application's port number, for example 80.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fms-applicationslist-app.html#cfn-fms-applicationslist-app-port
+            '''
+            result = self._values.get("port")
+            assert result is not None, "Required property 'port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def protocol(self) -> builtins.str:
+            '''The IP protocol name or number.
+
+            The name can be one of tcp, udp, or icmp. For information on possible numbers, see Protocol Numbers (https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fms-applicationslist-app.html#cfn-fms-applicationslist-app-protocol
+            '''
+            result = self._values.get("protocol")
+            assert result is not None, "Required property 'protocol' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AppProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_fms.CfnApplicationsListProps",
+    jsii_struct_bases=[],
+    name_mapping={"apps_list": "appsList", "list_name": "listName", "tags": "tags"},
+)
+class CfnApplicationsListProps:
+    def __init__(
+        self,
+        *,
+        apps_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationsList.AppProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        list_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationsList``.
+
+        :param apps_list: An array of applications in the Firewall Manager applications list.
+        :param list_name: The name of the Firewall Manager applications list.
+        :param tags: An array of key-value pairs to apply to the applications list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-applicationslist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_fms as fms
+            
+            cfn_applications_list_props = fms.CfnApplicationsListProps(
+                apps_list=[fms.CfnApplicationsList.AppProperty(
+                    app_name="appName",
+                    port=123,
+                    protocol="protocol"
+                )],
+                list_name="listName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9bf3160841472d27f457610b2f6984e823eb8d5336893b645abe4bd65a7d228)
+            check_type(argname="argument apps_list", value=apps_list, expected_type=type_hints["apps_list"])
+            check_type(argname="argument list_name", value=list_name, expected_type=type_hints["list_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "apps_list": apps_list,
+            "list_name": list_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def apps_list(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationsList.AppProperty"]]]:
+        '''An array of applications in the Firewall Manager applications list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-applicationslist.html#cfn-fms-applicationslist-appslist
+        '''
+        result = self._values.get("apps_list")
+        assert result is not None, "Required property 'apps_list' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationsList.AppProperty"]]], result)
+
+    @builtins.property
+    def list_name(self) -> builtins.str:
+        '''The name of the Firewall Manager applications list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-applicationslist.html#cfn-fms-applicationslist-listname
+        '''
+        result = self._values.get("list_name")
+        assert result is not None, "Required property 'list_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the applications list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-applicationslist.html#cfn-fms-applicationslist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationsListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fms_4bd42e61.INotificationChannelRef)
 class CfnNotificationChannel(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2638,6 +3049,318 @@ class CfnPolicyProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fms_4bd42e61.IProtocolsListRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnProtocolsList(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_fms.CfnProtocolsList",
+):
+    '''Creates an AWS Firewall Manager protocols list.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-protocolslist.html
+    :cloudformationResource: AWS::FMS::ProtocolsList
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_fms as fms
+        
+        cfn_protocols_list = fms.CfnProtocolsList(self, "MyCfnProtocolsList",
+            list_name="listName",
+            protocols_list=["protocolsList"],
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        list_name: builtins.str,
+        protocols_list: typing.Sequence[builtins.str],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::FMS::ProtocolsList``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param list_name: The name of the Firewall Manager protocols list.
+        :param protocols_list: An array of protocols in the Firewall Manager protocols list.
+        :param tags: An array of key-value pairs to apply to the protocols list.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__401b10586f822816dd2baa92d14def88049d9560920094296eb89fcea97fd49d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnProtocolsListProps(
+            list_name=list_name, protocols_list=protocols_list, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForProtocolsList")
+    @builtins.classmethod
+    def arn_for_protocols_list(
+        cls,
+        resource: "_aws_fms_4bd42e61.IProtocolsListRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__975caa5d70457e0ea3c52a55c45e7ec20671be72ce1c099b6fb885f23985ec8e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProtocolsList", [resource]))
+
+    @jsii.member(jsii_name="isCfnProtocolsList")
+    @builtins.classmethod
+    def is_cfn_protocols_list(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProtocolsList.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e93728e3a2fb5a7c6d0890e58e72af1ff5122ca4a9d124c490629cc7ef6a9da)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProtocolsList", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__49fd891fe7e50cae1ad468b1dbbc255d21e75944a7cdceb65d00792ad570db3e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ddb57cf386da0e2380f6abc0040f387e46cfc0b686ef6aeb90c115bedf85419d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the protocols list.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''The time that the Firewall Manager protocols list was created.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdateTime")
+    def attr_last_update_time(self) -> builtins.str:
+        '''The time that the Firewall Manager protocols list was last updated.
+
+        :cloudformationAttribute: LastUpdateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListId")
+    def attr_list_id(self) -> builtins.str:
+        '''The ID of the Firewall Manager protocols list.
+
+        :cloudformationAttribute: ListId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="protocolsListRef")
+    def protocols_list_ref(self) -> "_aws_fms_4bd42e61.ProtocolsListReference":
+        '''A reference to a ProtocolsList resource.'''
+        return typing.cast("_aws_fms_4bd42e61.ProtocolsListReference", jsii.get(self, "protocolsListRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="listName")
+    def list_name(self) -> builtins.str:
+        '''The name of the Firewall Manager protocols list.'''
+        return typing.cast(builtins.str, jsii.get(self, "listName"))
+
+    @list_name.setter
+    def list_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e45a0c5fcc8cd9c232b7857b404b804085821354f4c5b7093da3a2efd05045a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="protocolsList")
+    def protocols_list(self) -> typing.List[builtins.str]:
+        '''An array of protocols in the Firewall Manager protocols list.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "protocolsList"))
+
+    @protocols_list.setter
+    def protocols_list(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__079d156a9dcd998beb3fb8cb700d009accaf134d5a44a0ea1d4e7b180adf5c32)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocolsList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the protocols list.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8a3d3aecd01f67350857a9a369481367d52a363f4c23249b7d59f67e81110238)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_fms.CfnProtocolsListProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "list_name": "listName",
+        "protocols_list": "protocolsList",
+        "tags": "tags",
+    },
+)
+class CfnProtocolsListProps:
+    def __init__(
+        self,
+        *,
+        list_name: builtins.str,
+        protocols_list: typing.Sequence[builtins.str],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProtocolsList``.
+
+        :param list_name: The name of the Firewall Manager protocols list.
+        :param protocols_list: An array of protocols in the Firewall Manager protocols list.
+        :param tags: An array of key-value pairs to apply to the protocols list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-protocolslist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_fms as fms
+            
+            cfn_protocols_list_props = fms.CfnProtocolsListProps(
+                list_name="listName",
+                protocols_list=["protocolsList"],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65b7d0d1edd1456ab4046ba85ff794dcc74900fd77e5cb83f50eed1c2e5c148e)
+            check_type(argname="argument list_name", value=list_name, expected_type=type_hints["list_name"])
+            check_type(argname="argument protocols_list", value=protocols_list, expected_type=type_hints["protocols_list"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "list_name": list_name,
+            "protocols_list": protocols_list,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def list_name(self) -> builtins.str:
+        '''The name of the Firewall Manager protocols list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-protocolslist.html#cfn-fms-protocolslist-listname
+        '''
+        result = self._values.get("list_name")
+        assert result is not None, "Required property 'list_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protocols_list(self) -> typing.List[builtins.str]:
+        '''An array of protocols in the Firewall Manager protocols list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-protocolslist.html#cfn-fms-protocolslist-protocolslist
+        '''
+        result = self._values.get("protocols_list")
+        assert result is not None, "Required property 'protocols_list' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the protocols list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fms-protocolslist.html#cfn-fms-protocolslist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProtocolsListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fms_4bd42e61.IResourceSetRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnResourceSet(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2994,15 +3717,90 @@ class CfnResourceSetProps:
 
 
 __all__ = [
+    "CfnApplicationsList",
+    "CfnApplicationsListProps",
     "CfnNotificationChannel",
     "CfnNotificationChannelProps",
     "CfnPolicy",
     "CfnPolicyProps",
+    "CfnProtocolsList",
+    "CfnProtocolsListProps",
     "CfnResourceSet",
     "CfnResourceSetProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__eb99fe4dde5bb70f10f8445d8739bde3a9020469bb1f03b15816d174ebe70e21(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    apps_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationsList.AppProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    list_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd77de83f7dc3b2d418530f2972575bfab5ed7a81efc708104d0b7327479a9e9(
+    resource: _aws_fms_4bd42e61.IApplicationsListRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8783d2cb6e3a3ff7956df53173fb46b820f2c0ea0b26618e9f7063f3423ac23(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc26398a04879c1ad8d53c404abe9089cc629cf74f1d7da3fb45b8628440d844(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6743fa69c21d7ac45d0c4cde29768cd5c95413db72497345cf38adeee930ab0e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6af971a1d7cb1e318032ac5384d78b075a35303f223d14c549b19c4468c35997(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationsList.AppProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6af9a3f16f10168a13ac01912c0fb7b0114c12a5f8e17f7873e14b15ce71126a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d0838368a13cf0ce2417d53c88f71e635d494a2df9d2601eb3945a4a8d82201(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__720ca27a0a061a3ff76ee5bc9c24ddbfbe6f1daf5a26b059aaede891e3b2435b(
+    *,
+    app_name: builtins.str,
+    port: jsii.Number,
+    protocol: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9bf3160841472d27f457610b2f6984e823eb8d5336893b645abe4bd65a7d228(
+    *,
+    apps_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationsList.AppProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    list_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__7a03e25c676e3f843e7365938075353612a65a3a2bd2538074f016448b29053c(
     scope: _constructs_77d1e7e8.Construct,
@@ -3308,6 +4106,68 @@ def _typecheckingstub__8455eef74a6daf8d86ebd4c14f18184bf9c938d95a07a9902bf05c79f
     resource_type: typing.Optional[builtins.str] = None,
     resource_type_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnPolicy.PolicyTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__401b10586f822816dd2baa92d14def88049d9560920094296eb89fcea97fd49d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    list_name: builtins.str,
+    protocols_list: typing.Sequence[builtins.str],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__975caa5d70457e0ea3c52a55c45e7ec20671be72ce1c099b6fb885f23985ec8e(
+    resource: _aws_fms_4bd42e61.IProtocolsListRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e93728e3a2fb5a7c6d0890e58e72af1ff5122ca4a9d124c490629cc7ef6a9da(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49fd891fe7e50cae1ad468b1dbbc255d21e75944a7cdceb65d00792ad570db3e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddb57cf386da0e2380f6abc0040f387e46cfc0b686ef6aeb90c115bedf85419d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e45a0c5fcc8cd9c232b7857b404b804085821354f4c5b7093da3a2efd05045a0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__079d156a9dcd998beb3fb8cb700d009accaf134d5a44a0ea1d4e7b180adf5c32(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a3d3aecd01f67350857a9a369481367d52a363f4c23249b7d59f67e81110238(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65b7d0d1edd1456ab4046ba85ff794dcc74900fd77e5cb83f50eed1c2e5c148e(
+    *,
+    list_name: builtins.str,
+    protocols_list: typing.Sequence[builtins.str],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

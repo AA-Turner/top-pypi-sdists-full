@@ -545,7 +545,6 @@ def prediction_result(image, path: str, prediction: dict, names: dict, task: str
 
 def save_predictions(source: Path, response: dict, args: dict) -> None:
     """Reuse YOLO's image/video, label, crop, and display writers without running local inference."""
-    import numpy as np
     from ultralytics.cfg import DEFAULT_CFG_DICT
     from ultralytics.data.build import load_inference_source
     from ultralytics.engine.predictor import BasePredictor
@@ -556,22 +555,37 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
     if (task := metadata.get("task")) is None:
         raise ValueError("Platform did not report the model task, so predictions cannot be converted")
     writer = BasePredictor(cfg=DEFAULT_CFG_DICT | args | {"task": task, "mode": "predict"})
-    directory = writer.save_dir
-    writer.dataset = load_inference_source(str(source), batch=1)
-    writer.source_type = writer.dataset.source_type
-    if writer.args.save or writer.args.save_txt or writer.args.save_crop:
+    options, directory = writer.args, writer.save_dir
+    writer.dataset = dataset = load_inference_source(str(source), batch=1, vid_stride=options.vid_stride)
+    if options.save or options.save_txt or options.save_crop:
         directory.mkdir(parents=True, exist_ok=True)
         directory.joinpath("results.json").write_text(json.dumps(response, indent=2))
     try:
-        for (paths, images, descriptions), prediction in zip(writer.dataset, response["images"], strict=True):
-            result = prediction_result(images[0], paths[0], prediction, names, task, writer.args)
-            writer.results = [result]
-            writer.write_results(0, Path(paths[0]), np.moveaxis(images[0], -1, 0), descriptions)
+        # write_results() needs state that only the inference loop initializes, so call its public writers directly
+        for (paths, images, _), prediction in zip(dataset, response["images"], strict=True):
+            result = prediction_result(images[0], paths[0], prediction, names, task, options)
+            frame = dataset.frame if dataset.mode == "video" else None
+            stem = source.stem if frame is None else f"{source.stem}_{frame}"
+            if options.save or options.show:
+                writer.plotted_img = result.plot(
+                    line_width=options.line_width,
+                    boxes=options.show_boxes,
+                    conf=options.show_conf,
+                    labels=options.show_labels,
+                )
+            if options.save_txt:
+                result.save_txt(directory / "labels" / f"{stem}.txt", save_conf=options.save_conf)
+            if options.save_crop:
+                result.save_crop(save_dir=directory / "crops", file_name=stem)
+            if options.show:
+                writer.show(str(source))
+            if options.save:
+                writer.save_predicted_images(directory / source.name, frame)
     finally:
         for video in writer.vid_writer.values():
             video.release()
-        if getattr(writer.dataset, "cap", None) is not None:
-            writer.dataset.cap.release()
+        if getattr(dataset, "cap", None) is not None:
+            dataset.cap.release()
     if directory.exists():
         print(f"Results saved to {directory}")
 
@@ -579,19 +593,23 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
 def cloud_predict(client: Platform, tokens: list[str]) -> int:
     """ul cloud predict model=ul://owner/project/model source=image.jpg [conf=0.25 iou=0.7 imgsz=640]
 
-    source= is one local image or video; conf/iou/imgsz run on Platform, classes/max_det apply locally.
+    source= is one local image or video; conf/iou/imgsz/vid_stride run on Platform, classes/max_det apply locally.
     Saves annotated output, with optional save_txt/save_crop/save_frames.
     project=, name=, save_dir=, and exist_ok= control local outputs as in YOLO.
     """
+    from ultralytics.cfg import check_cfg
+
     args = yolo_args(tokens)
     source = Path(str(args.pop("source", ""))).expanduser()
     if not source.is_file():
         raise ValueError("source= must be a local image or video file")
     model, project = args.pop("model", "yolo26n.pt"), args.pop("project", None)
     local_args = args | {"model": model, "project": project}
+    check_cfg(local_args)  # reject invalid values before the paid Platform prediction, as `yolo predict` would
     uri = platform_model(client, model) or upload_model(client, model, *resolve_project(client, project))
     owner, project, model = uri[5:].split("/")
-    options = {key: args[key] for key in ("conf", "iou", "imgsz") if key in args}  # YOLO options the endpoint accepts
+    # YOLO options the endpoint accepts
+    options = {key: args[key] for key in ("conf", "iou", "imgsz", "vid_stride") if key in args}
     with source.open("rb") as file:
         response = client.models.predict(owner, project, model, body={"file": file, **options, "normalize": False})
     output(response)
@@ -765,13 +783,16 @@ def main(argv: list[str] | None = None) -> int:
     except APIError as error:
         body = error.json
         detail = body.get("error") if isinstance(body, dict) else None
-        print(
-            f"API request failed (HTTP {error.status_code}){f': {detail}' if isinstance(detail, str) else '.'}",
-            file=sys.stderr,
-        )
+        message = f"API request failed (HTTP {error.status_code}){f': {detail}' if isinstance(detail, str) else '.'}"
+        if error.status_code == 401:
+            message += (
+                f"\nCreate an API key at {platform_url()}/settings?tab=api-keys and run `ul login API_KEY`. "
+                "ULTRALYTICS_API_KEY overrides the saved key, so update or unset it if it is set."
+            )
+        print(message, file=sys.stderr)
         return 1
-    except APIConnectionError:
-        print("Could not connect to API.", file=sys.stderr)
+    except APIConnectionError as error:
+        print(f"Request to {platform_url()} failed: {error}", file=sys.stderr)
         return 1
     except (ValueError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)

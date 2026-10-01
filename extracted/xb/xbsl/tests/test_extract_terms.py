@@ -219,7 +219,7 @@ def test_the_common_table_comes_back_sorted_by_the_russian_key():
 # --- a generated EMF package states its pairs in annotations --------------------------------
 
 
-def _scan_classes(classes: dict[str, bytes]):
+def _scan_classes(classes: dict[str, bytes], languages: dict[str, str] | None = None):
     """_scan_meta_objects over one platform jar holding the given classes."""
     import io
     import zipfile
@@ -233,7 +233,7 @@ def _scan_classes(classes: dict[str, bytes]):
     car = io.BytesIO()
     with zipfile.ZipFile(car, "w") as z:
         z.writestr("data/lib/com.e1c.g5rt.demo-1.0.jar", jar.getvalue())
-    return _scan_meta_objects(zipfile.ZipFile(car))
+    return _scan_meta_objects(zipfile.ZipFile(car), languages=languages)
 
 
 def test_the_pairs_of_an_emf_package_are_spelled_as_its_annotations_state_them():
@@ -324,6 +324,144 @@ def test_the_name_of_a_constant_is_not_the_english_of_its_value():
     assert _names_its_field("SENDER_NAME_RU", "Отправитель")
     assert not _names_its_field("NEW_LINE", "НОВАЯ_СТРОКА")
     assert not _names_its_field("Recipient", "Получатель")
+
+
+def test_a_word_written_russian_first_does_not_take_the_english_on_its_left():
+    """A class that localizes a word Russian first - the word, then its English, in one call -
+    leaves on the left of the word whatever the code pushed before: the key of a map, which is
+    the name of an enumeration constant (`DAY`), or the English of the previous parameter
+    (`Step`). The class itself says the word is spelled otherwise, so the neighbour is no
+    pair, and the spelling the class states is; read without that check, the neighbours show
+    up. A phrase the class states (`Task steps`) is no name and pairs nothing, while the key
+    that is the name the phrase makes stays."""
+    from unittest import mock
+
+    from test_extract_classcode import _class_of
+
+    from xbsl.extract import terms
+
+    blob = _class_of([
+        # The key is pushed first and taken by the outer call, after the value is built.
+        ("demo/acme/Periods.localization", ["DAY", "День", "Day"],
+         "(Ljava/lang/String;Ljava/lang/String;)Ljava/util/Map;"),
+        ("demo/acme/Periods.put", [], "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
+        # A key that is the name the localized phrase makes names the word, and stays.
+        ("demo/acme/Periods.localization", ["TaskSteps", "ШагиЗадачи", "Task steps"],
+         "(Ljava/lang/String;Ljava/lang/String;)Ljava/util/Map;"),
+        ("demo/acme/Periods.put", [], "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
+        ("demo/acme/Param.of", ["Шаг", "Step"]),
+        ("demo/acme/Param.of", ["Готово", "Done"]),
+    ], extra_strings=["Шаг", "Step", "Готово", "Done"])  # interned in the order first used
+    members, common, _types = _scan_classes({"demo/acme/Periods.class": blob})
+    with mock.patch.object(terms, "_russian_first", return_value={}):
+        unchecked, _common, _types = _scan_classes({"demo/acme/Periods.class": blob})
+
+    assert members["Periods"] == {
+        "ШагиЗадачи": "TaskSteps", "День": "Day", "Шаг": "Step", "Готово": "Done",
+    }
+    assert common["День"] == "Day" and common["Готово"] == "Done"
+    assert unchecked["Periods"] == {"День": "DAY", "ШагиЗадачи": "TaskSteps", "Готово": "Step"}
+
+
+def test_a_pair_written_russian_first_is_screened_as_every_pair_is():
+    """The statement is a source under the rules every pair of the scan follows: a word the
+    class writes with two spellings is left alone, a phrase is no spelling of a name, and a
+    word the class states English first as well keeps that statement."""
+    from test_extract_classcode import TERM, _class_of, _class_of_terms
+
+    two_ways = _class_of([
+        ("demo/acme/Param.of", ["Шаг", "Step"]),
+        ("demo/acme/Param.of", ["Номер", "No"]),
+        ("demo/acme/Param.of", ["Номер", "Number"]),
+        ("demo/acme/Param.of", ["Полугодие", "Half year"]),
+    ], extra_strings=["Шаг", "Step", "Номер", "No", "Полугодие", "Half year"])
+    stated = _class_of_terms([
+        ("DEADLINE_TERM", TERM, ["Deadline", "Срок"]),
+        ("DEADLINE_NOTE", "demo/acme/Log.note", ["Срок", "Due"]),
+        ("STEP_NOTE", "demo/acme/Log.note", ["Этап", "Stage"]),
+    ])
+
+    members, common, _types = _scan_classes({"demo/acme/Params.class": two_ways,
+                                             "demo/acme/Notes.class": stated})
+
+    assert members["Params"] == {"Шаг": "Step"}
+    assert "Номер" not in common and "Полугодие" not in common
+    assert members["Notes"] == {"Срок": "Deadline", "Этап": "Stage"}
+    assert common["Срок"] == "Deadline"
+
+
+def test_an_abbreviation_the_class_states_english_first_stays():
+    """The check reads what the class does with the strings, not their form: an abbreviation
+    the class states English first - a term it keeps in a field - keeps its pair even where
+    another call takes the same Russian word Russian first with a text of its own."""
+    from test_extract_classcode import TERM, _class_of_terms
+
+    blob = _class_of_terms([
+        ("SLA_TERM", TERM, ["SLA", "СрокВыполнения"]),
+        ("DEADLINE_NOTE", "demo/acme/Log.note", ["СрокВыполнения", "Deadline is near"]),
+        ("API_TERM", TERM, ["API", "Интерфейс"]),
+    ])
+
+    members, common, _types = _scan_classes({"demo/acme/TaskApi.class": blob})
+
+    assert members["TaskApi"] == {"СрокВыполнения": "SLA", "Интерфейс": "API"}
+    assert common["СрокВыполнения"] == "SLA"
+
+
+def test_a_call_that_takes_the_english_first_is_no_russian_first_statement():
+    """A type variable is declared by its English name, its Russian name and then its type: the
+    Latin string after the Russian word is the type, not the word's English, and the pair
+    the neighbourhood reads stays."""
+    from test_extract_classcode import _class_of
+
+    blob = _class_of([
+        ("demo/acme/Types.typeVariable", ["Item", "Элемент", "ItemType"]),
+        ("demo/acme/Types.typeVariable", ["Key", "Ключ", "KeyType"]),
+    ])
+
+    members, common, _types = _scan_classes({"demo/acme/TaskListCtMetaObject.class": blob})
+
+    assert members["TaskList"] == {"Элемент": "Item", "Ключ": "Key"}
+    assert common["Элемент"] == "Item"
+
+
+def test_a_key_in_lower_case_after_a_russian_word_is_no_spelling():
+    """A label chosen by the language of the user pushes both names, and the call takes the
+    Russian one with a key in lower case: the key is data, not the word's English, and the
+    pair of the two names stays."""
+    from test_extract_classcode import _class_of
+
+    blob = _class_of([("demo/acme/Groups.<init>", ["Steps", "Шаги", "item"],
+                       "(Ljava/lang/String;Ljava/lang/String;)V")])
+
+    members, _common, _types = _scan_classes({"demo/acme/Groups.class": blob})
+
+    assert members["Groups"] == {"Шаги": "Steps"}
+
+
+def test_a_language_name_is_paired_only_as_the_language_table_says():
+    """An enumeration presents each language in its own language, so the pool holds English
+    right before the Russian name of Russian; a reader of the descriptor lists the Russian
+    and the English names in turn. Checked against the table of the languages, neither
+    neighbourhood is a pair, and the Russian name keeps its common spelling."""
+    from test_extract_classcode import _class_of
+
+    presented = _class_of([], extra_strings=["EN", "English", "Русский"])
+    listed = _class_of([], extra_strings=["Russian", "Английский", "English"])
+    stated = _class_of([], extra_strings=["Russian", "Русский"])
+    classes = {"demo/lang/Presented.class": presented, "demo/lang/Listed.class": listed,
+               "demo/lang/Stated.class": stated}
+    table = {"Русский": "Russian", "Английский": "English"}
+
+    members, common, _types = _scan_classes(classes, languages=table)
+    unchecked, unsettled, _types = _scan_classes(classes)
+
+    assert "Presented" not in members and "Listed" not in members
+    assert members["Stated"] == {"Русский": "Russian"}
+    assert common["Русский"] == "Russian"
+    assert unchecked["Presented"] == {"Русский": "English"}
+    assert unchecked["Listed"] == {"Английский": "Russian"}
+    assert "Русский" not in unsettled
 
 
 # --- the kind table: the fullest copy of the serializer enum, not the first ---------------
@@ -839,3 +977,241 @@ def test_the_step_writes_the_types_of_the_literals_it_can_pair(tmp_path):
     }
     assert "query_reserved_types" not in written["plain"]
     assert written["plain"]["query_reserved"] == _RESERVED
+
+
+# --- the languages of a project: a compiled enumeration ---------------------------------------
+
+
+def _car_with_classes(path, classes: dict[str, bytes], jar_name: str = "com.e1c.g5rt.demo-1.0.jar",
+                      extra: dict[str, str] | None = None):
+    """A distribution whose one platform jar holds the given classes (and extra text members)."""
+    import io
+    import zipfile
+
+    path.mkdir()
+    jar = io.BytesIO()
+    with zipfile.ZipFile(jar, "w") as z:
+        for member, blob in classes.items():
+            z.writestr(member, blob)
+        for member, text in (extra or {}).items():
+            z.writestr(member, text)
+    car = path / "1c-enterprise-element-server-with-ide-9.9.9+1-test.car"
+    with zipfile.ZipFile(car, "w") as z:
+        z.writestr("data/lib/chassis/modules/" + jar_name, jar.getvalue())
+    return path
+
+
+def test_a_language_is_read_from_its_code_its_term_and_its_mode():
+    from test_extract_classcode import DEMO_LANGUAGES, _enumeration
+
+    from xbsl.extract.terms import language_rows
+
+    assert language_rows(_enumeration(DEMO_LANGUAGES)) == [
+        {"ru": "Английский", "en": "English", "code": "en", "since": "1.0"},
+        {"ru": "Вьетнамский", "en": "Vietnamese", "code": "vi", "since": "9.1"},
+    ]
+
+
+def test_an_enumeration_of_another_shape_is_no_language_table():
+    """One constant without a mode - or with something other than a language code before its
+    term - makes the class some other enumeration, whatever the rest of it looks like."""
+    from test_extract_classcode import DEMO_LANGUAGES, _enumeration
+
+    from xbsl.extract.terms import language_rows
+
+    no_mode = DEMO_LANGUAGES + [("RU", "ru", "Russian", "Русский", None)]
+    no_code = DEMO_LANGUAGES + [("RU", "Default", "Russian", "Русский", "CMODE_1_0")]
+
+    assert language_rows(_enumeration(no_mode)) is None
+    assert language_rows(_enumeration(no_code)) is None
+
+
+def test_the_scan_finds_the_languages_by_their_shape_and_names_the_class(tmp_path):
+    import zipfile
+
+    from test_extract_classcode import DEMO_LANGUAGES, _enumeration
+
+    from xbsl.extract import _distro
+    from xbsl.extract.terms import scan_language_table
+
+    dist = _car_with_classes(tmp_path / "dist", {
+        "demo/lang/DemoLanguages.class": _enumeration(DEMO_LANGUAGES),
+        "demo/lang/Other.class": b"\xca\xfe\xba\xbe not a class the reader follows CMODE_",
+    })
+
+    with zipfile.ZipFile(_distro.find_car(dist)) as car:
+        found = scan_language_table(car)
+
+    assert found is not None
+    assert found[0] == "DemoLanguages"
+    assert [row["code"] for row in found[1]] == ["en", "vi"]
+
+
+def test_the_step_gives_every_language_its_english_spelling(tmp_path):
+    """End to end: the values of the language enumeration join the enumeration values of the
+    term dictionary, which a translation of a project descriptor reads them by."""
+    import json
+
+    from test_extract_classcode import DEMO_LANGUAGES, _enumeration
+
+    from xbsl.extract import _distro, terms
+
+    dist = _car_with_classes(tmp_path / "dist", {
+        "demo/lang/DemoLanguages.class": _enumeration(DEMO_LANGUAGES),
+    })
+    root = tmp_path / "data"
+    try:
+        terms.main(["--dist", str(dist), "--element-version", "9.9.9+1", "--data-dir", str(root)])
+    finally:
+        _distro.set_data_root(None)
+    written = json.loads((root / "9.9.9+1" / "terms.json").read_text(encoding="utf-8"))
+
+    assert written["enums"]["Вьетнамский"] == "Vietnamese"
+    assert written["enums"]["Английский"] == "English"
+
+
+# --- the compiled enumerations the properties of the model are typed by ---------------------
+
+
+def test_the_values_of_a_compiled_enumeration_come_in_both_spellings():
+    from test_extract_classcode import DEMO_PRIORITIES, PRIORITIES, _value_enumeration
+
+    from xbsl.extract.terms import EnumerationValue, enumeration_values
+
+    built = _value_enumeration("demo/acme/StepState", [
+        ("DONE", "Done", "Готово"), ("PLAIN_TEXT", "PlainText", "PlainText", "CMODE_9_1"),
+    ], builder=True)
+
+    assert enumeration_values(_value_enumeration(PRIORITIES, DEMO_PRIORITIES)) == [
+        EnumerationValue("Low", "Низкая"), EnumerationValue("High", "Высокая"),
+    ]
+    # A value spelled alike in both languages is still a value.
+    assert enumeration_values(built) == [
+        EnumerationValue("Done", "Готово"), EnumerationValue("PlainText", "PlainText", since="9.1"),
+    ]
+
+
+def test_a_value_is_dated_by_the_calls_of_the_builder_of_its_item():
+    """The builder of an item names the mode a value is added in and the last mode that keeps
+    it, before the spellings or after them. A mode the constructor itself takes - the shape of
+    the language table - dates no value this way: the call does not say what the mode means."""
+    from test_extract_classcode import DEMO_LANGUAGES, _enumeration, _value_enumeration
+
+    from xbsl.extract.terms import EnumerationValue, enumeration_values
+
+    built = _value_enumeration("demo/acme/Placement", [
+        ("TOP", "Top", "Сверху"),
+        ("OVER", "Over", "Поверх", ("removedAfter", "CMODE_8_2")),
+        ("SIDE", ("added", "CMODE_9_1"), "Side", "Сбоку"),
+        ("NEAR", ("added", "CMODE_8_2"), "Near", "Рядом", ("removedAfter", "CMODE_9_1")),
+    ], builder=True)
+
+    assert enumeration_values(built) == [
+        EnumerationValue("Top", "Сверху"),
+        EnumerationValue("Over", "Поверх", until="8.2"),
+        EnumerationValue("Side", "Сбоку", since="9.1"),
+        EnumerationValue("Near", "Рядом", since="8.2", until="9.1"),
+    ]
+    assert [(value.since, value.until) for value in enumeration_values(
+        _enumeration(DEMO_LANGUAGES))] == [(None, None), (None, None)]
+
+
+def test_an_enumeration_of_another_shape_gives_no_values():
+    """Every constant must be built from its own name and one pair: a constant that pushes
+    anything else first, or no pair at all, makes the class some other enumeration."""
+    from test_extract_classcode import (
+        DEMO_LANGUAGES, DEMO_PRIORITIES, PRIORITIES, _enumeration, _value_enumeration,
+    )
+
+    from xbsl.extract.terms import enumeration_values
+
+    presented = [("EN", "English"), ("RU", "Русский")]
+    named_apart = DEMO_PRIORITIES + [("MEDIUM", "Normal", "Обычная", "7420e42d")]
+
+    def pairs(blob: bytes) -> list[tuple[str, str]] | None:
+        values = enumeration_values(blob)
+        return None if values is None else [(value.english, value.russian) for value in values]
+
+    assert pairs(_value_enumeration(PRIORITIES, presented)) is None
+    assert pairs(_value_enumeration(PRIORITIES, DEMO_PRIORITIES, named=False)) is None
+    # A constant named apart from its value (MEDIUM for Normal) still gives the value.
+    assert pairs(_value_enumeration(PRIORITIES, named_apart)) == [
+        ("Low", "Низкая"), ("High", "Высокая"), ("Normal", "Обычная"),
+    ]
+    # The term the language enumeration builds is its pair.
+    assert pairs(_enumeration(DEMO_LANGUAGES)) == [
+        ("English", "Английский"), ("Vietnamese", "Вьетнамский"),
+    ]
+
+
+def test_the_scan_reads_the_classes_asked_for_and_keeps_the_fullest_copy(tmp_path):
+    import io
+    import zipfile
+
+    from test_extract_classcode import DEMO_PRIORITIES, PRIORITIES, _value_enumeration
+
+    from xbsl.extract.terms import EnumerationValue, scan_enumeration_classes
+
+    path = PRIORITIES + ".class"
+
+    def jar(blob: bytes) -> bytes:
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr(path, blob)
+            z.writestr("demo/acme/Other.class", blob)
+        return out.getvalue()
+
+    car = io.BytesIO()
+    with zipfile.ZipFile(car, "w") as z:
+        z.writestr("data/lib/com.e1c.g5rt.short-1.0.jar",
+                   jar(_value_enumeration(PRIORITIES, DEMO_PRIORITIES[:1])))
+        z.writestr("data/lib/com.e1c.g5rt.full-1.0.jar",
+                   jar(_value_enumeration(PRIORITIES, DEMO_PRIORITIES)))
+        z.writestr("data/lib/vendor-lib-1.0.jar", jar(b"not a class"))
+
+    found = scan_enumeration_classes(zipfile.ZipFile(car), {path, "demo/acme/Missing.class"})
+
+    assert found == {path: [EnumerationValue("Low", "Низкая"), EnumerationValue("High", "Высокая")]}
+
+
+def test_the_step_spells_the_values_of_the_wrapped_enumerations(tmp_path):
+    """End to end: the values of an enumeration the model only wraps join the enumeration
+    values of the term dictionary, the way the languages do."""
+    import json
+
+    from test_extract_metamodel import _wrapping_distribution
+
+    from xbsl.extract import _distro, terms
+
+    dist = _wrapping_distribution(tmp_path)
+    root = tmp_path / "data"
+    try:
+        terms.main(["--dist", str(dist), "--element-version", "9.9.9+1", "--data-dir", str(root)])
+    finally:
+        _distro.set_data_root(None)
+    written = json.loads((root / "9.9.9+1" / "terms.json").read_text(encoding="utf-8"))
+
+    assert written["enums"]["Низкая"] == "Low"
+    assert written["enums"]["Высокая"] == "High"
+    assert written["enums"]["Готово"] == "Done"
+    assert "Любой" not in written["enums"]
+
+
+def test_object_pair_constructor_removes_shifted_neighbours_and_supplies_its_pairs():
+    from test_extract_classcode import _class_of
+
+    pair = "com/e1c/g5rt/utils/common/collections/Pair.<init>"
+    descriptor = "(Ljava/lang/Object;Ljava/lang/Object;)V"
+    blob = _class_of([
+        (pair, ["Кнопка", "Button"], descriptor),
+        (pair, ["Картинка", "Picture"], descriptor),
+        (pair, ["Поле", "Field"], descriptor),
+    ], extra_strings=["Кнопка", "Button", "Картинка", "Picture", "Поле", "Field"])
+
+    members, common, _types = _scan_classes({"demo/acme/EventHandlerRule.class": blob})
+
+    assert members["EventHandlerRule"] == {
+        "Кнопка": "Button", "Картинка": "Picture", "Поле": "Field",
+    }
+    assert common["Картинка"] == "Picture"
+    assert common["Поле"] == "Field"

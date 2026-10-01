@@ -930,6 +930,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         allow_headers=["*"],
         expose_headers=[
             "X-Crawl-Session-Id",
+            # A 409 start conflict names the live run to follow instead.
+            "X-Active-Crawl-Session-Id",
             "X-Site-Id",
             "X-Request-ID",
             "X-Conversation-ID",

@@ -183,7 +183,7 @@ ETL jobs support pySpark and Scala languages, for which there are separate but
 similar constructors. ETL jobs default to the `G_1X` worker type, but you can
 override this default with any other supported `WorkerType` (e.g. `G_2X`,
 `G_4X`, `G_8X`). ETL jobs default to Glue version 4.0, which you can override
-to any supported `GlueVersion` (e.g. 3.0, 5.0, 5.1).
+to any supported `GlueVersion` (e.g. 3.0, 5.0, 5.1, 6.0).
 The following ETL features are enabled by default:
 `--enable-metrics, --enable-continuous-cloudwatch-log.`
 The Spark UI (`--enable-spark-ui`) is off by default; enable it by setting the
@@ -238,7 +238,7 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V5_1,
+    glue_version=glue.GlueVersion.V6_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_configuration=glue.WorkerConfiguration(
         worker_type=glue.WorkerType.G_2X,
@@ -299,7 +299,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V5_1,
+    glue_version=glue.GlueVersion.V6_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_configuration=glue.WorkerConfiguration(
         worker_type=glue.WorkerType.G_2X,
@@ -358,7 +358,7 @@ glue.PySparkFlexEtlJob(stack, "pySparkFlexEtlJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V5_1,
+    glue_version=glue.GlueVersion.V6_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_configuration=glue.WorkerConfiguration(
         worker_type=glue.WorkerType.G_2X,
@@ -5798,6 +5798,5237 @@ class CfnConnectionProps:
 
     def __repr__(self) -> str:
         return "CfnConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_glue_f45a97f3.IConnectionTypeRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnConnectionType(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType",
+):
+    '''Registers a custom connection type in Glue based on the configuration provided.
+
+    This enables customers to configure custom connectors for any data source with REST-based APIs.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html
+    :cloudformationResource: AWS::Glue::ConnectionType
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_glue as glue
+        
+        cfn_connection_type = glue.CfnConnectionType(self, "MyCfnConnectionType",
+            connection_type="connectionType",
+            rest_configuration=glue.CfnConnectionType.RestConfigurationProperty(
+                entity_configurations={
+                    "entity_configurations_key": glue.CfnConnectionType.EntityConfigurationProperty(
+                        schema={
+                            "schema_key": glue.CfnConnectionType.FieldDefinitionProperty(
+                                field_data_type="fieldDataType",
+                                name="name",
+        
+                                # the properties below are optional
+                                filter_overrides=glue.CfnConnectionType.FilterOverridesProperty(
+                                    between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                        high_bound_key="highBoundKey",
+                                        low_bound_key="lowBoundKey",
+                                        template="template"
+                                    ),
+                                    date_time_format="dateTimeFormat",
+                                    field_name="fieldName",
+                                    operator_mappings={
+                                        "operator_mappings_key": "operatorMappings"
+                                    }
+                                ),
+                                is_nullable=False,
+                                is_orderable=False,
+                                is_partitionable=False,
+                                is_queryable=False,
+                                response_date_format="responseDateFormat"
+                            )
+                        },
+                        source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                            filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                                filter_mode="filterMode",
+        
+                                # the properties below are optional
+                                between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                    high_bound_key="highBoundKey",
+                                    low_bound_key="lowBoundKey",
+                                    template="template"
+                                ),
+                                date_time_format="dateTimeFormat",
+                                filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                    query_parameter_name="queryParameterName",
+        
+                                    # the properties below are optional
+                                    quote_character="quoteCharacter",
+                                    quote_string_values=False
+                                ),
+                                operator_mappings={
+                                    "operator_mappings_key": "operatorMappings"
+                                },
+                                strip_quotes=False
+                            ),
+                            pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                                cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                    next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                        default_value="defaultValue",
+                                        key="key",
+                                        property_location="propertyLocation",
+                                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                            content_path="contentPath",
+                                            header_key="headerKey"
+                                        )
+                                    ),
+        
+                                    # the properties below are optional
+                                    limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                        default_value="defaultValue",
+                                        key="key",
+                                        property_location="propertyLocation",
+                                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                            content_path="contentPath",
+                                            header_key="headerKey"
+                                        )
+                                    )
+                                ),
+                                offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                    limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                        default_value="defaultValue",
+                                        key="key",
+                                        property_location="propertyLocation",
+                                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                            content_path="contentPath",
+                                            header_key="headerKey"
+                                        )
+                                    ),
+                                    offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                        default_value="defaultValue",
+                                        key="key",
+                                        property_location="propertyLocation",
+                                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                            content_path="contentPath",
+                                            header_key="headerKey"
+                                        )
+                                    )
+                                )
+                            ),
+                            request_method="requestMethod",
+                            request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+        
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )],
+                            request_path="requestPath",
+                            response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                                result_path="resultPath",
+        
+                                # the properties below are optional
+                                error_path="errorPath"
+                            )
+                        )
+                    )
+                },
+                global_source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                    filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                        filter_mode="filterMode",
+        
+                        # the properties below are optional
+                        between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                            high_bound_key="highBoundKey",
+                            low_bound_key="lowBoundKey",
+                            template="template"
+                        ),
+                        date_time_format="dateTimeFormat",
+                        filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                            query_parameter_name="queryParameterName",
+        
+                            # the properties below are optional
+                            quote_character="quoteCharacter",
+                            quote_string_values=False
+                        ),
+                        operator_mappings={
+                            "operator_mappings_key": "operatorMappings"
+                        },
+                        strip_quotes=False
+                    ),
+                    pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                        cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                            next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            ),
+        
+                            # the properties below are optional
+                            limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            )
+                        ),
+                        offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                            limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            ),
+                            offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            )
+                        )
+                    ),
+                    request_method="requestMethod",
+                    request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+        
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )],
+                    request_path="requestPath",
+                    response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                        result_path="resultPath",
+        
+                        # the properties below are optional
+                        error_path="errorPath"
+                    )
+                ),
+                validation_endpoint_configuration=glue.CfnConnectionType.ValidationEndpointConfigurationProperty(
+                    request_method="requestMethod",
+                    request_path="requestPath"
+                )
+            ),
+        
+            # the properties below are optional
+            connection_properties=glue.CfnConnectionType.ConnectionPropertiesConfigurationProperty(
+                additional_request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                    name="name",
+                    property_type="propertyType",
+                    required=False,
+        
+                    # the properties below are optional
+                    allowed_values=["allowedValues"],
+                    default_value="defaultValue",
+                    key_override="keyOverride",
+                    property_location="propertyLocation"
+                )],
+                url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                    name="name",
+                    property_type="propertyType",
+                    required=False,
+        
+                    # the properties below are optional
+                    allowed_values=["allowedValues"],
+                    default_value="defaultValue",
+                    key_override="keyOverride",
+                    property_location="propertyLocation"
+                )
+            ),
+            connector_authentication_configuration=glue.CfnConnectionType.ConnectorAuthenticationConfigurationProperty(
+                authentication_types=["authenticationTypes"],
+        
+                # the properties below are optional
+                basic_authentication_properties=glue.CfnConnectionType.BasicAuthenticationPropertiesProperty(
+                    password=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+        
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    username=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+        
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )
+                ),
+                custom_authentication_properties=glue.CfnConnectionType.CustomAuthenticationPropertiesProperty(
+                    authentication_parameters=[glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+        
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )]
+                ),
+                o_auth2_properties=glue.CfnConnectionType.ConnectorOAuth2PropertiesProperty(
+                    o_auth2_grant_type="oAuth2GrantType",
+        
+                    # the properties below are optional
+                    authorization_code_properties=glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty(
+                        authorization_code=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        authorization_code_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        content_type="contentType",
+                        prompt=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        redirect_uri=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        request_method="requestMethod",
+                        scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    client_credentials_properties=glue.CfnConnectionType.ClientCredentialsPropertiesProperty(
+                        client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        content_type="contentType",
+                        request_method="requestMethod",
+                        scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    jwt_bearer_properties=glue.CfnConnectionType.JWTBearerPropertiesProperty(
+                        content_type="contentType",
+                        jwt_token=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        request_method="requestMethod",
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+        
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    )
+                )
+            ),
+            description="description",
+            integration_type="integrationType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        connection_type: builtins.str,
+        rest_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.RestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        connection_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectionPropertiesConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connector_authentication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorAuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        integration_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Glue::ConnectionType``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param connection_type: The name of the connection type. Must be prefixed with REST-.
+        :param rest_configuration: Configuration for HTTP request and response handling.
+        :param connection_properties: Configuration that defines the base URL and additional request parameters needed during connection creation.
+        :param connector_authentication_configuration: Configuration that defines supported authentication types and required properties.
+        :param description: A description of the connection type.
+        :param integration_type: The integration type for the connection. Currently only REST is supported.
+        :param tags: Tags to assign to the connection type.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cd929b042082f701d5356d2c8770193dadf1b584d621c922d7a2a5816e4fc54)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConnectionTypeProps(
+            connection_type=connection_type,
+            rest_configuration=rest_configuration,
+            connection_properties=connection_properties,
+            connector_authentication_configuration=connector_authentication_configuration,
+            description=description,
+            integration_type=integration_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForConnectionType")
+    @builtins.classmethod
+    def arn_for_connection_type(
+        cls,
+        resource: "_aws_glue_f45a97f3.IConnectionTypeRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80d1b2759b8f82eeb4a854f20b10b6fe8fcf10bb0cfbe18d21657771b51eee17)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectionType", [resource]))
+
+    @jsii.member(jsii_name="isCfnConnectionType")
+    @builtins.classmethod
+    def is_cfn_connection_type(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConnectionType.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__746efd4d3a1cc7673e44d3fb1f1ad77e3466c736aebaed21416b4c746e3cc598)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnectionType", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6040477bed0c1230136b47cf00c8726c6f8377a7617d7d6daeaad644a50d0ec)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c4ade2bc04fe0f7eee0b59b80dc777e63bdc530443aebb1fd71e6606fb89ae5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectionTypeArn")
+    def attr_connection_type_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the registered connection type.
+
+        :cloudformationAttribute: ConnectionTypeArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectionTypeArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionTypeRef")
+    def connection_type_ref(self) -> "_aws_glue_f45a97f3.ConnectionTypeReference":
+        '''A reference to a ConnectionType resource.'''
+        return typing.cast("_aws_glue_f45a97f3.ConnectionTypeReference", jsii.get(self, "connectionTypeRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionType")
+    def connection_type(self) -> builtins.str:
+        '''The name of the connection type.'''
+        return typing.cast(builtins.str, jsii.get(self, "connectionType"))
+
+    @connection_type.setter
+    def connection_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__010a1b67b4b1cf9923282b9009be96262d0ede5033e02ba0d3f0082a81dd910c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restConfiguration")
+    def rest_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.RestConfigurationProperty"]:
+        '''Configuration for HTTP request and response handling.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.RestConfigurationProperty"], jsii.get(self, "restConfiguration"))
+
+    @rest_configuration.setter
+    def rest_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.RestConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d19461fe9a0181cc5b2be5ad271ef37c391cd0bd30af3397a44285e9168e1c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionProperties")
+    def connection_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectionPropertiesConfigurationProperty"]]:
+        '''Configuration that defines the base URL and additional request parameters needed during connection creation.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectionPropertiesConfigurationProperty"]], jsii.get(self, "connectionProperties"))
+
+    @connection_properties.setter
+    def connection_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectionPropertiesConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__874f4d4b1b32f49c770bca0e305f099f4ad14a46b31f23b67c433288035e1977)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorAuthenticationConfiguration")
+    def connector_authentication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthenticationConfigurationProperty"]]:
+        '''Configuration that defines supported authentication types and required properties.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthenticationConfigurationProperty"]], jsii.get(self, "connectorAuthenticationConfiguration"))
+
+    @connector_authentication_configuration.setter
+    def connector_authentication_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthenticationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ca69c745fb313ba5cf8372c70e2ca8d61756a72e415c5019b8938bee6dfef8ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectorAuthenticationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the connection type.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2cbf6fe7059d5a3fba8636b7b6435337c62f535288af933ccd6555afb48d1d15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationType")
+    def integration_type(self) -> typing.Optional[builtins.str]:
+        '''The integration type for the connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "integrationType"))
+
+    @integration_type.setter
+    def integration_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad97ca0a942f0994734020975047fefa1d89e27ccc27341d8c9ac11feac587c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to assign to the connection type.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6695c9fc6648c1c9083cd587e3a9840c73205e795335be5596864f2c8dc85edd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.BasicAuthenticationPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"password": "password", "username": "username"},
+    )
+    class BasicAuthenticationPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            password: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            username: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Basic authentication configuration.
+
+            :param password: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param username: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-basicauthenticationproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                basic_authentication_properties_property = glue.CfnConnectionType.BasicAuthenticationPropertiesProperty(
+                    password=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    username=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__603a00e973c84deeb22c9957c3817e97e0e916e4495beacb93d7b3f2714f9511)
+                check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+                check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if password is not None:
+                self._values["password"] = password
+            if username is not None:
+                self._values["username"] = username
+
+        @builtins.property
+        def password(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-basicauthenticationproperties.html#cfn-glue-connectiontype-basicauthenticationproperties-password
+            '''
+            result = self._values.get("password")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def username(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-basicauthenticationproperties.html#cfn-glue-connectiontype-basicauthenticationproperties-username
+            '''
+            result = self._values.get("username")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BasicAuthenticationPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.BetweenConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "high_bound_key": "highBoundKey",
+            "low_bound_key": "lowBoundKey",
+            "template": "template",
+        },
+    )
+    class BetweenConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            high_bound_key: typing.Optional[builtins.str] = None,
+            low_bound_key: typing.Optional[builtins.str] = None,
+            template: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration that defines how BETWEEN range filter operations are translated into REST API request parameters.
+
+            :param high_bound_key: The parameter name used for the upper bound value in a BETWEEN filter operation.
+            :param low_bound_key: The parameter name used for the lower bound value in a BETWEEN filter operation.
+            :param template: A template string for constructing the BETWEEN filter expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-betweenconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                between_configuration_property = glue.CfnConnectionType.BetweenConfigurationProperty(
+                    high_bound_key="highBoundKey",
+                    low_bound_key="lowBoundKey",
+                    template="template"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e2cc273bf6272f3f1a95fa5541f58010afac564d87a60cf70630ea6f1e1fea37)
+                check_type(argname="argument high_bound_key", value=high_bound_key, expected_type=type_hints["high_bound_key"])
+                check_type(argname="argument low_bound_key", value=low_bound_key, expected_type=type_hints["low_bound_key"])
+                check_type(argname="argument template", value=template, expected_type=type_hints["template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if high_bound_key is not None:
+                self._values["high_bound_key"] = high_bound_key
+            if low_bound_key is not None:
+                self._values["low_bound_key"] = low_bound_key
+            if template is not None:
+                self._values["template"] = template
+
+        @builtins.property
+        def high_bound_key(self) -> typing.Optional[builtins.str]:
+            '''The parameter name used for the upper bound value in a BETWEEN filter operation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-betweenconfiguration.html#cfn-glue-connectiontype-betweenconfiguration-highboundkey
+            '''
+            result = self._values.get("high_bound_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def low_bound_key(self) -> typing.Optional[builtins.str]:
+            '''The parameter name used for the lower bound value in a BETWEEN filter operation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-betweenconfiguration.html#cfn-glue-connectiontype-betweenconfiguration-lowboundkey
+            '''
+            result = self._values.get("low_bound_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def template(self) -> typing.Optional[builtins.str]:
+            '''A template string for constructing the BETWEEN filter expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-betweenconfiguration.html#cfn-glue-connectiontype-betweenconfiguration-template
+            '''
+            result = self._values.get("template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BetweenConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ClientCredentialsPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "content_type": "contentType",
+            "request_method": "requestMethod",
+            "scope": "scope",
+            "token_url": "tokenUrl",
+            "token_url_parameters": "tokenUrlParameters",
+        },
+    )
+    class ClientCredentialsPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            client_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            content_type: typing.Optional[builtins.str] = None,
+            request_method: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            token_url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            token_url_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''OAuth2 client credentials configuration.
+
+            :param client_id: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param client_secret: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param content_type: 
+            :param request_method: 
+            :param scope: Defines a property configuration for connection types.
+            :param token_url: Defines a property configuration for connection types.
+            :param token_url_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                client_credentials_properties_property = glue.CfnConnectionType.ClientCredentialsPropertiesProperty(
+                    client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    content_type="contentType",
+                    request_method="requestMethod",
+                    scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ef41f1fdfa3b67a0331f85a2c55bc73c4ae183f1ecdb2ac7da568674f8940623)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument request_method", value=request_method, expected_type=type_hints["request_method"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument token_url", value=token_url, expected_type=type_hints["token_url"])
+                check_type(argname="argument token_url_parameters", value=token_url_parameters, expected_type=type_hints["token_url_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if client_id is not None:
+                self._values["client_id"] = client_id
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if request_method is not None:
+                self._values["request_method"] = request_method
+            if scope is not None:
+                self._values["scope"] = scope
+            if token_url is not None:
+                self._values["token_url"] = token_url
+            if token_url_parameters is not None:
+                self._values["token_url_parameters"] = token_url_parameters
+
+        @builtins.property
+        def client_id(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-clientid
+            '''
+            result = self._values.get("client_id")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def client_secret(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def request_method(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-requestmethod
+            '''
+            result = self._values.get("request_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def token_url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-tokenurl
+            '''
+            result = self._values.get("token_url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def token_url_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html#cfn-glue-connectiontype-clientcredentialsproperties-tokenurlparameters
+            '''
+            result = self._values.get("token_url_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientCredentialsPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ConnectionPropertiesConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "additional_request_parameters": "additionalRequestParameters",
+            "url": "url",
+        },
+    )
+    class ConnectionPropertiesConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            additional_request_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration that defines the base URL and additional request parameters needed during connection creation.
+
+            :param additional_request_parameters: Key-value pairs of additional request parameters.
+            :param url: Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectionpropertiesconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                connection_properties_configuration_property = glue.CfnConnectionType.ConnectionPropertiesConfigurationProperty(
+                    additional_request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )],
+                    url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__32ad91a0abe9e1f55ee8496f76c55a417729a4109d369d93af5f69f1b6c9b185)
+                check_type(argname="argument additional_request_parameters", value=additional_request_parameters, expected_type=type_hints["additional_request_parameters"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if additional_request_parameters is not None:
+                self._values["additional_request_parameters"] = additional_request_parameters
+            if url is not None:
+                self._values["url"] = url
+
+        @builtins.property
+        def additional_request_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]]:
+            '''Key-value pairs of additional request parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectionpropertiesconfiguration.html#cfn-glue-connectiontype-connectionpropertiesconfiguration-additionalrequestparameters
+            '''
+            result = self._values.get("additional_request_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]], result)
+
+        @builtins.property
+        def url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectionpropertiesconfiguration.html#cfn-glue-connectiontype-connectionpropertiesconfiguration-url
+            '''
+            result = self._values.get("url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectionPropertiesConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ConnectorAuthenticationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authentication_types": "authenticationTypes",
+            "basic_authentication_properties": "basicAuthenticationProperties",
+            "custom_authentication_properties": "customAuthenticationProperties",
+            "o_auth2_properties": "oAuth2Properties",
+        },
+    )
+    class ConnectorAuthenticationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            authentication_types: typing.Sequence[builtins.str],
+            basic_authentication_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.BasicAuthenticationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_authentication_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.CustomAuthenticationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth2_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorOAuth2PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration that defines supported authentication types and required properties.
+
+            :param authentication_types: A list of authentication types supported.
+            :param basic_authentication_properties: Basic authentication configuration.
+            :param custom_authentication_properties: Custom authentication configuration.
+            :param o_auth2_properties: OAuth2 configuration container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                connector_authentication_configuration_property = glue.CfnConnectionType.ConnectorAuthenticationConfigurationProperty(
+                    authentication_types=["authenticationTypes"],
+                
+                    # the properties below are optional
+                    basic_authentication_properties=glue.CfnConnectionType.BasicAuthenticationPropertiesProperty(
+                        password=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        username=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )
+                    ),
+                    custom_authentication_properties=glue.CfnConnectionType.CustomAuthenticationPropertiesProperty(
+                        authentication_parameters=[glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    o_auth2_properties=glue.CfnConnectionType.ConnectorOAuth2PropertiesProperty(
+                        o_auth2_grant_type="oAuth2GrantType",
+                
+                        # the properties below are optional
+                        authorization_code_properties=glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty(
+                            authorization_code=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            authorization_code_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            content_type="contentType",
+                            prompt=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            redirect_uri=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            request_method="requestMethod",
+                            scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        ),
+                        client_credentials_properties=glue.CfnConnectionType.ClientCredentialsPropertiesProperty(
+                            client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            content_type="contentType",
+                            request_method="requestMethod",
+                            scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        ),
+                        jwt_bearer_properties=glue.CfnConnectionType.JWTBearerPropertiesProperty(
+                            content_type="contentType",
+                            jwt_token=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            request_method="requestMethod",
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+                
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0d24fb0fa442259a923a5f664adc9f5ae7fa3e78eb636331eed8ad906d5aa78a)
+                check_type(argname="argument authentication_types", value=authentication_types, expected_type=type_hints["authentication_types"])
+                check_type(argname="argument basic_authentication_properties", value=basic_authentication_properties, expected_type=type_hints["basic_authentication_properties"])
+                check_type(argname="argument custom_authentication_properties", value=custom_authentication_properties, expected_type=type_hints["custom_authentication_properties"])
+                check_type(argname="argument o_auth2_properties", value=o_auth2_properties, expected_type=type_hints["o_auth2_properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authentication_types": authentication_types,
+            }
+            if basic_authentication_properties is not None:
+                self._values["basic_authentication_properties"] = basic_authentication_properties
+            if custom_authentication_properties is not None:
+                self._values["custom_authentication_properties"] = custom_authentication_properties
+            if o_auth2_properties is not None:
+                self._values["o_auth2_properties"] = o_auth2_properties
+
+        @builtins.property
+        def authentication_types(self) -> typing.List[builtins.str]:
+            '''A list of authentication types supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html#cfn-glue-connectiontype-connectorauthenticationconfiguration-authenticationtypes
+            '''
+            result = self._values.get("authentication_types")
+            assert result is not None, "Required property 'authentication_types' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def basic_authentication_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BasicAuthenticationPropertiesProperty"]]:
+            '''Basic authentication configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html#cfn-glue-connectiontype-connectorauthenticationconfiguration-basicauthenticationproperties
+            '''
+            result = self._values.get("basic_authentication_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BasicAuthenticationPropertiesProperty"]], result)
+
+        @builtins.property
+        def custom_authentication_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.CustomAuthenticationPropertiesProperty"]]:
+            '''Custom authentication configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html#cfn-glue-connectiontype-connectorauthenticationconfiguration-customauthenticationproperties
+            '''
+            result = self._values.get("custom_authentication_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.CustomAuthenticationPropertiesProperty"]], result)
+
+        @builtins.property
+        def o_auth2_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorOAuth2PropertiesProperty"]]:
+            '''OAuth2 configuration container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html#cfn-glue-connectiontype-connectorauthenticationconfiguration-oauth2properties
+            '''
+            result = self._values.get("o_auth2_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorOAuth2PropertiesProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorAuthenticationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_code": "authorizationCode",
+            "authorization_code_url": "authorizationCodeUrl",
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "content_type": "contentType",
+            "prompt": "prompt",
+            "redirect_uri": "redirectUri",
+            "request_method": "requestMethod",
+            "scope": "scope",
+            "token_url": "tokenUrl",
+            "token_url_parameters": "tokenUrlParameters",
+        },
+    )
+    class ConnectorAuthorizationCodePropertiesProperty:
+        def __init__(
+            self,
+            *,
+            authorization_code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authorization_code_url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            content_type: typing.Optional[builtins.str] = None,
+            prompt: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redirect_uri: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            request_method: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            token_url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            token_url_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''OAuth2 authorization code configuration.
+
+            :param authorization_code: Defines a property configuration for connection types.
+            :param authorization_code_url: Defines a property configuration for connection types.
+            :param client_id: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param client_secret: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param content_type: 
+            :param prompt: Defines a property configuration for connection types.
+            :param redirect_uri: Defines a property configuration for connection types.
+            :param request_method: 
+            :param scope: Defines a property configuration for connection types.
+            :param token_url: Defines a property configuration for connection types.
+            :param token_url_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                connector_authorization_code_properties_property = glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty(
+                    authorization_code=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    authorization_code_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    content_type="contentType",
+                    prompt=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    redirect_uri=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    request_method="requestMethod",
+                    scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__48b52575796ee1474bae502526adb9a8e607b4995347e6f83e480e8241dc9c67)
+                check_type(argname="argument authorization_code", value=authorization_code, expected_type=type_hints["authorization_code"])
+                check_type(argname="argument authorization_code_url", value=authorization_code_url, expected_type=type_hints["authorization_code_url"])
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument prompt", value=prompt, expected_type=type_hints["prompt"])
+                check_type(argname="argument redirect_uri", value=redirect_uri, expected_type=type_hints["redirect_uri"])
+                check_type(argname="argument request_method", value=request_method, expected_type=type_hints["request_method"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument token_url", value=token_url, expected_type=type_hints["token_url"])
+                check_type(argname="argument token_url_parameters", value=token_url_parameters, expected_type=type_hints["token_url_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if authorization_code is not None:
+                self._values["authorization_code"] = authorization_code
+            if authorization_code_url is not None:
+                self._values["authorization_code_url"] = authorization_code_url
+            if client_id is not None:
+                self._values["client_id"] = client_id
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if prompt is not None:
+                self._values["prompt"] = prompt
+            if redirect_uri is not None:
+                self._values["redirect_uri"] = redirect_uri
+            if request_method is not None:
+                self._values["request_method"] = request_method
+            if scope is not None:
+                self._values["scope"] = scope
+            if token_url is not None:
+                self._values["token_url"] = token_url
+            if token_url_parameters is not None:
+                self._values["token_url_parameters"] = token_url_parameters
+
+        @builtins.property
+        def authorization_code(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-authorizationcode
+            '''
+            result = self._values.get("authorization_code")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def authorization_code_url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-authorizationcodeurl
+            '''
+            result = self._values.get("authorization_code_url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def client_id(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-clientid
+            '''
+            result = self._values.get("client_id")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def client_secret(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def prompt(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-prompt
+            '''
+            result = self._values.get("prompt")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def redirect_uri(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-redirecturi
+            '''
+            result = self._values.get("redirect_uri")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def request_method(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-requestmethod
+            '''
+            result = self._values.get("request_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def token_url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-tokenurl
+            '''
+            result = self._values.get("token_url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def token_url_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html#cfn-glue-connectiontype-connectorauthorizationcodeproperties-tokenurlparameters
+            '''
+            result = self._values.get("token_url_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorAuthorizationCodePropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ConnectorOAuth2PropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "o_auth2_grant_type": "oAuth2GrantType",
+            "authorization_code_properties": "authorizationCodeProperties",
+            "client_credentials_properties": "clientCredentialsProperties",
+            "jwt_bearer_properties": "jwtBearerProperties",
+        },
+    )
+    class ConnectorOAuth2PropertiesProperty:
+        def __init__(
+            self,
+            *,
+            o_auth2_grant_type: builtins.str,
+            authorization_code_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_credentials_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ClientCredentialsPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            jwt_bearer_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.JWTBearerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''OAuth2 configuration container.
+
+            :param o_auth2_grant_type: The OAuth2 grant type to use.
+            :param authorization_code_properties: OAuth2 authorization code configuration.
+            :param client_credentials_properties: OAuth2 client credentials configuration.
+            :param jwt_bearer_properties: JWT bearer token configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                connector_o_auth2_properties_property = glue.CfnConnectionType.ConnectorOAuth2PropertiesProperty(
+                    o_auth2_grant_type="oAuth2GrantType",
+                
+                    # the properties below are optional
+                    authorization_code_properties=glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty(
+                        authorization_code=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        authorization_code_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        content_type="contentType",
+                        prompt=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        redirect_uri=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        request_method="requestMethod",
+                        scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    client_credentials_properties=glue.CfnConnectionType.ClientCredentialsPropertiesProperty(
+                        client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        content_type="contentType",
+                        request_method="requestMethod",
+                        scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    jwt_bearer_properties=glue.CfnConnectionType.JWTBearerPropertiesProperty(
+                        content_type="contentType",
+                        jwt_token=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        request_method="requestMethod",
+                        token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4faccb0a035e87f0fde446b65f1877dffbded5693901f982113438afd48f2354)
+                check_type(argname="argument o_auth2_grant_type", value=o_auth2_grant_type, expected_type=type_hints["o_auth2_grant_type"])
+                check_type(argname="argument authorization_code_properties", value=authorization_code_properties, expected_type=type_hints["authorization_code_properties"])
+                check_type(argname="argument client_credentials_properties", value=client_credentials_properties, expected_type=type_hints["client_credentials_properties"])
+                check_type(argname="argument jwt_bearer_properties", value=jwt_bearer_properties, expected_type=type_hints["jwt_bearer_properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "o_auth2_grant_type": o_auth2_grant_type,
+            }
+            if authorization_code_properties is not None:
+                self._values["authorization_code_properties"] = authorization_code_properties
+            if client_credentials_properties is not None:
+                self._values["client_credentials_properties"] = client_credentials_properties
+            if jwt_bearer_properties is not None:
+                self._values["jwt_bearer_properties"] = jwt_bearer_properties
+
+        @builtins.property
+        def o_auth2_grant_type(self) -> builtins.str:
+            '''The OAuth2 grant type to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html#cfn-glue-connectiontype-connectoroauth2properties-oauth2granttype
+            '''
+            result = self._values.get("o_auth2_grant_type")
+            assert result is not None, "Required property 'o_auth2_grant_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_code_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty"]]:
+            '''OAuth2 authorization code configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html#cfn-glue-connectiontype-connectoroauth2properties-authorizationcodeproperties
+            '''
+            result = self._values.get("authorization_code_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty"]], result)
+
+        @builtins.property
+        def client_credentials_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ClientCredentialsPropertiesProperty"]]:
+            '''OAuth2 client credentials configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html#cfn-glue-connectiontype-connectoroauth2properties-clientcredentialsproperties
+            '''
+            result = self._values.get("client_credentials_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ClientCredentialsPropertiesProperty"]], result)
+
+        @builtins.property
+        def jwt_bearer_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.JWTBearerPropertiesProperty"]]:
+            '''JWT bearer token configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html#cfn-glue-connectiontype-connectoroauth2properties-jwtbearerproperties
+            '''
+            result = self._values.get("jwt_bearer_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.JWTBearerPropertiesProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorOAuth2PropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ConnectorPropertyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "property_type": "propertyType",
+            "required": "required",
+            "allowed_values": "allowedValues",
+            "default_value": "defaultValue",
+            "key_override": "keyOverride",
+            "property_location": "propertyLocation",
+        },
+    )
+    class ConnectorPropertyProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            property_type: builtins.str,
+            required: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            allowed_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+            default_value: typing.Optional[builtins.str] = None,
+            key_override: typing.Optional[builtins.str] = None,
+            property_location: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines a property configuration for connection types.
+
+            :param name: The name of the property.
+            :param property_type: The data type of this property.
+            :param required: Indicates whether the property is required.
+            :param allowed_values: A list of allowed values for the property.
+            :param default_value: The default value for the property.
+            :param key_override: A key name to use when sending this property in API requests.
+            :param property_location: Specifies where this property should be included in REST requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                connector_property_property = glue.CfnConnectionType.ConnectorPropertyProperty(
+                    name="name",
+                    property_type="propertyType",
+                    required=False,
+                
+                    # the properties below are optional
+                    allowed_values=["allowedValues"],
+                    default_value="defaultValue",
+                    key_override="keyOverride",
+                    property_location="propertyLocation"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__66fe18dae8bfb3fac386b15276da1ad9899229dfb26c3c4b8e16f03751df1237)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument property_type", value=property_type, expected_type=type_hints["property_type"])
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+                check_type(argname="argument key_override", value=key_override, expected_type=type_hints["key_override"])
+                check_type(argname="argument property_location", value=property_location, expected_type=type_hints["property_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "property_type": property_type,
+                "required": required,
+            }
+            if allowed_values is not None:
+                self._values["allowed_values"] = allowed_values
+            if default_value is not None:
+                self._values["default_value"] = default_value
+            if key_override is not None:
+                self._values["key_override"] = key_override
+            if property_location is not None:
+                self._values["property_location"] = property_location
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def property_type(self) -> builtins.str:
+            '''The data type of this property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-propertytype
+            '''
+            result = self._values.get("property_type")
+            assert result is not None, "Required property 'property_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def required(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Indicates whether the property is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of allowed values for the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-allowedvalues
+            '''
+            result = self._values.get("allowed_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''The default value for the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key_override(self) -> typing.Optional[builtins.str]:
+            '''A key name to use when sending this property in API requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-keyoverride
+            '''
+            result = self._values.get("key_override")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def property_location(self) -> typing.Optional[builtins.str]:
+            '''Specifies where this property should be included in REST requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html#cfn-glue-connectiontype-connectorproperty-propertylocation
+            '''
+            result = self._values.get("property_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorPropertyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.CursorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"next_page": "nextPage", "limit_parameter": "limitParameter"},
+    )
+    class CursorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            next_page: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ExtractedParameterProperty", typing.Dict[builtins.str, typing.Any]]],
+            limit_parameter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ExtractedParameterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Cursor-based pagination configuration.
+
+            :param next_page: Parameter extraction configuration.
+            :param limit_parameter: Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-cursorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                cursor_configuration_property = glue.CfnConnectionType.CursorConfigurationProperty(
+                    next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                        default_value="defaultValue",
+                        key="key",
+                        property_location="propertyLocation",
+                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                            content_path="contentPath",
+                            header_key="headerKey"
+                        )
+                    ),
+                
+                    # the properties below are optional
+                    limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                        default_value="defaultValue",
+                        key="key",
+                        property_location="propertyLocation",
+                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                            content_path="contentPath",
+                            header_key="headerKey"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5534f068ea9c627c830ff544fad4fa27b2ce52cfdf650a331cb95c402a3651f6)
+                check_type(argname="argument next_page", value=next_page, expected_type=type_hints["next_page"])
+                check_type(argname="argument limit_parameter", value=limit_parameter, expected_type=type_hints["limit_parameter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "next_page": next_page,
+            }
+            if limit_parameter is not None:
+                self._values["limit_parameter"] = limit_parameter
+
+        @builtins.property
+        def next_page(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"]:
+            '''Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-cursorconfiguration.html#cfn-glue-connectiontype-cursorconfiguration-nextpage
+            '''
+            result = self._values.get("next_page")
+            assert result is not None, "Required property 'next_page' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"], result)
+
+        @builtins.property
+        def limit_parameter(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"]]:
+            '''Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-cursorconfiguration.html#cfn-glue-connectiontype-cursorconfiguration-limitparameter
+            '''
+            result = self._values.get("limit_parameter")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CursorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.CustomAuthenticationPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"authentication_parameters": "authenticationParameters"},
+    )
+    class CustomAuthenticationPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            authentication_parameters: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Custom authentication configuration.
+
+            :param authentication_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-customauthenticationproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                custom_authentication_properties_property = glue.CfnConnectionType.CustomAuthenticationPropertiesProperty(
+                    authentication_parameters=[glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9ed410b3e15b027d5f097b2de237516221ca1d1fbc101788525f52062a576b84)
+                check_type(argname="argument authentication_parameters", value=authentication_parameters, expected_type=type_hints["authentication_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authentication_parameters": authentication_parameters,
+            }
+
+        @builtins.property
+        def authentication_parameters(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-customauthenticationproperties.html#cfn-glue-connectiontype-customauthenticationproperties-authenticationparameters
+            '''
+            result = self._values.get("authentication_parameters")
+            assert result is not None, "Required property 'authentication_parameters' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomAuthenticationPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.EntityConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "schema": "schema",
+            "source_configuration": "sourceConfiguration",
+        },
+    )
+    class EntityConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.FieldDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for interacting with a specific data entity.
+
+            :param schema: The schema definition for this entity.
+            :param source_configuration: Configuration that defines how to make requests to endpoints.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-entityconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                entity_configuration_property = glue.CfnConnectionType.EntityConfigurationProperty(
+                    schema={
+                        "schema_key": glue.CfnConnectionType.FieldDefinitionProperty(
+                            field_data_type="fieldDataType",
+                            name="name",
+                
+                            # the properties below are optional
+                            filter_overrides=glue.CfnConnectionType.FilterOverridesProperty(
+                                between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                    high_bound_key="highBoundKey",
+                                    low_bound_key="lowBoundKey",
+                                    template="template"
+                                ),
+                                date_time_format="dateTimeFormat",
+                                field_name="fieldName",
+                                operator_mappings={
+                                    "operator_mappings_key": "operatorMappings"
+                                }
+                            ),
+                            is_nullable=False,
+                            is_orderable=False,
+                            is_partitionable=False,
+                            is_queryable=False,
+                            response_date_format="responseDateFormat"
+                        )
+                    },
+                    source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                        filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                            filter_mode="filterMode",
+                
+                            # the properties below are optional
+                            between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                high_bound_key="highBoundKey",
+                                low_bound_key="lowBoundKey",
+                                template="template"
+                            ),
+                            date_time_format="dateTimeFormat",
+                            filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                query_parameter_name="queryParameterName",
+                
+                                # the properties below are optional
+                                quote_character="quoteCharacter",
+                                quote_string_values=False
+                            ),
+                            operator_mappings={
+                                "operator_mappings_key": "operatorMappings"
+                            },
+                            strip_quotes=False
+                        ),
+                        pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                            cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+                
+                                # the properties below are optional
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            ),
+                            offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+                                offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            )
+                        ),
+                        request_method="requestMethod",
+                        request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )],
+                        request_path="requestPath",
+                        response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                            result_path="resultPath",
+                
+                            # the properties below are optional
+                            error_path="errorPath"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0064a47919bee20a30bdb10fe58bcdb876d13861582461d6f6521b4716a0df89)
+                check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+                check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if schema is not None:
+                self._values["schema"] = schema
+            if source_configuration is not None:
+                self._values["source_configuration"] = source_configuration
+
+        @builtins.property
+        def schema(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FieldDefinitionProperty"]]]]:
+            '''The schema definition for this entity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-entityconfiguration.html#cfn-glue-connectiontype-entityconfiguration-schema
+            '''
+            result = self._values.get("schema")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FieldDefinitionProperty"]]]], result)
+
+        @builtins.property
+        def source_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SourceConfigurationProperty"]]:
+            '''Configuration that defines how to make requests to endpoints.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-entityconfiguration.html#cfn-glue-connectiontype-entityconfiguration-sourceconfiguration
+            '''
+            result = self._values.get("source_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SourceConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EntityConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ExtractedParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "default_value": "defaultValue",
+            "key": "key",
+            "property_location": "propertyLocation",
+            "value": "value",
+        },
+    )
+    class ExtractedParameterProperty:
+        def __init__(
+            self,
+            *,
+            default_value: typing.Optional[builtins.str] = None,
+            key: typing.Optional[builtins.str] = None,
+            property_location: typing.Optional[builtins.str] = None,
+            value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ResponseExtractionMappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Parameter extraction configuration.
+
+            :param default_value: The default value.
+            :param key: The parameter key name.
+            :param property_location: Specifies where to place the parameter in requests.
+            :param value: Defines how to extract values from HTTP responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                extracted_parameter_property = glue.CfnConnectionType.ExtractedParameterProperty(
+                    default_value="defaultValue",
+                    key="key",
+                    property_location="propertyLocation",
+                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                        content_path="contentPath",
+                        header_key="headerKey"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__359e74a2992399f467a7e79b508ec200609247e0fe6f0804ebec0dbd320a2f16)
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument property_location", value=property_location, expected_type=type_hints["property_location"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if default_value is not None:
+                self._values["default_value"] = default_value
+            if key is not None:
+                self._values["key"] = key
+            if property_location is not None:
+                self._values["property_location"] = property_location
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''The default value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html#cfn-glue-connectiontype-extractedparameter-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The parameter key name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html#cfn-glue-connectiontype-extractedparameter-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def property_location(self) -> typing.Optional[builtins.str]:
+            '''Specifies where to place the parameter in requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html#cfn-glue-connectiontype-extractedparameter-propertylocation
+            '''
+            result = self._values.get("property_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ResponseExtractionMappingProperty"]]:
+            '''Defines how to extract values from HTTP responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html#cfn-glue-connectiontype-extractedparameter-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ResponseExtractionMappingProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExtractedParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.FieldDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "field_data_type": "fieldDataType",
+            "name": "name",
+            "filter_overrides": "filterOverrides",
+            "is_nullable": "isNullable",
+            "is_orderable": "isOrderable",
+            "is_partitionable": "isPartitionable",
+            "is_queryable": "isQueryable",
+            "response_date_format": "responseDateFormat",
+        },
+    )
+    class FieldDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            field_data_type: builtins.str,
+            name: builtins.str,
+            filter_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.FilterOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            is_nullable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_orderable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_partitionable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            is_queryable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            response_date_format: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines a field in an entity schema.
+
+            :param field_data_type: The data type of the field.
+            :param name: The name of the field.
+            :param filter_overrides: Configuration that defines per-field overrides for filter behavior, allowing individual fields to customize how filter operations are applied.
+            :param is_nullable: Indicates whether this field can contain null values.
+            :param is_orderable: Indicates whether this field can be used for ordering results.
+            :param is_partitionable: Indicates whether this field can be used for partitioning queries to the data source.
+            :param is_queryable: Indicates whether this field can be used in filter predicates when querying data.
+            :param response_date_format: The format pattern for parsing date values from API responses. Accepts Java DateTimeFormatter patterns, EPOCH_SECONDS, or EPOCH_MILLIS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                field_definition_property = glue.CfnConnectionType.FieldDefinitionProperty(
+                    field_data_type="fieldDataType",
+                    name="name",
+                
+                    # the properties below are optional
+                    filter_overrides=glue.CfnConnectionType.FilterOverridesProperty(
+                        between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                            high_bound_key="highBoundKey",
+                            low_bound_key="lowBoundKey",
+                            template="template"
+                        ),
+                        date_time_format="dateTimeFormat",
+                        field_name="fieldName",
+                        operator_mappings={
+                            "operator_mappings_key": "operatorMappings"
+                        }
+                    ),
+                    is_nullable=False,
+                    is_orderable=False,
+                    is_partitionable=False,
+                    is_queryable=False,
+                    response_date_format="responseDateFormat"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__05e3a09309c56d04e77666e617d502502e2b51bfa545b82a42cee8522bcdeac4)
+                check_type(argname="argument field_data_type", value=field_data_type, expected_type=type_hints["field_data_type"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument filter_overrides", value=filter_overrides, expected_type=type_hints["filter_overrides"])
+                check_type(argname="argument is_nullable", value=is_nullable, expected_type=type_hints["is_nullable"])
+                check_type(argname="argument is_orderable", value=is_orderable, expected_type=type_hints["is_orderable"])
+                check_type(argname="argument is_partitionable", value=is_partitionable, expected_type=type_hints["is_partitionable"])
+                check_type(argname="argument is_queryable", value=is_queryable, expected_type=type_hints["is_queryable"])
+                check_type(argname="argument response_date_format", value=response_date_format, expected_type=type_hints["response_date_format"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_data_type": field_data_type,
+                "name": name,
+            }
+            if filter_overrides is not None:
+                self._values["filter_overrides"] = filter_overrides
+            if is_nullable is not None:
+                self._values["is_nullable"] = is_nullable
+            if is_orderable is not None:
+                self._values["is_orderable"] = is_orderable
+            if is_partitionable is not None:
+                self._values["is_partitionable"] = is_partitionable
+            if is_queryable is not None:
+                self._values["is_queryable"] = is_queryable
+            if response_date_format is not None:
+                self._values["response_date_format"] = response_date_format
+
+        @builtins.property
+        def field_data_type(self) -> builtins.str:
+            '''The data type of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-fielddatatype
+            '''
+            result = self._values.get("field_data_type")
+            assert result is not None, "Required property 'field_data_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter_overrides(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterOverridesProperty"]]:
+            '''Configuration that defines per-field overrides for filter behavior, allowing individual fields to customize how filter operations are applied.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-filteroverrides
+            '''
+            result = self._values.get("filter_overrides")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterOverridesProperty"]], result)
+
+        @builtins.property
+        def is_nullable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether this field can contain null values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-isnullable
+            '''
+            result = self._values.get("is_nullable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def is_orderable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether this field can be used for ordering results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-isorderable
+            '''
+            result = self._values.get("is_orderable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def is_partitionable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether this field can be used for partitioning queries to the data source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-ispartitionable
+            '''
+            result = self._values.get("is_partitionable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def is_queryable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether this field can be used in filter predicates when querying data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-isqueryable
+            '''
+            result = self._values.get("is_queryable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def response_date_format(self) -> typing.Optional[builtins.str]:
+            '''The format pattern for parsing date values from API responses.
+
+            Accepts Java DateTimeFormatter patterns, EPOCH_SECONDS, or EPOCH_MILLIS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html#cfn-glue-connectiontype-fielddefinition-responsedateformat
+            '''
+            result = self._values.get("response_date_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FieldDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.FilterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "filter_mode": "filterMode",
+            "between_configuration": "betweenConfiguration",
+            "date_time_format": "dateTimeFormat",
+            "filter_string_configuration": "filterStringConfiguration",
+            "operator_mappings": "operatorMappings",
+            "strip_quotes": "stripQuotes",
+        },
+    )
+    class FilterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            filter_mode: builtins.str,
+            between_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.BetweenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            date_time_format: typing.Optional[builtins.str] = None,
+            filter_string_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.FilterStringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            operator_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            strip_quotes: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Configuration that defines how filter predicates are applied to REST API requests, supporting both query parameter and filter string strategies.
+
+            :param filter_mode: The strategy for applying filters to requests.
+            :param between_configuration: Configuration that defines how BETWEEN range filter operations are translated into REST API request parameters.
+            :param date_time_format: The global date and time format for filter expressions.
+            :param filter_string_configuration: Configuration for constructing filter expression strings when using the FILTER_STRING filter mode.
+            :param operator_mappings: A map of logical filter operators to their API-specific string representations.
+            :param strip_quotes: Indicates whether surrounding double quotes should be stripped from filter values before processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                filter_configuration_property = glue.CfnConnectionType.FilterConfigurationProperty(
+                    filter_mode="filterMode",
+                
+                    # the properties below are optional
+                    between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                        high_bound_key="highBoundKey",
+                        low_bound_key="lowBoundKey",
+                        template="template"
+                    ),
+                    date_time_format="dateTimeFormat",
+                    filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                        query_parameter_name="queryParameterName",
+                
+                        # the properties below are optional
+                        quote_character="quoteCharacter",
+                        quote_string_values=False
+                    ),
+                    operator_mappings={
+                        "operator_mappings_key": "operatorMappings"
+                    },
+                    strip_quotes=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b0f8c1ec136bcfe70b9f1711bef537bef14af73efd2a6fe6283ca43e97c34699)
+                check_type(argname="argument filter_mode", value=filter_mode, expected_type=type_hints["filter_mode"])
+                check_type(argname="argument between_configuration", value=between_configuration, expected_type=type_hints["between_configuration"])
+                check_type(argname="argument date_time_format", value=date_time_format, expected_type=type_hints["date_time_format"])
+                check_type(argname="argument filter_string_configuration", value=filter_string_configuration, expected_type=type_hints["filter_string_configuration"])
+                check_type(argname="argument operator_mappings", value=operator_mappings, expected_type=type_hints["operator_mappings"])
+                check_type(argname="argument strip_quotes", value=strip_quotes, expected_type=type_hints["strip_quotes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "filter_mode": filter_mode,
+            }
+            if between_configuration is not None:
+                self._values["between_configuration"] = between_configuration
+            if date_time_format is not None:
+                self._values["date_time_format"] = date_time_format
+            if filter_string_configuration is not None:
+                self._values["filter_string_configuration"] = filter_string_configuration
+            if operator_mappings is not None:
+                self._values["operator_mappings"] = operator_mappings
+            if strip_quotes is not None:
+                self._values["strip_quotes"] = strip_quotes
+
+        @builtins.property
+        def filter_mode(self) -> builtins.str:
+            '''The strategy for applying filters to requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-filtermode
+            '''
+            result = self._values.get("filter_mode")
+            assert result is not None, "Required property 'filter_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def between_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BetweenConfigurationProperty"]]:
+            '''Configuration that defines how BETWEEN range filter operations are translated into REST API request parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-betweenconfiguration
+            '''
+            result = self._values.get("between_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BetweenConfigurationProperty"]], result)
+
+        @builtins.property
+        def date_time_format(self) -> typing.Optional[builtins.str]:
+            '''The global date and time format for filter expressions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-datetimeformat
+            '''
+            result = self._values.get("date_time_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def filter_string_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterStringConfigurationProperty"]]:
+            '''Configuration for constructing filter expression strings when using the FILTER_STRING filter mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-filterstringconfiguration
+            '''
+            result = self._values.get("filter_string_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterStringConfigurationProperty"]], result)
+
+        @builtins.property
+        def operator_mappings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of logical filter operators to their API-specific string representations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-operatormappings
+            '''
+            result = self._values.get("operator_mappings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def strip_quotes(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether surrounding double quotes should be stripped from filter values before processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html#cfn-glue-connectiontype-filterconfiguration-stripquotes
+            '''
+            result = self._values.get("strip_quotes")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.FilterOverridesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "between_configuration": "betweenConfiguration",
+            "date_time_format": "dateTimeFormat",
+            "field_name": "fieldName",
+            "operator_mappings": "operatorMappings",
+        },
+    )
+    class FilterOverridesProperty:
+        def __init__(
+            self,
+            *,
+            between_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.BetweenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            date_time_format: typing.Optional[builtins.str] = None,
+            field_name: typing.Optional[builtins.str] = None,
+            operator_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Configuration that defines per-field overrides for filter behavior, allowing individual fields to customize how filter operations are applied.
+
+            :param between_configuration: Configuration that defines how BETWEEN range filter operations are translated into REST API request parameters.
+            :param date_time_format: The date and time format for filter expressions on this field, overriding the global DateTimeFormat.
+            :param field_name: An override for the field name to use in filter expressions, if different from the schema field name.
+            :param operator_mappings: A map of logical filter operators to their field-specific API representations, overriding the global operator mappings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                filter_overrides_property = glue.CfnConnectionType.FilterOverridesProperty(
+                    between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                        high_bound_key="highBoundKey",
+                        low_bound_key="lowBoundKey",
+                        template="template"
+                    ),
+                    date_time_format="dateTimeFormat",
+                    field_name="fieldName",
+                    operator_mappings={
+                        "operator_mappings_key": "operatorMappings"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__892a0af7c7372eed190fcb3ad5c5525c87b19491a83ebdc0221c665b998b3260)
+                check_type(argname="argument between_configuration", value=between_configuration, expected_type=type_hints["between_configuration"])
+                check_type(argname="argument date_time_format", value=date_time_format, expected_type=type_hints["date_time_format"])
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument operator_mappings", value=operator_mappings, expected_type=type_hints["operator_mappings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if between_configuration is not None:
+                self._values["between_configuration"] = between_configuration
+            if date_time_format is not None:
+                self._values["date_time_format"] = date_time_format
+            if field_name is not None:
+                self._values["field_name"] = field_name
+            if operator_mappings is not None:
+                self._values["operator_mappings"] = operator_mappings
+
+        @builtins.property
+        def between_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BetweenConfigurationProperty"]]:
+            '''Configuration that defines how BETWEEN range filter operations are translated into REST API request parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html#cfn-glue-connectiontype-filteroverrides-betweenconfiguration
+            '''
+            result = self._values.get("between_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.BetweenConfigurationProperty"]], result)
+
+        @builtins.property
+        def date_time_format(self) -> typing.Optional[builtins.str]:
+            '''The date and time format for filter expressions on this field, overriding the global DateTimeFormat.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html#cfn-glue-connectiontype-filteroverrides-datetimeformat
+            '''
+            result = self._values.get("date_time_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def field_name(self) -> typing.Optional[builtins.str]:
+            '''An override for the field name to use in filter expressions, if different from the schema field name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html#cfn-glue-connectiontype-filteroverrides-fieldname
+            '''
+            result = self._values.get("field_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def operator_mappings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of logical filter operators to their field-specific API representations, overriding the global operator mappings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html#cfn-glue-connectiontype-filteroverrides-operatormappings
+            '''
+            result = self._values.get("operator_mappings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterOverridesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.FilterStringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "query_parameter_name": "queryParameterName",
+            "quote_character": "quoteCharacter",
+            "quote_string_values": "quoteStringValues",
+        },
+    )
+    class FilterStringConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            query_parameter_name: builtins.str,
+            quote_character: typing.Optional[builtins.str] = None,
+            quote_string_values: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Configuration for constructing filter expression strings when using the FILTER_STRING filter mode.
+
+            :param query_parameter_name: The query parameter name used to send the constructed filter expression string in API requests.
+            :param quote_character: The character used to quote values when QuoteStringValues is true. Defaults to double quotes if not specified.
+            :param quote_string_values: Indicates whether string and date values should be wrapped with a quote character in the filter expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterstringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                filter_string_configuration_property = glue.CfnConnectionType.FilterStringConfigurationProperty(
+                    query_parameter_name="queryParameterName",
+                
+                    # the properties below are optional
+                    quote_character="quoteCharacter",
+                    quote_string_values=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7da09daefb5eaf948ef6d6b89a2eb8f86ffe9eb14492fe86f27d642b81200329)
+                check_type(argname="argument query_parameter_name", value=query_parameter_name, expected_type=type_hints["query_parameter_name"])
+                check_type(argname="argument quote_character", value=quote_character, expected_type=type_hints["quote_character"])
+                check_type(argname="argument quote_string_values", value=quote_string_values, expected_type=type_hints["quote_string_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "query_parameter_name": query_parameter_name,
+            }
+            if quote_character is not None:
+                self._values["quote_character"] = quote_character
+            if quote_string_values is not None:
+                self._values["quote_string_values"] = quote_string_values
+
+        @builtins.property
+        def query_parameter_name(self) -> builtins.str:
+            '''The query parameter name used to send the constructed filter expression string in API requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterstringconfiguration.html#cfn-glue-connectiontype-filterstringconfiguration-queryparametername
+            '''
+            result = self._values.get("query_parameter_name")
+            assert result is not None, "Required property 'query_parameter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def quote_character(self) -> typing.Optional[builtins.str]:
+            '''The character used to quote values when QuoteStringValues is true.
+
+            Defaults to double quotes if not specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterstringconfiguration.html#cfn-glue-connectiontype-filterstringconfiguration-quotecharacter
+            '''
+            result = self._values.get("quote_character")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def quote_string_values(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates whether string and date values should be wrapped with a quote character in the filter expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterstringconfiguration.html#cfn-glue-connectiontype-filterstringconfiguration-quotestringvalues
+            '''
+            result = self._values.get("quote_string_values")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterStringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.JWTBearerPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "content_type": "contentType",
+            "jwt_token": "jwtToken",
+            "request_method": "requestMethod",
+            "token_url": "tokenUrl",
+            "token_url_parameters": "tokenUrlParameters",
+        },
+    )
+    class JWTBearerPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            content_type: typing.Optional[builtins.str] = None,
+            jwt_token: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SecretConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            request_method: typing.Optional[builtins.str] = None,
+            token_url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            token_url_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''JWT bearer token configuration.
+
+            :param content_type: 
+            :param jwt_token: Defines a secret property configuration. SECRET-type properties cannot have DefaultValue or AllowedValues.
+            :param request_method: 
+            :param token_url: Defines a property configuration for connection types.
+            :param token_url_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                j_wt_bearer_properties_property = glue.CfnConnectionType.JWTBearerPropertiesProperty(
+                    content_type="contentType",
+                    jwt_token=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    request_method="requestMethod",
+                    token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    ),
+                    token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6a0154f42ab88cce9e21c41d141cdf54fe7c357c4489beaf74968abc0719bf0e)
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument jwt_token", value=jwt_token, expected_type=type_hints["jwt_token"])
+                check_type(argname="argument request_method", value=request_method, expected_type=type_hints["request_method"])
+                check_type(argname="argument token_url", value=token_url, expected_type=type_hints["token_url"])
+                check_type(argname="argument token_url_parameters", value=token_url_parameters, expected_type=type_hints["token_url_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if jwt_token is not None:
+                self._values["jwt_token"] = jwt_token
+            if request_method is not None:
+                self._values["request_method"] = request_method
+            if token_url is not None:
+                self._values["token_url"] = token_url
+            if token_url_parameters is not None:
+                self._values["token_url_parameters"] = token_url_parameters
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html#cfn-glue-connectiontype-jwtbearerproperties-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def jwt_token(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]]:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html#cfn-glue-connectiontype-jwtbearerproperties-jwttoken
+            '''
+            result = self._values.get("jwt_token")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SecretConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def request_method(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html#cfn-glue-connectiontype-jwtbearerproperties-requestmethod
+            '''
+            result = self._values.get("request_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def token_url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]:
+            '''Defines a property configuration for connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html#cfn-glue-connectiontype-jwtbearerproperties-tokenurl
+            '''
+            result = self._values.get("token_url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]], result)
+
+        @builtins.property
+        def token_url_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html#cfn-glue-connectiontype-jwtbearerproperties-tokenurlparameters
+            '''
+            result = self._values.get("token_url_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JWTBearerPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.OffsetConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "limit_parameter": "limitParameter",
+            "offset_parameter": "offsetParameter",
+        },
+    )
+    class OffsetConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            limit_parameter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ExtractedParameterProperty", typing.Dict[builtins.str, typing.Any]]],
+            offset_parameter: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ExtractedParameterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Offset-based pagination configuration.
+
+            :param limit_parameter: Parameter extraction configuration.
+            :param offset_parameter: Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-offsetconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                offset_configuration_property = glue.CfnConnectionType.OffsetConfigurationProperty(
+                    limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                        default_value="defaultValue",
+                        key="key",
+                        property_location="propertyLocation",
+                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                            content_path="contentPath",
+                            header_key="headerKey"
+                        )
+                    ),
+                    offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                        default_value="defaultValue",
+                        key="key",
+                        property_location="propertyLocation",
+                        value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                            content_path="contentPath",
+                            header_key="headerKey"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e8cf60fdf37a922201078fe14748089f538dfa5ae321dcf944ea1070c7a19d3f)
+                check_type(argname="argument limit_parameter", value=limit_parameter, expected_type=type_hints["limit_parameter"])
+                check_type(argname="argument offset_parameter", value=offset_parameter, expected_type=type_hints["offset_parameter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "limit_parameter": limit_parameter,
+                "offset_parameter": offset_parameter,
+            }
+
+        @builtins.property
+        def limit_parameter(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"]:
+            '''Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-offsetconfiguration.html#cfn-glue-connectiontype-offsetconfiguration-limitparameter
+            '''
+            result = self._values.get("limit_parameter")
+            assert result is not None, "Required property 'limit_parameter' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"], result)
+
+        @builtins.property
+        def offset_parameter(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"]:
+            '''Parameter extraction configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-offsetconfiguration.html#cfn-glue-connectiontype-offsetconfiguration-offsetparameter
+            '''
+            result = self._values.get("offset_parameter")
+            assert result is not None, "Required property 'offset_parameter' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ExtractedParameterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OffsetConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.PaginationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cursor_configuration": "cursorConfiguration",
+            "offset_configuration": "offsetConfiguration",
+        },
+    )
+    class PaginationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            cursor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.CursorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            offset_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.OffsetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for handling paginated responses.
+
+            :param cursor_configuration: Cursor-based pagination configuration.
+            :param offset_configuration: Offset-based pagination configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-paginationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                pagination_configuration_property = glue.CfnConnectionType.PaginationConfigurationProperty(
+                    cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                        next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                            default_value="defaultValue",
+                            key="key",
+                            property_location="propertyLocation",
+                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                content_path="contentPath",
+                                header_key="headerKey"
+                            )
+                        ),
+                
+                        # the properties below are optional
+                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                            default_value="defaultValue",
+                            key="key",
+                            property_location="propertyLocation",
+                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                content_path="contentPath",
+                                header_key="headerKey"
+                            )
+                        )
+                    ),
+                    offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                            default_value="defaultValue",
+                            key="key",
+                            property_location="propertyLocation",
+                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                content_path="contentPath",
+                                header_key="headerKey"
+                            )
+                        ),
+                        offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                            default_value="defaultValue",
+                            key="key",
+                            property_location="propertyLocation",
+                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                content_path="contentPath",
+                                header_key="headerKey"
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__75f79b92778126ea4757805891899bc53f6eea7702604bb7e2c456b8a7a0d650)
+                check_type(argname="argument cursor_configuration", value=cursor_configuration, expected_type=type_hints["cursor_configuration"])
+                check_type(argname="argument offset_configuration", value=offset_configuration, expected_type=type_hints["offset_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cursor_configuration is not None:
+                self._values["cursor_configuration"] = cursor_configuration
+            if offset_configuration is not None:
+                self._values["offset_configuration"] = offset_configuration
+
+        @builtins.property
+        def cursor_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.CursorConfigurationProperty"]]:
+            '''Cursor-based pagination configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-paginationconfiguration.html#cfn-glue-connectiontype-paginationconfiguration-cursorconfiguration
+            '''
+            result = self._values.get("cursor_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.CursorConfigurationProperty"]], result)
+
+        @builtins.property
+        def offset_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.OffsetConfigurationProperty"]]:
+            '''Offset-based pagination configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-paginationconfiguration.html#cfn-glue-connectiontype-paginationconfiguration-offsetconfiguration
+            '''
+            result = self._values.get("offset_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.OffsetConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaginationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ResponseConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"result_path": "resultPath", "error_path": "errorPath"},
+    )
+    class ResponseConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            result_path: builtins.str,
+            error_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for parsing JSON responses from REST API calls.
+
+            :param result_path: JSON path expression for result data location.
+            :param error_path: JSON path expression for error information location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                response_configuration_property = glue.CfnConnectionType.ResponseConfigurationProperty(
+                    result_path="resultPath",
+                
+                    # the properties below are optional
+                    error_path="errorPath"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__339d33179a10599336a92caa16e953342b490c602903649f7f8cb39446fd4d27)
+                check_type(argname="argument result_path", value=result_path, expected_type=type_hints["result_path"])
+                check_type(argname="argument error_path", value=error_path, expected_type=type_hints["error_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "result_path": result_path,
+            }
+            if error_path is not None:
+                self._values["error_path"] = error_path
+
+        @builtins.property
+        def result_path(self) -> builtins.str:
+            '''JSON path expression for result data location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseconfiguration.html#cfn-glue-connectiontype-responseconfiguration-resultpath
+            '''
+            result = self._values.get("result_path")
+            assert result is not None, "Required property 'result_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def error_path(self) -> typing.Optional[builtins.str]:
+            '''JSON path expression for error information location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseconfiguration.html#cfn-glue-connectiontype-responseconfiguration-errorpath
+            '''
+            result = self._values.get("error_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResponseConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ResponseExtractionMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"content_path": "contentPath", "header_key": "headerKey"},
+    )
+    class ResponseExtractionMappingProperty:
+        def __init__(
+            self,
+            *,
+            content_path: typing.Optional[builtins.str] = None,
+            header_key: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines how to extract values from HTTP responses.
+
+            :param content_path: A JSON path expression to extract a value from response body.
+            :param header_key: The name of an HTTP response header from which to extract the value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseextractionmapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                response_extraction_mapping_property = glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                    content_path="contentPath",
+                    header_key="headerKey"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0b312f64ed183f27acb572db8b239d3d9dd11b48fde97eab99d5fbdbab2e8507)
+                check_type(argname="argument content_path", value=content_path, expected_type=type_hints["content_path"])
+                check_type(argname="argument header_key", value=header_key, expected_type=type_hints["header_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if content_path is not None:
+                self._values["content_path"] = content_path
+            if header_key is not None:
+                self._values["header_key"] = header_key
+
+        @builtins.property
+        def content_path(self) -> typing.Optional[builtins.str]:
+            '''A JSON path expression to extract a value from response body.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseextractionmapping.html#cfn-glue-connectiontype-responseextractionmapping-contentpath
+            '''
+            result = self._values.get("content_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def header_key(self) -> typing.Optional[builtins.str]:
+            '''The name of an HTTP response header from which to extract the value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseextractionmapping.html#cfn-glue-connectiontype-responseextractionmapping-headerkey
+            '''
+            result = self._values.get("header_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResponseExtractionMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.RestConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entity_configurations": "entityConfigurations",
+            "global_source_configuration": "globalSourceConfiguration",
+            "validation_endpoint_configuration": "validationEndpointConfiguration",
+        },
+    )
+    class RestConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            entity_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.EntityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            global_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validation_endpoint_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ValidationEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for HTTP request and response handling.
+
+            :param entity_configurations: A map of entity configurations.
+            :param global_source_configuration: Configuration that defines how to make requests to endpoints.
+            :param validation_endpoint_configuration: Configuration for the validation endpoint. Only supports RequestMethod and RequestPath.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-restconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                rest_configuration_property = glue.CfnConnectionType.RestConfigurationProperty(
+                    entity_configurations={
+                        "entity_configurations_key": glue.CfnConnectionType.EntityConfigurationProperty(
+                            schema={
+                                "schema_key": glue.CfnConnectionType.FieldDefinitionProperty(
+                                    field_data_type="fieldDataType",
+                                    name="name",
+                
+                                    # the properties below are optional
+                                    filter_overrides=glue.CfnConnectionType.FilterOverridesProperty(
+                                        between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                            high_bound_key="highBoundKey",
+                                            low_bound_key="lowBoundKey",
+                                            template="template"
+                                        ),
+                                        date_time_format="dateTimeFormat",
+                                        field_name="fieldName",
+                                        operator_mappings={
+                                            "operator_mappings_key": "operatorMappings"
+                                        }
+                                    ),
+                                    is_nullable=False,
+                                    is_orderable=False,
+                                    is_partitionable=False,
+                                    is_queryable=False,
+                                    response_date_format="responseDateFormat"
+                                )
+                            },
+                            source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                                filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                                    filter_mode="filterMode",
+                
+                                    # the properties below are optional
+                                    between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                        high_bound_key="highBoundKey",
+                                        low_bound_key="lowBoundKey",
+                                        template="template"
+                                    ),
+                                    date_time_format="dateTimeFormat",
+                                    filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                        query_parameter_name="queryParameterName",
+                
+                                        # the properties below are optional
+                                        quote_character="quoteCharacter",
+                                        quote_string_values=False
+                                    ),
+                                    operator_mappings={
+                                        "operator_mappings_key": "operatorMappings"
+                                    },
+                                    strip_quotes=False
+                                ),
+                                pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                                    cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                        next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        ),
+                
+                                        # the properties below are optional
+                                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        )
+                                    ),
+                                    offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        ),
+                                        offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        )
+                                    )
+                                ),
+                                request_method="requestMethod",
+                                request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                    name="name",
+                                    property_type="propertyType",
+                                    required=False,
+                
+                                    # the properties below are optional
+                                    allowed_values=["allowedValues"],
+                                    default_value="defaultValue",
+                                    key_override="keyOverride",
+                                    property_location="propertyLocation"
+                                )],
+                                request_path="requestPath",
+                                response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                                    result_path="resultPath",
+                
+                                    # the properties below are optional
+                                    error_path="errorPath"
+                                )
+                            )
+                        )
+                    },
+                    global_source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                        filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                            filter_mode="filterMode",
+                
+                            # the properties below are optional
+                            between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                high_bound_key="highBoundKey",
+                                low_bound_key="lowBoundKey",
+                                template="template"
+                            ),
+                            date_time_format="dateTimeFormat",
+                            filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                query_parameter_name="queryParameterName",
+                
+                                # the properties below are optional
+                                quote_character="quoteCharacter",
+                                quote_string_values=False
+                            ),
+                            operator_mappings={
+                                "operator_mappings_key": "operatorMappings"
+                            },
+                            strip_quotes=False
+                        ),
+                        pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                            cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+                
+                                # the properties below are optional
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            ),
+                            offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+                                offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            )
+                        ),
+                        request_method="requestMethod",
+                        request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+                
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )],
+                        request_path="requestPath",
+                        response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                            result_path="resultPath",
+                
+                            # the properties below are optional
+                            error_path="errorPath"
+                        )
+                    ),
+                    validation_endpoint_configuration=glue.CfnConnectionType.ValidationEndpointConfigurationProperty(
+                        request_method="requestMethod",
+                        request_path="requestPath"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__98e6562a5818ba9b2296a24de8b859baafbdd7bdf37b9636fa12eb417f35cb35)
+                check_type(argname="argument entity_configurations", value=entity_configurations, expected_type=type_hints["entity_configurations"])
+                check_type(argname="argument global_source_configuration", value=global_source_configuration, expected_type=type_hints["global_source_configuration"])
+                check_type(argname="argument validation_endpoint_configuration", value=validation_endpoint_configuration, expected_type=type_hints["validation_endpoint_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if entity_configurations is not None:
+                self._values["entity_configurations"] = entity_configurations
+            if global_source_configuration is not None:
+                self._values["global_source_configuration"] = global_source_configuration
+            if validation_endpoint_configuration is not None:
+                self._values["validation_endpoint_configuration"] = validation_endpoint_configuration
+
+        @builtins.property
+        def entity_configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.EntityConfigurationProperty"]]]]:
+            '''A map of entity configurations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-restconfiguration.html#cfn-glue-connectiontype-restconfiguration-entityconfigurations
+            '''
+            result = self._values.get("entity_configurations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.EntityConfigurationProperty"]]]], result)
+
+        @builtins.property
+        def global_source_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SourceConfigurationProperty"]]:
+            '''Configuration that defines how to make requests to endpoints.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-restconfiguration.html#cfn-glue-connectiontype-restconfiguration-globalsourceconfiguration
+            '''
+            result = self._values.get("global_source_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.SourceConfigurationProperty"]], result)
+
+        @builtins.property
+        def validation_endpoint_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ValidationEndpointConfigurationProperty"]]:
+            '''Configuration for the validation endpoint.
+
+            Only supports RequestMethod and RequestPath.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-restconfiguration.html#cfn-glue-connectiontype-restconfiguration-validationendpointconfiguration
+            '''
+            result = self._values.get("validation_endpoint_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ValidationEndpointConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.SecretConnectorPropertyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "property_type": "propertyType",
+            "required": "required",
+            "key_override": "keyOverride",
+            "property_location": "propertyLocation",
+        },
+    )
+    class SecretConnectorPropertyProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            property_type: builtins.str,
+            required: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            key_override: typing.Optional[builtins.str] = None,
+            property_location: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines a secret property configuration.
+
+            SECRET-type properties cannot have DefaultValue or AllowedValues.
+
+            :param name: The name of the property.
+            :param property_type: The data type of this property. Must be SECRET for secret properties.
+            :param required: Indicates whether the property is required.
+            :param key_override: A key name to use when sending this property in API requests.
+            :param property_location: Specifies where this property should be included in REST requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                secret_connector_property_property = glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                    name="name",
+                    property_type="propertyType",
+                    required=False,
+                
+                    # the properties below are optional
+                    key_override="keyOverride",
+                    property_location="propertyLocation"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c7c0554b4ebcaaac7f935b573e1297204667e8425aee038035ace2036823322a)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument property_type", value=property_type, expected_type=type_hints["property_type"])
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument key_override", value=key_override, expected_type=type_hints["key_override"])
+                check_type(argname="argument property_location", value=property_location, expected_type=type_hints["property_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "property_type": property_type,
+                "required": required,
+            }
+            if key_override is not None:
+                self._values["key_override"] = key_override
+            if property_location is not None:
+                self._values["property_location"] = property_location
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html#cfn-glue-connectiontype-secretconnectorproperty-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def property_type(self) -> builtins.str:
+            '''The data type of this property.
+
+            Must be SECRET for secret properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html#cfn-glue-connectiontype-secretconnectorproperty-propertytype
+            '''
+            result = self._values.get("property_type")
+            assert result is not None, "Required property 'property_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def required(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Indicates whether the property is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html#cfn-glue-connectiontype-secretconnectorproperty-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def key_override(self) -> typing.Optional[builtins.str]:
+            '''A key name to use when sending this property in API requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html#cfn-glue-connectiontype-secretconnectorproperty-keyoverride
+            '''
+            result = self._values.get("key_override")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def property_location(self) -> typing.Optional[builtins.str]:
+            '''Specifies where this property should be included in REST requests.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html#cfn-glue-connectiontype-secretconnectorproperty-propertylocation
+            '''
+            result = self._values.get("property_location")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretConnectorPropertyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.SourceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "filter_configuration": "filterConfiguration",
+            "pagination_configuration": "paginationConfiguration",
+            "request_method": "requestMethod",
+            "request_parameters": "requestParameters",
+            "request_path": "requestPath",
+            "response_configuration": "responseConfiguration",
+        },
+    )
+    class SourceConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pagination_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.PaginationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            request_method: typing.Optional[builtins.str] = None,
+            request_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            request_path: typing.Optional[builtins.str] = None,
+            response_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration that defines how to make requests to endpoints.
+
+            :param filter_configuration: Configuration that defines how filter predicates are applied to REST API requests, supporting both query parameter and filter string strategies.
+            :param pagination_configuration: Configuration for handling paginated responses.
+            :param request_method: The HTTP method to use.
+            :param request_parameters: Request parameters configuration.
+            :param request_path: The URL path for the REST endpoint.
+            :param response_configuration: Configuration for parsing JSON responses from REST API calls.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                source_configuration_property = glue.CfnConnectionType.SourceConfigurationProperty(
+                    filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                        filter_mode="filterMode",
+                
+                        # the properties below are optional
+                        between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                            high_bound_key="highBoundKey",
+                            low_bound_key="lowBoundKey",
+                            template="template"
+                        ),
+                        date_time_format="dateTimeFormat",
+                        filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                            query_parameter_name="queryParameterName",
+                
+                            # the properties below are optional
+                            quote_character="quoteCharacter",
+                            quote_string_values=False
+                        ),
+                        operator_mappings={
+                            "operator_mappings_key": "operatorMappings"
+                        },
+                        strip_quotes=False
+                    ),
+                    pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                        cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                            next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            ),
+                
+                            # the properties below are optional
+                            limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            )
+                        ),
+                        offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                            limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            ),
+                            offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                default_value="defaultValue",
+                                key="key",
+                                property_location="propertyLocation",
+                                value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                    content_path="contentPath",
+                                    header_key="headerKey"
+                                )
+                            )
+                        )
+                    ),
+                    request_method="requestMethod",
+                    request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+                
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )],
+                    request_path="requestPath",
+                    response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                        result_path="resultPath",
+                
+                        # the properties below are optional
+                        error_path="errorPath"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3a79aa29e6d6b83916d95687b36865bb4e5e1b8574a05eadb3604dd77955700b)
+                check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
+                check_type(argname="argument pagination_configuration", value=pagination_configuration, expected_type=type_hints["pagination_configuration"])
+                check_type(argname="argument request_method", value=request_method, expected_type=type_hints["request_method"])
+                check_type(argname="argument request_parameters", value=request_parameters, expected_type=type_hints["request_parameters"])
+                check_type(argname="argument request_path", value=request_path, expected_type=type_hints["request_path"])
+                check_type(argname="argument response_configuration", value=response_configuration, expected_type=type_hints["response_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if filter_configuration is not None:
+                self._values["filter_configuration"] = filter_configuration
+            if pagination_configuration is not None:
+                self._values["pagination_configuration"] = pagination_configuration
+            if request_method is not None:
+                self._values["request_method"] = request_method
+            if request_parameters is not None:
+                self._values["request_parameters"] = request_parameters
+            if request_path is not None:
+                self._values["request_path"] = request_path
+            if response_configuration is not None:
+                self._values["response_configuration"] = response_configuration
+
+        @builtins.property
+        def filter_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterConfigurationProperty"]]:
+            '''Configuration that defines how filter predicates are applied to REST API requests, supporting both query parameter and filter string strategies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-filterconfiguration
+            '''
+            result = self._values.get("filter_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.FilterConfigurationProperty"]], result)
+
+        @builtins.property
+        def pagination_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.PaginationConfigurationProperty"]]:
+            '''Configuration for handling paginated responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-paginationconfiguration
+            '''
+            result = self._values.get("pagination_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.PaginationConfigurationProperty"]], result)
+
+        @builtins.property
+        def request_method(self) -> typing.Optional[builtins.str]:
+            '''The HTTP method to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-requestmethod
+            '''
+            result = self._values.get("request_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def request_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]]:
+            '''Request parameters configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-requestparameters
+            '''
+            result = self._values.get("request_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorPropertyProperty"]]]], result)
+
+        @builtins.property
+        def request_path(self) -> typing.Optional[builtins.str]:
+            '''The URL path for the REST endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-requestpath
+            '''
+            result = self._values.get("request_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def response_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ResponseConfigurationProperty"]]:
+            '''Configuration for parsing JSON responses from REST API calls.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html#cfn-glue-connectiontype-sourceconfiguration-responseconfiguration
+            '''
+            result = self._values.get("response_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ResponseConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnConnectionType.ValidationEndpointConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "request_method": "requestMethod",
+            "request_path": "requestPath",
+        },
+    )
+    class ValidationEndpointConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            request_method: typing.Optional[builtins.str] = None,
+            request_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for the validation endpoint.
+
+            Only supports RequestMethod and RequestPath.
+
+            :param request_method: The HTTP method to use.
+            :param request_path: The URL path for the REST endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-validationendpointconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                validation_endpoint_configuration_property = glue.CfnConnectionType.ValidationEndpointConfigurationProperty(
+                    request_method="requestMethod",
+                    request_path="requestPath"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__30014998cd87d71df8714174ab7088040d4095e925434e9f10d15b558810c8f8)
+                check_type(argname="argument request_method", value=request_method, expected_type=type_hints["request_method"])
+                check_type(argname="argument request_path", value=request_path, expected_type=type_hints["request_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if request_method is not None:
+                self._values["request_method"] = request_method
+            if request_path is not None:
+                self._values["request_path"] = request_path
+
+        @builtins.property
+        def request_method(self) -> typing.Optional[builtins.str]:
+            '''The HTTP method to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-validationendpointconfiguration.html#cfn-glue-connectiontype-validationendpointconfiguration-requestmethod
+            '''
+            result = self._values.get("request_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def request_path(self) -> typing.Optional[builtins.str]:
+            '''The URL path for the REST endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-validationendpointconfiguration.html#cfn-glue-connectiontype-validationendpointconfiguration-requestpath
+            '''
+            result = self._values.get("request_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ValidationEndpointConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_glue.CfnConnectionTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_type": "connectionType",
+        "rest_configuration": "restConfiguration",
+        "connection_properties": "connectionProperties",
+        "connector_authentication_configuration": "connectorAuthenticationConfiguration",
+        "description": "description",
+        "integration_type": "integrationType",
+        "tags": "tags",
+    },
+)
+class CfnConnectionTypeProps:
+    def __init__(
+        self,
+        *,
+        connection_type: builtins.str,
+        rest_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.RestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        connection_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectionPropertiesConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connector_authentication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectionType.ConnectorAuthenticationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        integration_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnectionType``.
+
+        :param connection_type: The name of the connection type. Must be prefixed with REST-.
+        :param rest_configuration: Configuration for HTTP request and response handling.
+        :param connection_properties: Configuration that defines the base URL and additional request parameters needed during connection creation.
+        :param connector_authentication_configuration: Configuration that defines supported authentication types and required properties.
+        :param description: A description of the connection type.
+        :param integration_type: The integration type for the connection. Currently only REST is supported.
+        :param tags: Tags to assign to the connection type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_glue as glue
+            
+            cfn_connection_type_props = glue.CfnConnectionTypeProps(
+                connection_type="connectionType",
+                rest_configuration=glue.CfnConnectionType.RestConfigurationProperty(
+                    entity_configurations={
+                        "entity_configurations_key": glue.CfnConnectionType.EntityConfigurationProperty(
+                            schema={
+                                "schema_key": glue.CfnConnectionType.FieldDefinitionProperty(
+                                    field_data_type="fieldDataType",
+                                    name="name",
+            
+                                    # the properties below are optional
+                                    filter_overrides=glue.CfnConnectionType.FilterOverridesProperty(
+                                        between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                            high_bound_key="highBoundKey",
+                                            low_bound_key="lowBoundKey",
+                                            template="template"
+                                        ),
+                                        date_time_format="dateTimeFormat",
+                                        field_name="fieldName",
+                                        operator_mappings={
+                                            "operator_mappings_key": "operatorMappings"
+                                        }
+                                    ),
+                                    is_nullable=False,
+                                    is_orderable=False,
+                                    is_partitionable=False,
+                                    is_queryable=False,
+                                    response_date_format="responseDateFormat"
+                                )
+                            },
+                            source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                                filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                                    filter_mode="filterMode",
+            
+                                    # the properties below are optional
+                                    between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                        high_bound_key="highBoundKey",
+                                        low_bound_key="lowBoundKey",
+                                        template="template"
+                                    ),
+                                    date_time_format="dateTimeFormat",
+                                    filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                        query_parameter_name="queryParameterName",
+            
+                                        # the properties below are optional
+                                        quote_character="quoteCharacter",
+                                        quote_string_values=False
+                                    ),
+                                    operator_mappings={
+                                        "operator_mappings_key": "operatorMappings"
+                                    },
+                                    strip_quotes=False
+                                ),
+                                pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                                    cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                        next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        ),
+            
+                                        # the properties below are optional
+                                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        )
+                                    ),
+                                    offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                        limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        ),
+                                        offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                            default_value="defaultValue",
+                                            key="key",
+                                            property_location="propertyLocation",
+                                            value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                                content_path="contentPath",
+                                                header_key="headerKey"
+                                            )
+                                        )
+                                    )
+                                ),
+                                request_method="requestMethod",
+                                request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                    name="name",
+                                    property_type="propertyType",
+                                    required=False,
+            
+                                    # the properties below are optional
+                                    allowed_values=["allowedValues"],
+                                    default_value="defaultValue",
+                                    key_override="keyOverride",
+                                    property_location="propertyLocation"
+                                )],
+                                request_path="requestPath",
+                                response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                                    result_path="resultPath",
+            
+                                    # the properties below are optional
+                                    error_path="errorPath"
+                                )
+                            )
+                        )
+                    },
+                    global_source_configuration=glue.CfnConnectionType.SourceConfigurationProperty(
+                        filter_configuration=glue.CfnConnectionType.FilterConfigurationProperty(
+                            filter_mode="filterMode",
+            
+                            # the properties below are optional
+                            between_configuration=glue.CfnConnectionType.BetweenConfigurationProperty(
+                                high_bound_key="highBoundKey",
+                                low_bound_key="lowBoundKey",
+                                template="template"
+                            ),
+                            date_time_format="dateTimeFormat",
+                            filter_string_configuration=glue.CfnConnectionType.FilterStringConfigurationProperty(
+                                query_parameter_name="queryParameterName",
+            
+                                # the properties below are optional
+                                quote_character="quoteCharacter",
+                                quote_string_values=False
+                            ),
+                            operator_mappings={
+                                "operator_mappings_key": "operatorMappings"
+                            },
+                            strip_quotes=False
+                        ),
+                        pagination_configuration=glue.CfnConnectionType.PaginationConfigurationProperty(
+                            cursor_configuration=glue.CfnConnectionType.CursorConfigurationProperty(
+                                next_page=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+            
+                                # the properties below are optional
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            ),
+                            offset_configuration=glue.CfnConnectionType.OffsetConfigurationProperty(
+                                limit_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                ),
+                                offset_parameter=glue.CfnConnectionType.ExtractedParameterProperty(
+                                    default_value="defaultValue",
+                                    key="key",
+                                    property_location="propertyLocation",
+                                    value=glue.CfnConnectionType.ResponseExtractionMappingProperty(
+                                        content_path="contentPath",
+                                        header_key="headerKey"
+                                    )
+                                )
+                            )
+                        ),
+                        request_method="requestMethod",
+                        request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+            
+                            # the properties below are optional
+                            allowed_values=["allowedValues"],
+                            default_value="defaultValue",
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )],
+                        request_path="requestPath",
+                        response_configuration=glue.CfnConnectionType.ResponseConfigurationProperty(
+                            result_path="resultPath",
+            
+                            # the properties below are optional
+                            error_path="errorPath"
+                        )
+                    ),
+                    validation_endpoint_configuration=glue.CfnConnectionType.ValidationEndpointConfigurationProperty(
+                        request_method="requestMethod",
+                        request_path="requestPath"
+                    )
+                ),
+            
+                # the properties below are optional
+                connection_properties=glue.CfnConnectionType.ConnectionPropertiesConfigurationProperty(
+                    additional_request_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+            
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )],
+                    url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                        name="name",
+                        property_type="propertyType",
+                        required=False,
+            
+                        # the properties below are optional
+                        allowed_values=["allowedValues"],
+                        default_value="defaultValue",
+                        key_override="keyOverride",
+                        property_location="propertyLocation"
+                    )
+                ),
+                connector_authentication_configuration=glue.CfnConnectionType.ConnectorAuthenticationConfigurationProperty(
+                    authentication_types=["authenticationTypes"],
+            
+                    # the properties below are optional
+                    basic_authentication_properties=glue.CfnConnectionType.BasicAuthenticationPropertiesProperty(
+                        password=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+            
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        ),
+                        username=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+            
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )
+                    ),
+                    custom_authentication_properties=glue.CfnConnectionType.CustomAuthenticationPropertiesProperty(
+                        authentication_parameters=[glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                            name="name",
+                            property_type="propertyType",
+                            required=False,
+            
+                            # the properties below are optional
+                            key_override="keyOverride",
+                            property_location="propertyLocation"
+                        )]
+                    ),
+                    o_auth2_properties=glue.CfnConnectionType.ConnectorOAuth2PropertiesProperty(
+                        o_auth2_grant_type="oAuth2GrantType",
+            
+                        # the properties below are optional
+                        authorization_code_properties=glue.CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty(
+                            authorization_code=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            authorization_code_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            content_type="contentType",
+                            prompt=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            redirect_uri=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            request_method="requestMethod",
+                            scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        ),
+                        client_credentials_properties=glue.CfnConnectionType.ClientCredentialsPropertiesProperty(
+                            client_id=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            client_secret=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            content_type="contentType",
+                            request_method="requestMethod",
+                            scope=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        ),
+                        jwt_bearer_properties=glue.CfnConnectionType.JWTBearerPropertiesProperty(
+                            content_type="contentType",
+                            jwt_token=glue.CfnConnectionType.SecretConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            request_method="requestMethod",
+                            token_url=glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            ),
+                            token_url_parameters=[glue.CfnConnectionType.ConnectorPropertyProperty(
+                                name="name",
+                                property_type="propertyType",
+                                required=False,
+            
+                                # the properties below are optional
+                                allowed_values=["allowedValues"],
+                                default_value="defaultValue",
+                                key_override="keyOverride",
+                                property_location="propertyLocation"
+                            )]
+                        )
+                    )
+                ),
+                description="description",
+                integration_type="integrationType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d5814f59754f9e08d8b1612e6db889daacae27216177c86b16a4790c929cb358)
+            check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
+            check_type(argname="argument rest_configuration", value=rest_configuration, expected_type=type_hints["rest_configuration"])
+            check_type(argname="argument connection_properties", value=connection_properties, expected_type=type_hints["connection_properties"])
+            check_type(argname="argument connector_authentication_configuration", value=connector_authentication_configuration, expected_type=type_hints["connector_authentication_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_type": connection_type,
+            "rest_configuration": rest_configuration,
+        }
+        if connection_properties is not None:
+            self._values["connection_properties"] = connection_properties
+        if connector_authentication_configuration is not None:
+            self._values["connector_authentication_configuration"] = connector_authentication_configuration
+        if description is not None:
+            self._values["description"] = description
+        if integration_type is not None:
+            self._values["integration_type"] = integration_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def connection_type(self) -> builtins.str:
+        '''The name of the connection type.
+
+        Must be prefixed with REST-.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-connectiontype
+        '''
+        result = self._values.get("connection_type")
+        assert result is not None, "Required property 'connection_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rest_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.RestConfigurationProperty"]:
+        '''Configuration for HTTP request and response handling.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-restconfiguration
+        '''
+        result = self._values.get("rest_configuration")
+        assert result is not None, "Required property 'rest_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.RestConfigurationProperty"], result)
+
+    @builtins.property
+    def connection_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectionPropertiesConfigurationProperty"]]:
+        '''Configuration that defines the base URL and additional request parameters needed during connection creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-connectionproperties
+        '''
+        result = self._values.get("connection_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectionPropertiesConfigurationProperty"]], result)
+
+    @builtins.property
+    def connector_authentication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthenticationConfigurationProperty"]]:
+        '''Configuration that defines supported authentication types and required properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-connectorauthenticationconfiguration
+        '''
+        result = self._values.get("connector_authentication_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectionType.ConnectorAuthenticationConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the connection type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def integration_type(self) -> typing.Optional[builtins.str]:
+        '''The integration type for the connection.
+
+        Currently only REST is supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-integrationtype
+        '''
+        result = self._values.get("integration_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to assign to the connection type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html#cfn-glue-connectiontype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectionTypeProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -14992,12 +20223,13 @@ class CfnPartition(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrIdentifierPartitionInputValues")
+    def attr_identifier_partition_input_values(self) -> builtins.str:
+        '''A hashed string equivalent to the partition values list for use as a component of the resource's identifier in CFN.
+
+        :cloudformationAttribute: IdentifierPartitionInputValues
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrIdentifierPartitionInputValues"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -27094,7 +32326,7 @@ class ContinuousLoggingProps:
                 description="This is a description",
                 role=role,
                 script=script,
-                glue_version=glue.GlueVersion.V5_1,
+                glue_version=glue.GlueVersion.V6_0,
                 continuous_logging=glue.ContinuousLoggingProps(enabled=False),
                 worker_configuration=glue.WorkerConfiguration(
                     worker_type=glue.WorkerType.G_2X,
@@ -28433,7 +33665,7 @@ class ExecutionClass(enum.Enum):
 class GlueVersion(enum.Enum):
     '''AWS Glue version determines the versions of Apache Spark and Python that are available to the job.
 
-    :see: https://docs.aws.amazon.com/glue/latest/dg/add-job.html.
+    :see: https://docs.aws.amazon.com/glue/latest/dg/release-notes.html
     :exampleMetadata: infused
 
     Example::
@@ -28449,7 +33681,7 @@ class GlueVersion(enum.Enum):
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V5_1,
+            glue_version=glue.GlueVersion.V6_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_configuration=glue.WorkerConfiguration(
                 worker_type=glue.WorkerType.G_2X,
@@ -28482,6 +33714,8 @@ class GlueVersion(enum.Enum):
     '''Glue version using Spark 3.5.4, Python 3.11, and Scala 2.12.18.'''
     V5_1 = "V5_1"
     '''Glue version using Spark 3.5.6, Python 3.11, and Scala 2.12.18.'''
+    V6_0 = "V6_0"
+    '''Glue version using Spark 4.1.1, Python 3.13, and Scala 2.13.'''
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_glue.ICatalog")
@@ -32356,7 +37590,7 @@ class SecurityConfiguration(
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V5_1,
+            glue_version=glue.GlueVersion.V6_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_configuration=glue.WorkerConfiguration(
                 worker_type=glue.WorkerType.G_2X,
@@ -34867,7 +40101,7 @@ class WorkerConfiguration:
                 description="This is a description",
                 role=role,
                 script=script,
-                glue_version=glue.GlueVersion.V5_1,
+                glue_version=glue.GlueVersion.V6_0,
                 continuous_logging=glue.ContinuousLoggingProps(enabled=False),
                 worker_configuration=glue.WorkerConfiguration(
                     worker_type=glue.WorkerType.G_2X,
@@ -34942,7 +40176,7 @@ class WorkerType(enum.Enum):
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V5_1,
+            glue_version=glue.GlueVersion.V6_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_configuration=glue.WorkerConfiguration(
                 worker_type=glue.WorkerType.G_2X,
@@ -35701,7 +40935,7 @@ class Connection(
             description="This is a description",
             role=role,
             script=script,
-            glue_version=glue.GlueVersion.V5_1,
+            glue_version=glue.GlueVersion.V6_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_configuration=glue.WorkerConfiguration(
                 worker_type=glue.WorkerType.G_2X,
@@ -42359,6 +47593,8 @@ __all__ = [
     "CfnClassifierProps",
     "CfnConnection",
     "CfnConnectionProps",
+    "CfnConnectionType",
+    "CfnConnectionTypeProps",
     "CfnCrawler",
     "CfnCrawlerProps",
     "CfnCustomEntityType",
@@ -43062,6 +48298,349 @@ def _typecheckingstub__ff86c0b8645eadb56850c28ce69021a78b30a75c13614c05815d7faf9
     catalog_id: builtins.str,
     connection_input: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnection.ConnectionInputProperty, typing.Dict[builtins.str, typing.Any]]],
     tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cd929b042082f701d5356d2c8770193dadf1b584d621c922d7a2a5816e4fc54(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    connection_type: builtins.str,
+    rest_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.RestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    connection_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectionPropertiesConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_authentication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorAuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    integration_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80d1b2759b8f82eeb4a854f20b10b6fe8fcf10bb0cfbe18d21657771b51eee17(
+    resource: _aws_glue_f45a97f3.IConnectionTypeRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__746efd4d3a1cc7673e44d3fb1f1ad77e3466c736aebaed21416b4c746e3cc598(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6040477bed0c1230136b47cf00c8726c6f8377a7617d7d6daeaad644a50d0ec(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c4ade2bc04fe0f7eee0b59b80dc777e63bdc530443aebb1fd71e6606fb89ae5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__010a1b67b4b1cf9923282b9009be96262d0ede5033e02ba0d3f0082a81dd910c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d19461fe9a0181cc5b2be5ad271ef37c391cd0bd30af3397a44285e9168e1c5(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectionType.RestConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__874f4d4b1b32f49c770bca0e305f099f4ad14a46b31f23b67c433288035e1977(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectionType.ConnectionPropertiesConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca69c745fb313ba5cf8372c70e2ca8d61756a72e415c5019b8938bee6dfef8ce(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectionType.ConnectorAuthenticationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cbf6fe7059d5a3fba8636b7b6435337c62f535288af933ccd6555afb48d1d15(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad97ca0a942f0994734020975047fefa1d89e27ccc27341d8c9ac11feac587c9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6695c9fc6648c1c9083cd587e3a9840c73205e795335be5596864f2c8dc85edd(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__603a00e973c84deeb22c9957c3817e97e0e916e4495beacb93d7b3f2714f9511(
+    *,
+    password: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2cc273bf6272f3f1a95fa5541f58010afac564d87a60cf70630ea6f1e1fea37(
+    *,
+    high_bound_key: typing.Optional[builtins.str] = None,
+    low_bound_key: typing.Optional[builtins.str] = None,
+    template: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef41f1fdfa3b67a0331f85a2c55bc73c4ae183f1ecdb2ac7da568674f8940623(
+    *,
+    client_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_type: typing.Optional[builtins.str] = None,
+    request_method: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_url_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32ad91a0abe9e1f55ee8496f76c55a417729a4109d369d93af5f69f1b6c9b185(
+    *,
+    additional_request_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d24fb0fa442259a923a5f664adc9f5ae7fa3e78eb636331eed8ad906d5aa78a(
+    *,
+    authentication_types: typing.Sequence[builtins.str],
+    basic_authentication_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.BasicAuthenticationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_authentication_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.CustomAuthenticationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth2_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorOAuth2PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48b52575796ee1474bae502526adb9a8e607b4995347e6f83e480e8241dc9c67(
+    *,
+    authorization_code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authorization_code_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_type: typing.Optional[builtins.str] = None,
+    prompt: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redirect_uri: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_method: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_url_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4faccb0a035e87f0fde446b65f1877dffbded5693901f982113438afd48f2354(
+    *,
+    o_auth2_grant_type: builtins.str,
+    authorization_code_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorAuthorizationCodePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_credentials_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ClientCredentialsPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    jwt_bearer_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.JWTBearerPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66fe18dae8bfb3fac386b15276da1ad9899229dfb26c3c4b8e16f03751df1237(
+    *,
+    name: builtins.str,
+    property_type: builtins.str,
+    required: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    allowed_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    default_value: typing.Optional[builtins.str] = None,
+    key_override: typing.Optional[builtins.str] = None,
+    property_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5534f068ea9c627c830ff544fad4fa27b2ce52cfdf650a331cb95c402a3651f6(
+    *,
+    next_page: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ExtractedParameterProperty, typing.Dict[builtins.str, typing.Any]]],
+    limit_parameter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ExtractedParameterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ed410b3e15b027d5f097b2de237516221ca1d1fbc101788525f52062a576b84(
+    *,
+    authentication_parameters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0064a47919bee20a30bdb10fe58bcdb876d13861582461d6f6521b4716a0df89(
+    *,
+    schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.FieldDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__359e74a2992399f467a7e79b508ec200609247e0fe6f0804ebec0dbd320a2f16(
+    *,
+    default_value: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.str] = None,
+    property_location: typing.Optional[builtins.str] = None,
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ResponseExtractionMappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05e3a09309c56d04e77666e617d502502e2b51bfa545b82a42cee8522bcdeac4(
+    *,
+    field_data_type: builtins.str,
+    name: builtins.str,
+    filter_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.FilterOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_nullable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_orderable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_partitionable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    is_queryable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    response_date_format: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0f8c1ec136bcfe70b9f1711bef537bef14af73efd2a6fe6283ca43e97c34699(
+    *,
+    filter_mode: builtins.str,
+    between_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.BetweenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    date_time_format: typing.Optional[builtins.str] = None,
+    filter_string_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.FilterStringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    operator_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    strip_quotes: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__892a0af7c7372eed190fcb3ad5c5525c87b19491a83ebdc0221c665b998b3260(
+    *,
+    between_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.BetweenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    date_time_format: typing.Optional[builtins.str] = None,
+    field_name: typing.Optional[builtins.str] = None,
+    operator_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7da09daefb5eaf948ef6d6b89a2eb8f86ffe9eb14492fe86f27d642b81200329(
+    *,
+    query_parameter_name: builtins.str,
+    quote_character: typing.Optional[builtins.str] = None,
+    quote_string_values: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a0154f42ab88cce9e21c41d141cdf54fe7c357c4489beaf74968abc0719bf0e(
+    *,
+    content_type: typing.Optional[builtins.str] = None,
+    jwt_token: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SecretConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_method: typing.Optional[builtins.str] = None,
+    token_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_url_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8cf60fdf37a922201078fe14748089f538dfa5ae321dcf944ea1070c7a19d3f(
+    *,
+    limit_parameter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ExtractedParameterProperty, typing.Dict[builtins.str, typing.Any]]],
+    offset_parameter: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ExtractedParameterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75f79b92778126ea4757805891899bc53f6eea7702604bb7e2c456b8a7a0d650(
+    *,
+    cursor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.CursorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    offset_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.OffsetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__339d33179a10599336a92caa16e953342b490c602903649f7f8cb39446fd4d27(
+    *,
+    result_path: builtins.str,
+    error_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b312f64ed183f27acb572db8b239d3d9dd11b48fde97eab99d5fbdbab2e8507(
+    *,
+    content_path: typing.Optional[builtins.str] = None,
+    header_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98e6562a5818ba9b2296a24de8b859baafbdd7bdf37b9636fa12eb417f35cb35(
+    *,
+    entity_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.EntityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validation_endpoint_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ValidationEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7c0554b4ebcaaac7f935b573e1297204667e8425aee038035ace2036823322a(
+    *,
+    name: builtins.str,
+    property_type: builtins.str,
+    required: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    key_override: typing.Optional[builtins.str] = None,
+    property_location: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a79aa29e6d6b83916d95687b36865bb4e5e1b8574a05eadb3604dd77955700b(
+    *,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pagination_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.PaginationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    request_method: typing.Optional[builtins.str] = None,
+    request_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    request_path: typing.Optional[builtins.str] = None,
+    response_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30014998cd87d71df8714174ab7088040d4095e925434e9f10d15b558810c8f8(
+    *,
+    request_method: typing.Optional[builtins.str] = None,
+    request_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5814f59754f9e08d8b1612e6db889daacae27216177c86b16a4790c929cb358(
+    *,
+    connection_type: builtins.str,
+    rest_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.RestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    connection_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectionPropertiesConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_authentication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectionType.ConnectorAuthenticationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    integration_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

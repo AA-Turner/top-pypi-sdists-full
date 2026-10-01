@@ -44,7 +44,12 @@ class Pending:
 
     A protocol state rather than a failure, so it is returned rather than
     raised: only the caller knows how long to keep waiting.
+
+    Attributes:
+        slow_down: The service asked the caller to poll less often (RFC 8628 §3.5).
     """
+
+    slow_down: bool = False
 
 
 @dataclass(frozen=True)

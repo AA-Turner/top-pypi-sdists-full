@@ -42,6 +42,8 @@ from .literals import (
     DescriptorTypeType,
     HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
+    HarnessHookDecisionType,
+    HarnessHookEventTypeType,
     HarnessOpenAiApiFormatType,
     HarnessStopReasonType,
     HarnessToolTypeType,
@@ -64,6 +66,7 @@ from .literals import (
     RecommendationTypeType,
     RegistryRecordStatusType,
     ResourceContentTypeType,
+    ResultDestinationType,
     RoleType,
     SessionStatusType,
     TaskStatusType,
@@ -137,6 +140,7 @@ __all__ = (
     "ConflictExceptionTypeDef",
     "ContentBlockTypeDef",
     "ContentDeltaEventTypeDef",
+    "ContentSourceTypeDef",
     "ContentStopEventTypeDef",
     "ContentTypeDef",
     "ContextTypeDef",
@@ -260,6 +264,7 @@ __all__ = (
     "HarnessContentBlockTypeDef",
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGeminiModelConfigTypeDef",
+    "HarnessHookEventTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
     "HarnessLiteLlmModelConfigTypeDef",
     "HarnessMessageStartEventTypeDef",
@@ -290,7 +295,11 @@ __all__ = (
     "HarnessToolUseBlockDeltaTypeDef",
     "HarnessToolUseBlockStartTypeDef",
     "HarnessToolUseBlockTypeDef",
+    "IngestDataInputTypeDef",
+    "IngestDataOutputTypeDef",
+    "IngestPayloadTypeTypeDef",
     "InlineGroundTruthTypeDef",
+    "InlineMemoryContentTypeDef",
     "InputContentBlockTypeDef",
     "InsightTypeDef",
     "InsightsFailureSignalTypeDef",
@@ -456,6 +465,8 @@ __all__ = (
     "SessionLimitsTypeDef",
     "SessionMetadataShapeTypeDef",
     "SessionSummaryTypeDef",
+    "SessionTraceIdsOutputTypeDef",
+    "SessionTraceIdsTypeDef",
     "SkillDefinitionTypeDef",
     "SkillMdDefinitionTypeDef",
     "SpanContextTypeDef",
@@ -704,6 +715,14 @@ class SessionFilterConfigOutputTypeDef(TypedDict):
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
 
+class SessionTraceIdsOutputTypeDef(TypedDict):
+    sessionId: str
+    traceIds: list[str]
+
+class SessionTraceIdsTypeDef(TypedDict):
+    sessionId: str
+    traceIds: Sequence[str]
+
 class FilterValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
     doubleValue: NotRequired[float]
@@ -712,8 +731,10 @@ class FilterValueTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
-    logGroupName: str
-    logStreamName: str
+    logGroupName: NotRequired[str]
+    logStreamName: NotRequired[str]
+    metricsNamespace: NotRequired[str]
+    resultDestination: NotRequired[ResultDestinationType]
 
 class ToolResultStructuredContentTypeDef(TypedDict):
     taskId: NotRequired[str]
@@ -1090,6 +1111,17 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     topK: NotRequired[int]
     additionalParams: NotRequired[Mapping[str, Any]]
 
+HarnessHookEventTypeDef = TypedDict(
+    "HarnessHookEventTypeDef",
+    {
+        "hookEventId": str,
+        "name": str,
+        "type": HarnessHookEventTypeType,
+        "decision": NotRequired[HarnessHookDecisionType],
+        "reason": NotRequired[str],
+    },
+)
+
 class HarnessInlineFunctionConfigTypeDef(TypedDict):
     description: str
     inputSchema: Mapping[str, Any]
@@ -1122,6 +1154,7 @@ class HarnessTokenUsageTypeDef(TypedDict):
 class HarnessOpenAiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
+    apiBase: NotRequired[str]
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
@@ -1518,6 +1551,10 @@ class GetWorkloadAccessTokenResponseTypeDef(TypedDict):
     workloadAccessToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class IngestDataOutputTypeDef(TypedDict):
+    sessionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class InvokeAgentRuntimeResponseTypeDef(TypedDict):
     runtimeSessionId: str
     mcpSessionId: str
@@ -1649,13 +1686,14 @@ class ListBrowserSessionsResponseTypeDef(TypedDict):
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
 
-class CloudWatchFilterConfigOutputTypeDef(TypedDict):
-    sessionIds: NotRequired[list[str]]
-    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
-
 class OnlineEvaluationConfigSourceOutputTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
     timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
+
+class CloudWatchFilterConfigOutputTypeDef(TypedDict):
+    sessionIds: NotRequired[list[str]]
+    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
+    sessionTraceIds: NotRequired[list[SessionTraceIdsOutputTypeDef]]
 
 CloudWatchLogsFilterTypeDef = TypedDict(
     "CloudWatchLogsFilterTypeDef",
@@ -2105,7 +2143,8 @@ class CertificateTypeDef(TypedDict):
 
 class CloudWatchLogsSourceOutputTypeDef(TypedDict):
     serviceNames: list[str]
-    logGroupNames: list[str]
+    logGroupNames: NotRequired[list[str]]
+    logGroupNamePrefixes: NotRequired[list[str]]
     filterConfig: NotRequired[CloudWatchFilterConfigOutputTypeDef]
 
 class CloudWatchLogsRuleOutputTypeDef(TypedDict):
@@ -2121,6 +2160,7 @@ MemoryRecordMetadataValueUnionTypeDef = Union[
 class CloudWatchFilterConfigTypeDef(TypedDict):
     sessionIds: NotRequired[Sequence[str]]
     timeRange: NotRequired[SessionFilterConfigTypeDef]
+    sessionTraceIds: NotRequired[Sequence[SessionTraceIdsTypeDef]]
 
 class OnlineEvaluationConfigSourceTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
@@ -2250,6 +2290,10 @@ class DescriptorsTypeDef(TypedDict):
     a2a: NotRequired[A2aDescriptorTypeDef]
     custom: NotRequired[CustomDescriptorTypeDef]
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
+
+class IngestPayloadTypeTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    json: NotRequired[MemoryJsonDataUnionTypeDef]
 
 class PayloadTypeTypeDef(TypedDict):
     conversational: NotRequired[ConversationalTypeDef]
@@ -2423,7 +2467,8 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
 
 class CloudWatchLogsSourceTypeDef(TypedDict):
     serviceNames: Sequence[str]
-    logGroupNames: Sequence[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    logGroupNamePrefixes: NotRequired[Sequence[str]]
     filterConfig: NotRequired[CloudWatchFilterConfigTypeDef]
 
 class ABTestResultsTypeDef(TypedDict):
@@ -2504,6 +2549,7 @@ class InvokeHarnessStreamOutputTypeDef(TypedDict):
     internalServerException: NotRequired[InternalServerExceptionTypeDef]
     validationException: NotRequired[ValidationExceptionTypeDef]
     runtimeClientError: NotRequired[RuntimeClientErrorTypeDef]
+    hookEvent: NotRequired[HarnessHookEventTypeDef]
 
 class HarnessToolConfigurationTypeDef(TypedDict):
     remoteMcp: NotRequired[HarnessRemoteMcpConfigTypeDef]
@@ -2540,6 +2586,9 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+
+class InlineMemoryContentTypeDef(TypedDict):
+    payload: Sequence[IngestPayloadTypeTypeDef]
 
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
 
@@ -2732,6 +2781,9 @@ class SearchRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ContentSourceTypeDef(TypedDict):
+    inline: NotRequired[InlineMemoryContentTypeDef]
+
 class CreateEventInputTypeDef(TypedDict):
     memoryId: str
     actorId: str
@@ -2853,6 +2905,16 @@ PaymentInstrumentDetailsUnionTypeDef = Union[
     PaymentInstrumentDetailsTypeDef, PaymentInstrumentDetailsOutputTypeDef
 ]
 
+class IngestDataInputTypeDef(TypedDict):
+    memoryId: str
+    source: ContentSourceTypeDef
+    contentTimestamp: TimestampTypeDef
+    actorId: str
+    sessionId: NotRequired[str]
+    extractionConfig: NotRequired[ExtractionConfigTypeDef]
+    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    clientToken: NotRequired[str]
+
 class StartBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
     traceId: NotRequired[str]
@@ -2906,6 +2968,7 @@ class StartBatchEvaluationRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
     description: NotRequired[str]
+    outputConfig: NotRequired[OutputConfigTypeDef]
 
 class CreatePaymentInstrumentResponseTypeDef(TypedDict):
     paymentInstrument: PaymentInstrumentTypeDef

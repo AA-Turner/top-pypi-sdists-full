@@ -87,7 +87,7 @@ ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDA
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
-FirewallStatusValueType = Literal["DELETING", "PROVISIONING", "READY"]
+FirewallStatusValueType = Literal["DELETING", "FAILED", "PROVISIONING", "READY"]
 FlowOperationStatusType = Literal["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"]
 FlowOperationTypeType = Literal["FLOW_CAPTURE", "FLOW_FLUSH"]
 GeneratedRulesTypeType = Literal["ALERTLIST", "ALLOWLIST", "DENYLIST", "REJECTLIST"]
@@ -257,6 +257,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -331,6 +332,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -359,6 +361,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -453,6 +456,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

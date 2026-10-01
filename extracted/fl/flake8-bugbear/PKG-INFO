@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-bugbear
-Version: 26.9.9
+Version: 26.9.30
 Summary: A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle.
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License: MIT
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -212,7 +213,11 @@ using ``pytest.raises``), or use the context manager form with a target
 .. _B018:
 
 **B018**: Found useless expression. Either assign it to a variable or remove it.
-The check also considers function calls without side-effects such as ``isinstance``.
+The check also considers function calls without side-effects such as ``isinstance``,
+and unary and arithmetic operations such as ``-x`` or ``a * b``. Shifts, bitwise
+operators and ``@`` are left alone, since libraries overload them for their side
+effects, and so is an operation directly in a ``try`` or ``with`` block, where it may be
+run only to see it raise.
 Note that dangling commas will cause things to be interpreted as useless tuples.
 For example, in the statement ``print(".."),`` is the same as ``(print(".."),)``
 which is an unassigned tuple. Simply remove the comma to clear the error.
@@ -549,6 +554,24 @@ MIT
 Change Log
 ----------
 
+26.9.30
+~~~~~~~
+
+* B008: resolve direct module-level imports and aliases when matching
+  ``extend-immutable-calls`` (#252)
+* B015: allow comparisons inside pytest/unittest exception and warning assertion
+  context managers, where an overloaded comparison may intentionally raise (#462).
+* B020: stop flagging names bound inside nested destructuring patterns, like
+  ``series`` in ``for i, (ax, (series, name)) in enumerate(zip(axs, series))``;
+  the loop rebinds the top-level targets, not those names (#521)
+* Add Python 3.15 support / CI
+* B913: fix crash on ``{**d for d in ...}`` dict unpacking in comprehensions, new in Python 3.15; B035 no longer mistakes the unpacked expression for a static key
+* B018: also report unary and arithmetic operations used as statements, such as a
+  ``+c * d`` continuation line that lost its parentheses (#452)
+* B042: don't treat a class named like an exception as one when its only bases are
+  parameterized generics such as ``ContextManager[T]``; a generic base named like an
+  exception, such as ``MyError[int]``, now counts (#538)
+
 26.9.9
 ~~~~~~
 
@@ -569,6 +592,7 @@ Change Log
 * B902: don't raise a false positive on a metaclass defined with a dotted base such as `abc.ABCMeta` or `enum.EnumMeta` (#411)
 * B913: Add an optional check for unused ``_`` targets in ``zip()`` loops (#545)
 * B912: only emit on Python 3.14+ where ``map()`` supports ``strict=`` (#548)
+* Recursion errors raised during rules evaluation show a message instead of a raw traceback (#560)
 
 25.11.29
 ~~~~~~~~

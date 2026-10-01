@@ -111,7 +111,7 @@ NotificationConfigurationSubtypeType = Literal["ACCOUNT", "ADMIN_MANAGED"]
 NotificationHubStatusType = Literal["ACTIVE", "DEREGISTERING", "INACTIVE", "REGISTERING"]
 NotificationTypeType = Literal["ALERT", "ANNOUNCEMENT", "INFORMATIONAL", "WARNING"]
 SchemaVersionType = Literal["v1.0"]
-TextPartTypeType = Literal["LOCALIZED_TEXT", "PLAIN_TEXT", "URL"]
+TextPartTypeType = Literal["LOCALIZED_TEXT", "PLAIN_TEXT", "PORTABLE_TEXT", "URL"]
 UserNotificationsServiceName = Literal["notifications"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -193,6 +193,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -267,6 +268,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -295,6 +297,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -389,6 +392,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -41,9 +41,6 @@ PSC_CONSUMERS = config.get_object("psc-consumer-projects") or [
     "airbyte-agent-plane-dev"
 ]
 CONFIG_SECRET = config.get("config-secret-id") or "airmux-config"
-# Provider env var -> full cross-project secret resource name; the control
-# plane's env secrets store only accepts a credential matching its own env.
-PROVIDER_KEY_SECRETS = config.get_object("provider-key-secrets") or {}
 
 # One pinned release tag for every service/job; the deploy workflow resolves
 # it to a digest through the `airmux-upstream` remote repo.
@@ -517,15 +514,6 @@ def define_services(
         _secret_env("AIRMUX_DATAPLANE_MANAGEMENT_KEY", variant.management_key_secret),
         _env("FORWARDED_ALLOW_IPS", "*"),
     ]
-    # Only the control plane needs the vendor keys: airmux's `env` secrets
-    # store accepts a credential only when its value matches the process env.
-    control_env = [
-        *common,
-        *[
-            _secret_env(env_name, secret_ref)
-            for env_name, secret_ref in PROVIDER_KEY_SECRETS.items()
-        ],
-    ]
     config_volume = _secret_volume(CONFIG_SECRET, config_version.version)
 
     def job_template(command: str) -> gcp.cloudrunv2.JobTemplateArgs:
@@ -595,7 +583,7 @@ def define_services(
         _runtime_template(
             service_account,
             connection,
-            control_env,
+            common,
             [config_volume],
             ["control-plane"],
             8000,
@@ -797,11 +785,16 @@ def define_external_lb(
 # heartbeat.py, budgets.py): bundles/manifest, bundles/{id}, events,
 # heartbeat, policy-state/sync. Anything else gets a synthetic 404 at the LB.
 # Exact data-plane call sites only (upstream routes/sync.py serves just
-# GET /bundles/manifest and GET /bundles/{bundle_id}): bare /bundles and
-# nested paths must not pass.
-GATEWAY_ALLOWED_REGEX = (
-    r"^/api/v1/(bundles/(manifest|[^/]+)|events|heartbeat|policy-state/sync)$"
+# GET /bundles/manifest and GET /bundles/{bundle_id}): bare /bundles must
+# not pass. Match rules within one route rule are OR'ed. The URL map regex
+# dialect rejects groups and character classes, so bundles use a prefix
+# match and the control plane's own router 404s anything nested under it.
+GATEWAY_ALLOWED_PATHS = (
+    "/api/v1/events",
+    "/api/v1/heartbeat",
+    "/api/v1/policy-state/sync",
 )
+GATEWAY_BUNDLE_PREFIX = "/api/v1/bundles/"
 
 
 def _gateway_matcher(
@@ -815,8 +808,14 @@ def _gateway_matcher(
                 priority=1,
                 match_rules=[
                     gcp.compute.RegionUrlMapPathMatcherRouteRuleMatchRuleArgs(
-                        regex_match=GATEWAY_ALLOWED_REGEX
-                    )
+                        prefix_match=GATEWAY_BUNDLE_PREFIX
+                    ),
+                    *(
+                        gcp.compute.RegionUrlMapPathMatcherRouteRuleMatchRuleArgs(
+                            full_path_match=path
+                        )
+                        for path in GATEWAY_ALLOWED_PATHS
+                    ),
                 ],
                 service=backend.self_link,
             ),
@@ -862,7 +861,6 @@ def define_gateway_edge(
             region=REGION,
             protocol="HTTP",
             load_balancing_scheme="INTERNAL_MANAGED",
-            network=network.id,
             backends=[gcp.compute.RegionBackendServiceBackendArgs(group=neg.id)],
         )
     gateway_map = gcp.compute.RegionUrlMap(
@@ -968,7 +966,7 @@ def define_gateway_edge(
         subnetwork=ilb_subnet.id,
         ip_address=address.address,
         target=https_proxy.id,
-        ports=["443"],
+        port_range="443",
         load_balancing_scheme="INTERNAL_MANAGED",
         allow_global_access=True,
         # The proxy-only subnet must exist before a regional internal ALB's
@@ -1037,7 +1035,7 @@ def main() -> None:
                 )
             )
     # Optional cross-project handoff of the prod management key into the
-    # agent-plane project (deployer needs secretVersionAdder there).
+    # agent-plane project (deployer needs secretVersionManager there).
     agent_plane_key_secret = config.get("agent-plane-management-key-secret")
     if agent_plane_key_secret:
         gcp.secretmanager.SecretVersion(

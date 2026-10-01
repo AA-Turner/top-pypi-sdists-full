@@ -139,7 +139,7 @@ AwsClosedLostReasonType = Literal[
 ]
 AwsFundingUsedType = Literal["No", "Yes"]
 AwsMemberBusinessTitleType = Literal[
-    "AWSAccountOwner", "AWSSalesRep", "ISVSM", "PDM", "PSM", "WWPSPDM"
+    "AWSAccountOwner", "AWSSalesRep", "ISVSM", "PDM", "PSM", "Signatory", "WWPSPDM"
 ]
 AwsOpportunityStageType = Literal[
     "Building Integration",
@@ -879,6 +879,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -953,6 +954,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -981,6 +983,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -1075,6 +1078,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

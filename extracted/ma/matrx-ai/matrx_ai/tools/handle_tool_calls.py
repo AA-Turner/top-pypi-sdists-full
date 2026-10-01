@@ -341,6 +341,11 @@ async def handle_tool_calls_v2(
     content_results, full_results = await executor.execute_batch(
         dispatchable, ctx, client_tools=client_tools, allowed_tools=allowed_tools
     )
+    # Mandate candidates (P12): the host records the exact model-facing result
+    # of each call so a candidate can borrow it. Sync, never raises.
+    from matrx_ai.mandate_taps import observe_tool_results
+
+    observe_tool_results(list(dispatchable), list(content_results), list(full_results))
 
     all_child_usages: list[TokenUsage] = []
     completed_content: list[dict[str, Any]] = []
@@ -349,6 +354,11 @@ async def handle_tool_calls_v2(
     handoff_outcome = None
     for content_dict, result in zip(content_results, full_results):
         all_child_usages.extend(result.child_usages)
+        if result.candidate_stopped:
+            # Mandate-candidate stop: TERMINAL, never a tool result and never a
+            # pending delegation. The shared ledger holds the stop; the
+            # orchestrator reads it after this batch and ends the run.
+            continue
         if result.delegated_pending:
             pending_call_ids.append(result.call_id)
         else:

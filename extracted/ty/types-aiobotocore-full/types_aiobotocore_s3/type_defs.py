@@ -63,6 +63,7 @@ from .literals import (
     MFADeleteType,
     ObjectAttributesType,
     ObjectCannedACLType,
+    ObjectLockEventHoldType,
     ObjectLockLegalHoldStatusType,
     ObjectLockModeType,
     ObjectLockRetentionModeType,
@@ -226,6 +227,7 @@ __all__ = (
     "ErrorDetailsTypeDef",
     "ErrorDocumentTypeDef",
     "ErrorTypeDef",
+    "EventHoldDurationTypeDef",
     "ExistingObjectReplicationTypeDef",
     "FileobjTypeDef",
     "FilterRuleTypeDef",
@@ -886,8 +888,7 @@ class CreateSessionRequestTypeDef(TypedDict):
     BucketKeyEnabled: NotRequired[bool]
 
 
-class DefaultRetentionTypeDef(TypedDict):
-    Mode: NotRequired[ObjectLockRetentionModeType]
+class EventHoldDurationTypeDef(TypedDict):
     Days: NotRequired[int]
     Years: NotRequired[int]
 
@@ -1276,11 +1277,6 @@ class GetObjectLegalHoldRequestTypeDef(TypedDict):
 class GetObjectLockConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     ExpectedBucketOwner: NotRequired[str]
-
-
-class ObjectLockRetentionOutputTypeDef(TypedDict):
-    Mode: NotRequired[ObjectLockRetentionModeType]
-    RetainUntilDate: NotRequired[datetime]
 
 
 class GetObjectRetentionRequestTypeDef(TypedDict):
@@ -1889,6 +1885,9 @@ class GetObjectOutputTypeDef(TypedDict):
     ObjectLockMode: ObjectLockModeType
     ObjectLockRetainUntilDate: datetime
     ObjectLockLegalHoldStatus: ObjectLockLegalHoldStatusType
+    ObjectLockEventHold: ObjectLockEventHoldType
+    ObjectLockEventHoldDurationDays: int
+    ObjectLockEventHoldDurationYears: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1951,6 +1950,9 @@ class HeadObjectOutputTypeDef(TypedDict):
     ObjectLockMode: ObjectLockModeType
     ObjectLockRetainUntilDate: datetime
     ObjectLockLegalHoldStatus: ObjectLockLegalHoldStatusType
+    ObjectLockEventHold: ObjectLockEventHoldType
+    ObjectLockEventHoldDurationDays: int
+    ObjectLockEventHoldDurationYears: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2104,6 +2106,9 @@ class CreateMultipartUploadRequestObjectInitiateMultipartUploadTypeDef(TypedDict
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ChecksumType: NotRequired[ChecksumTypeType]
@@ -2135,6 +2140,9 @@ class CreateMultipartUploadRequestObjectSummaryInitiateMultipartUploadTypeDef(Ty
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ChecksumType: NotRequired[ChecksumTypeType]
@@ -2168,6 +2176,9 @@ class CreateMultipartUploadRequestTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ChecksumType: NotRequired[ChecksumTypeType]
@@ -2358,11 +2369,6 @@ class ObjectIdentifierTypeDef(TypedDict):
     ETag: NotRequired[str]
     LastModifiedTime: NotRequired[TimestampTypeDef]
     Size: NotRequired[int]
-
-
-class ObjectLockRetentionTypeDef(TypedDict):
-    Mode: NotRequired[ObjectLockRetentionModeType]
-    RetainUntilDate: NotRequired[TimestampTypeDef]
 
 
 class RenameObjectRequestTypeDef(TypedDict):
@@ -2596,6 +2602,9 @@ class PutObjectRequestBucketPutObjectTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
 
 
@@ -2642,6 +2651,9 @@ class PutObjectRequestObjectPutTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
 
 
@@ -2688,6 +2700,9 @@ class PutObjectRequestObjectSummaryPutTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
 
 
@@ -2736,6 +2751,9 @@ class PutObjectRequestTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
 
 
@@ -2983,8 +3001,25 @@ class CreateSessionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ObjectLockRuleTypeDef(TypedDict):
-    DefaultRetention: NotRequired[DefaultRetentionTypeDef]
+class DefaultRetentionTypeDef(TypedDict):
+    Mode: NotRequired[ObjectLockRetentionModeType]
+    Days: NotRequired[int]
+    Years: NotRequired[int]
+    DefaultEventHold: NotRequired[EventHoldDurationTypeDef]
+
+
+class ObjectLockRetentionOutputTypeDef(TypedDict):
+    Mode: NotRequired[ObjectLockRetentionModeType]
+    RetainUntilDate: NotRequired[datetime]
+    EventHold: NotRequired[ObjectLockEventHoldType]
+    EventHoldDuration: NotRequired[EventHoldDurationTypeDef]
+
+
+class ObjectLockRetentionTypeDef(TypedDict):
+    Mode: NotRequired[ObjectLockRetentionModeType]
+    RetainUntilDate: NotRequired[TimestampTypeDef]
+    EventHold: NotRequired[ObjectLockEventHoldType]
+    EventHoldDuration: NotRequired[EventHoldDurationTypeDef]
 
 
 class DeleteObjectsOutputTypeDef(TypedDict):
@@ -3030,11 +3065,6 @@ class PutObjectLegalHoldRequestTypeDef(TypedDict):
     ContentMD5: NotRequired[str]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ExpectedBucketOwner: NotRequired[str]
-
-
-class GetObjectRetentionOutputTypeDef(TypedDict):
-    Retention: ObjectLockRetentionOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetPublicAccessBlockOutputTypeDef(TypedDict):
@@ -3426,9 +3456,6 @@ class DeleteTypeDef(TypedDict):
     Quiet: NotRequired[bool]
 
 
-ObjectLockRetentionUnionTypeDef = Union[
-    ObjectLockRetentionTypeDef, ObjectLockRetentionOutputTypeDef
-]
 TransitionUnionTypeDef = Union[TransitionTypeDef, TransitionOutputTypeDef]
 
 
@@ -3579,6 +3606,9 @@ class CopyObjectRequestObjectCopyFromTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ExpectedSourceBucketOwner: NotRequired[str]
 
@@ -3622,6 +3652,9 @@ class CopyObjectRequestObjectSummaryCopyFromTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ExpectedSourceBucketOwner: NotRequired[str]
 
@@ -3667,6 +3700,9 @@ class CopyObjectRequestTypeDef(TypedDict):
     ObjectLockMode: NotRequired[ObjectLockModeType]
     ObjectLockRetainUntilDate: NotRequired[TimestampTypeDef]
     ObjectLockLegalHoldStatus: NotRequired[ObjectLockLegalHoldStatusType]
+    ObjectLockEventHold: NotRequired[ObjectLockEventHoldType]
+    ObjectLockEventHoldDurationDays: NotRequired[int]
+    ObjectLockEventHoldDurationYears: NotRequired[int]
     ExpectedBucketOwner: NotRequired[str]
     ExpectedSourceBucketOwner: NotRequired[str]
 
@@ -3799,9 +3835,18 @@ class CreateBucketRequestTypeDef(TypedDict):
     BucketNamespace: NotRequired[BucketNamespaceType]
 
 
-class ObjectLockConfigurationTypeDef(TypedDict):
-    ObjectLockEnabled: NotRequired[Literal["Enabled"]]
-    Rule: NotRequired[ObjectLockRuleTypeDef]
+class ObjectLockRuleTypeDef(TypedDict):
+    DefaultRetention: NotRequired[DefaultRetentionTypeDef]
+
+
+class GetObjectRetentionOutputTypeDef(TypedDict):
+    Retention: ObjectLockRetentionOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ObjectLockRetentionUnionTypeDef = Union[
+    ObjectLockRetentionTypeDef, ObjectLockRetentionOutputTypeDef
+]
 
 
 class NotificationConfigurationFilterOutputTypeDef(TypedDict):
@@ -4094,18 +4139,6 @@ class DeleteObjectsRequestTypeDef(TypedDict):
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
 
 
-class PutObjectRetentionRequestTypeDef(TypedDict):
-    Bucket: str
-    Key: str
-    Retention: NotRequired[ObjectLockRetentionUnionTypeDef]
-    RequestPayer: NotRequired[Literal["requester"]]
-    VersionId: NotRequired[str]
-    BypassGovernanceRetention: NotRequired[bool]
-    ContentMD5: NotRequired[str]
-    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
-    ExpectedBucketOwner: NotRequired[str]
-
-
 class RuleTypeDef(TypedDict):
     Prefix: str
     Status: ExpirationStatusType
@@ -4178,16 +4211,18 @@ class PutBucketCorsRequestTypeDef(TypedDict):
     ExpectedBucketOwner: NotRequired[str]
 
 
-class GetObjectLockConfigurationOutputTypeDef(TypedDict):
-    ObjectLockConfiguration: ObjectLockConfigurationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ObjectLockConfigurationTypeDef(TypedDict):
+    ObjectLockEnabled: NotRequired[Literal["Enabled"]]
+    Rule: NotRequired[ObjectLockRuleTypeDef]
 
 
-class PutObjectLockConfigurationRequestTypeDef(TypedDict):
+class PutObjectRetentionRequestTypeDef(TypedDict):
     Bucket: str
-    ObjectLockConfiguration: NotRequired[ObjectLockConfigurationTypeDef]
+    Key: str
+    Retention: NotRequired[ObjectLockRetentionUnionTypeDef]
     RequestPayer: NotRequired[Literal["requester"]]
-    Token: NotRequired[str]
+    VersionId: NotRequired[str]
+    BypassGovernanceRetention: NotRequired[bool]
     ContentMD5: NotRequired[str]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ExpectedBucketOwner: NotRequired[str]
@@ -4442,6 +4477,21 @@ class AnalyticsConfigurationTypeDef(TypedDict):
     Id: str
     StorageClassAnalysis: StorageClassAnalysisTypeDef
     Filter: NotRequired[AnalyticsFilterTypeDef]
+
+
+class GetObjectLockConfigurationOutputTypeDef(TypedDict):
+    ObjectLockConfiguration: ObjectLockConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutObjectLockConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    ObjectLockConfiguration: NotRequired[ObjectLockConfigurationTypeDef]
+    RequestPayer: NotRequired[Literal["requester"]]
+    Token: NotRequired[str]
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class NotificationConfigurationResponseTypeDef(TypedDict):

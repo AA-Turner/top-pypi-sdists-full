@@ -343,6 +343,51 @@ class _IParameterGroupRefProxy(
 typing.cast(typing.Any, IParameterGroupRef).__jsii_proxy_class__ = lambda : _IParameterGroupRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_memorydb.ISnapshotRef")
+class ISnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_memorydb.ISnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotReference", jsii.get(self, "snapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshotRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_memorydb.ISubnetGroupRef")
 class ISubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -570,6 +615,55 @@ class ParameterGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_memorydb.SnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_arn": "snapshotArn"},
+)
+class SnapshotReference:
+    def __init__(self, *, snapshot_arn: builtins.str) -> None:
+        '''A reference to a Snapshot resource.
+
+        :param snapshot_arn: The Arn of the Snapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_memorydb as interfaces_memorydb
+            
+            snapshot_reference = interfaces_memorydb.SnapshotReference(
+                snapshot_arn="snapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__165422af8b2a7f5eb21df358924b84fd6aec73ad9a0b226db17f84cd29c64f43)
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_arn": snapshot_arn,
+        }
+
+    @builtins.property
+    def snapshot_arn(self) -> builtins.str:
+        '''The Arn of the Snapshot resource.'''
+        result = self._values.get("snapshot_arn")
+        assert result is not None, "Required property 'snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_memorydb.SubnetGroupReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -704,10 +798,12 @@ __all__ = [
     "IClusterRef",
     "IMultiRegionClusterRef",
     "IParameterGroupRef",
+    "ISnapshotRef",
     "ISubnetGroupRef",
     "IUserRef",
     "MultiRegionClusterReference",
     "ParameterGroupReference",
+    "SnapshotReference",
     "SubnetGroupReference",
     "UserReference",
 ]
@@ -746,6 +842,13 @@ def _typecheckingstub__f4ce9a12bead66527ba95eaf76ca4ea36b47fd939e732e4960545097b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__165422af8b2a7f5eb21df358924b84fd6aec73ad9a0b226db17f84cd29c64f43(
+    *,
+    snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__883529d4f6ed163d080574cce70282fa264bc95b899e5b38e34449540c227601(
     *,
     subnet_group_arn: builtins.str,
@@ -762,5 +865,5 @@ def _typecheckingstub__203a6447b73a85638b9a88eb98c6073ff4f32f7b65519ff5e6d5f08d2
     """Type checking stubs"""
     pass
 
-for cls in [IACLRef, IClusterRef, IMultiRegionClusterRef, IParameterGroupRef, ISubnetGroupRef, IUserRef]:
+for cls in [IACLRef, IClusterRef, IMultiRegionClusterRef, IParameterGroupRef, ISnapshotRef, ISubnetGroupRef, IUserRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

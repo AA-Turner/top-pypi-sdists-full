@@ -302,6 +302,8 @@ def test_standalone_cors_exposes_direct_crawl_session_headers() -> None:
     )
     exposed = set(cors.kwargs["expose_headers"])
     assert {"X-Crawl-Session-Id", "X-Site-Id"}.issubset(exposed)
+    # A 409 start conflict names the live run; a browser must be able to read it.
+    assert "X-Active-Crawl-Session-Id" in exposed
 
 
 def test_standalone_cors_admits_agent_session_preview_hosts() -> None:
@@ -610,10 +612,13 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
     assert prune.await_args.kwargs["keys"] == {(str(page_id), "full")}
     # Crawl output belongs to the ORGANIZATION, never one person: every stored
     # artifact is requested unpublished, never kept to one person, and stamped
-    # with the crawl's org.
+    # with the crawl's org. The audience is STATED as the type default: since
+    # access ladder T-13 an unstated audience is born "only_me" (2026-09-30).
+    from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
+
     assert [(u["published_to_web"], u.get("shown_to"), u["organization_id"]) for u in uploads] == [
-        (False, None, state.organization_id),
-        (False, None, state.organization_id),
+        (False, SHOWN_TO_TYPE_DEFAULT, state.organization_id),
+        (False, SHOWN_TO_TYPE_DEFAULT, state.organization_id),
     ]
 
 

@@ -39,6 +39,7 @@ from .type_defs import (
     CreateFeedResponseTypeDef,
     DeleteDictionaryRequestTypeDef,
     DeleteDictionaryResponseTypeDef,
+    DeleteFeedPolicyRequestTypeDef,
     DeleteFeedRequestTypeDef,
     DeleteFeedResponseTypeDef,
     DisassociateFeedRequestTypeDef,
@@ -48,14 +49,19 @@ from .type_defs import (
     ExportDictionaryEntriesResponseTypeDef,
     GetDictionaryRequestTypeDef,
     GetDictionaryResponseTypeDef,
+    GetFeedPolicyRequestTypeDef,
+    GetFeedPolicyResponseTypeDef,
     GetFeedRequestTypeDef,
     GetFeedResponseTypeDef,
+    GetFixtureRequestTypeDef,
+    GetFixtureResponseTypeDef,
     ListDictionariesRequestTypeDef,
     ListDictionariesResponseTypeDef,
     ListFeedsRequestTypeDef,
     ListFeedsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutFeedPolicyRequestTypeDef,
     SearchFixturesRequestTypeDef,
     SearchFixturesResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -174,6 +180,16 @@ class ElementalInferenceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#delete_feed)
         """
 
+    async def delete_feed_policy(
+        self, **kwargs: Unpack[DeleteFeedPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the resource-based policy attached to the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_feed_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#delete_feed_policy)
+        """
+
     async def disassociate_feed(
         self, **kwargs: Unpack[DisassociateFeedRequestTypeDef]
     ) -> DisassociateFeedResponseTypeDef:
@@ -212,6 +228,27 @@ class ElementalInferenceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#get_feed)
         """
 
+    async def get_feed_policy(
+        self, **kwargs: Unpack[GetFeedPolicyRequestTypeDef]
+    ) -> GetFeedPolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy attached to the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_feed_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#get_feed_policy)
+        """
+
+    async def get_fixture(
+        self, **kwargs: Unpack[GetFixtureRequestTypeDef]
+    ) -> GetFixtureResponseTypeDef:
+        """
+        Retrieves information about the specified fixture (a sports event, such as a
+        specific basketball game).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_fixture.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#get_fixture)
+        """
+
     async def list_dictionaries(
         self, **kwargs: Unpack[ListDictionariesRequestTypeDef]
     ) -> ListDictionariesResponseTypeDef:
@@ -240,6 +277,16 @@ class ElementalInferenceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#list_tags_for_resource)
+        """
+
+    async def put_feed_policy(
+        self, **kwargs: Unpack[PutFeedPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Attaches or replaces a resource-based policy on the specified feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/put_feed_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/client/#put_feed_policy)
         """
 
     async def search_fixtures(

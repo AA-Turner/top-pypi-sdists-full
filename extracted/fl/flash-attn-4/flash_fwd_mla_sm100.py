@@ -31,6 +31,7 @@ from flash_attn.cute.seqlen_info import SeqlenInfoQK
 from flash_attn.cute.block_info import BlockInfo
 from flash_attn.cute.mask import AttentionMask
 import flash_attn.cute.blackwell_helpers as fa_sm100_utils
+from flash_attn.cute.flash_fwd_sm100 import DescaleTensors
 from flash_attn.cute.softmax import SoftmaxSm100, apply_learnable_sink, load_learnable_sink
 from flash_attn.cute.tile_scheduler import (
     SchedulerState,
@@ -52,6 +53,13 @@ from flash_attn.cute.named_barrier import NamedBarrierFwdSm100_MLA2CTA
 
 
 class FlashAttentionMLAForwardSm100:
+    # Extra ptxas flags (part of the compile key). The default level spills 560 B/thread of
+    # local memory on the sparse forward; -O2 removes it (32 B), median +15-17% on GB300
+    # (AI/SPARSE_MLA_1CTA.md, "ptxas levels").
+    ptxas_options = "-O2"
+    # sparse MLA: a token's heads padded to one 128-row (2-CTA) tile
+    SPARSE_HEAD_TILE = 128
+
     def __init__(
         self,
         is_causal: bool = False,
@@ -68,8 +76,15 @@ class FlashAttentionMLAForwardSm100:
         disable_bitmask: bool = False,
         use_clc_scheduler: bool = True,
         has_qk: bool = True,
+        rescale_threshold: float = 8.0,
     ):
         self.is_causal = is_causal
+        # Lazy online-softmax rescaling: the running row max (and hence the O/row_sum
+        # rescale) is only updated when the new block max exceeds it by more than this
+        # many log2 units. 0.0 = exact running max (P of the row's max element is then
+        # exactly 1.0 in bf16; with a stale max it is exp2(delta) and its bf16 rounding
+        # puts a coherent ~2^-9 relative error on the whole output row).
+        self.rescale_threshold = float(rescale_threshold)
         self.is_local = False
         self.pack_gqa = pack_gqa
         assert 0 < qhead_per_kvhead <= 128
@@ -383,15 +398,21 @@ class FlashAttentionMLAForwardSm100:
         mSeqUsedK: Optional[cute.Tensor] = None,    # (b)
         mIndexTopk: Optional[cute.Tensor] = None,   # (b, s_q, topk)  or (total_q, topk) if there is cu_seqlens_q
         mPageTable: Optional[cute.Tensor] = None,
+        # Accepted for signature parity with FlashAttentionMLAForward1CtaSm100 (the
+        # interface passes it positionally on the shared qv path); fp8 is 1CTA-only.
+        descale_tensors: Optional[DescaleTensors] = None,
         window_size_left: Int32 | int | None = None,
         window_size_right: Int32 | int | None = None,
         learnable_sink: Optional[cute.Tensor] = None,
+        mOlo: Optional[cute.Tensor] = None,          # same shape/dtype as mO: bf16 rounding residual of O
         # Always keep stream as the last parameter (EnvStream: obtained implicitly via TVM FFI).
         stream: cuda.CUstream = None,
     ):
         # fmt: on
+        assert descale_tensors is None, "fp8 descales are not supported by 2CTA MLA"
         self.store_P = mP is not None
         self.store_row_max = mRowMax is not None
+        self.store_O_residual = mOlo is not None
 
         if const_expr(self.has_qk):
             assert mQ is not None and mK is not None, "has_qk requires mQ and mK"
@@ -408,17 +429,19 @@ class FlashAttentionMLAForwardSm100:
 
         if const_expr(self.store_P):
             assert mP.element_type == self.dtype_P
+        if const_expr(self.store_O_residual):
+            assert mOlo.element_type == self.dtype_O, "O residual must have O's dtype"
 
         # ==== Prepare Tensors ====
         new_stride = lambda mX: (
             *(cute.assume(s, divby=128 // mX.element_type.width) for s in mX.stride[:-1]),
             mX.stride[-1],
         )
-        mQ, mQv, mK, mV, mO, mP = [
+        mQ, mQv, mK, mV, mO, mP, mOlo = [
             cute.make_tensor(mX.iterator, cute.make_layout(mX.shape, stride=new_stride(mX)))
             if mX is not None
             else None
-            for mX in (mQ, mQv, mK, mV, mO, mP)
+            for mX in (mQ, mQv, mK, mV, mO, mP, mOlo)
         ]
 
         # (b, s, h, d)  -> (s, d, h, b)  or
@@ -426,11 +449,11 @@ class FlashAttentionMLAForwardSm100:
         # (num_pages, page_size, h_k, d) -> (page_size, d, h_k, num_pages)
         QO_layout_transpose = [1, 3, 2, 0] if const_expr(mCuSeqlensQ is None) else [0, 2, 1]
         KV_layout_transpose = [1, 3, 2, 0] if const_expr(mCuSeqlensK is None) else [0, 2, 1]
-        mQ, mQv, mO, mP = [
+        mQ, mQv, mO, mP, mOlo = [
             cute.make_tensor(mX.iterator, cute.select(mX.layout, mode=QO_layout_transpose))
             if mX is not None
             else None
-            for mX in (mQ, mQv, mO, mP)
+            for mX in (mQ, mQv, mO, mP, mOlo)
         ]
         mK, mV = [
             cute.make_tensor(mX.iterator, cute.select(mX.layout, mode=KV_layout_transpose))
@@ -484,11 +507,11 @@ class FlashAttentionMLAForwardSm100:
                 for mX in (mQ, mQv, mO, mP)
             ]
         if const_expr(self.pack_gqa):
-            mQ, mQv, mO, mP, mRowMax = [
+            mQ, mQv, mO, mP, mRowMax, mOlo = [
                 pack_gqa_layout(mX, self.qhead_per_kvhead, self.nheads_kv, head_idx=2)
                 if mX is not None
                 else None
-                for mX in (mQ, mQv, mO, mP, mRowMax)
+                for mX in (mQ, mQv, mO, mP, mRowMax, mOlo)
             ]
             if const_expr(mLSE is not None):
                 mLSE = pack_gqa_layout(mLSE, self.qhead_per_kvhead, self.nheads_kv, head_idx=1)
@@ -747,6 +770,7 @@ class FlashAttentionMLAForwardSm100:
             tma_tensor_V if self.use_tma_KV else mV,
             tma_tensor_Vt if self.use_tma_KV else mVt,
             tma_tensor_O if self.use_tma_O else mO,
+            mOlo,
             tma_tensor_P,
             mLSE,
             mRowMax,
@@ -805,6 +829,7 @@ class FlashAttentionMLAForwardSm100:
         mV: cute.Tensor,
         mVt: cute.Tensor,
         mO: cute.Tensor,
+        mOlo: Optional[cute.Tensor],
         mP: Optional[cute.Tensor],
         mLSE: Optional[cute.Tensor],
         mRowMax: Optional[cute.Tensor],
@@ -1272,6 +1297,7 @@ class FlashAttentionMLAForwardSm100:
                 tile_scheduler=tile_scheduler,
                 mCuSeqlensQ=mCuSeqlensQ,
                 learnable_sink=learnable_sink,
+                mOlo=mOlo,
             )
             tmem_alloc_barrier.arrive()
 
@@ -2672,7 +2698,7 @@ class FlashAttentionMLAForwardSm100:
 
             softmax = SoftmaxSm100.create(
                 softmax_scale_log2,
-                rescale_threshold=8.0 if const_expr(self.dtype_Q.width == 16) else 0.0,
+                rescale_threshold=self.rescale_threshold if const_expr(self.dtype_Q.width == 16) else 0.0,
                 softmax_scale=softmax_scale,
             )
             softmax.reset()
@@ -2941,6 +2967,7 @@ class FlashAttentionMLAForwardSm100:
         tile_scheduler: TileSchedulerProtocol,
         mCuSeqlensQ: Optional[cute.Tensor] = None,
         learnable_sink: Optional[cute.Tensor] = None,
+        mOlo: Optional[cute.Tensor] = None,
     ):
         ### ==== correction/epilogue warpgroup ====
         # Correction: copy scale smem -> rmem, copy O tmem -> rmem, rescale O, store O rmem -> tmem
@@ -3060,6 +3087,19 @@ class FlashAttentionMLAForwardSm100:
                 (cta_m_block, None),
             )
             tOgO = thr_tiled_copy_O_r2g.partition_D(gO)
+            tOgOlo = None
+            if const_expr(mOlo is not None):
+                # O residual (fp32 O minus its bf16 rounding), same layout as O, always a
+                # plain gmem tensor (no TMA): written thread-wise like the non-TMA O path.
+                mOlo_cur = seqlen.offset_batch_Q(mOlo, batch_idx, dim=3, ragged=False)[
+                    None, None, head_idx
+                ]
+                gOlo = cute.local_tile(
+                    mOlo_cur,
+                    (self.cta_tile_m, self.hdimv // self.num_hdimv_splits),
+                    (cta_m_block, None),
+                )
+                tOgOlo = thr_tiled_copy_O_r2g.partition_D(gOlo)
             # ((32, 1), 1, 4)
             tOrOs_t2r = [
                 cute.make_rmem_tensor(tOicOi_t2r.shape, self.dtype_acc)
@@ -3105,6 +3145,9 @@ class FlashAttentionMLAForwardSm100:
 
             acc_O_mn_row_is_zero_or_nan = row_sum == 0.0 or row_sum != row_sum
             scale = cute.arch.rcp_approx(row_sum if not acc_O_mn_row_is_zero_or_nan else 1.0)
+            # seqlen_k == 0 with TMA KV: the fully masked dummy block still loaded a KV tile, and
+            # P = 0 times a NaN V row is NaN (scaling by 0 would keep it): write zeros instead.
+            zero_O = seqlen.seqlen_k == 0 if const_expr(self.use_tma_KV) else False
 
             self.sm_stats_barrier_empty.arrive()
 
@@ -3148,6 +3191,8 @@ class FlashAttentionMLAForwardSm100:
                     tOtOs_t2r[split],
                     tOrOs_t2r[split],
                 )
+                if zero_O:
+                    tOrOs_t2r[split].fill(0.0)
 
                 # scale and downcast Oi
                 tOrOs_r2g[split].store((tOrOs_r2g_f32[split].load() * scale).to(self.dtype_O))
@@ -3182,6 +3227,40 @@ class FlashAttentionMLAForwardSm100:
                         if const_expr(split == 1 and self.overlap_sO_sV):
                             with cute.arch.elect_one():
                                 cute.arch.mbarrier_arrive(sO_empty_mbar_ptr)
+
+                if const_expr(mOlo is not None):
+                    # O residual pass: O_lo = fp32(O) - bf16(O) (exact in fp32, rounded once
+                    # to bf16), stored straight to gmem. The backward preprocess reads
+                    # O + O_lo so dpsum = rowsum(dO * O) is formed from an (almost) fp32 O
+                    # instead of the bf16 output, whose rounding otherwise dominates the dS
+                    # error for peaked attention rows. The fp32 O is re-read from TMEM 32
+                    # columns at a time (as in correction_rescale) rather than kept in
+                    # registers: the epilogue warps run at 128 regs and holding the whole
+                    # fp32 tile across the downcast spills badly.
+                    tOrOres_f32 = cute.make_rmem_tensor_like(tOicOi_t2r[None, None, 0], self.dtype_acc)
+                    tOrOres_lo = cute.make_rmem_tensor_like(tOrOres_f32, self.dtype_O)
+                    # same registers viewed as (8, chunk/8) so each 8-element piece maps to one
+                    # 128-bit r2g copy atom of the thread's contiguous row segment; the r2g
+                    # partition's leading mode is (8, n_atoms_total), so slice its 2nd sub-mode
+                    n_atoms = cute.size(tOrOres_lo) // 8
+                    tOrOres_lo_v = cute.make_tensor(tOrOres_lo.iterator, cute.make_layout((8, n_atoms)))
+                    tOgOlo_cur = tOgOlo[None, None, None, split]
+                    # Non-TMA store: guard padded Q-head rows like the LSE store, or they wrap
+                    # into the next token's residual (see pack_gqa.qheads_first_tma_view).
+                    store_residual = row_idx < seqlen_q and self.is_valid_qhead_row(row_idx)
+                    for i in cutlass.range_constexpr(cute.size(tOtOs_t2r[split], mode=[2])):
+                        cute.copy(thr_tmem_load_O, tOtOs_t2r[split][None, None, i], tOrOres_f32)
+                        if zero_O:
+                            tOrOres_f32.fill(0.0)
+                        o_f32 = tOrOres_f32.load() * scale
+                        tOrOres_lo.store((o_f32 - o_f32.to(self.dtype_O).to(self.dtype_acc)).to(self.dtype_O))
+                        if store_residual:
+                            for j in cutlass.range_constexpr(n_atoms):
+                                cute.copy(
+                                    thr_tiled_copy_O_r2g,
+                                    tOrOres_lo_v[None, j],
+                                    tOgOlo_cur[(None, i * n_atoms + j), 0, 0],
+                                )
 
             consumer_state_O0, consumer_state_O1 = consumer_states_O
 

@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.data_source_response import DataSourceResponse
+from arthur_client.api_bindings.models.evidence_level import EvidenceLevel
 from arthur_client.api_bindings.models.evidence_response import EvidenceResponse
 from arthur_client.api_bindings.models.llm_model_response import LLMModelResponse
 from arthur_client.api_bindings.models.provenance_input import ProvenanceInput
@@ -65,7 +66,9 @@ class AgentResponse(BaseModel):
     source_ids: Optional[List[StrictStr]] = Field(default=None, description="Discovery sources behind this agent, in evidence order. Backs the inventory's \"Found by\" column and the source_id filter. Evidence with no configured source behind it -- OTEL, manual, anything predating discovery -- contributes nothing here.")
     external_ids: Optional[List[StrictStr]] = Field(default=None, description="The sources' own identifiers for this agent, in evidence order. Canonical identity, never reconciled across sources, so an agent seen by two sources legitimately carries two different values.")
     source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_classes filter.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "mute_reason", "muted_by", "muted_at", "is_stale", "source_ids", "external_ids", "source_classes"]
+    evidence_level: EvidenceLevel = Field(description="How much of this agent its sources can see right now: full when a source still reporting sees the whole agent, limited when sources still report but none sees it whole, stale when every source has gone quiet. Rolled up over all evidence, whatever the list is filtered to; backs the evidence_levels filter and the evidence_level sort.")
+    first_seen: datetime = Field(description="The earliest time any source reported seeing this agent: the earliest evidence first_seen, or the agent's created_at when no evidence records one. Backs the first_seen sort and the first_seen_after/before filters.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "mute_reason", "muted_by", "muted_at", "is_stale", "source_ids", "external_ids", "source_classes", "evidence_level", "first_seen"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -228,7 +231,9 @@ class AgentResponse(BaseModel):
             "is_stale": obj.get("is_stale") if obj.get("is_stale") is not None else False,
             "source_ids": obj.get("source_ids"),
             "external_ids": obj.get("external_ids"),
-            "source_classes": obj.get("source_classes")
+            "source_classes": obj.get("source_classes"),
+            "evidence_level": obj.get("evidence_level"),
+            "first_seen": obj.get("first_seen")
         })
         return _obj
 

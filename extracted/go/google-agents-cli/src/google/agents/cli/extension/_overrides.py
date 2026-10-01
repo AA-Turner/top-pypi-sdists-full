@@ -17,12 +17,12 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
+from google.agents.cli._output import print_error
 from google.agents.cli._project import find_project_root
 from google.agents.cli._runner import DISABLE_OVERRIDES_ENV, run_extension_command
 from google.agents.cli.extension._spec import ExtensionCommand
@@ -79,12 +79,11 @@ def run_override(
     if code != 0:
         # Exit with the child's code, matching what a direct `agents-cli <cmd>`
         # would return; a ClickException would flatten every failure to 1.
-        click.echo(
-            f"Error: {display_path} (extension '{resolved.extension_name}') failed with "
-            f"exit code {code}.",
-            err=True,
+        print_error(
+            f"{display_path} (extension '{resolved.extension_name}') failed with "
+            f"exit code {code}."
         )
-        sys.exit(code)
+        raise click.exceptions.Exit(code)
 
 
 def bypass_hint(display_path: str) -> str:
@@ -192,6 +191,6 @@ def make_override_command(
                 f"executable {contribution.run[0]!r} not found. "
                 "Check the extension's `run:` entry."
             ) from e
-        sys.exit(code)
+        raise click.exceptions.Exit(code)
 
     return _cmd

@@ -1,4 +1,5 @@
 use super::IdListMetadata;
+use super::id_list_propagation::{IdListManifestEntry, downloaded_range};
 use crate::id_lists_adapter::{IdListUpdate, IdListsAdapter, IdListsUpdateListener};
 use crate::networking::{
     DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX, NetworkClient, NetworkError, RequestArgs, Response,
@@ -28,6 +29,7 @@ const DEFAULT_ID_LIST_SYNC_INTERVAL_MS: u32 = 60_000;
 const ID_LIST_DOWNLOAD_CONCURRENCY: usize = 4;
 
 type IdListsResponse = HashMap<String, IdListMetadata>;
+type IdListsManifest = HashMap<String, IdListManifestEntry>;
 
 const TAG: &str = stringify!(StatsigHttpIdListsAdapter);
 const ID_LISTS_SYNC_OVERALL_LATENCY_METRIC: &str = "id_lists_sync_overall.latency";
@@ -96,7 +98,7 @@ impl StatsigHttpIdListsAdapter {
         self.shutdown_notify.notify_one();
     }
 
-    async fn fetch_id_list_manifests_from_network(&self) -> Result<IdListsResponse, StatsigErr> {
+    async fn fetch_id_list_manifests_from_network(&self) -> Result<IdListsManifest, StatsigErr> {
         let request_args = RequestArgs {
             url: self.id_lists_manifest_url.clone(),
             accept_gzip_response: true,
@@ -133,7 +135,10 @@ impl StatsigHttpIdListsAdapter {
         result
     }
 
-    async fn download_id_list(&self, job: &IdListDownloadJob) -> Result<String, StatsigErr> {
+    async fn download_id_list(
+        &self,
+        job: &IdListDownloadJob,
+    ) -> Result<(String, Option<std::ops::Range<u64>>), StatsigErr> {
         let mut download_url = job.url.as_str();
         let mut using_fallback = false;
         for attempt in 1..=self.download_retry_count + 1 {
@@ -172,7 +177,17 @@ impl StatsigHttpIdListsAdapter {
                         )))
                     } else if let Some(mut body) = response.data {
                         // I/O failures are retryable; malformed UTF-8 is terminal.
-                        body.read_to_string()
+                        let content_range = body.get_header_ref("content-range").cloned();
+                        body.read_to_string().map(|text| {
+                            let range = downloaded_range(
+                                response.status_code,
+                                content_range.as_deref(),
+                                job.range_start,
+                                text.len(),
+                                is_default_cdn_url(download_url),
+                            );
+                            (text, range)
+                        })
                     } else {
                         Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
                             download_url.to_owned(),
@@ -293,7 +308,7 @@ impl StatsigHttpIdListsAdapter {
         &self,
         request_args: RequestArgs,
         initial_err: NetworkError,
-    ) -> Result<IdListsResponse, StatsigErr> {
+    ) -> Result<IdListsManifest, StatsigErr> {
         if !matches!(initial_err, NetworkError::RetriesExhausted(_, _, _, _)) {
             return Err(StatsigErr::NetworkError(initial_err));
         }
@@ -341,7 +356,7 @@ impl StatsigHttpIdListsAdapter {
     fn parse_response(
         &self,
         response: Option<ResponseData>,
-    ) -> Result<IdListsResponse, StatsigErr> {
+    ) -> Result<IdListsManifest, StatsigErr> {
         let mut data = match response {
             Some(r) => r,
             None => {
@@ -353,7 +368,7 @@ impl StatsigHttpIdListsAdapter {
             }
         };
 
-        data.deserialize_into::<IdListsResponse>()
+        data.deserialize_into::<IdListsManifest>()
             .map_err(|parse_err| {
                 let msg = format!("Failed to parse JSON: {parse_err}");
                 StatsigErr::JsonParseError(stringify!(IdListsResponse).to_string(), msg)
@@ -441,13 +456,16 @@ impl StatsigHttpIdListsAdapter {
 
     async fn process_id_lists(
         &self,
-        new_manifest: IdListsResponse,
+        new_manifest: IdListsManifest,
         curr_manifest: IdListsResponse,
         successful_downloads: &mut u64,
     ) -> Result<(), StatsigErr> {
         let mut jobs = Vec::new();
         let mut updates = HashMap::new();
-        for (name, metadata) in new_manifest {
+        let mut propagation = HashMap::with_capacity(new_manifest.len());
+        for (name, entry) in new_manifest {
+            propagation.insert(name.clone(), entry.propagation_update());
+            let metadata = entry.metadata;
             let range_start = match curr_manifest.get(&name) {
                 Some(current)
                     if metadata.creation_time > current.creation_time
@@ -486,8 +504,11 @@ impl StatsigHttpIdListsAdapter {
         let mut failures = Vec::new();
         while let Some((job, result)) = downloads.next().await {
             match result {
-                Ok(raw_changeset) => {
+                Ok((raw_changeset, applied_range)) => {
                     *successful_downloads += 1;
+                    if let Some(observation) = propagation.get_mut(&job.name) {
+                        observation.applied_range = applied_range;
+                    }
                     updates.insert(
                         job.name,
                         IdListUpdate {
@@ -517,7 +538,7 @@ impl StatsigHttpIdListsAdapter {
         {
             Some(lock) => match lock.as_ref() {
                 Some(listener) => {
-                    listener.did_receive_id_list_updates(updates);
+                    listener.did_receive_id_list_updates_with_propagation(updates, propagation);
                     Ok(())
                 }
                 None => Err(StatsigErr::UnstartedAdapter("Listener not set".to_string())),
@@ -1182,6 +1203,7 @@ mod tests {
                 range_start,
             })
             .await
+            .map(|(body, _)| body)
         }
     }
 
@@ -1718,3 +1740,7 @@ mod concurrency_tests;
 #[cfg(all(test, feature = "custom_network_provider"))]
 #[path = "id_lists_refresh_tests.rs"]
 mod refresh_tests;
+
+#[cfg(all(test, feature = "custom_network_provider"))]
+#[path = "id_list_propagation_tests.rs"]
+mod propagation_tests;

@@ -54,6 +54,7 @@ fn definition(name: &str, argv: &[&str]) -> ToolDefinitionWire {
         args: ToolArgsPolicyWire::Deny,
         fingerprint: ToolFingerprintSpecWire::default(),
         receipt: None,
+        duration_class: None,
         diagnostics: Vec::new(),
     }
 }
@@ -115,6 +116,7 @@ fn begin_run(path: &Path, args: BeginArgs) -> ToolRunBeginResultWire {
     begin(
         path,
         ToolRunBeginRequestWire {
+            starter: None,
             schema_version: TOOL_RUN_WIRE_SCHEMA_VERSION,
             run_id: None,
             created_event_id: None,

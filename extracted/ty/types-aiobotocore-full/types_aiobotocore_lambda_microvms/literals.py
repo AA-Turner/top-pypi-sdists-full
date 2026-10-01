@@ -35,6 +35,7 @@ __all__ = (
     "ListMicrovmImageVersionsPaginatorName",
     "ListMicrovmImagesPaginatorName",
     "ListMicrovmsPaginatorName",
+    "ManagedMicrovmImageVersionStatusType",
     "MicrovmImageStateType",
     "MicrovmImageVersionStateType",
     "MicrovmImageVersionStatusType",
@@ -57,6 +58,7 @@ ListMicrovmImageBuildsPaginatorName = Literal["list_microvm_image_builds"]
 ListMicrovmImageVersionsPaginatorName = Literal["list_microvm_image_versions"]
 ListMicrovmImagesPaginatorName = Literal["list_microvm_images"]
 ListMicrovmsPaginatorName = Literal["list_microvms"]
+ManagedMicrovmImageVersionStatusType = Literal["AVAILABLE", "DEPRECATED"]
 MicrovmImageStateType = Literal[
     "CREATED",
     "CREATE_FAILED",
@@ -156,6 +158,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -230,6 +233,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -258,6 +262,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -352,6 +357,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

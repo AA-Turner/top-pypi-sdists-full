@@ -56,8 +56,12 @@ from .type_defs import (
     PutAccountNameRequestTypeDef,
     PutAlternateContactRequestTypeDef,
     PutContactInformationRequestTypeDef,
+    SendPhoneNumberVerificationRequestTypeDef,
+    SendPhoneNumberVerificationResponseTypeDef,
     StartPrimaryEmailUpdateRequestTypeDef,
     StartPrimaryEmailUpdateResponseTypeDef,
+    VerifyPhoneNumberRequestTypeDef,
+    VerifyPhoneNumberResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -272,6 +276,17 @@ class AccountClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#put_contact_information)
         """
 
+    async def send_phone_number_verification(
+        self, **kwargs: Unpack[SendPhoneNumberVerificationRequestTypeDef]
+    ) -> SendPhoneNumberVerificationResponseTypeDef:
+        """
+        Sends a one-time passcode to the phone number in the primary contact
+        information of an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/send_phone_number_verification.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#send_phone_number_verification)
+        """
+
     async def start_primary_email_update(
         self, **kwargs: Unpack[StartPrimaryEmailUpdateRequestTypeDef]
     ) -> StartPrimaryEmailUpdateResponseTypeDef:
@@ -281,6 +296,18 @@ class AccountClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/start_primary_email_update.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#start_primary_email_update)
+        """
+
+    async def verify_phone_number(
+        self, **kwargs: Unpack[VerifyPhoneNumberRequestTypeDef]
+    ) -> VerifyPhoneNumberResponseTypeDef:
+        """
+        Verifies the phone number in the primary contact information of an Amazon Web
+        Services account by submitting the one-time passcode that
+        <a>SendPhoneNumberVerification</a> sent to that phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/verify_phone_number.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#verify_phone_number)
         """
 
     def get_paginator(  # type: ignore[override]

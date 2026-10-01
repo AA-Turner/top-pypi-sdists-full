@@ -89,7 +89,7 @@ class DescriptorEventGeneratedParametersType(str, Enum):
 class BluetoothManufacturerData(Record):
     """bluetooth.BluetoothManufacturerData.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothbluetoothmanufacturerdata
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothbluetoothmanufacturerdata
     """
 
     key: int = field(metadata=meta("key", required=True, primitive="int"))
@@ -101,7 +101,7 @@ class BluetoothManufacturerData(Record):
 class CharacteristicProperties(Record):
     """bluetooth.CharacteristicProperties.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothcharacteristicproperties
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothcharacteristicproperties
     """
 
     broadcast: bool | UnsetType = field(default=UNSET, metadata=meta("broadcast", primitive="bool"))
@@ -128,7 +128,7 @@ class CharacteristicProperties(Record):
 class RequestDeviceInfo(Record):
     """bluetooth.RequestDeviceInfo.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothrequestdeviceinfo
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothrequestdeviceinfo
     """
 
     id: str = field(metadata=meta("id", required=True, primitive="str"))
@@ -140,7 +140,7 @@ class RequestDeviceInfo(Record):
 class ScanRecord(Record):
     """bluetooth.ScanRecord.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothscanrecord
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothscanrecord
     """
 
     name: str | UnsetType = field(default=UNSET, metadata=meta("name", primitive="str"))
@@ -157,7 +157,7 @@ class ScanRecord(Record):
 class SimulateAdapterParameters(Record):
     """bluetooth.SimulateAdapterParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulateadapterparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulateadapterparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -172,7 +172,7 @@ class SimulateAdapterParameters(Record):
 class DisableSimulationParameters(Record):
     """bluetooth.DisableSimulationParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothdisablesimulationparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothdisablesimulationparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -183,7 +183,7 @@ class DisableSimulationParameters(Record):
 class SimulatePreconnectedPeripheralParameters(Record):
     """bluetooth.SimulatePreconnectedPeripheralParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulatepreconnectedperipheralparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulatepreconnectedperipheralparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -202,7 +202,7 @@ class SimulatePreconnectedPeripheralParameters(Record):
 class SimulateAdvertisementParameters(Record):
     """bluetooth.SimulateAdvertisementParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulateadvertisementparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulateadvertisementparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -216,7 +216,7 @@ class SimulateAdvertisementParameters(Record):
 class SimulateAdvertisementScanEntryParameters(Record):
     """bluetooth.SimulateAdvertisementScanEntryParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulateadvertisementscanentryparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulateadvertisementscanentryparameters
     """
 
     device_address: str = field(metadata=meta("deviceAddress", required=True, primitive="str"))
@@ -229,7 +229,7 @@ class SimulateAdvertisementScanEntryParameters(Record):
 class SimulateGattConnectionResponseParameters(Record):
     """bluetooth.SimulateGattConnectionResponseParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulategattconnectionresponseparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulategattconnectionresponseparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -242,7 +242,7 @@ class SimulateGattConnectionResponseParameters(Record):
 class SimulateGattDisconnectionParameters(Record):
     """bluetooth.SimulateGattDisconnectionParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulategattdisconnectionparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulategattdisconnectionparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -254,7 +254,7 @@ class SimulateGattDisconnectionParameters(Record):
 class SimulateServiceParameters(Record):
     """bluetooth.SimulateServiceParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulateserviceparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulateserviceparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -270,7 +270,7 @@ class SimulateServiceParameters(Record):
 class SimulateCharacteristicParameters(Record):
     """bluetooth.SimulateCharacteristicParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulatecharacteristicparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulatecharacteristicparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -291,7 +291,7 @@ class SimulateCharacteristicParameters(Record):
 class SimulateCharacteristicResponseParameters(Record):
     """bluetooth.SimulateCharacteristicResponseParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulatecharacteristicresponseparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulatecharacteristicresponseparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -310,7 +310,7 @@ class SimulateCharacteristicResponseParameters(Record):
 class SimulateDescriptorParameters(Record):
     """bluetooth.SimulateDescriptorParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulatedescriptorparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulatedescriptorparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -328,7 +328,7 @@ class SimulateDescriptorParameters(Record):
 class SimulateDescriptorResponseParameters(Record):
     """bluetooth.SimulateDescriptorResponseParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothsimulatedescriptorresponseparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothsimulatedescriptorresponseparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -348,7 +348,7 @@ class SimulateDescriptorResponseParameters(Record):
 class RequestDevicePromptUpdatedParameters(Record):
     """bluetooth.RequestDevicePromptUpdatedParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothrequestdevicepromptupdatedparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothrequestdevicepromptupdatedparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -363,7 +363,7 @@ class RequestDevicePromptUpdatedParameters(Record):
 class GattConnectionAttemptedParameters(Record):
     """bluetooth.GattConnectionAttemptedParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothgattconnectionattemptedparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothgattconnectionattemptedparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -375,7 +375,7 @@ class GattConnectionAttemptedParameters(Record):
 class CharacteristicEventGeneratedParameters(Record):
     """bluetooth.CharacteristicEventGeneratedParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothcharacteristiceventgeneratedparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothcharacteristiceventgeneratedparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -393,7 +393,7 @@ class CharacteristicEventGeneratedParameters(Record):
 class DescriptorEventGeneratedParameters(Record):
     """bluetooth.DescriptorEventGeneratedParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothdescriptoreventgeneratedparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothdescriptoreventgeneratedparameters
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
@@ -428,7 +428,7 @@ class HandleRequestDevicePromptParametersCancelParameters(Record):
 class HandleRequestDevicePromptParameters(Union):
     """bluetooth.HandleRequestDevicePromptParameters.
 
-    See https://webbluetoothcg.github.io/web-bluetooth/#cddl-type-bluetoothhandlerequestdevicepromptparameters
+    See https://bluetooth.spec.whatwg.org/#cddl-type-bluetoothhandlerequestdevicepromptparameters
     """
 
     _DISCRIMINATOR = "accept"
@@ -453,10 +453,14 @@ class Bluetooth(Domain):
     EVENTS = {
         "request_device_prompt_updated": "bluetooth.requestDevicePromptUpdated",
         "gatt_connection_attempted": "bluetooth.gattConnectionAttempted",
+        "characteristic_event_generated": "bluetooth.characteristicEventGenerated",
+        "descriptor_event_generated": "bluetooth.descriptorEventGenerated",
     }
     EVENT_TYPES = {
         "bluetooth.requestDevicePromptUpdated": "bluetooth.RequestDevicePromptUpdatedParameters",
         "bluetooth.gattConnectionAttempted": "bluetooth.GattConnectionAttemptedParameters",
+        "bluetooth.characteristicEventGenerated": "bluetooth.CharacteristicEventGeneratedParameters",
+        "bluetooth.descriptorEventGenerated": "bluetooth.DescriptorEventGeneratedParameters",
     }
 
     def handle_request_device_prompt(

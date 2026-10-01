@@ -28,6 +28,7 @@ __all__ = (
     "BehaviorOnMxFailureType",
     "BounceTypeType",
     "BulkEmailStatusType",
+    "ConfigurationSetFilterKeyType",
     "ContactLanguageType",
     "ContactListImportActionType",
     "DataFormatType",
@@ -44,15 +45,19 @@ __all__ = (
     "ExportSourceTypeType",
     "FeatureStatusType",
     "HttpsPolicyType",
+    "IdentityCertificateStatusType",
+    "IdentityFilterKeyType",
     "IdentityTypeType",
     "ImportDestinationTypeType",
     "JobStatusType",
+    "ListEmailIdentityCertificatesPaginatorName",
     "ListMultiRegionEndpointsPaginatorName",
     "ListRecommendationsFilterKeyType",
     "ListReputationEntitiesPaginatorName",
     "ListResourceTenantsPaginatorName",
     "ListTenantResourcesFilterKeyType",
     "ListTenantResourcesPaginatorName",
+    "ListTenantsFilterKeyType",
     "ListTenantsPaginatorName",
     "MailFromDomainStatusType",
     "MailTypeType",
@@ -76,6 +81,7 @@ __all__ = (
     "ScalingModeType",
     "SendingStatusType",
     "ServiceName",
+    "SignatureFormatType",
     "StatusType",
     "SubscriptionStatusType",
     "SuppressionConfidenceVerdictThresholdType",
@@ -109,6 +115,7 @@ BulkEmailStatusType = Literal[
     "TEMPLATE_NOT_FOUND",
     "TRANSIENT_FAILURE",
 ]
+ConfigurationSetFilterKeyType = Literal["CONFIGURATION_SET_NAME_CONTAINS"]
 ContactLanguageType = Literal["EN", "JA"]
 ContactListImportActionType = Literal["DELETE", "PUT"]
 DataFormatType = Literal["CSV", "JSON"]
@@ -170,20 +177,26 @@ EventTypeType = Literal[
 ExportSourceTypeType = Literal["MESSAGE_INSIGHTS", "METRICS_DATA"]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 HttpsPolicyType = Literal["OPTIONAL", "REQUIRE", "REQUIRE_OPEN_ONLY"]
+IdentityCertificateStatusType = Literal[
+    "ACTIVE", "DEPROVISIONING", "FAILED", "INACTIVE", "PROVISIONING"
+]
+IdentityFilterKeyType = Literal["IDENTITY_NAME_CONTAINS", "IDENTITY_TYPE", "VERIFICATION_STATUS"]
 IdentityTypeType = Literal["DOMAIN", "EMAIL_ADDRESS", "MANAGED_DOMAIN"]
 ImportDestinationTypeType = Literal["CONTACT_LIST", "SUPPRESSION_LIST"]
 JobStatusType = Literal["CANCELLED", "COMPLETED", "CREATED", "FAILED", "PROCESSING"]
+ListEmailIdentityCertificatesPaginatorName = Literal["list_email_identity_certificates"]
 ListMultiRegionEndpointsPaginatorName = Literal["list_multi_region_endpoints"]
 ListRecommendationsFilterKeyType = Literal["IMPACT", "RESOURCE_ARN", "STATUS", "TYPE"]
 ListReputationEntitiesPaginatorName = Literal["list_reputation_entities"]
 ListResourceTenantsPaginatorName = Literal["list_resource_tenants"]
 ListTenantResourcesFilterKeyType = Literal["RESOURCE_TYPE"]
 ListTenantResourcesPaginatorName = Literal["list_tenant_resources"]
+ListTenantsFilterKeyType = Literal["SENDING_STATUS", "TENANT_NAME_CONTAINS"]
 ListTenantsPaginatorName = Literal["list_tenants"]
 MailFromDomainStatusType = Literal["FAILED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
 MailTypeType = Literal["MARKETING", "TRANSACTIONAL"]
 MetricAggregationType = Literal["RATE", "VOLUME"]
-MetricDimensionNameType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "ISP"]
+MetricDimensionNameType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "ISP", "TENANT_NAME"]
 MetricNamespaceType = Literal["VDM"]
 MetricType = Literal[
     "CLICK",
@@ -212,6 +225,7 @@ ResourceTypeType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "EMAIL_TEMPLAT
 ReviewStatusType = Literal["DENIED", "FAILED", "GRANTED", "PENDING"]
 ScalingModeType = Literal["MANAGED", "STANDARD"]
 SendingStatusType = Literal["DISABLED", "ENABLED", "REINSTATED"]
+SignatureFormatType = Literal["DETACHED"]
 StatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
 SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
 SuppressionConfidenceVerdictThresholdType = Literal["HIGH", "MANAGED", "MEDIUM"]
@@ -314,6 +328,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -388,6 +403,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -416,6 +432,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -510,6 +527,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -669,6 +687,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_email_identity_certificates",
     "list_multi_region_endpoints",
     "list_reputation_entities",
     "list_resource_tenants",

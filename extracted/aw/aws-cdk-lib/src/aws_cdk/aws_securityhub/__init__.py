@@ -8911,6 +8911,9 @@ class CfnHubV2(
         from aws_cdk import aws_securityhub as securityhub
         
         cfn_hub_v2 = securityhub.CfnHubV2(self, "MyCfnHubV2",
+            network_scanning=securityhub.CfnHubV2.NetworkScanningProperty(
+                status="status"
+            ),
             tags={
                 "tags_key": "tags"
             }
@@ -8922,19 +8925,21 @@ class CfnHubV2(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        network_scanning: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHubV2.NetworkScanningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::SecurityHub::HubV2``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
         :param tags: The tags to add to the hub V2 resource when you enable Security Hub CSPM.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a938d6f02e5cc9357e7ae741d101719d29a8539be57e63f7148a944106dccc1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnHubV2Props(tags=tags)
+        props = CfnHubV2Props(network_scanning=network_scanning, tags=tags)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -9035,6 +9040,24 @@ class CfnHubV2(
         return typing.cast("_aws_securityhub_cd2f4c4f.HubV2Reference", jsii.get(self, "hubV2Ref"))
 
     @builtins.property
+    @jsii.member(jsii_name="networkScanning")
+    def network_scanning(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]]:
+        '''Configuration for the Network Scanning opt-in feature of Security Hub V2.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]], jsii.get(self, "networkScanning"))
+
+    @network_scanning.setter
+    def network_scanning(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cc1200c5fcb75087d33410fcd4b08c5a98ed47a621b12bdf6f2936d093a2b3e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkScanning", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The tags to add to the hub V2 resource when you enable Security Hub CSPM.'''
@@ -9050,20 +9073,76 @@ class CfnHubV2(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2.NetworkScanningProperty",
+        jsii_struct_bases=[],
+        name_mapping={"status": "status"},
+    )
+    class NetworkScanningProperty:
+        def __init__(self, *, status: builtins.str) -> None:
+            '''Configuration for the Network Scanning opt-in feature of Security Hub V2.
+
+            Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+
+            :param status: Whether the Network Scanning feature is enabled for this account and Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-hubv2-networkscanning.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                network_scanning_property = securityhub.CfnHubV2.NetworkScanningProperty(
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fdec6d0216bb5b72f270acd5d450b1b0a7ee7686708735f812c20de909ca5b7a)
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status": status,
+            }
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''Whether the Network Scanning feature is enabled for this account and Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-hubv2-networkscanning.html#cfn-securityhub-hubv2-networkscanning-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NetworkScanningProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2Props",
     jsii_struct_bases=[],
-    name_mapping={"tags": "tags"},
+    name_mapping={"network_scanning": "networkScanning", "tags": "tags"},
 )
 class CfnHubV2Props:
     def __init__(
         self,
         *,
+        network_scanning: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHubV2.NetworkScanningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnHubV2``.
 
+        :param network_scanning: Configuration for the Network Scanning opt-in feature of Security Hub V2. Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
         :param tags: The tags to add to the hub V2 resource when you enable Security Hub CSPM.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
@@ -9076,6 +9155,9 @@ class CfnHubV2Props:
             from aws_cdk import aws_securityhub as securityhub
             
             cfn_hub_v2_props = securityhub.CfnHubV2Props(
+                network_scanning=securityhub.CfnHubV2.NetworkScanningProperty(
+                    status="status"
+                ),
                 tags={
                     "tags_key": "tags"
                 }
@@ -9083,10 +9165,26 @@ class CfnHubV2Props:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344)
+            check_type(argname="argument network_scanning", value=network_scanning, expected_type=type_hints["network_scanning"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if network_scanning is not None:
+            self._values["network_scanning"] = network_scanning
         if tags is not None:
             self._values["tags"] = tags
+
+    @builtins.property
+    def network_scanning(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]]:
+        '''Configuration for the Network Scanning opt-in feature of Security Hub V2.
+
+        Network Scanning is available in the AWS commercial partition only; specifying this property in another partition, such as AWS GovCloud (US) or China, fails. This property is desired state: if you remove it from a stack that previously set it, the feature is disabled. If a stack has never set it, the feature is left as-is, so a stack that does not manage Network Scanning will not disable it. Network Scanning requires Security Hub V2 to be enabled in the same account and Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html#cfn-securityhub-hubv2-networkscanning
+        '''
+        result = self._values.get("network_scanning")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHubV2.NetworkScanningProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -16114,6 +16212,7 @@ def _typecheckingstub__8a938d6f02e5cc9357e7ae741d101719d29a8539be57e63f7148a9441
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    network_scanning: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHubV2.NetworkScanningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16143,14 +16242,28 @@ def _typecheckingstub__f92498b56c6fcd7d027c6ff068634a704396d6376eee870869ddf3ffc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cc1200c5fcb75087d33410fcd4b08c5a98ed47a621b12bdf6f2936d093a2b3e5(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHubV2.NetworkScanningProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6e41e91c55f6f2a331ab968ca257da397cb59475bac947e28be333f8f3cdc7cb(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fdec6d0216bb5b72f270acd5d450b1b0a7ee7686708735f812c20de909ca5b7a(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344(
     *,
+    network_scanning: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHubV2.NetworkScanningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

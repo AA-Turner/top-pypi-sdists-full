@@ -214,19 +214,19 @@ def _build_stub_policy_handlers(*, data_dir: Path) -> dict[str, Any]:
     """
     from pydantic import ValidationError
 
-    from ..policy.model import Policy
+    from ..policy.decision_pin import is_pin_set
+    from ..policy.handlers import (
+        build_decision_pin_handlers,
+        policy_file_corrupt_response,
+    )
+    from ..policy.model import ALLOW_LIST_OMITTED_MESSAGE, Policy, drops_allow_list
     from ..policy.persistence import load_policy, save_policy
 
     async def get_config(_: Request) -> JSONResponse:
         try:
             return JSONResponse(load_policy(data_dir).model_dump(mode="json"))
         except ValueError as e:
-            # Mirror the main-server handler: surface corruption rather
-            # than crash the sidecar tab on a 500.
-            return JSONResponse(
-                {"error": str(e), "policy_file_corrupt": True},
-                status_code=500,
-            )
+            return policy_file_corrupt_response(e)
 
     async def put_config(request: Request) -> JSONResponse:
         try:
@@ -242,7 +242,30 @@ def _build_stub_policy_handlers(*, data_dir: Path) -> dict[str, Any]:
         from ..utils.config_write_lock import config_write_guard
 
         async with config_write_guard():
-            current = load_policy(data_dir)
+            try:
+                current = load_policy(data_dir)
+            except ValueError as e:
+                return policy_file_corrupt_response(e)
+            if drops_allow_list(new_policy, current):
+                return JSONResponse(
+                    {"error": ALLOW_LIST_OMITTED_MESSAGE}, status_code=400
+                )
+            # Mirror the main-server PIN guard, and for the same reason it
+            # sits inside the lock there: the PIN delete runs under this
+            # lock and leaves the policy version untouched when the switch
+            # was already off, so a check taken before the lock can be stale
+            # by the time this write lands.
+            if new_policy.event_decisions_enabled and not is_pin_set(data_dir):
+                return JSONResponse(
+                    {
+                        "error": (
+                            "set an approval PIN before allowing approve/deny "
+                            "over the Home Assistant event bus"
+                        ),
+                        "pin_required": True,
+                    },
+                    status_code=400,
+                )
             if new_policy.version != current.version:
                 return JSONResponse(
                     {
@@ -276,6 +299,9 @@ def _build_stub_policy_handlers(*, data_dir: Path) -> dict[str, Any]:
         "policy_post_deny": unavailable,
         "policy_get_tool_schema": unavailable,
         "policy_get_value_source": unavailable,
+        # Served for real: the PIN is a file in the shared data dir, and the
+        # config PUT above refuses the toggle without one.
+        **build_decision_pin_handlers(data_dir=data_dir),
     }
 
 
@@ -676,6 +702,9 @@ def register_settings_routes(
         ("/api/policy/pending", ["GET"], "policy_get_pending"),
         ("/api/policy/approve", ["POST"], "policy_post_approve"),
         ("/api/policy/deny", ["POST"], "policy_post_deny"),
+        ("/api/policy/decision-pin", ["GET"], "policy_get_decision_pin"),
+        ("/api/policy/decision-pin", ["POST"], "policy_post_decision_pin"),
+        ("/api/policy/decision-pin", ["DELETE"], "policy_delete_decision_pin"),
         ("/api/policy/tool-schema", ["GET"], "policy_get_tool_schema"),
         ("/api/policy/value-source", ["GET"], "policy_get_value_source"),
         # Entity visibility filter endpoints (issue #1728)

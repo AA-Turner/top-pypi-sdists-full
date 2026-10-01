@@ -31,6 +31,7 @@ from .literals import (
     InvoiceFrequencyType,
     InvoiceTypeType,
     ListInvoiceSummariesResourceTypeType,
+    ProcurementPortalEnvType,
     ProcurementPortalNameType,
     ProcurementPortalPreferenceStatusType,
     PurchaseOrderDataSourceTypeType,
@@ -66,6 +67,7 @@ __all__ = (
     "EinvoiceDeliveryPreferenceTypeDef",
     "EinvoiceDeliveryPreferenceUnionTypeDef",
     "EntityTypeDef",
+    "FeatureConfigurationsTypeDef",
     "FeesBreakdownAmountTypeDef",
     "FeesBreakdownTypeDef",
     "FiltersTypeDef",
@@ -75,6 +77,7 @@ __all__ = (
     "GetInvoiceUnitResponseTypeDef",
     "GetProcurementPortalPreferenceRequestTypeDef",
     "GetProcurementPortalPreferenceResponseTypeDef",
+    "InvoiceConfigurationTypeDef",
     "InvoiceCurrencyAmountTypeDef",
     "InvoicePDFTypeDef",
     "InvoiceProfileTypeDef",
@@ -94,6 +97,12 @@ __all__ = (
     "ListProcurementPortalPreferencesRequestPaginateTypeDef",
     "ListProcurementPortalPreferencesRequestTypeDef",
     "ListProcurementPortalPreferencesResponseTypeDef",
+    "ListProcurementPortalSuppliersRequestPaginateTypeDef",
+    "ListProcurementPortalSuppliersRequestTypeDef",
+    "ListProcurementPortalSuppliersResponseTypeDef",
+    "ListProcurementPortalsRequestPaginateTypeDef",
+    "ListProcurementPortalsRequestTypeDef",
+    "ListProcurementPortalsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "PaginatorConfigTypeDef",
@@ -102,6 +111,8 @@ __all__ = (
     "ProcurementPortalPreferenceSelectorUnionTypeDef",
     "ProcurementPortalPreferenceSummaryTypeDef",
     "ProcurementPortalPreferenceTypeDef",
+    "ProcurementPortalSupplierTypeDef",
+    "ProcurementPortalTypeDef",
     "PurchaseOrderDataSourceTypeDef",
     "PutProcurementPortalPreferenceRequestTypeDef",
     "PutProcurementPortalPreferenceResponseTypeDef",
@@ -184,6 +195,10 @@ class EntityTypeDef(TypedDict):
     InvoicingEntity: NotRequired[str]
     BillingEntity: NotRequired[BillingEntityType]
 
+class InvoiceConfigurationTypeDef(TypedDict):
+    DocumentTypes: NotRequired[list[EinvoiceDeliveryDocumentTypeType]]
+    AttachmentTypes: NotRequired[list[EinvoiceDeliveryAttachmentTypeType]]
+
 class FeesBreakdownAmountTypeDef(TypedDict):
     Description: NotRequired[str]
     Amount: NotRequired[str]
@@ -236,6 +251,21 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 class ListProcurementPortalPreferencesRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListProcurementPortalSuppliersRequestTypeDef(TypedDict):
+    PortalIdentifier: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ProcurementPortalSupplierTypeDef(TypedDict):
+    SupplierIdentifier: str
+    SellerOfRecord: NotRequired[str]
+    CountryCode: NotRequired[str]
+    Environment: NotRequired[ProcurementPortalEnvType]
+
+class ListProcurementPortalsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -366,6 +396,9 @@ EinvoiceDeliveryPreferenceTypeDef = TypedDict(
     },
 )
 
+class FeatureConfigurationsTypeDef(TypedDict):
+    InvoiceConfiguration: NotRequired[InvoiceConfigurationTypeDef]
+
 class FeesBreakdownTypeDef(TypedDict):
     Breakdown: NotRequired[list[FeesBreakdownAmountTypeDef]]
     TotalAmount: NotRequired[str]
@@ -418,6 +451,18 @@ class ListInvoiceUnitsRequestPaginateTypeDef(TypedDict):
 
 class ListProcurementPortalPreferencesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListProcurementPortalSuppliersRequestPaginateTypeDef(TypedDict):
+    PortalIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListProcurementPortalsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListProcurementPortalSuppliersResponseTypeDef(TypedDict):
+    ProcurementPortalSuppliers: list[ProcurementPortalSupplierTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ProcurementPortalPreferenceSummaryTypeDef(TypedDict):
     AwsAccountId: str
@@ -480,6 +525,12 @@ class ProcurementPortalPreferenceTypeDef(TypedDict):
 EinvoiceDeliveryPreferenceUnionTypeDef = Union[
     EinvoiceDeliveryPreferenceTypeDef, EinvoiceDeliveryPreferenceOutputTypeDef
 ]
+
+class ProcurementPortalTypeDef(TypedDict):
+    PortalIdentifier: str
+    PortalName: ProcurementPortalNameType
+    PortalDisplayName: NotRequired[str]
+    DefaultFeatureConfigurations: NotRequired[FeatureConfigurationsTypeDef]
 
 class ListInvoiceUnitsResponseTypeDef(TypedDict):
     InvoiceUnits: list[InvoiceUnitTypeDef]
@@ -564,6 +615,11 @@ class PutProcurementPortalPreferenceRequestTypeDef(TypedDict):
     TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
     EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
     ClientToken: NotRequired[str]
+
+class ListProcurementPortalsResponseTypeDef(TypedDict):
+    ProcurementPortals: list[ProcurementPortalTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class InvoiceCurrencyAmountTypeDef(TypedDict):
     TotalAmount: NotRequired[str]

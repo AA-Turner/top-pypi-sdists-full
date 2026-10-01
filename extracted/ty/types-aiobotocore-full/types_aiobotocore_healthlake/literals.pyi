@@ -26,6 +26,8 @@ __all__ = (
     "AgentOutputMessageTypeType",
     "AnalyticsStatusType",
     "AuthorizationStrategyType",
+    "BackupStatusType",
+    "BackupTypeType",
     "CmkTypeType",
     "DataTransformationJobCompletedWaiterName",
     "DatastoreStatusType",
@@ -59,6 +61,8 @@ AgentOutputMessageTypeType = Literal[
 ]
 AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
+BackupStatusType = Literal["DISABLED", "ENABLED"]
+BackupTypeType = Literal["CONTINUOUS"]
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 DataTransformationJobCompletedWaiterName = Literal["data_transformation_job_completed"]
 DatastoreStatusType = Literal[
@@ -176,6 +180,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -250,6 +255,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -278,6 +284,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -372,6 +379,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

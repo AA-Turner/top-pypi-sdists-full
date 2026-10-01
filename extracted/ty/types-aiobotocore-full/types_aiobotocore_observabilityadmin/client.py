@@ -31,6 +31,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListCentralizationRulesForOrganizationPaginator,
+    ListDatasetIntegrationsPaginator,
     ListResourceTelemetryForOrganizationPaginator,
     ListResourceTelemetryPaginator,
     ListS3TableIntegrationsPaginator,
@@ -41,6 +42,8 @@ from .paginator import (
 from .type_defs import (
     CreateCentralizationRuleForOrganizationInputTypeDef,
     CreateCentralizationRuleForOrganizationOutputTypeDef,
+    CreateDatasetIntegrationInputTypeDef,
+    CreateDatasetIntegrationOutputTypeDef,
     CreateS3TableIntegrationInputTypeDef,
     CreateS3TableIntegrationOutputTypeDef,
     CreateTelemetryPipelineInputTypeDef,
@@ -50,6 +53,7 @@ from .type_defs import (
     CreateTelemetryRuleInputTypeDef,
     CreateTelemetryRuleOutputTypeDef,
     DeleteCentralizationRuleForOrganizationInputTypeDef,
+    DeleteDatasetIntegrationInputTypeDef,
     DeleteS3TableIntegrationInputTypeDef,
     DeleteTelemetryPipelineInputTypeDef,
     DeleteTelemetryRuleForOrganizationInputTypeDef,
@@ -57,6 +61,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     GetCentralizationRuleForOrganizationInputTypeDef,
     GetCentralizationRuleForOrganizationOutputTypeDef,
+    GetDatasetIntegrationInputTypeDef,
+    GetDatasetIntegrationOutputTypeDef,
     GetS3TableIntegrationInputTypeDef,
     GetS3TableIntegrationOutputTypeDef,
     GetTelemetryEnrichmentStatusOutputTypeDef,
@@ -70,6 +76,8 @@ from .type_defs import (
     GetTelemetryRuleOutputTypeDef,
     ListCentralizationRulesForOrganizationInputTypeDef,
     ListCentralizationRulesForOrganizationOutputTypeDef,
+    ListDatasetIntegrationsInputTypeDef,
+    ListDatasetIntegrationsOutputTypeDef,
     ListResourceTelemetryForOrganizationInputTypeDef,
     ListResourceTelemetryForOrganizationOutputTypeDef,
     ListResourceTelemetryInputTypeDef,
@@ -94,6 +102,8 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateCentralizationRuleForOrganizationInputTypeDef,
     UpdateCentralizationRuleForOrganizationOutputTypeDef,
+    UpdateDatasetIntegrationInputTypeDef,
+    UpdateDatasetIntegrationOutputTypeDef,
     UpdateTelemetryPipelineInputTypeDef,
     UpdateTelemetryRuleForOrganizationInputTypeDef,
     UpdateTelemetryRuleForOrganizationOutputTypeDef,
@@ -170,6 +180,17 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#create_centralization_rule_for_organization)
         """
 
+    async def create_dataset_integration(
+        self, **kwargs: Unpack[CreateDatasetIntegrationInputTypeDef]
+    ) -> CreateDatasetIntegrationOutputTypeDef:
+        """
+        Creates a dataset integration for the caller's account in the current region
+        and returns its ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/create_dataset_integration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#create_dataset_integration)
+        """
+
     async def create_s3_table_integration(
         self, **kwargs: Unpack[CreateS3TableIntegrationInputTypeDef]
     ) -> CreateS3TableIntegrationOutputTypeDef:
@@ -222,6 +243,16 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#delete_centralization_rule_for_organization)
         """
 
+    async def delete_dataset_integration(
+        self, **kwargs: Unpack[DeleteDatasetIntegrationInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a dataset integration for the caller's account in the current region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/delete_dataset_integration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#delete_dataset_integration)
+        """
+
     async def delete_s3_table_integration(
         self, **kwargs: Unpack[DeleteS3TableIntegrationInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -270,6 +301,16 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_centralization_rule_for_organization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#get_centralization_rule_for_organization)
+        """
+
+    async def get_dataset_integration(
+        self, **kwargs: Unpack[GetDatasetIntegrationInputTypeDef]
+    ) -> GetDatasetIntegrationOutputTypeDef:
+        """
+        Returns the dataset integration for the caller's account in the current region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_dataset_integration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#get_dataset_integration)
         """
 
     async def get_s3_table_integration(
@@ -353,6 +394,16 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_centralization_rules_for_organization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#list_centralization_rules_for_organization)
+        """
+
+    async def list_dataset_integrations(
+        self, **kwargs: Unpack[ListDatasetIntegrationsInputTypeDef]
+    ) -> ListDatasetIntegrationsOutputTypeDef:
+        """
+        Returns the dataset integrations in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_dataset_integrations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#list_dataset_integrations)
         """
 
     async def list_resource_telemetry(
@@ -528,6 +579,16 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#update_centralization_rule_for_organization)
         """
 
+    async def update_dataset_integration(
+        self, **kwargs: Unpack[UpdateDatasetIntegrationInputTypeDef]
+    ) -> UpdateDatasetIntegrationOutputTypeDef:
+        """
+        Updates a dataset integration for the caller's account in the current region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/update_dataset_integration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#update_dataset_integration)
+        """
+
     async def update_telemetry_pipeline(
         self, **kwargs: Unpack[UpdateTelemetryPipelineInputTypeDef]
     ) -> dict[str, Any]:
@@ -573,6 +634,17 @@ class CloudWatchObservabilityAdminServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_centralization_rules_for_organization"]
     ) -> ListCentralizationRulesForOrganizationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_integrations"]
+    ) -> ListDatasetIntegrationsPaginator:
         """
         Create a paginator for an operation.
 

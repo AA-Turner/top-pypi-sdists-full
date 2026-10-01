@@ -59,6 +59,10 @@ from .type_defs import (
     GetLinkedWhatsAppBusinessAccountOutputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef,
     GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
+    GetWhatsAppBusinessPublicKeyInputTypeDef,
+    GetWhatsAppBusinessPublicKeyOutputTypeDef,
+    GetWhatsAppCallPermissionInputTypeDef,
+    GetWhatsAppCallPermissionOutputTypeDef,
     GetWhatsAppFlowInputTypeDef,
     GetWhatsAppFlowOutputTypeDef,
     GetWhatsAppFlowPreviewInputTypeDef,
@@ -83,6 +87,9 @@ from .type_defs import (
     PostWhatsAppMessageMediaOutputTypeDef,
     PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
+    PutWhatsAppBusinessPublicKeyInputTypeDef,
+    SendWhatsAppCallEventInputTypeDef,
+    SendWhatsAppCallEventOutputTypeDef,
     SendWhatsAppConversionEventInputTypeDef,
     SendWhatsAppConversionEventOutputTypeDef,
     SendWhatsAppMessageInputTypeDef,
@@ -91,6 +98,8 @@ from .type_defs import (
     TagResourceOutputTypeDef,
     UntagResourceInputTypeDef,
     UntagResourceOutputTypeDef,
+    UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef,
+    UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
     UpdateWhatsAppFlowAssetsInputTypeDef,
     UpdateWhatsAppFlowAssetsOutputTypeDef,
     UpdateWhatsAppFlowInputTypeDef,
@@ -108,6 +117,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedByMetaException: type[BotocoreClientError]
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     DependencyException: type[BotocoreClientError]
     InternalServiceException: type[BotocoreClientError]
     InvalidParametersException: type[BotocoreClientError]
@@ -286,6 +296,27 @@ class EndUserMessagingSocialClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_linked_whatsapp_business_account_phone_number)
         """
 
+    async def get_whatsapp_business_public_key(
+        self, **kwargs: Unpack[GetWhatsAppBusinessPublicKeyInputTypeDef]
+    ) -> GetWhatsAppBusinessPublicKeyOutputTypeDef:
+        """
+        Retrieves the business public key for a phone number and its signature status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_business_public_key.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_whatsapp_business_public_key)
+        """
+
+    async def get_whatsapp_call_permission(
+        self, **kwargs: Unpack[GetWhatsAppCallPermissionInputTypeDef]
+    ) -> GetWhatsAppCallPermissionOutputTypeDef:
+        """
+        Retrieves the current calling permission for a WhatsApp end user, along with
+        the calling actions the business is allowed to take with that user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_call_permission.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_whatsapp_call_permission)
+        """
+
     async def get_whatsapp_flow(
         self, **kwargs: Unpack[GetWhatsAppFlowInputTypeDef]
     ) -> GetWhatsAppFlowOutputTypeDef:
@@ -419,6 +450,28 @@ class EndUserMessagingSocialClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#put_whatsapp_business_account_event_destinations)
         """
 
+    async def put_whatsapp_business_public_key(
+        self, **kwargs: Unpack[PutWhatsAppBusinessPublicKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sets the business public key used to encrypt the data exchanged with the
+        endpoint of a data exchange Flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/put_whatsapp_business_public_key.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#put_whatsapp_business_public_key)
+        """
+
+    async def send_whatsapp_call_event(
+        self, **kwargs: Unpack[SendWhatsAppCallEventInputTypeDef]
+    ) -> SendWhatsAppCallEventOutputTypeDef:
+        """
+        Sends a WhatsApp calling event, such as connecting or terminating a call, for a
+        business phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/send_whatsapp_call_event.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#send_whatsapp_call_event)
+        """
+
     async def send_whatsapp_conversion_event(
         self, **kwargs: Unpack[SendWhatsAppConversionEventInputTypeDef]
     ) -> SendWhatsAppConversionEventOutputTypeDef:
@@ -458,6 +511,18 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#untag_resource)
+        """
+
+    async def update_linked_whatsapp_business_account_phone_number(
+        self, **kwargs: Unpack[UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef]
+    ) -> UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef:
+        """
+        Updates the calling settings for a linked WhatsApp business phone number, such
+        as whether calling is enabled and the hours during which the business accepts
+        calls.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/update_linked_whatsapp_business_account_phone_number.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#update_linked_whatsapp_business_account_phone_number)
         """
 
     async def update_whatsapp_flow(

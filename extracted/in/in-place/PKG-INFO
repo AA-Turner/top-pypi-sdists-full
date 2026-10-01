@@ -1,28 +1,27 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: in_place
-Version: 1.0.1
+Version: 1.0.2
 Summary: In-place file processing
 Project-URL: Source Code, https://github.com/jwodder/inplace
 Project-URL: Bug Tracker, https://github.com/jwodder/inplace/issues
 Author-email: John Thorvald Wodder II <inplace@varonathe.org>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: file,fileinput,in-place,inplace,io,open,redirection,sed,tempfile,tmpfile
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 
 |repostatus| |ci-status| |coverage| |pyversions| |conda| |license|
@@ -122,7 +121,7 @@ Compared to the in-place filtering implemented by the Python standard library's
 
 Installation
 ============
-``in_place`` requires Python 3.8 or higher.  Just use `pip
+``in_place`` requires Python 3.10 or higher.  Just use `pip
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install it::
 
     python3 -m pip install in_place

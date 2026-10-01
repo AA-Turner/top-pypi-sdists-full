@@ -13,7 +13,10 @@ Every pair here comes from the distribution, never from a translation:
   English one in its path segment (`.../Query_ru/index.html`), the same pairing extract_stdlib
   relies on;
 - yaml properties - the EMF metamodel annotates them `@PropertyInfo(ru="Имя", en="Name")`;
-- enumeration values - the metamodel declares them `InProject as "ВПроекте"`;
+- enumeration values - the metamodel declares them `InProject as "ВПроекте"`; the languages a
+  project may be localized into are a compiled enumeration instead, read from its class
+  (language_rows), and so are the other enumerations the model only wraps for its properties
+  (enumeration_values);
 - members of every stdlib type - the distribution states them itself. The two
   documentation-and-xcore sources above are thin: a great many names carry no `en` in the
   metamodel at all (`@PropertyInfo(ru="Реквизиты")`), which used to read as "the platform has
@@ -115,6 +118,9 @@ _JSON_ALIAS = "Lcom/fasterxml/jackson/annotation/JsonAlias;"
 _JSON_ALIAS_MARK = _JSON_ALIAS[1:-1].encode()
 #: The name of a Java constant: words in capitals joined by underscores (`FINISH_NAME_RU`).
 _CONSTANT_NAME_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$")
+#: The English a call takes right after a Russian word: a name or a phrase, capital first - a
+#: key or an identifier in lower case (`modules`) is data the call takes, not a spelling.
+_LATIN_WORD_RE = re.compile(r"^[A-Z][A-Za-z0-9_ ]*$")
 #: Jars of the platform itself - the only ones that can hold such classes.
 _PLATFORM_JAR_RE = re.compile(r"g5rt|_1c")
 _EN_NAME_RE = re.compile(r"^[A-Z][A-Za-z0-9_]*$")
@@ -251,6 +257,109 @@ def _names_its_field(en: str, ru: str) -> bool:
     return bool(_CONSTANT_NAME_RE.match(en)) and not ru.isupper()
 
 
+def _russian_first(blob: bytes) -> dict[str, set[str]]:
+    """{Russian word: the Latin strings a call takes right after it} - a class that writes a
+    pair Russian first.
+
+    Some classes of the platform localize a word by a call that takes the Russian spelling and
+    then the English one: a parameter of a format string is `of(<its Russian code>, "SN")`, a
+    periodicity of a table parameter is keyed by the name of an enumeration constant and
+    localized as `put("YEAR", localization(<the Russian word>, "Year"))`. The pool keeps the
+    strings in the order the code first pushes them, so the neighbour on the left of a Russian
+    word is whatever the code pushed before it: the English of the PREVIOUS parameter (`SN` next
+    to the word for including the fractional part), or the name of the constant used as the key
+    (`YEAR` next to the word for a year). Neither is a spelling of that word, and the class
+    itself says which one is - the string the call takes right after it. The English here may
+    be a phrase (`Half year`): it still tells that the neighbour is not the spelling.
+
+    Only the call's own string arguments count (classcode.string_arguments): the key of the
+    map is pushed before them and is no argument of the call that localizes the word. A word
+    whose English the same call takes BEFORE it is written English first, whatever follows -
+    `typeVariable("Item", <the Russian word>, "ItemType")` names a type variable and then its
+    type.
+    """
+    stated: dict[str, set[str]] = defaultdict(set)
+    try:
+        calls = classcode.string_arguments(blob)
+    except (IndexError, ValueError):  # a class the reader does not follow states nothing
+        return {}
+    for _called, arguments in calls:
+        for at in range(len(arguments) - 1):
+            russian, english = arguments[at], arguments[at + 1]
+            if at and _EN_NAME_RE.match(arguments[at - 1]):
+                continue
+            if (_CYRILLIC_RE.search(russian) and not _CYRILLIC_RE.search(english)
+                    and _LATIN_WORD_RE.match(english)):
+                stated[russian].add(english)
+    return dict(stated)
+
+
+def _identifier_of(phrase: str) -> str:
+    """The name a phrase makes, its words capitalized and joined: `Register records` makes
+    `RegisterRecords`."""
+    return "".join(word[:1].upper() + word[1:] for word in phrase.split())
+
+
+def _origin_contradicts(en: str, ru: str, russian_first: dict[str, set[str]],
+                        english_first: set[tuple[str, str]]) -> bool:
+    """Whether the class says the English neighbour of `ru` came from somewhere else.
+
+    The class writes `ru` Russian first with another English right after it (_russian_first),
+    and states the neighbouring pair nowhere English first - by a term or by a member it
+    declares. A pair the class does state that way stays whatever else it calls, and so does a
+    neighbour that is the name the stated phrase makes: the key `RegisterRecords` before the
+    word localized as `Register records` names that word, while the key `YEAR` before the word
+    localized as `Year` is the name of a constant.
+    """
+    spellings = russian_first.get(ru)
+    if not spellings or (en, ru) in english_first:
+        return False
+    return en not in spellings and en not in {_identifier_of(phrase) for phrase in spellings}
+
+
+def _russian_first_pairs(russian_first: dict[str, set[str]],
+                         english_first: set[tuple[str, str]],
+                         kept: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """[(English, Russian)] the class states Russian first: a source of pairs, not only a check.
+
+    A word the class writes Russian first with one English NAME right after it is paired the
+    way the class states it: the code of a parameter of a format string is `SN`, while the
+    neighbour on its left was the English of the previous parameter. The screening is the one
+    every pair of the scan passes: both sides are names (see _names_its_field too), and a word
+    the class writes this way with two spellings is no pair - neither is guessed. A word the
+    class also states English first keeps that statement, and a word a kept neighbour already
+    pairs - with the stated spelling, or with the name a stated phrase makes - is not paired
+    twice. A phrase (`Half year`) is a caption the class localizes, no name: it still tells
+    which neighbour is not a spelling (_origin_contradicts), but in a dictionary of names it
+    would stand as a platform spelling of the word that no identifier can take.
+    """
+    paired = {ru for _en, ru in kept} | {ru for _en, ru in english_first}
+    out: list[tuple[str, str]] = []
+    for russian, spellings in russian_first.items():
+        if russian in paired or len(spellings) != 1:
+            continue
+        english = next(iter(spellings))
+        if (_EN_NAME_RE.match(english) and english not in _CLASS_FILE_NAMES
+                and _RU_NAME_RE.match(russian) and _CYRILLIC_RE.search(russian)
+                and not _names_its_field(english, russian)):
+            out.append((english, russian))
+    return out
+
+
+def _contradicts_language(en: str, ru: str, languages: dict[str, str]) -> bool:
+    """Whether the pair names a language other than the language table of the platform does.
+
+    The names of the languages stand next to each other in more than one class, and not as
+    pairs: an enumeration of the languages presents each one in its own language, so English
+    comes right before the Russian name of Russian, and a reader of the project descriptor lists
+    the Russian and the English names in turn. Read by adjacency, the Russian name of one
+    language got the English name of another, and the word lost its common spelling. The table
+    is the platform's own (language_rows).
+    """
+    known = languages.get(ru)
+    return known is not None and known != en
+
+
 def _checked(stated_pairs: list[tuple[str, str]],
              pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
     """The neighbourhood reading of a class that states its pairs, checked against the statements.
@@ -372,13 +481,16 @@ def _note_manager_evidence(managers: ManagerEvidence, class_name: str, data: byt
 
 def _scan_meta_objects(
     car: zipfile.ZipFile, managers: ManagerEvidence | None = None,
+    languages: dict[str, str] | None = None,
 ) -> tuple[dict[str, dict[str, str]], dict[str, str], dict[str, str]]:
     """({owner type: {ru: en}}, {ru: en}, {ru type: en type}) from the compiled classes.
 
     The third table is the types the classes DECLARE as terms (see _declared_type) - the
     pairs of the types the reference pages never describe. The flat table is the
     neighbourhood's, and the terms the classes state answer where it settled nothing.
-    `managers`, when given, collects on the same walk what manager_owners needs.
+    `managers`, when given, collects on the same walk what manager_owners needs;
+    `languages` ({Russian name: English}) is the language table every pair of a language name
+    is checked against (see _contradicts_language).
 
     A class without a single Cyrillic byte cannot hold a pair and is skipped before parsing -
     that check alone drops the overwhelming majority of the classes. The classes that construct
@@ -413,9 +525,24 @@ def _scan_meta_objects(
                 and _RU_NAME_RE.match(ru) and _CYRILLIC_RE.search(ru)
                 and not _names_its_field(en, ru)
             ]
+            found = classcode.declared_terms(data) if _DECLARES_TERMS_RE.search(data) else []
+            declared = classcode.declared_members(data) if _DECLARES_MEMBERS_RE.search(data) else {}
             stated_pairs = _stated_pairs(data)
             if stated_pairs is not None:
                 pairs = _checked(stated_pairs, pairs)
+            elif pairs and (russian_first := _russian_first(data)):
+                # Read where the neighbourhood found a pair: a word written Russian first leaves
+                # one on its left, and over the distribution no class states such a pair
+                # without it - reading every class with a Cyrillic string would cost a minute.
+                english_first = {(en, ru) for _field, en, ru in found}
+                english_first.update((en, ru) for ru, en in declared.items())
+                pairs = [(en, ru) for en, ru in pairs
+                         if not _origin_contradicts(en, ru, russian_first, english_first)]
+                pairs += _russian_first_pairs(russian_first, english_first, pairs)
+            # Checked last: a package that writes its annotations Russian first has its shifted
+            # neighbours spelled by the annotations above, the names of languages among them.
+            if languages:
+                pairs = [(en, ru) for en, ru in pairs if not _contradicts_language(en, ru, languages)]
             if inner == _QUERY_TERMS_CLASS:
                 # In the query parser's own class a keyword the platform has NO English
                 # spelling for is followed by a transliteration of itself, and adjacency reads
@@ -427,16 +554,14 @@ def _scan_meta_objects(
                 without = _query_untranslated(names)
                 pairs = [(en, ru) for en, ru in pairs if ru not in without]
             simple = inner.rsplit("/", 1)[-1][:-len(".class")]
-            found = classcode.declared_terms(data) if _DECLARES_TERMS_RE.search(data) else []
             stated = _declared_type(simple, data, found) if found else None
             if not pairs and not found:
                 continue
             owner = _META_SUFFIX.sub("", simple)
-            # A class STATES its members, and a statement beats the neighbourhood: adjacency
-            # named 2 of 2015 members wrongly, both confidently - the `CharAt` of a `String`
-            # came out `Symbol`, which is the fill PARAMETER of `PadFromBegin`. Read only
-            # where such declarations are actually made.
-            declared = classcode.declared_members(data) if _DECLARES_MEMBERS_RE.search(data) else {}
+            # A class STATES its members (`declared` above), and a statement beats the
+            # neighbourhood: adjacency named 2 of 2015 members wrongly, both confidently - the
+            # `CharAt` of a `String` came out `Symbol`, which is the fill PARAMETER of
+            # `PadFromBegin`. Read only where such declarations are actually made.
             resolved = {ru: en for en, ru in pairs}
             resolved.update(declared)
             for ru, en in resolved.items():
@@ -657,6 +782,186 @@ def scan_kind_table(car: zipfile.ZipFile) -> dict[str, str]:
     return best
 
 
+#: A language code the way ISO 639 writes it: two letters (`vi`), three for a language that
+#: has no two-letter code.
+_LANGUAGE_CODE_RE = re.compile(r"^[a-z]{2,3}$")
+#: The name a compatibility mode is read by starts so (`CMODE_9_0`) - a class that never
+#: names one cannot declare the mode of a language, and is not even parsed.
+_MODE_MARK = b"CMODE_"
+
+
+def language_rows(blob: bytes) -> list[dict[str, str]] | None:
+    """The languages a compiled enumeration of languages declares, or None for another class.
+
+    The languages a project may be localized into are an enumeration of the platform, and a
+    COMPILED one: no `.xcore` declares it, so neither the enumeration values of this step nor
+    the enumerations of the metamodel step ever held it. Each constant is built from the ISO
+    639 code of the language, the term of its two names, an identifier and the compatibility
+    mode the language appeared in - `VIETNAMESE("vi", term("Vietnamese", "Вьетнамский"), <id>,
+    <mode>)`. The term gives the pair, the string pushed right before it the code, the mode the
+    version of the platform a project needs for that language.
+
+    A class counts only when EVERY constant it builds has that shape; one constant of another
+    shape makes it some other enumeration. A row: {"ru", "en", "code", "since"}, in the order
+    the class declares the languages.
+    """
+    constants = classcode.declared_constants(blob)
+    if not constants:
+        return None
+    rows: list[dict[str, str]] = []
+    for constant in constants:
+        if len(constant.terms) != 1 or len(constant.modes) != 1:
+            return None
+        english, russian = constant.terms[0]
+        strings = constant.strings
+        at = next((i for i in range(1, len(strings) - 1)
+                   if strings[i] == english and strings[i + 1] == russian), None)
+        if (at is None or not _LANGUAGE_CODE_RE.match(strings[at - 1])
+                or not _EN_NAME_RE.match(english) or not _CYRILLIC_RE.search(russian)):
+            return None
+        rows.append({"ru": russian, "en": english, "code": strings[at - 1],
+                     "since": constant.modes[0]})
+    return rows
+
+
+def scan_language_table(car: zipfile.ZipFile) -> tuple[str, list[dict[str, str]]] | None:
+    """(the class of the languages, its rows - see language_rows) or None when there is none.
+
+    Found by its shape rather than by its name: over the whole distribution exactly one class
+    builds every constant from a language code, a term and a compatibility mode. The server,
+    the designer and the language server each ship a copy of it; the copies are one class,
+    and should they ever differ, the fullest table stands - the way the kind table is read.
+    """
+    best: tuple[str, list[dict[str, str]]] | None = None
+    for entry in car.namelist():
+        if not entry.endswith(".jar") or not _PLATFORM_JAR_RE.search(entry):
+            continue
+        try:
+            jar = zipfile.ZipFile(io.BytesIO(car.read(entry)))
+        except (zipfile.BadZipFile, KeyError):
+            continue
+        for inner in jar.namelist():
+            if not inner.endswith(".class"):
+                continue
+            data = jar.read(inner)
+            if _MODE_MARK not in data:
+                continue
+            try:
+                rows = language_rows(data)
+            except (IndexError, ValueError):  # a class the reader does not follow says nothing
+                continue
+            if rows and (best is None or len(rows) > len(best[1])):
+                best = (inner.rsplit("/", 1)[-1][:-len(".class")], rows)
+    return best
+
+
+def _is_value_pair(english: str, russian: str) -> bool:
+    """An English name against its Russian twin - or against itself, for a value the platform
+    spells alike in both languages (`PlainText`)."""
+    return _is_term_pair(english, russian) or (russian == english and bool(_EN_NAME_RE.match(english)))
+
+
+@dataclass(frozen=True)
+class EnumerationValue:
+    """One value of a compiled enumeration: its two spellings and the modes that have it.
+
+    `since` - the compatibility mode the value is added in; `until` - the last mode that still
+    has it. Either is None where the class states no such limit.
+    """
+
+    english: str
+    russian: str
+    since: str | None = None
+    until: str | None = None
+
+
+#: The calls an item of a compiled enumeration is dated by: the builder of the item takes the
+#: mode a value is added in (`added`), and the last mode it is kept in (`removedAfter` - the
+#: platform takes the value off in the modes after it).
+_VALUE_ADDED = "ItemInfo$Builder.added"
+_VALUE_REMOVED_AFTER = "ItemInfo$Builder.removedAfter"
+
+
+def _value_modes(constant: classcode.DeclaredConstant) -> tuple[str | None, str | None]:
+    """(since, until) of one value, as the calls that take a mode for it state them.
+
+    A mode taken by a call of another kind - a constructor, a spelling kept up to a mode -
+    says nothing about when the value is available, and is not read as such.
+    """
+    since = next((mode for called, mode in constant.mode_calls
+                  if called.endswith(_VALUE_ADDED)), None)
+    until = next((mode for called, mode in constant.mode_calls
+                  if called.endswith(_VALUE_REMOVED_AFTER)), None)
+    return since, until
+
+
+def enumeration_values(blob: bytes) -> list[EnumerationValue] | None:
+    """Every value a compiled enumeration declares, or None for another class.
+
+    Some enumerations a property of the model is typed by are compiled classes the model only
+    wraps (`type Importance wraps ImportanceG5Enum`): no `.xcore` lists their values, so the
+    property had no list of allowed values and its values no English spelling. A Java
+    enumeration passes the name of each constant to its base first, and after it the value's two
+    spellings, English first - as plain arguments (`LOW("LOW", 0, "Low", <Russian>, <id>)`),
+    through a builder (`TOP("TOP", 0, info().named("Top", <Russian>))`) or as a term, which then
+    is the pair. Without a term the pair is the first two strings after the name that read as an
+    English name and its Russian twin; a value spelled alike in both languages counts too.
+
+    The builder also dates an item: `added(<mode>)` names the mode the value appeared in,
+    `removedAfter(<mode>)` the last mode that has it (see _value_modes).
+
+    A class counts only when EVERY constant it builds has that shape: its first string is its
+    own name, and one pair follows. The values come in the order the class declares them.
+    """
+    try:
+        constants = classcode.declared_constants(blob)
+    except (IndexError, ValueError):  # a class the reader does not follow says nothing
+        return None
+    if not constants:
+        return None
+    values: list[EnumerationValue] = []
+    for constant in constants:
+        strings = constant.strings
+        if not strings or strings[0] != constant.field or len(constant.terms) > 1:
+            return None
+        if constant.terms:
+            pair: tuple[str, str] | None = constant.terms[0]
+        else:
+            pair = next(((english, russian) for english, russian in zip(strings[1:], strings[2:])
+                         if _is_value_pair(english, russian)), None)
+        if pair is None or not _is_value_pair(*pair):
+            return None
+        values.append(EnumerationValue(*pair, *_value_modes(constant)))
+    return values
+
+
+def scan_enumeration_classes(
+    car: zipfile.ZipFile, paths: set[str],
+) -> dict[str, list[EnumerationValue]]:
+    """{class file path: its values (see enumeration_values)} for the compiled enumerations named.
+
+    `paths` are the class files the caller wants (`pkg/Name.class`); one that is not an
+    enumeration of values, or is nowhere in the platform jars, is left out. The server, the
+    designer and the language server each ship a copy of such a class, and should they ever
+    differ, the fullest list stands - the way the kind table is read.
+    """
+    found: dict[str, list[EnumerationValue]] = {}
+    if not paths:
+        return found
+    for entry in car.namelist():
+        if not entry.endswith(".jar") or not _PLATFORM_JAR_RE.search(entry):
+            continue
+        try:
+            jar = zipfile.ZipFile(io.BytesIO(car.read(entry)))
+        except (zipfile.BadZipFile, KeyError):
+            continue
+        for inner in paths.intersection(jar.namelist()):
+            values = enumeration_values(jar.read(inner))
+            if values and len(values) > len(found.get(inner, ())):
+                found[inner] = values
+    return found
+
+
 #: The query language is a separate grammar (TreeSQL); its keyword pairs live in one class.
 _QUERY_TERMS_CLASS = "com/e1c/g5/treesql/domain/QueryTerms.class"
 _QUERY_JAR_RE = re.compile(r"treesql\.model")
@@ -835,6 +1140,7 @@ def query_reserved_types(page: str, types: dict[str, str]) -> dict[str, str]:
 
 def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]:
     from xbsl.extract import stdlib  # the page reader: stdlib imports this module in turn
+    from xbsl.extract import metamodel  # the model's enumerations: it imports this module too
 
     car = _distro.find_car(dist)
     types: dict[str, str] = {}
@@ -884,7 +1190,9 @@ def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]
 
     with zipfile.ZipFile(car) as z:
         managers = ManagerEvidence()
-        members, common, declared_types = _scan_meta_objects(z, managers)
+        languages = scan_language_table(z)
+        language_names = {row["ru"]: row["en"] for row in (languages[1] if languages else ())}
+        members, common, declared_types = _scan_meta_objects(z, managers, language_names)
         query = _scan_query_terms(z)
         try:
             syntax_page = stdlib._page(z, _QUERY_SYNTAX_PAGE)
@@ -892,6 +1200,7 @@ def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]
             syntax_page = ""
         reserved, english_only = query_reserved_words(syntax_page)
         kind_table = scan_kind_table(z)
+        compiled = metamodel.compiled_enumerations(z)
         manager_table = manager_owners(z, members, managers)
 
     # A type the reference pages never describe is still paired by its own classes: the
@@ -902,6 +1211,20 @@ def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]
         if russian not in types and _NAME_RE.match(russian)
     }
     types.update(class_types)
+
+    # The languages of a project are enumeration values like the ones above, but of a compiled
+    # enumeration no .xcore declares. Only Russian and English were here, and only because an
+    # unrelated enumeration (the development language) shares those two values; the languages
+    # a later compatibility mode added had no English spelling, and a project that listed one
+    # could not be translated.
+    for row in (languages[1] if languages else ()):
+        _add(enums, row["ru"], row["en"], conflicts["enums"])
+    # So are the values of the other compiled enumerations the properties of the model are
+    # typed by: the importance of a command, the days of a weekly schedule, the periodicity of
+    # a set of constants. A value two of them spell apart is a conflict like any other.
+    for values in compiled.values():
+        for value in values:
+            _add(enums, value.russian, value.english, conflicts["enums"])
 
     for section, names in conflicts.items():
         target = {"types": types, "facets": facets, "properties": properties, "enums": enums}[section]

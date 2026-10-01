@@ -13,6 +13,7 @@ from ..models.run_status import RunStatus
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.downstream_run_response import DownstreamRunResponse
     from ..models.pipeline_run_summary_response import PipelineRunSummaryResponse
     from ..models.script_response import ScriptResponse
     from ..models.script_version_response import ScriptVersionResponse
@@ -44,6 +45,9 @@ class DetailedRunResponse:
             job.success:jobs.ref)
         triggered_by (None | UUID): The ID of the identity who triggered the run if triggered manually
         workspace_id (UUID): The ID of the workspace the run belongs to
+        downstream_runs (list[DownstreamRunResponse] | None | Unset): Runs this run triggered, newest first. Included
+            only when `downstream_runs_limit` is requested; null otherwise. Only runs started by this run's outcome are
+            linked, so a manually started one is absent.
         interval_end (datetime.datetime | None | Unset): End of the interval being processed (for interval-based jobs)
         interval_start (datetime.datetime | None | Unset): Start of the interval being processed (for interval-based
             jobs)
@@ -70,6 +74,7 @@ class DetailedRunResponse:
     trigger: str
     triggered_by: None | UUID
     workspace_id: UUID
+    downstream_runs: list[DownstreamRunResponse] | None | Unset = UNSET
     interval_end: datetime.datetime | None | Unset = UNSET
     interval_start: datetime.datetime | None | Unset = UNSET
     pipeline_run_summaries: list[PipelineRunSummaryResponse] | Unset = UNSET
@@ -127,6 +132,18 @@ class DetailedRunResponse:
 
         workspace_id = str(self.workspace_id)
 
+        downstream_runs: list[dict[str, Any]] | None | Unset
+        if isinstance(self.downstream_runs, Unset):
+            downstream_runs = UNSET
+        elif isinstance(self.downstream_runs, list):
+            downstream_runs = []
+            for downstream_runs_type_0_item_data in self.downstream_runs:
+                downstream_runs_type_0_item = downstream_runs_type_0_item_data.to_dict()
+                downstream_runs.append(downstream_runs_type_0_item)
+
+        else:
+            downstream_runs = self.downstream_runs
+
         interval_end: None | str | Unset
         if isinstance(self.interval_end, Unset):
             interval_end = UNSET
@@ -182,6 +199,8 @@ class DetailedRunResponse:
                 "workspace_id": workspace_id,
             }
         )
+        if downstream_runs is not UNSET:
+            field_dict["downstream_runs"] = downstream_runs
         if interval_end is not UNSET:
             field_dict["interval_end"] = interval_end
         if interval_start is not UNSET:
@@ -195,6 +214,7 @@ class DetailedRunResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.downstream_run_response import DownstreamRunResponse
         from ..models.pipeline_run_summary_response import PipelineRunSummaryResponse
         from ..models.script_response import ScriptResponse
         from ..models.script_version_response import ScriptVersionResponse
@@ -285,6 +305,32 @@ class DetailedRunResponse:
 
         workspace_id = UUID(d.pop("workspace_id"))
 
+        def _parse_downstream_runs(
+            data: object,
+        ) -> list[DownstreamRunResponse] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                downstream_runs_type_0 = []
+                _downstream_runs_type_0 = data
+                for downstream_runs_type_0_item_data in _downstream_runs_type_0:
+                    downstream_runs_type_0_item = DownstreamRunResponse.from_dict(
+                        downstream_runs_type_0_item_data
+                    )
+
+                    downstream_runs_type_0.append(downstream_runs_type_0_item)
+
+                return downstream_runs_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[DownstreamRunResponse] | None | Unset, data)
+
+        downstream_runs = _parse_downstream_runs(d.pop("downstream_runs", UNSET))
+
         def _parse_interval_end(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -366,6 +412,7 @@ class DetailedRunResponse:
             trigger=trigger,
             triggered_by=triggered_by,
             workspace_id=workspace_id,
+            downstream_runs=downstream_runs,
             interval_end=interval_end,
             interval_start=interval_start,
             pipeline_run_summaries=pipeline_run_summaries,

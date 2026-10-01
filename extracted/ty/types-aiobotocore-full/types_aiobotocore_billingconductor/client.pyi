@@ -72,6 +72,8 @@ from .type_defs import (
     DisassociatePricingRulesOutputTypeDef,
     GetBillingGroupCostReportInputTypeDef,
     GetBillingGroupCostReportOutputTypeDef,
+    GetBillingTransferPreferenceInputTypeDef,
+    GetBillingTransferPreferenceOutputTypeDef,
     ListAccountAssociationsInputTypeDef,
     ListAccountAssociationsOutputTypeDef,
     ListBillingGroupCostReportsInputTypeDef,
@@ -98,6 +100,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateBillingGroupInputTypeDef,
     UpdateBillingGroupOutputTypeDef,
+    UpdateBillingTransferPreferenceInputTypeDef,
+    UpdateBillingTransferPreferenceOutputTypeDef,
     UpdateCustomLineItemInputTypeDef,
     UpdateCustomLineItemOutputTypeDef,
     UpdatePricingPlanInputTypeDef,
@@ -320,6 +324,16 @@ class BillingConductorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billingconductor/client/#get_billing_group_cost_report)
         """
 
+    async def get_billing_transfer_preference(
+        self, **kwargs: Unpack[GetBillingTransferPreferenceInputTypeDef]
+    ) -> GetBillingTransferPreferenceOutputTypeDef:
+        """
+        Retrieves the auto billing group creation preference for a billing transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/get_billing_transfer_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billingconductor/client/#get_billing_transfer_preference)
+        """
+
     async def list_account_associations(
         self, **kwargs: Unpack[ListAccountAssociationsInputTypeDef]
     ) -> ListAccountAssociationsOutputTypeDef:
@@ -461,6 +475,16 @@ class BillingConductorClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/update_billing_group.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billingconductor/client/#update_billing_group)
+        """
+
+    async def update_billing_transfer_preference(
+        self, **kwargs: Unpack[UpdateBillingTransferPreferenceInputTypeDef]
+    ) -> UpdateBillingTransferPreferenceOutputTypeDef:
+        """
+        Sets the auto billing group creation preference for a billing transfer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billingconductor/client/update_billing_transfer_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billingconductor/client/#update_billing_transfer_preference)
         """
 
     async def update_custom_line_item(

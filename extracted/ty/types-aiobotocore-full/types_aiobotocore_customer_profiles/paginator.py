@@ -24,6 +24,7 @@ Usage::
         ListRecommendersPaginator,
         ListRuleBasedMatchesPaginator,
         ListSegmentDefinitionsPaginator,
+        ListSegmentSubscriptionEventsPaginator,
         ListUploadJobsPaginator,
     )
 
@@ -43,6 +44,7 @@ Usage::
         list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
         list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
         list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator("list_segment_definitions")
+        list_segment_subscription_events_paginator: ListSegmentSubscriptionEventsPaginator = client.get_paginator("list_segment_subscription_events")
         list_upload_jobs_paginator: ListUploadJobsPaginator = client.get_paginator("list_upload_jobs")
     ```
 """
@@ -79,6 +81,8 @@ from .type_defs import (
     ListRuleBasedMatchesResponseTypeDef,
     ListSegmentDefinitionsRequestPaginateTypeDef,
     ListSegmentDefinitionsResponseTypeDef,
+    ListSegmentSubscriptionEventsRequestPaginateTypeDef,
+    ListSegmentSubscriptionEventsResponseTypeDef,
     ListUploadJobsRequestPaginateTypeDef,
     ListUploadJobsResponseTypeDef,
 )
@@ -102,6 +106,7 @@ __all__ = (
     "ListRecommendersPaginator",
     "ListRuleBasedMatchesPaginator",
     "ListSegmentDefinitionsPaginator",
+    "ListSegmentSubscriptionEventsPaginator",
     "ListUploadJobsPaginator",
 )
 
@@ -355,6 +360,29 @@ class ListSegmentDefinitionsPaginator(_ListSegmentDefinitionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListSegmentDefinitions.html#CustomerProfiles.Paginator.ListSegmentDefinitions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listsegmentdefinitionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSegmentSubscriptionEventsPaginatorBase = AioPaginator[
+        ListSegmentSubscriptionEventsResponseTypeDef
+    ]
+else:
+    _ListSegmentSubscriptionEventsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListSegmentSubscriptionEventsPaginator(_ListSegmentSubscriptionEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListSegmentSubscriptionEvents.html#CustomerProfiles.Paginator.ListSegmentSubscriptionEvents)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listsegmentsubscriptioneventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSegmentSubscriptionEventsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListSegmentSubscriptionEventsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListSegmentSubscriptionEvents.html#CustomerProfiles.Paginator.ListSegmentSubscriptionEvents.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listsegmentsubscriptioneventspaginator)
         """
 
 

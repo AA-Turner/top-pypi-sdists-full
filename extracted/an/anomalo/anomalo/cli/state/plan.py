@@ -276,19 +276,19 @@ def build_plan(
 def _reject_clobbering_writes(ordered: List[PlanNode]) -> None:
     """Refuse an order that puts a full-replace write after a partial one.
 
-    Both calls would report success and the earlier change would be gone, with
-    nothing printed — that is the #36463 failure, where sending only notification
-    channels through `POST configure_table` blanked `check_cadence_type` and marked
-    the table deconfigured. Unlike the cycle fallback above this raises rather than
-    warning: continuing would corrupt configuration the customer asked us to write.
+    Both calls would succeed and the earlier change would be silently lost. For
+    example, sending only notification channels through `POST configure_table`
+    blanks `check_cadence_type` and deconfigures the table. Unlike the cycle
+    fallback in `build_plan`, this raises: continuing would corrupt configuration
+    the customer asked us to write.
 
-    Only *aliasing* resources are checked. Two actions writing the same resource are
-    a planner bug that `build_plan` deliberately tolerates rather than dropping a
-    change, and the later one is meant to win.
+    The check covers only aliasing resources (different keys, same write
+    target). Two actions on the same resource are a planner bug that
+    `build_plan` tolerates, and the later one wins.
 
-    Unreachable today, because a table's channels declare a dependency on its
-    configuration and so are ordered after it. That is the point — the next pair of
-    resources to alias one object fails loudly instead of silently.
+    No current pair of resources can trigger this, because a table's channels
+    depend on its configuration and are ordered after it. The check is there so
+    the next aliasing pair fails loudly.
     """
     first_writer: Dict[ResourceKey, PlanNode] = {}
     for node in ordered:

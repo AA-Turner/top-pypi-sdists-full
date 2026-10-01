@@ -38,6 +38,100 @@ else:
     _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_kinesis.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_arn": "channelArn"},
+)
+class ChannelReference:
+    def __init__(self, *, channel_arn: builtins.str) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_arn: The ChannelARN of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_kinesis as interfaces_kinesis
+            
+            channel_reference = interfaces_kinesis.ChannelReference(
+                channel_arn="channelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8214020f685a753f1cc8c7c918d94b664c13ac7c5d79d74c3ac27f3c5389f530)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The ChannelARN of the Channel resource.'''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kinesis.IChannelRef")
+class IChannelRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "ChannelReference":
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_kinesis.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> "ChannelReference":
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ChannelReference", jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_kinesis.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
@@ -332,6 +426,8 @@ class StreamReference:
 
 
 __all__ = [
+    "ChannelReference",
+    "IChannelRef",
     "IResourcePolicyRef",
     "IStreamConsumerRef",
     "IStreamRef",
@@ -341,6 +437,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__8214020f685a753f1cc8c7c918d94b664c13ac7c5d79d74c3ac27f3c5389f530(
+    *,
+    channel_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__fc8b8026038243f2a82e78ac417c2745222bcec45406ef7cd33042584c0499dd(
     *,
@@ -364,5 +467,5 @@ def _typecheckingstub__a89c24e0df4bcb2183d6d3bcf92b9d89d9bab43c08e28b678309d4dab
     """Type checking stubs"""
     pass
 
-for cls in [IResourcePolicyRef, IStreamConsumerRef, IStreamRef]:
+for cls in [IChannelRef, IResourcePolicyRef, IStreamConsumerRef, IStreamRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

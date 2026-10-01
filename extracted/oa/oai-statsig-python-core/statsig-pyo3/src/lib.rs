@@ -13,6 +13,7 @@ mod statsig_persistent_storage_override_adapter_py;
 mod statsig_types_py;
 mod statsig_user_context_py;
 mod statsig_user_py;
+mod typed_config_py;
 mod unit_id_py;
 mod valid_primitives_py;
 
@@ -25,6 +26,8 @@ fn statsig_python_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     statsig_metadata_py::update_statsig_metadata(m);
 
     m.add_class::<statsig_base_py::StatsigBasePy>()?;
+    m.add_class::<typed_config_py::NativeTypedConfigContext>()?;
+    m.add_class::<typed_config_py::NativeConfigUpdates>()?;
     m.add_class::<statsig_user_py::StatsigUserPy>()?;
     m.add_class::<statsig_user_context_py::StatsigUserContextPy>()?;
     m.add_class::<statsig_user_context_py::StatsigRandomUserIDPy>()?;

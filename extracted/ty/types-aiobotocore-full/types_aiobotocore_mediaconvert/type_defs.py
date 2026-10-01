@@ -26,6 +26,7 @@ from .literals import (
     AacCodecProfileType,
     AacCodingModeType,
     AacLoudnessMeasurementModeType,
+    AacPassthroughControlType,
     AacRateControlModeType,
     AacRawFormatType,
     AacSpecificationType,
@@ -61,6 +62,7 @@ from .literals import (
     AudioNormalizationLoudnessLoggingType,
     AudioNormalizationPeakCalculationType,
     AudioSelectorTypeType,
+    AudioSmpte337PassthroughType,
     AudioTypeControlType,
     Av1AdaptiveQuantizationType,
     Av1BitDepthType,
@@ -154,6 +156,7 @@ from .literals import (
     DolbyVisionCompatibilityType,
     DolbyVisionLevel6ModeType,
     DolbyVisionMappingType,
+    DolbyVisionPresenceType,
     DolbyVisionProfileType,
     DropFrameTimecodeType,
     DvbddsHandlingType,
@@ -389,6 +392,7 @@ from .literals import (
     OutputGroupTypeType,
     OutputSdtType,
     PadVideoType,
+    PassthroughSegmentationModeType,
     PresetListByType,
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
@@ -430,7 +434,12 @@ from .literals import (
     TrackTypeType,
     TransferCharacteristicsType,
     TsPtsOffsetType,
+    TtmlBackgroundColorType,
+    TtmlFontColorType,
+    TtmlFontStyleType,
+    TtmlFontWeightType,
     TtmlStylePassthroughType,
+    TtmlTextDecorationType,
     TypeType,
     UncompressedFourccType,
     UncompressedFramerateControlType,
@@ -502,6 +511,7 @@ __all__ = (
     "AiffSettingsTypeDef",
     "AllowedRenditionSizeTypeDef",
     "AncillarySourceSettingsTypeDef",
+    "AspectRatioTypeDef",
     "AssociateCertificateRequestTypeDef",
     "AudioChannelTaggingSettingsOutputTypeDef",
     "AudioChannelTaggingSettingsTypeDef",
@@ -587,6 +597,7 @@ __all__ = (
     "DestinationSettingsTypeDef",
     "DisassociateCertificateRequestTypeDef",
     "DolbyVisionLevel6MetadataTypeDef",
+    "DolbyVisionMetadataTypeDef",
     "DolbyVisionTypeDef",
     "DurationControlTypeDef",
     "DvbNitSettingsTypeDef",
@@ -841,6 +852,7 @@ class AacSettingsTypeDef(TypedDict):
     CodecProfile: NotRequired[AacCodecProfileType]
     CodingMode: NotRequired[AacCodingModeType]
     LoudnessMeasurementMode: NotRequired[AacLoudnessMeasurementModeType]
+    PassthroughControl: NotRequired[AacPassthroughControlType]
     RapInterval: NotRequired[int]
     RateControlMode: NotRequired[AacRateControlModeType]
     RawFormat: NotRequired[AacRawFormatType]
@@ -908,6 +920,11 @@ class AncillarySourceSettingsTypeDef(TypedDict):
     Convert608To708: NotRequired[AncillaryConvert608To708Type]
     SourceAncillaryChannelNumber: NotRequired[int]
     TerminateCaptions: NotRequired[AncillaryTerminateCaptionsType]
+
+
+class AspectRatioTypeDef(TypedDict):
+    Denominator: NotRequired[int]
+    Numerator: NotRequired[int]
 
 
 class AssociateCertificateRequestTypeDef(TypedDict):
@@ -1165,7 +1182,15 @@ class TeletextDestinationSettingsOutputTypeDef(TypedDict):
 
 
 class TtmlDestinationSettingsTypeDef(TypedDict):
+    BackgroundColor: NotRequired[TtmlBackgroundColorType]
+    BackgroundOpacity: NotRequired[int]
+    FontColor: NotRequired[TtmlFontColorType]
+    FontOpacity: NotRequired[int]
+    FontSize: NotRequired[int]
+    FontStyle: NotRequired[TtmlFontStyleType]
+    FontWeight: NotRequired[TtmlFontWeightType]
     StylePassthrough: NotRequired[TtmlStylePassthroughType]
+    TextDecoration: NotRequired[TtmlTextDecorationType]
 
 
 class WebvttDestinationSettingsTypeDef(TypedDict):
@@ -1284,6 +1309,14 @@ class CmfcSettingsTypeDef(TypedDict):
 class ContentLightLevelTypeDef(TypedDict):
     MaxContentLightLevel: NotRequired[int]
     MaxFrameAverageLightLevel: NotRequired[int]
+
+
+class DolbyVisionMetadataTypeDef(TypedDict):
+    BaseLayer: NotRequired[DolbyVisionPresenceType]
+    EnhancementLayer: NotRequired[DolbyVisionPresenceType]
+    Level: NotRequired[int]
+    Profile: NotRequired[int]
+    Rpu: NotRequired[DolbyVisionPresenceType]
 
 
 class ColorConversion3DLUTSettingTypeDef(TypedDict):
@@ -1999,6 +2032,8 @@ class VideoDetailTypeDef(TypedDict):
 
 class PassthroughSettingsTypeDef(TypedDict):
     FrameControl: NotRequired[FrameControlType]
+    GopsPerSegment: NotRequired[int]
+    SegmentationMode: NotRequired[PassthroughSegmentationModeType]
     VideoSelectorMode: NotRequired[VideoSelectorModeType]
 
 
@@ -2195,6 +2230,7 @@ class Xavc4kProfileSettingsTypeDef(TypedDict):
 
 
 class XavcHdIntraCbgProfileSettingsTypeDef(TypedDict):
+    InterlaceMode: NotRequired[XavcInterlaceModeType]
     XavcClass: NotRequired[XavcHdIntraCbgProfileClassType]
 
 
@@ -2229,6 +2265,7 @@ class AudioCodecSettingsTypeDef(TypedDict):
 class AudioPropertiesTypeDef(TypedDict):
     BitDepth: NotRequired[int]
     BitRate: NotRequired[int]
+    ChannelLayout: NotRequired[str]
     Channels: NotRequired[int]
     FrameRate: NotRequired[FrameRateTypeDef]
     LanguageCode: NotRequired[str]
@@ -2373,12 +2410,16 @@ class CodecMetadataTypeDef(TypedDict):
     CodedFrameRate: NotRequired[FrameRateTypeDef]
     ColorPrimaries: NotRequired[ColorPrimariesType]
     ContentLightLevel: NotRequired[ContentLightLevelTypeDef]
+    DisplayAspectRatio: NotRequired[AspectRatioTypeDef]
+    DolbyVision: NotRequired[DolbyVisionMetadataTypeDef]
     FieldOrder: NotRequired[str]
+    Hdr10PlusPresence: NotRequired[Literal["PRESENT"]]
     Height: NotRequired[int]
     Level: NotRequired[str]
     MatrixCoefficients: NotRequired[MatrixCoefficientsType]
     Profile: NotRequired[str]
     Rotation: NotRequired[int]
+    SampleAspectRatio: NotRequired[AspectRatioTypeDef]
     ScanType: NotRequired[str]
     TransferCharacteristics: NotRequired[TransferCharacteristicsType]
     Width: NotRequired[int]
@@ -3186,11 +3227,13 @@ class VideoPropertiesTypeDef(TypedDict):
     BitRate: NotRequired[int]
     CodecMetadata: NotRequired[CodecMetadataTypeDef]
     ColorPrimaries: NotRequired[ColorPrimariesType]
+    DisplayAspectRatio: NotRequired[AspectRatioTypeDef]
     FrameRate: NotRequired[FrameRateTypeDef]
     HdrMetadata: NotRequired[HdrMetadataTypeDef]
     Height: NotRequired[int]
     MatrixCoefficients: NotRequired[MatrixCoefficientsType]
     Rotation: NotRequired[int]
+    SampleAspectRatio: NotRequired[AspectRatioTypeDef]
     TransferCharacteristics: NotRequired[TransferCharacteristicsType]
     Width: NotRequired[int]
 
@@ -3357,6 +3400,7 @@ class AudioSelectorOutputTypeDef(TypedDict):
     ProgramSelection: NotRequired[int]
     RemixSettings: NotRequired[RemixSettingsOutputTypeDef]
     SelectorType: NotRequired[AudioSelectorTypeType]
+    Smpte337Passthrough: NotRequired[AudioSmpte337PassthroughType]
     Streams: NotRequired[list[int]]
     Tracks: NotRequired[list[int]]
 
@@ -3388,6 +3432,7 @@ class AudioSelectorTypeDef(TypedDict):
     ProgramSelection: NotRequired[int]
     RemixSettings: NotRequired[RemixSettingsTypeDef]
     SelectorType: NotRequired[AudioSelectorTypeType]
+    Smpte337Passthrough: NotRequired[AudioSmpte337PassthroughType]
     Streams: NotRequired[Sequence[int]]
     Tracks: NotRequired[Sequence[int]]
 
@@ -3976,6 +4021,7 @@ class JobSettingsOutputTypeDef(TypedDict):
     Inputs: NotRequired[list[InputOutputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[list[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[list[OutputGroupOutputTypeDef]]
@@ -3993,6 +4039,7 @@ class JobTemplateSettingsOutputTypeDef(TypedDict):
     Inputs: NotRequired[list[InputTemplateOutputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[list[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[list[OutputGroupOutputTypeDef]]
@@ -4010,6 +4057,7 @@ class JobTemplateSettingsTypeDef(TypedDict):
     Inputs: NotRequired[Sequence[InputTemplateTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[Sequence[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[Sequence[OutputGroupTypeDef]]
@@ -4027,6 +4075,7 @@ class JobSettingsTypeDef(TypedDict):
     Inputs: NotRequired[Sequence[InputTypeDef]]
     KantarWatermark: NotRequired[KantarWatermarkSettingsTypeDef]
     MotionImageInserter: NotRequired[MotionImageInserterTypeDef]
+    MotionImageInserters: NotRequired[Sequence[MotionImageInserterTypeDef]]
     NielsenConfiguration: NotRequired[NielsenConfigurationTypeDef]
     NielsenNonLinearWatermark: NotRequired[NielsenNonLinearWatermarkSettingsTypeDef]
     OutputGroups: NotRequired[Sequence[OutputGroupTypeDef]]

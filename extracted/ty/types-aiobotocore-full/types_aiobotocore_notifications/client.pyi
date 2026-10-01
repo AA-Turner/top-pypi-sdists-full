@@ -102,6 +102,7 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateEventRuleRequestTypeDef,
     UpdateEventRuleResponseTypeDef,
+    UpdateManagedNotificationChannelAssociationRequestTypeDef,
     UpdateNotificationConfigurationRequestTypeDef,
     UpdateNotificationConfigurationResponseTypeDef,
 )
@@ -249,7 +250,7 @@ class UserNotificationsClient(AioBaseClient):
         self, **kwargs: Unpack[DeregisterNotificationHubRequestTypeDef]
     ) -> DeregisterNotificationHubResponseTypeDef:
         """
-        Deregisters a <code>NotificationConfiguration</code> in the specified Region.
+        Deregisters a <code>NotificationHub</code> in the specified Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/deregister_notification_hub.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#deregister_notification_hub)
@@ -522,7 +523,7 @@ class UserNotificationsClient(AioBaseClient):
         self, **kwargs: Unpack[RegisterNotificationHubRequestTypeDef]
     ) -> RegisterNotificationHubResponseTypeDef:
         """
-        Registers a <code>NotificationConfiguration</code> in the specified Region.
+        Registers a <code>NotificationHub</code> in the specified Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/register_notification_hub.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#register_notification_hub)
@@ -552,6 +553,17 @@ class UserNotificationsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/update_event_rule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#update_event_rule)
+        """
+
+    async def update_managed_notification_channel_association(
+        self, **kwargs: Unpack[UpdateManagedNotificationChannelAssociationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the <code>isSensitiveEventsSubscribed</code> property of a particular
+        ManagedNotification channel association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/update_managed_notification_channel_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#update_managed_notification_channel_association)
         """
 
     async def update_notification_configuration(

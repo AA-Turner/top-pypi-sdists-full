@@ -890,6 +890,7 @@ def build(
         if code_generation_config["generateInterfaceHeaders"]:
             memory_section = MemorySection(build_cfg, unit_cfg, polyspace_comments)
             memory_section.generate_required_header_files()
+            memory_section.generate_optional_header_files()
 
         # Propagate tag name for release builds, TAG_NAME must be set in environment
         tag_name = os.environ.get("TAG_NAME", "")

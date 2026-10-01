@@ -89,6 +89,7 @@ from .literals import (
     TLSSecurityPolicyType,
     UpgradeStatusType,
     UpgradeStepType,
+    ValidationFailureSeverityType,
     VolumeTypeType,
     VpcEndpointErrorCodeType,
     VpcEndpointStatusType,
@@ -686,6 +687,12 @@ class ChangeProgressStageTypeDef(TypedDict):
     LastUpdated: NotRequired[datetime]
 
 
+class ValidationFailureTypeDef(TypedDict):
+    Code: NotRequired[str]
+    Message: NotRequired[str]
+    Severity: NotRequired[ValidationFailureSeverityType]
+
+
 class CloudWatchDirectQueryDataSourceTypeDef(TypedDict):
     RoleArn: str
 
@@ -1075,11 +1082,6 @@ class VPCDerivedInfoTypeDef(TypedDict):
     AvailabilityZones: NotRequired[list[str]]
     SecurityGroupIds: NotRequired[list[str]]
     EgressEnabled: NotRequired[bool]
-
-
-class ValidationFailureTypeDef(TypedDict):
-    Code: NotRequired[str]
-    Message: NotRequired[str]
 
 
 SavedObjectIdentifierTypeDef = TypedDict(
@@ -1779,6 +1781,17 @@ class ChangeProgressStatusDetailsTypeDef(TypedDict):
     LastUpdatedTime: NotRequired[datetime]
     ConfigChangeStatus: NotRequired[ConfigChangeStatusType]
     InitiatedBy: NotRequired[InitiatedByType]
+    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+    AcceptedWarnings: NotRequired[list[str]]
+
+
+class DryRunProgressStatusTypeDef(TypedDict):
+    DryRunId: str
+    DryRunStatus: str
+    CreationDate: str
+    UpdateDate: str
+    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+    AcceptedWarnings: NotRequired[list[str]]
 
 
 class CognitoOptionsStatusTypeDef(TypedDict):
@@ -2029,14 +2042,6 @@ class VpcEndpointTypeDef(TypedDict):
     VpcOptions: NotRequired[VPCDerivedInfoTypeDef]
     Status: NotRequired[VpcEndpointStatusType]
     Endpoint: NotRequired[str]
-
-
-class DryRunProgressStatusTypeDef(TypedDict):
-    DryRunId: str
-    DryRunStatus: str
-    CreationDate: str
-    UpdateDate: str
-    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
 
 
 ExportOptionsTypeDef = TypedDict(
@@ -2796,6 +2801,7 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
     UseCase: NotRequired[DomainUseCaseType]
     EngineMode: NotRequired[EngineModeType]
+    AcceptedWarnings: NotRequired[Sequence[str]]
 
 
 class DomainConfigTypeDef(TypedDict):

@@ -1317,6 +1317,51 @@ class _IInstanceSnapshotRefProxy(
 typing.cast(typing.Any, IInstanceSnapshotRef).__jsii_proxy_class__ = lambda : _IInstanceSnapshotRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IKeyPairRef")
+class IKeyPairRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a KeyPair.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPairRef")
+    def key_pair_ref(self) -> "KeyPairReference":
+        '''(experimental) A reference to a KeyPair resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKeyPairRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a KeyPair.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lightsail.IKeyPairRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPairRef")
+    def key_pair_ref(self) -> "KeyPairReference":
+        '''(experimental) A reference to a KeyPair resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KeyPairReference", jsii.get(self, "keyPairRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKeyPairRef).__jsii_proxy_class__ = lambda : _IKeyPairRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.ILoadBalancerRef")
 class ILoadBalancerRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1592,6 +1637,71 @@ class InstanceSnapshotReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lightsail.KeyPairReference",
+    jsii_struct_bases=[],
+    name_mapping={"key_pair_arn": "keyPairArn", "key_pair_name": "keyPairName"},
+)
+class KeyPairReference:
+    def __init__(
+        self,
+        *,
+        key_pair_arn: builtins.str,
+        key_pair_name: builtins.str,
+    ) -> None:
+        '''A reference to a KeyPair resource.
+
+        :param key_pair_arn: The ARN of the KeyPair resource.
+        :param key_pair_name: The KeyPairName of the KeyPair resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lightsail as interfaces_lightsail
+            
+            key_pair_reference = interfaces_lightsail.KeyPairReference(
+                key_pair_arn="keyPairArn",
+                key_pair_name="keyPairName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8febd43b4c3c91ab4e98d61a064c20415d1f07cb8ca54c51afd8419937258818)
+            check_type(argname="argument key_pair_arn", value=key_pair_arn, expected_type=type_hints["key_pair_arn"])
+            check_type(argname="argument key_pair_name", value=key_pair_name, expected_type=type_hints["key_pair_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_pair_arn": key_pair_arn,
+            "key_pair_name": key_pair_name,
+        }
+
+    @builtins.property
+    def key_pair_arn(self) -> builtins.str:
+        '''The ARN of the KeyPair resource.'''
+        result = self._values.get("key_pair_arn")
+        assert result is not None, "Required property 'key_pair_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def key_pair_name(self) -> builtins.str:
+        '''The KeyPairName of the KeyPair resource.'''
+        result = self._values.get("key_pair_name")
+        assert result is not None, "Required property 'key_pair_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KeyPairReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lightsail.LoadBalancerReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1830,11 +1940,13 @@ __all__ = [
     "IDomainRef",
     "IInstanceRef",
     "IInstanceSnapshotRef",
+    "IKeyPairRef",
     "ILoadBalancerRef",
     "ILoadBalancerTlsCertificateRef",
     "IStaticIpRef",
     "InstanceReference",
     "InstanceSnapshotReference",
+    "KeyPairReference",
     "LoadBalancerReference",
     "LoadBalancerTlsCertificateReference",
     "StaticIpReference",
@@ -1945,6 +2057,14 @@ def _typecheckingstub__4b3213679b67a22b6852e10c45c601db59e53a196b542106afb013892
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8febd43b4c3c91ab4e98d61a064c20415d1f07cb8ca54c51afd8419937258818(
+    *,
+    key_pair_arn: builtins.str,
+    key_pair_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ab177296e991727275ec145c41e52a9bd1687398bb1b24d2e227a1cf24330a0a(
     *,
     load_balancer_arn: builtins.str,
@@ -1970,5 +2090,5 @@ def _typecheckingstub__1f2476e04990a2a193f7c9e6433f145827b121d8f492aee4e2e21896a
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContactMethodRef, IContainerRef, IDatabaseRef, IDatabaseSnapshotRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
+for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContactMethodRef, IContainerRef, IDatabaseRef, IDatabaseSnapshotRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, IKeyPairRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

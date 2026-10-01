@@ -557,6 +557,7 @@ class EventBusTypeDef(TypedDict):
     Policy: NotRequired[str]
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
+    ManagedBy: NotRequired[str]
 
 
 class EventSourceTypeDef(TypedDict):
@@ -1106,6 +1107,7 @@ class DescribeEventBusResponseTypeDef(TypedDict):
     LogConfig: LogConfigTypeDef
     CreationTime: datetime
     LastModifiedTime: datetime
+    ManagedBy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

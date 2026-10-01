@@ -221,6 +221,8 @@ class WindowRealmInfo:
     context: Any | None = None
     user_context: Any | None = None
     sandbox: str | None = None
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -229,6 +231,8 @@ class DedicatedWorkerRealmInfo:
 
     type: str = field(default="dedicated-worker", init=False)
     owners: list[Any] = field(default_factory=list)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -236,6 +240,8 @@ class SharedWorkerRealmInfo:
     """SharedWorkerRealmInfo."""
 
     type: str = field(default="shared-worker", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -243,6 +249,8 @@ class ServiceWorkerRealmInfo:
     """ServiceWorkerRealmInfo."""
 
     type: str = field(default="service-worker", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -250,6 +258,8 @@ class WorkerRealmInfo:
     """WorkerRealmInfo."""
 
     type: str = field(default="worker", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -257,6 +267,8 @@ class PaintWorkletRealmInfo:
     """PaintWorkletRealmInfo."""
 
     type: str = field(default="paint-worklet", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -264,6 +276,8 @@ class AudioWorkletRealmInfo:
     """AudioWorkletRealmInfo."""
 
     type: str = field(default="audio-worklet", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -271,6 +285,8 @@ class WorkletRealmInfo:
     """WorkletRealmInfo."""
 
     type: str = field(default="worklet", init=False)
+    realm: Any | None = None
+    origin: str | None = None
 
 
 @dataclass
@@ -333,6 +349,8 @@ class RegExpRemoteValue:
 
     handle: Any | None = None
     internal_id: Any | None = None
+    type: str = field(default="regexp", init=False)
+    value: Any | None = None
 
 
 @dataclass
@@ -341,6 +359,8 @@ class DateRemoteValue:
 
     handle: Any | None = None
     internal_id: Any | None = None
+    type: str = field(default="date", init=False)
+    value: str | None = None
 
 
 @dataclass

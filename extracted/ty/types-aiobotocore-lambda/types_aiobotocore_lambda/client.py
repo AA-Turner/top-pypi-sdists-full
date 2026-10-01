@@ -78,6 +78,7 @@ from .type_defs import (
     DeleteFunctionUrlConfigRequestTypeDef,
     DeleteLayerVersionRequestTypeDef,
     DeleteProvisionedConcurrencyConfigRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     EventSourceMappingConfigurationResponseTypeDef,
     FunctionConfigurationResponseTypeDef,
@@ -118,6 +119,8 @@ from .type_defs import (
     GetPolicyResponseTypeDef,
     GetProvisionedConcurrencyConfigRequestTypeDef,
     GetProvisionedConcurrencyConfigResponseTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResponseTypeDef,
     GetRuntimeManagementConfigRequestTypeDef,
     GetRuntimeManagementConfigResponseTypeDef,
     InvocationRequestTypeDef,
@@ -169,6 +172,8 @@ from .type_defs import (
     PutFunctionScalingConfigResponseTypeDef,
     PutProvisionedConcurrencyConfigRequestTypeDef,
     PutProvisionedConcurrencyConfigResponseTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
     PutRuntimeManagementConfigRequestTypeDef,
     PutRuntimeManagementConfigResponseTypeDef,
     RemoveLayerVersionPermissionRequestTypeDef,
@@ -519,6 +524,18 @@ class LambdaClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#delete_provisioned_concurrency_config)
         """
 
+    async def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html">resource-based
+        policy</a> from a Lambda resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_resource_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#delete_resource_policy)
+        """
+
     async def get_account_settings(self) -> GetAccountSettingsResponseTypeDef:
         """
         Retrieves details about your account's <a
@@ -752,6 +769,18 @@ class LambdaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_provisioned_concurrency_config.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#get_provisioned_concurrency_config)
+        """
+
+    async def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResponseTypeDef:
+        """
+        Retrieves the <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html">resource-based
+        policy</a> attached to a Lambda resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_resource_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#get_resource_policy)
         """
 
     async def get_runtime_management_config(
@@ -1042,6 +1071,18 @@ class LambdaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/put_provisioned_concurrency_config.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#put_provisioned_concurrency_config)
+        """
+
+    async def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Adds a <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html">resource-based
+        policy</a> to a Lambda resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/put_resource_policy.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lambda/client/#put_resource_policy)
         """
 
     async def put_runtime_management_config(

@@ -14,10 +14,14 @@
 
 """Upgrade command for upgrading existing projects to newer Agents CLI versions."""
 
+import filecmp
 import logging
 import pathlib
+import tempfile
+from collections.abc import Callable
 
 import click
+from rich.prompt import Prompt
 
 from google.agents.cli import _tools
 from google.agents.cli._output import Console
@@ -26,8 +30,21 @@ from google.agents.cli._project import find_project_config, find_project_root
 from ..utils.backup import make_backup_pre_apply_hook
 from ..utils.cli_options import InteractionMode
 from ..utils.generation_metadata import metadata_to_cli_args
-from ..utils.merge import run_three_way_merge
+from ..utils.language import LANGUAGE_CONFIGS
+from ..utils.merge import (
+    copy_file,
+    display_dependency_changes,
+    run_create_command,
+    run_three_way_merge,
+)
 from ..utils.upgrade import (
+    FILE_CATEGORIES,
+    UNION_DEPENDENCY_HANDLERS,
+    WRITE_DEPENDENCY_HANDLERS,
+    DependencyReadError,
+    DependencyResolution,
+    categorize_file,
+    collect_all_files,
     migrate_legacy_evalsets,
     migrate_legacy_python_config,
     update_acli_metadata,
@@ -43,6 +60,195 @@ def _display_version_header(old_version: str, new_version: str) -> None:
     console.print()
     console.print(f"[bold blue]📦 Upgrading {old_version} → {new_version}[/bold blue]")
     console.print()
+
+
+def _display_overwrite_plan(overwrite: list[str], protected: list[str]) -> None:
+    """Display which files force mode will overwrite and which it will not."""
+    console.print()
+    console.print(
+        "[bold yellow]Force mode: scaffolding files will be overwritten "
+        "with the new template, discarding your edits to them.[/bold yellow]"
+    )
+    console.print()
+
+    if overwrite:
+        console.print("[bold yellow]Will overwrite:[/bold yellow]")
+        for relative_path in overwrite:
+            console.print(f"  [yellow]![/yellow] {relative_path}")
+        console.print()
+
+    if protected:
+        console.print(
+            "[dim]Not overwritten (your agent code, config, docs, evals and manifests):[/dim]"
+        )
+        for relative_path in protected:
+            console.print(f"  [dim]-[/dim] {relative_path}")
+        console.print()
+
+
+def _union_merge_dependencies(
+    project_dir: pathlib.Path,
+    template_project: pathlib.Path,
+    language: str,
+) -> list[DependencyResolution]:
+    """Union-merge dependencies with the new template. Returns [] if it cannot."""
+    union_dependencies = UNION_DEPENDENCY_HANDLERS.get(language)
+    if union_dependencies is None:
+        logging.warning(
+            "Dependency merging isn't supported for %s projects yet — your "
+            "dependency manifest is left unchanged. Review it manually after "
+            "the upgrade.",
+            language,
+        )
+        return []
+
+    try:
+        return union_dependencies(project_dir, template_project)
+    except DependencyReadError as e:
+        logging.warning(
+            "Skipping dependency merge — %s. Review your dependency manifest "
+            "manually after the upgrade.",
+            e,
+        )
+        return []
+
+
+def _warn_force_mode_risks(agent_directory: str, language: str) -> None:
+    """Warn about the two things force mode cannot check for the user."""
+    agent_file = LANGUAGE_CONFIGS.get(language, {}).get("agent_file", "")
+    never_overwritten = (
+        [
+            pattern.replace("{agent_directory}", agent_directory)
+            for pattern in FILE_CATEGORIES["agent_code"]
+            if pattern.endswith(pathlib.PurePath(agent_file).suffix)
+        ]
+        + FILE_CATEGORIES["config_files"]
+        + FILE_CATEGORIES["user_content"]
+    )
+    logging.warning(
+        "Force mode overwrites scaffolding, including other files in %s/. "
+        "Kept: %s, dependency files (merged) and files not in the template.",
+        agent_directory,
+        ", ".join(never_overwritten),
+    )
+    logging.warning(
+        "Nothing is removed: dependencies are merged as a union and files are "
+        "never deleted. A package or file the new template dropped may stay; "
+        "remove it manually if it is unused."
+    )
+
+
+def _run_force_upgrade(
+    *,
+    cli_args: list[str],
+    project_dir: pathlib.Path,
+    project_name: str,
+    agent_directory: str,
+    language: str,
+    new_version: str,
+    dry_run: bool,
+    interactive: bool,
+    backup_hook: Callable[[pathlib.Path], bool],
+) -> None:
+    """Overwrite scaffolding from the new template instead of merging it."""
+    with tempfile.TemporaryDirectory(prefix="acli_upgrade_overwrite_") as temp_base:
+        output_dir = pathlib.Path(temp_base)
+
+        console.print()
+        console.print("[dim]Generating template...[/dim]")
+        if not run_create_command(cli_args, output_dir, project_name):
+            raise click.ClickException(
+                f"Could not generate the {new_version} template to overwrite "
+                "your scaffolding.\n"
+                "The upgrade stopped before writing anything — "
+                "your project is unchanged."
+            )
+
+        template_project = output_dir / project_name
+
+        overwrite: list[str] = []
+        protected: list[str] = []
+        for relative_path in sorted(collect_all_files([template_project])):
+            category = categorize_file(relative_path, agent_directory)
+            template_file = template_project / relative_path
+            project_file = project_dir / relative_path
+            if category not in ("scaffolding", "user_content"):
+                protected.append(relative_path)
+            elif not project_file.exists():
+                overwrite.append(relative_path)
+            elif category == "user_content":
+                protected.append(relative_path)
+            elif not filecmp.cmp(template_file, project_file, shallow=False):
+                overwrite.append(relative_path)
+
+        _display_overwrite_plan(overwrite, protected)
+
+        dep_resolutions = _union_merge_dependencies(
+            project_dir, template_project, language
+        )
+        display_dependency_changes(dep_resolutions)
+
+        _warn_force_mode_risks(agent_directory, language)
+
+        if dry_run:
+            console.print(
+                "[bold yellow]Dry run complete.[/bold yellow] "
+                "Run without --dry-run to apply changes."
+            )
+            return
+
+        if interactive:
+            proceed = Prompt.ask(
+                "\nProceed with upgrade?",
+                choices=["y", "n"],
+                case_sensitive=False,
+                default="n",
+            ).lower()
+            if proceed != "y":
+                console.print("[yellow]Upgrade cancelled.[/yellow]")
+                return
+
+        if not backup_hook(project_dir):
+            return  # user declined to continue without a backup
+
+        overwritten = added = 0
+        for relative_path in overwrite:
+            project_file = project_dir / relative_path
+            existed = project_file.exists()
+            if copy_file(template_project / relative_path, project_file):
+                if existed:
+                    overwritten += 1
+                else:
+                    added += 1
+
+        write_dependencies = WRITE_DEPENDENCY_HANDLERS.get(language)
+        should_write_dependencies = bool(
+            any(r.status not in ("unchanged", "kept") for r in dep_resolutions)
+            and write_dependencies is not None
+        )
+        wrote_dependencies = bool(
+            should_write_dependencies and write_dependencies(project_dir, dep_resolutions)
+        )
+
+        if should_write_dependencies and not wrote_dependencies:
+            raise click.ClickException(
+                "Project files were updated, but dependencies were not. "
+                "Fix the error above and rerun."
+            )
+
+        update_acli_metadata(project_dir, {}, acli_version=new_version)
+
+        if wrote_dependencies:
+            console.print()
+            console.print(
+                "[dim] Dependencies updated — run [bold]agents-cli install[/bold] "
+                "to install the new versions.[/dim]"
+            )
+        console.print()
+        console.print(f"  Overwritten: {overwritten} files")
+        console.print(f"  Added: {added} files")
+        console.print()
+        console.print("[bold green]✅ Upgrade complete![/bold green]")
 
 
 @click.command()
@@ -73,15 +279,23 @@ def _display_version_header(old_version: str, new_version: str) -> None:
     help="Enable interactive prompts for human use",
 )
 @click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Overwrite scaffolding files with the new template (skip the 3-way merge)",
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Enable debug logging",
 )
 def upgrade(
     project_path: pathlib.Path,
+    *,
     dry_run: bool,
     auto_approve: bool,
     interactive: bool,
+    force: bool,
     debug: bool,
 ) -> None:
     """Upgrade project to a newer agents-cli version.
@@ -89,6 +303,10 @@ def upgrade(
     Applies a 3-way merge between the old template, the new template, and your
     project: unmodified files are auto-updated, your customizations are preserved,
     and conflicts are surfaced for manual resolution (with --interactive) or kept as-is.
+
+    Use --force if the merge fails. It overwrites scaffolding files with the new
+    template and keeps agent code and config files. It never removes dependencies
+    or files the new template dropped.
     """
     if debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
@@ -106,9 +324,10 @@ def upgrade(
 
     metadata = find_project_config(project_dir)
     if not metadata:
-        console.print("[bold red]Error:[/bold red] No agents-cli metadata found.")
-        console.print("Ensure agents-cli-manifest.yaml exists in your project root.")
-        raise SystemExit(1)
+        raise click.ClickException(
+            "No agents-cli metadata found.\n"
+            "Ensure agents-cli-manifest.yaml exists in your project root."
+        )
 
     # Get language from metadata for language-aware operations
     language = metadata.language
@@ -116,14 +335,11 @@ def upgrade(
     # Version is normalized to acli_version by find_project_config
     old_version = metadata.acli_version
     if not old_version:
-        console.print(
-            "[bold red]Error:[/bold red] No acli_version found in project metadata."
-        )
-        console.print(
+        raise click.ClickException(
+            "No acli_version found in project metadata.\n"
             "The project metadata is missing the version. "
             "Please ensure agents-cli-manifest.yaml has acli_version set."
         )
-        raise SystemExit(1)
 
     new_version = get_current_version()
 
@@ -137,8 +353,10 @@ def upgrade(
     # We check this up front here because the underlying code would catch this
     # and fall back to the current templates, which would make the baseline
     # identical to the new template — the merge would find nothing to do and
-    # still stamp the new version into the manifest.
-    _tools.require_tool("uvx")
+    # still stamp the new version into the manifest. When --force, the old template
+    # is not built, so there is no need set up uvx.
+    if not force:
+        _tools.require_tool("uvx")
 
     _display_version_header(old_version, new_version)
 
@@ -164,6 +382,20 @@ def upgrade(
     migrate_legacy_evalsets(project_dir, dry_run=dry_run)
     warn_legacy_eval_config(project_dir)
 
+    if force:
+        _run_force_upgrade(
+            cli_args=cli_args,
+            project_dir=project_dir,
+            project_name=project_name,
+            agent_directory=agent_directory,
+            language=language,
+            new_version=new_version,
+            dry_run=dry_run,
+            interactive=interactive,
+            backup_hook=backup_hook,
+        )
+        return
+
     success = run_three_way_merge(
         project_dir=project_dir,
         project_name=project_name,
@@ -180,11 +412,8 @@ def upgrade(
     )
 
     if not success:
-        console.print(
-            f"[bold red]Error:[/bold red] Could not fetch google-agents-cli@{old_version} "
-            "(the version that scaffolded this project) to compute the upgrade diff."
+        raise click.ClickException(
+            f"Could not fetch google-agents-cli@{old_version} "
+            "(the version that scaffolded this project) to compute the upgrade diff.\n"
+            "Check your network/proxy and retry. Your project was not modified."
         )
-        console.print(
-            "[dim]Check your network/proxy and retry. Your project was not modified.[/dim]"
-        )
-        raise SystemExit(1)

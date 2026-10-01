@@ -48,8 +48,8 @@ use crate::compat::mkdocs::plugin::autorefs::UnresolvedAutorefs;
 use crate::compat::mkdocs::{
     html,
     plugin::{
-        self, autorefs, awesome_nav, blog, literate_nav, meta, minify,
-        mkdocstrings, redirects, rss, search, tags,
+        self, autorefs, awesome_nav, blog, exclude, literate_nav, llmstxt,
+        meta, minify, mkdocstrings, redirects, rss, search, social, tags,
     },
     resource,
 };
@@ -99,6 +99,8 @@ struct Main {
     serve: bool,
     /// Metadata pipeline shared with source admission.
     meta: meta::Meta,
+    /// File exclusion shared by documentation and resource processing.
+    exclude: exclude::Exclude,
 }
 
 /// File input enriched with immutable facts for the current revision.
@@ -111,6 +113,12 @@ pub struct Input {
 }
 
 impl Value for Input {}
+
+/// The initial documentation scan and its derived page work are complete.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourcesReady;
+
+impl Value for SourcesReady {}
 
 /// Immutable build configuration supplied through the workflow data plane.
 #[derive(Clone, Debug)]
@@ -149,7 +157,7 @@ impl Deref for Input {
 }
 
 /// Page render input retained after site-wide settlement.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct SitePage {
     /// Page passed to the template renderer.
     page: Page,
@@ -193,6 +201,8 @@ struct PageRender {
     project: Arc<crate::config::Project>,
     /// Stable asset mapping hash for the template cache key.
     asset_hash: u64,
+    /// Page-local social metadata inserted after template rendering.
+    social: social::Metadata,
 }
 
 impl Value for PageRender {}
@@ -256,14 +266,16 @@ impl Main {
     /// Initializes the module.
     #[allow(clippy::too_many_lines)]
     fn setup(&self, ctx: &mut Builder<Id>) {
-        let files = ctx.input::<Input>();
+        let files = self.exclude.sources(&ctx.input::<Input>());
         let configuration = ctx.input::<Configuration>();
+        let sources_ready = ctx.input::<SourcesReady>();
         let minify = minify::Minify::new(&self.config);
 
         // Set up workflow to process static assets and Markdown files.
         let sources = files.map(|input: &Input| input.source.clone());
         let resources = resource::Resources::new(&self.config, &self.meta)
             .setup(resource::Dependencies { sources: &sources });
+        let resources = self.exclude.resources(&resources);
         let assets =
             minify.setup(minify::Dependencies { resources: &resources });
         let documents = read_documents(&self.config, &files);
@@ -377,6 +389,26 @@ impl Main {
         // Feed inputs are final pages and their original Markdown bodies.
         let rss_artifacts =
             rss::Rss::new(&self.config).setup(&page, &markdown, &configuration);
+        let social = social::Social::new(&self.config, self.serve, self.strict);
+        let social_metadata = social.setup(social::Dependencies {
+            pages: &page,
+            sources: &sources,
+        });
+        let llmstxt_documents =
+            rendered_page.filter_map(|rendered: &RenderedPage| {
+                rendered.html.llmstxt.as_ref().map(|markdown| {
+                    llmstxt::Document {
+                        page: rendered.page.clone(),
+                        markdown: markdown.clone(),
+                    }
+                })
+            });
+        let llmstxt_artifacts = plugins.llmstxt.setup(
+            &llmstxt_documents,
+            &sources_ready,
+            self.strict,
+        );
+        let extra_artifacts = (rss_artifacts, llmstxt_artifacts).coalesce();
         let _ = render_templates(
             &self.config,
             &files,
@@ -388,12 +420,13 @@ impl Main {
         let unresolved = render_pages(
             &self.config,
             &site_page,
+            &social_metadata,
             &nav,
             &autorefs,
             &assets,
             &minify,
             &mkdocstrings,
-            &rss_artifacts,
+            &extra_artifacts,
         );
         validate(&self.config, self.strict, &files, &page, &unresolved);
     }
@@ -421,7 +454,7 @@ fn apply_blog(
                     );
                 }
                 if let Some(template) = &patch.template {
-                    rendered.page.apply_template(template.clone());
+                    rendered.page.apply_default_template(template.clone());
                 }
                 if patch.content.is_some() || patch.toc.is_some() {
                     rendered.page.apply_derived(
@@ -614,12 +647,15 @@ fn validate(
 }
 
 /// Compute a hash of the page content relevant to template rendering.
-fn page_hash(page: &Page, autorefs: &autorefs::References) -> u64 {
+fn page_hash(
+    page: &Page, autorefs: &autorefs::References, social: &social::Metadata,
+) -> u64 {
     let mut hasher = DefaultHasher::new();
     page.content.hash(&mut hasher);
     page.meta.hash(&mut hasher);
     page.hash_derived_template_context(&mut hasher);
     autorefs.hash(&mut hasher);
+    social.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -705,7 +741,7 @@ fn process_markdown(
                     &config,
                     document.source.as_str(),
                     (
-                        6_u8,
+                        12_u8,
                         config.hash,
                         origin,
                         document.clone(),
@@ -824,14 +860,18 @@ fn generate_page(
                 markdown.title.clone(),
             ),
         };
-        page.apply_template_context(
-            markdown.properties.clone(),
-            markdown.variables.clone(),
-        );
-        RenderedPage {
+        let mut properties = markdown.properties.clone();
+        if markdown.html.llmstxt.is_some() {
+            properties.insert(
+                "markdown_url".into(),
+                Dynamic::String(llmstxt::markdown_url(page.destination())?),
+            );
+        }
+        page.apply_template_context(properties, markdown.variables.clone());
+        Ok::<_, anyhow::Error>(RenderedPage {
             page,
             html: markdown.html.clone(),
-        }
+        })
     })
 }
 
@@ -918,24 +958,34 @@ fn template_output(id: &Id) -> Result<SitePath, PathError> {
 #[allow(clippy::too_many_arguments)]
 fn render_pages(
     config: &Config, pages: &Stream<Id, SitePage>,
-    nav: &Signal<Id, Navigation>, autorefs: &Signal<Id, autorefs::Registry>,
+    social: &Stream<Id, social::Metadata>, nav: &Signal<Id, Navigation>,
+    autorefs: &Signal<Id, autorefs::Registry>,
     assets: &Signal<Id, minify::Manifest>, minify: &minify::Minify,
     mkdocstrings: &mkdocstrings::Mkdocstrings,
     extra: &Stream<Id, output::Artifact>,
 ) -> Stream<Id, UnresolvedAutorefs> {
-    let pages = pages.product(nav).product(autorefs).product(assets).map(
-        |input: &((SitePage, Navigation), autorefs::Registry),
-         assets: &minify::Manifest| {
-            let ((page, nav), autorefs) = input;
-            PageRender {
-                input: page.clone(),
-                nav: nav.clone(),
-                autorefs: autorefs.clone(),
-                project: assets.project.clone(),
-                asset_hash: assets.hash,
-            }
-        },
-    );
+    let pages = (pages.clone(), social.clone())
+        .join()
+        .product(nav)
+        .product(autorefs)
+        .product(assets)
+        .map(
+            |input: &(
+                ((SitePage, social::Metadata), Navigation),
+                autorefs::Registry,
+            ),
+             assets: &minify::Manifest| {
+                let (((page, social), nav), autorefs) = input;
+                PageRender {
+                    input: page.clone(),
+                    nav: nav.clone(),
+                    autorefs: autorefs.clone(),
+                    project: assets.project.clone(),
+                    asset_hash: assets.hash,
+                    social: social.clone(),
+                }
+            },
+        );
 
     let template = OnceLock::new();
     let theme_dirs = config.theme_dirs.clone();
@@ -956,7 +1006,7 @@ fn render_pages(
             config.hash,
             input.nav.hash,
             input.asset_hash,
-            page_hash(&page, references),
+            page_hash(&page, references, &input.social),
         );
         let rendered =
             cached(&config, ("template", id), args, |(_, _, _, _)| {
@@ -978,6 +1028,7 @@ fn render_pages(
             &mkdocstrings,
             &page.url,
         )?;
+        let data = input.social.inject(data);
         let data = minify.html(data);
 
         Ok::<_, anyhow::Error>(RenderedSitePage {
@@ -998,16 +1049,18 @@ fn render_pages(
 /// Creates a workflow for the given config.
 pub fn create_workflow(
     config: &Config, strict: bool, serve: bool, meta: meta::Meta,
-) -> Workflow<Id> {
-    Workflow::build(|workflow| {
+) -> anyhow::Result<Workflow<Id>> {
+    let exclude = exclude::Exclude::new(config)?;
+    Ok(Workflow::build(|workflow| {
         Main {
             config: config.clone(),
             strict,
             serve,
             meta,
+            exclude,
         }
         .setup(workflow);
-    })
+    }))
 }
 
 // ----------------------------------------------------------------------------

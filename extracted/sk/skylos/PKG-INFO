@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.41.0
+Version: 4.43.0
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, C++, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -57,12 +57,15 @@ Requires-Dist: ruff>=0.15.0; extra == "lint"
 Provides-Extra: test
 Requires-Dist: pytest>=9.0.2; extra == "test"
 Requires-Dist: packaging>=24.2; extra == "test"
+Provides-Extra: verdict
+Requires-Dist: cryptography>=42; extra == "verdict"
 Provides-Extra: all
 Requires-Dist: pytest>=9.0.2; extra == "all"
 Requires-Dist: packaging>=24.2; extra == "all"
 Requires-Dist: litellm<1.85.0,>=1.84.0; extra == "all"
 Requires-Dist: aiohttp>=3.14.0; extra == "all"
 Requires-Dist: ruff>=0.15.0; extra == "all"
+Requires-Dist: cryptography>=42; extra == "all"
 Dynamic: license-file
 
 [![MCP Toplist](https://mcptoplist.com/badge/io.github.duriantaco%2Fskylos.svg)](https://mcptoplist.com/server/io.github.duriantaco%2Fskylos)
@@ -190,11 +193,14 @@ the versioned JSON result.
 
 `skylos verify` schema version 2 returns `pass`, `fail`, or `incomplete`.
 `incomplete` means a requested proof could not be established, such as a
-third-party TS/JS import, computed namespace member, unsupported language-local
+missing local TS/JS import, computed namespace member, unsupported language-local
 API check, or parser surface that Skylos could not prove; it exits `2` unless
 `--no-fail` is set. The `coverage` object lists detected languages, expected
 checks, language support, missing checks, completed/skipped checks, checked
-references, and deterministic skip reasons.
+references, and deterministic skip reasons. Declared third-party dependencies
+and recognized Node built-ins are outside the local TS/JS API proof; their
+references are counted in `out_of_scope_references` and do not make a clean
+verification incomplete. Unknown bare imports still require review.
 
 Deterministic local/workspace API verification currently covers Python,
 TypeScript/JavaScript, Go, and Java without executing target code. PHP, Rust,
@@ -326,6 +332,7 @@ facts through `skylos.preflight.run_preflight(...)`.
 | Offline dependency SBOM | `skylos sbom . -o sbom.cdx.json` | Lists supported recorded dependencies as CycloneDX 1.6 JSON without network requests | [Dependency scanning](./docs/dependency-scanning.md#export-an-sbom-offline) |
 | SPDX SBOM + license policy | `skylos sbom . --format spdx-json` / `license_deny = ["GPL-*"]` | SPDX 2.3 JSON with declared licenses; `SKY-SCA-LIC001` flags denied licenses in `-a` scans | [License compliance](./docs/license-compliance.md) |
 | Container-image scan | `skylos image scan IMAGE@sha256:<digest> --platform linux/amd64 --fail-on high` | Uses separately installed Trivy, registry network/auth, and an explicit severity gate for a pinned remote image | [Container-image scanning](./docs/container-image-reports.md) |
+| Signed verdict deploy gate | `skylos verify-verdict verdict.json --commit "$SHA" --repository github.com/org/repo --require-repository-verified --max-age 7d --require-passed` | Verifies a Skylos Cloud check verdict offline (Ed25519 DSSE, in-toto/SLSA) and fails unless it is a recent policy pass for that commit and repository; needs `skylos[verdict]` | [Verify a signed verdict](./docs/verify-verdict.md) |
 | Built GPU artifact preflight | `skylos preflight build/app` | Verifies the exact local artifact identity, selected CUDA architectures, packaged runtime route, and declared fleet compatibility; returns `PASS`, `FAIL`, or `UNKNOWN` | [Release reliability](https://docs.skylos.dev/release-reliability) |
 | Container-image report import | `skylos ingest trivy --input trivy.json --sarif image.sarif` | Converts an existing Trivy image vulnerability report to Skylos JSON/SARIF; optional digest-bound severity check | [Container-image scanning](./docs/container-image-reports.md#import-an-existing-trivy-report) |
 | Readable terminal report | `skylos . --format pretty` | Groups findings by file with severity badges, snippets, and copyable `file:line` locations | [CLI output modes](./docs/cli-output.md) |
@@ -347,6 +354,7 @@ facts through `skylos.preflight.run_preflight(...)`.
 | Runtime agent behavior test | `skylos agent init && skylos agent test --allow-contract-endpoint` | Checks final responses, tool selection, explicit refusals, and source IDs against a versioned contract | [Agent Behavior Testing](./docs/agent-behavior-testing.md) |
 | Verification-backed remediation | `skylos agent remediate .` | Scans and fixes supported findings, then re-scans them and records proof-test metadata when available | [AI features](https://docs.skylos.dev/ai-features) |
 | Agent-loop hooks | `skylos agent install-hooks [--codex\|--cursor]` | Verifies every agent edit, blocks secret reads and hallucinated package installs, and holds "done" while new issues are open | [Agent-loop hooks](./docs/agent-hooks.md) |
+| Project standards for agents | `skylos agent install-standards --enforce SKY-L002` | Gives Codex, Claude Code, and Cursor a project skill and selects measurable quality rules for hook and CI checks | [Project standards](./docs/agent-standards.md) |
 | MCP agent verification | `verify_change` MCP tool | Lets Claude, Cursor, and other MCP clients verify an edited file/range with the same schema as `skylos verify`. Requires `SKYLOS_API_KEY`; `skylos verify` and agent-loop hooks need no key | [MCP server](https://docs.skylos.dev/mcp-server) |
 | LLM integration inventory | `skylos discover .` | Maps recognized LLM calls, agent tools, prompt sites, and input sources in Python and TypeScript/JavaScript | [Agent verification](./docs/agent-verification.md) |
 | Pre-deployment agent verification | `skylos defend . --format md -o evidence.md` | Verifies agent guardrails, scores OWASP LLM/Agentic coverage, and emits an attested evidence report | [Agent verification](./docs/agent-verification.md) |
@@ -408,6 +416,30 @@ Hooks fail open, log to `.skylos/hook.log`, and merge with your existing hooks.
 `--uninstall` removes only the Skylos entries. See
 [Agent-loop hooks](./docs/agent-hooks.md) for the contract, latency, and
 limits.
+
+## Give Coding Agents Project Standards
+
+Create `.skylos/standards.md` with the guidance you want agents to follow:
+
+```markdown
+# Coding standards
+
+- Keep functions focused and handle exceptions explicitly.
+- Add a focused test when changing behavior.
+```
+
+Then install the project skill and choose any Skylos quality rules to enforce:
+
+```bash
+skylos agent install-standards --enforce SKY-L002
+skylos agent install-hooks --codex   # use --cursor for Cursor, or omit for Claude Code
+skylos agent check-standards .       # run this project-wide check in CI
+```
+
+The installer writes `SKILL.md` files for Codex, Cursor, and Claude Code.
+Agent skills provide guidance; the hooks and project-wide check enforce the
+selected built-in quality rules. See [project standards](./docs/agent-standards.md)
+for the generated files, rule selection, and coverage limits.
 
 ## Verify AI Agents Before They Ship
 
@@ -580,6 +612,9 @@ pip install "skylos[llm]"
 
 # Ruff Python linting through `skylos lint`
 pip install "skylos[lint]"
+
+# Ed25519 verification for `skylos verify-verdict`
+pip install "skylos[verdict]"
 
 # All published optional extras
 pip install "skylos[all]"

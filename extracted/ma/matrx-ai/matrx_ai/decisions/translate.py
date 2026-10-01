@@ -217,6 +217,35 @@ def build_decision_state(
     return state
 
 
+def _noul_threshold(question: DecisionQuestion) -> float:
+    """The cut a yes/no verdict is read at: the author's suggestion, else 0.5."""
+    return question.suggested_threshold if question.suggested_threshold is not None else 0.5
+
+
+def _stated_probability(value: Any) -> float | None:
+    """A yes/no probability the model actually stated, or ``None``.
+
+    MISSING IS NOT ZERO. A payload without its probability (or with one that is
+    not a number in 0..1) is an unanswered question — reading it as ``0.0``
+    would turn a malformed answer into a confident "no" and route on it.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    probability = float(value)
+    if probability != probability or not 0.0 <= probability <= 1.0:  # NaN / out of range
+        return None
+    return probability
+
+
+def _missing_probability_reason(value: Any) -> str:
+    if value is None:
+        return "the decision model returned no probability for this yes/no question"
+    return (
+        f"the decision model returned {value!r} as the probability for this yes/no "
+        "question, which is not a number between 0 and 1"
+    )
+
+
 def system_one_questions(batch: DecisionQuestions) -> dict[str, Any]:
     """The questions as TypeSafe System One's typed question map."""
     out: dict[str, Any] = {}
@@ -285,11 +314,11 @@ def decision_answers_from_system_one(
             continue
         payload = raw if isinstance(raw, dict) else raw.model_dump(mode="json")
         if question.type == "noul":
-            probability = float(payload.get("noul", 0.0))
-            threshold = (
-                question.suggested_threshold if question.suggested_threshold is not None else 0.5
-            )
-            verdict = probability >= threshold
+            probability = _stated_probability(payload.get("noul"))
+            if probability is None:
+                unanswerable[name] = _missing_probability_reason(payload.get("noul"))
+                continue
+            verdict = probability >= _noul_threshold(question)
             answers[name] = DecisionAnswer(
                 type="noul",
                 answer=verdict,
@@ -523,12 +552,15 @@ def decision_answers_from_verbalized(
             )
             continue
         if question.type == "noul":
-            probability = float(raw.get("probability", 0.0))
-            threshold = (
-                question.suggested_threshold if question.suggested_threshold is not None else 0.5
-            )
-            answer = raw.get("answer")
-            verdict = bool(answer) if isinstance(answer, bool) else probability >= threshold
+            probability = _stated_probability(raw.get("probability"))
+            if probability is None:
+                unanswerable[question.name] = _missing_probability_reason(raw.get("probability"))
+                continue
+            # THE VERDICT IS READ OFF THE PROBABILITY, exactly as on the native
+            # path — never the model's separately stated true/false, which can
+            # contradict the number it gave (the same reason the score answer
+            # is derived below). One number, one cut, one verdict.
+            verdict = probability >= _noul_threshold(question)
             answers[question.name] = DecisionAnswer(
                 type="noul",
                 answer=verdict,

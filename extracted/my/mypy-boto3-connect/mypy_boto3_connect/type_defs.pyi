@@ -1408,6 +1408,9 @@ __all__ = (
     "SegmentAttributeValueUnionTypeDef",
     "SendChatIntegrationEventRequestTypeDef",
     "SendChatIntegrationEventResponseTypeDef",
+    "SendInAppNotificationActionDefinitionOutputTypeDef",
+    "SendInAppNotificationActionDefinitionTypeDef",
+    "SendInAppNotificationActionDefinitionUnionTypeDef",
     "SendNotificationActionDefinitionOutputTypeDef",
     "SendNotificationActionDefinitionTypeDef",
     "SendNotificationActionDefinitionUnionTypeDef",
@@ -7248,6 +7251,12 @@ class NewSessionDetailsTypeDef(TypedDict):
 class NextContactMetadataTypeDef(TypedDict):
     QuickConnectContactData: NotRequired[QuickConnectContactDataTypeDef]
 
+class SendInAppNotificationActionDefinitionOutputTypeDef(TypedDict):
+    Content: dict[LocaleCodeType, str]
+    Recipient: NotificationRecipientTypeOutputTypeDef
+    Exclusion: NotRequired[NotificationRecipientTypeOutputTypeDef]
+    Priority: NotRequired[ConfigurableNotificationPriorityType]
+
 class SendNotificationActionDefinitionOutputTypeDef(TypedDict):
     DeliveryMethod: Literal["EMAIL"]
     Content: str
@@ -8228,6 +8237,12 @@ NextContactEntryTypeDef = TypedDict(
     },
 )
 
+class SendInAppNotificationActionDefinitionTypeDef(TypedDict):
+    Content: Mapping[LocaleCodeType, str]
+    Recipient: NotificationRecipientTypeUnionTypeDef
+    Exclusion: NotRequired[NotificationRecipientTypeUnionTypeDef]
+    Priority: NotRequired[ConfigurableNotificationPriorityType]
+
 class SendNotificationActionDefinitionTypeDef(TypedDict):
     DeliveryMethod: Literal["EMAIL"]
     Content: str
@@ -8809,6 +8824,7 @@ class RuleActionOutputTypeDef(TypedDict):
     EndAssociatedTasksAction: NotRequired[dict[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
     ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionOutputTypeDef]
+    SendInAppNotificationAction: NotRequired[SendInAppNotificationActionDefinitionOutputTypeDef]
 
 class UserSearchCriteriaPaginatorTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
@@ -9050,6 +9066,9 @@ class MetricResultV2TypeDef(TypedDict):
 EvaluationFormMultiSelectQuestionAutomationOptionUnionTypeDef = Union[
     EvaluationFormMultiSelectQuestionAutomationOptionTypeDef,
     EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef,
+]
+SendInAppNotificationActionDefinitionUnionTypeDef = Union[
+    SendInAppNotificationActionDefinitionTypeDef, SendInAppNotificationActionDefinitionOutputTypeDef
 ]
 SendNotificationActionDefinitionUnionTypeDef = Union[
     SendNotificationActionDefinitionTypeDef, SendNotificationActionDefinitionOutputTypeDef
@@ -9890,6 +9909,7 @@ class RuleActionTypeDef(TypedDict):
     EndAssociatedTasksAction: NotRequired[Mapping[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
     ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionUnionTypeDef]
+    SendInAppNotificationAction: NotRequired[SendInAppNotificationActionDefinitionUnionTypeDef]
 
 class EvaluationFormMultiSelectQuestionPropertiesTypeDef(TypedDict):
     Options: Sequence[EvaluationFormMultiSelectQuestionOptionTypeDef]

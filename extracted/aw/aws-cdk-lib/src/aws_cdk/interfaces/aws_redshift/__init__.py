@@ -865,6 +865,51 @@ class _IIntegrationRefProxy(
 typing.cast(typing.Any, IIntegrationRef).__jsii_proxy_class__ = lambda : _IIntegrationRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IQEV2IdcApplicationRef")
+class IQEV2IdcApplicationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a QEV2IdcApplication.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="qev2IdcApplicationRef")
+    def qev2_idc_application_ref(self) -> "QEV2IdcApplicationReference":
+        '''(experimental) A reference to a QEV2IdcApplication resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQEV2IdcApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QEV2IdcApplication.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.IQEV2IdcApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="qev2IdcApplicationRef")
+    def qev2_idc_application_ref(self) -> "QEV2IdcApplicationReference":
+        '''(experimental) A reference to a QEV2IdcApplication resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QEV2IdcApplicationReference", jsii.get(self, "qev2IdcApplicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQEV2IdcApplicationRef).__jsii_proxy_class__ = lambda : _IQEV2IdcApplicationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IScheduledActionRef")
 class IScheduledActionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -908,6 +953,96 @@ class _IScheduledActionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IScheduledActionRef).__jsii_proxy_class__ = lambda : _IScheduledActionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.ISnapshotCopyGrantRef")
+class ISnapshotCopyGrantRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SnapshotCopyGrant.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyGrantRef")
+    def snapshot_copy_grant_ref(self) -> "SnapshotCopyGrantReference":
+        '''(experimental) A reference to a SnapshotCopyGrant resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotCopyGrantRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SnapshotCopyGrant.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.ISnapshotCopyGrantRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotCopyGrantRef")
+    def snapshot_copy_grant_ref(self) -> "SnapshotCopyGrantReference":
+        '''(experimental) A reference to a SnapshotCopyGrant resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotCopyGrantReference", jsii.get(self, "snapshotCopyGrantRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotCopyGrantRef).__jsii_proxy_class__ = lambda : _ISnapshotCopyGrantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.ISnapshotRef")
+class ISnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.ISnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotReference", jsii.get(self, "snapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshotRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.ISnapshotScheduleRef")
@@ -955,6 +1090,51 @@ class _ISnapshotScheduleRefProxy(
 typing.cast(typing.Any, ISnapshotScheduleRef).__jsii_proxy_class__ = lambda : _ISnapshotScheduleRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IUsageLimitRef")
+class IUsageLimitRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UsageLimit.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="usageLimitRef")
+    def usage_limit_ref(self) -> "UsageLimitReference":
+        '''(experimental) A reference to a UsageLimit resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUsageLimitRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UsageLimit.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.IUsageLimitRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="usageLimitRef")
+    def usage_limit_ref(self) -> "UsageLimitReference":
+        '''(experimental) A reference to a UsageLimit resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UsageLimitReference", jsii.get(self, "usageLimitRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUsageLimitRef).__jsii_proxy_class__ = lambda : _IUsageLimitRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_redshift.IntegrationReference",
     jsii_struct_bases=[],
@@ -1000,6 +1180,55 @@ class IntegrationReference:
 
     def __repr__(self) -> str:
         return "IntegrationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.QEV2IdcApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"qev2_idc_application_arn": "qev2IdcApplicationArn"},
+)
+class QEV2IdcApplicationReference:
+    def __init__(self, *, qev2_idc_application_arn: builtins.str) -> None:
+        '''A reference to a QEV2IdcApplication resource.
+
+        :param qev2_idc_application_arn: The Qev2IdcApplicationArn of the QEV2IdcApplication resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            q_ev2_idc_application_reference = interfaces_redshift.QEV2IdcApplicationReference(
+                qev2_idc_application_arn="qev2IdcApplicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__28c595561e47eba2943847a0dd4caaac09119bafdf2b9f0eaaecdd5a5b4ff9bc)
+            check_type(argname="argument qev2_idc_application_arn", value=qev2_idc_application_arn, expected_type=type_hints["qev2_idc_application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "qev2_idc_application_arn": qev2_idc_application_arn,
+        }
+
+    @builtins.property
+    def qev2_idc_application_arn(self) -> builtins.str:
+        '''The Qev2IdcApplicationArn of the QEV2IdcApplication resource.'''
+        result = self._values.get("qev2_idc_application_arn")
+        assert result is not None, "Required property 'qev2_idc_application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QEV2IdcApplicationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1054,6 +1283,104 @@ class ScheduledActionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.SnapshotCopyGrantReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_copy_grant_arn": "snapshotCopyGrantArn"},
+)
+class SnapshotCopyGrantReference:
+    def __init__(self, *, snapshot_copy_grant_arn: builtins.str) -> None:
+        '''A reference to a SnapshotCopyGrant resource.
+
+        :param snapshot_copy_grant_arn: The Arn of the SnapshotCopyGrant resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            snapshot_copy_grant_reference = interfaces_redshift.SnapshotCopyGrantReference(
+                snapshot_copy_grant_arn="snapshotCopyGrantArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b22a53ae1c1a9fa395be18cf117fa865772701418deb7a23aff3b6b8268f9fcc)
+            check_type(argname="argument snapshot_copy_grant_arn", value=snapshot_copy_grant_arn, expected_type=type_hints["snapshot_copy_grant_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_copy_grant_arn": snapshot_copy_grant_arn,
+        }
+
+    @builtins.property
+    def snapshot_copy_grant_arn(self) -> builtins.str:
+        '''The Arn of the SnapshotCopyGrant resource.'''
+        result = self._values.get("snapshot_copy_grant_arn")
+        assert result is not None, "Required property 'snapshot_copy_grant_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotCopyGrantReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.SnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_arn": "snapshotArn"},
+)
+class SnapshotReference:
+    def __init__(self, *, snapshot_arn: builtins.str) -> None:
+        '''A reference to a Snapshot resource.
+
+        :param snapshot_arn: The SnapshotArn of the Snapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            snapshot_reference = interfaces_redshift.SnapshotReference(
+                snapshot_arn="snapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c03d9eb5053e71d0192336a7bbe61544116cf2f4843cd18e66b33a3f77d4364a)
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_arn": snapshot_arn,
+        }
+
+    @builtins.property
+    def snapshot_arn(self) -> builtins.str:
+        '''The SnapshotArn of the Snapshot resource.'''
+        result = self._values.get("snapshot_arn")
+        assert result is not None, "Required property 'snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_redshift.SnapshotScheduleReference",
     jsii_struct_bases=[],
     name_mapping={"snapshot_schedule_arn": "snapshotScheduleArn"},
@@ -1102,6 +1429,55 @@ class SnapshotScheduleReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.UsageLimitReference",
+    jsii_struct_bases=[],
+    name_mapping={"usage_limit_arn": "usageLimitArn"},
+)
+class UsageLimitReference:
+    def __init__(self, *, usage_limit_arn: builtins.str) -> None:
+        '''A reference to a UsageLimit resource.
+
+        :param usage_limit_arn: The Arn of the UsageLimit resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            usage_limit_reference = interfaces_redshift.UsageLimitReference(
+                usage_limit_arn="usageLimitArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a8c5453431a65570de4d4290fe4adde71732bca916f0ed253b4e43aa0ed3685)
+            check_type(argname="argument usage_limit_arn", value=usage_limit_arn, expected_type=type_hints["usage_limit_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "usage_limit_arn": usage_limit_arn,
+        }
+
+    @builtins.property
+    def usage_limit_arn(self) -> builtins.str:
+        '''The Arn of the UsageLimit resource.'''
+        result = self._values.get("usage_limit_arn")
+        assert result is not None, "Required property 'usage_limit_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UsageLimitReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ClusterParameterGroupReference",
     "ClusterReference",
@@ -1120,11 +1496,19 @@ __all__ = [
     "IEndpointAuthorizationRef",
     "IEventSubscriptionRef",
     "IIntegrationRef",
+    "IQEV2IdcApplicationRef",
     "IScheduledActionRef",
+    "ISnapshotCopyGrantRef",
+    "ISnapshotRef",
     "ISnapshotScheduleRef",
+    "IUsageLimitRef",
     "IntegrationReference",
+    "QEV2IdcApplicationReference",
     "ScheduledActionReference",
+    "SnapshotCopyGrantReference",
+    "SnapshotReference",
     "SnapshotScheduleReference",
+    "UsageLimitReference",
 ]
 
 publication.publish()
@@ -1193,9 +1577,30 @@ def _typecheckingstub__728632c7aa139882a2948f73866352d960014a68b5bbba0fa13131eca
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__28c595561e47eba2943847a0dd4caaac09119bafdf2b9f0eaaecdd5a5b4ff9bc(
+    *,
+    qev2_idc_application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__70d902e960d555dbfb1b278976b8cd3991371d19399bfcea38c0af9308c1ce6f(
     *,
     scheduled_action_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b22a53ae1c1a9fa395be18cf117fa865772701418deb7a23aff3b6b8268f9fcc(
+    *,
+    snapshot_copy_grant_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c03d9eb5053e71d0192336a7bbe61544116cf2f4843cd18e66b33a3f77d4364a(
+    *,
+    snapshot_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1207,5 +1612,12 @@ def _typecheckingstub__d9ef2e944c7dbe41587148f787579523b6362e12ef817d87ba32b6e06
     """Type checking stubs"""
     pass
 
-for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IScheduledActionRef, ISnapshotScheduleRef]:
+def _typecheckingstub__7a8c5453431a65570de4d4290fe4adde71732bca916f0ed253b4e43aa0ed3685(
+    *,
+    usage_limit_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IQEV2IdcApplicationRef, IScheduledActionRef, ISnapshotCopyGrantRef, ISnapshotRef, ISnapshotScheduleRef, IUsageLimitRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

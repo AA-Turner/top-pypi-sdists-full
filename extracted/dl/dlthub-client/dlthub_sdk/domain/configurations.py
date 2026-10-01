@@ -258,7 +258,8 @@ class Configurations(Collection[M]):
         """Yield the workspace's configurations, paging lazily.
 
         Args:
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:

@@ -29,6 +29,11 @@ use std::path::Path;
 /// The evidence, referenced artifacts, and any draft/closed-to-ready status
 /// promotion are persisted together under the bead mutation lock. Repeating
 /// the creator or an existing reporter is an exact no-op.
+/// Each evidence entry owns the attachment manifest for its own note text.
+/// The generated snooze-wake note stays attachment-free: it carries no
+/// `@attachment:` tokens, so an empty manifest is the only manifest that
+/// validates against it.
+#[allow(clippy::too_many_arguments)]
 pub fn add_task_plus_one(
     beads_dir: &Path,
     issue_id: &str,
@@ -37,6 +42,9 @@ pub fn add_task_plus_one(
     references: &[String],
     now: Option<String>,
     observed_since: Option<String>,
+    note_attachments: Option<
+        Vec<crate::note_attachment::BeadNoteAttachmentWire>,
+    >,
 ) -> Result<BeadMutationOutcomeWire, BeadError> {
     let reporter = reporter.trim().to_string();
     if reporter.is_empty() {
@@ -78,12 +86,14 @@ pub fn add_task_plus_one(
         }
 
         let timestamp = now.unwrap_or_else(now_utc);
+        let manifest = note_attachments.clone().unwrap_or_default();
         let evidence = TaskPlusOneEvidenceWire {
             timestamp: timestamp.clone(),
             observed_since,
             reporter: reporter.clone(),
             note,
             refs: references.clone(),
+            attachments: manifest,
         };
         evidence.validate()?;
 
@@ -144,7 +154,12 @@ pub fn add_task_plus_one(
                 &reporter,
             )?;
             append_note_to_store(
-                &mut store, index, note, &reporter, &timestamp,
+                &mut store,
+                index,
+                note,
+                &reporter,
+                &timestamp,
+                &[],
             )?;
         }
         let issue = store.issues[index].clone();
@@ -351,7 +366,14 @@ pub fn snooze_task(
             &timestamp,
             &actor,
         )?;
-        append_note_to_store(&mut store, index, &note, &actor, &timestamp)?;
+        append_note_to_store(
+            &mut store,
+            index,
+            &note,
+            &actor,
+            &timestamp,
+            &[],
+        )?;
         let issue = store.issues[index].clone();
         store.save()?;
 

@@ -706,7 +706,8 @@ class Jobs(Collection[M]):
         Args:
             archived: Keep only archived jobs, or only live ones. Omit for both,
                 which is what the platform returns when nothing filters.
-            limit: Return at most this many jobs. ``None`` walks to the end.
+            limit: Return at most this many jobs. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many jobs, server-side.
 
         Returns:

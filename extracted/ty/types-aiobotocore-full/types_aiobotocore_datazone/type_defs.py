@@ -75,8 +75,10 @@ from .literals import (
     NotebookExportStatusType,
     NotebookRunStatusType,
     NotebookStatusType,
+    NotebookTypeType,
     NotificationRoleType,
     NotificationTypeType,
+    NotifyOnStateType,
     OAuth2GrantTypeType,
     OpenLineageRunStateType,
     OverallDeploymentStatusType,
@@ -314,6 +316,7 @@ __all__ = (
     "DeleteLineageEventOutputTypeDef",
     "DeleteListingInputTypeDef",
     "DeleteNotebookInputTypeDef",
+    "DeleteProgressTypeDef",
     "DeleteProjectInputTypeDef",
     "DeleteProjectMembershipInputTypeDef",
     "DeleteProjectProfileInputTypeDef",
@@ -368,6 +371,7 @@ __all__ = (
     "EqualToExpressionTypeDef",
     "EventSummaryTypeDef",
     "FailureCauseTypeDef",
+    "FailureReasonTypeDef",
     "FilterClausePaginatorTypeDef",
     "FilterClauseTypeDef",
     "FilterExpressionTypeDef",
@@ -659,6 +663,9 @@ __all__ = (
     "NotebookRunErrorTypeDef",
     "NotebookRunSummaryTypeDef",
     "NotebookSummaryTypeDef",
+    "NotificationConfigOutputTypeDef",
+    "NotificationConfigTypeDef",
+    "NotificationConfigUnionTypeDef",
     "NotificationOutputTypeDef",
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
@@ -1245,6 +1252,7 @@ class HyperPodPropertiesInputTypeDef(TypedDict):
 
 class IamPropertiesInputTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
+    roleArn: NotRequired[str]
 
 
 class LakehousePropertiesInputTypeDef(TypedDict):
@@ -1505,14 +1513,19 @@ class CreateListingChangeSetInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class CreateNotebookInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    name: str
-    description: NotRequired[str]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
+CreateNotebookInputTypeDef = TypedDict(
+    "CreateNotebookInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "name": str,
+        "description": NotRequired[str],
+        "type": NotRequired[NotebookTypeType],
+        "metadata": NotRequired[Mapping[str, str]],
+        "parameters": NotRequired[Mapping[str, str]],
+        "clientToken": NotRequired[str],
+    },
+)
 
 
 class GitMetadataOutputTypeDef(TypedDict):
@@ -1675,6 +1688,7 @@ class DeleteDomainInputTypeDef(TypedDict):
     identifier: str
     clientToken: NotRequired[str]
     skipDeletionCheck: NotRequired[bool]
+    cascadeDelete: NotRequired[bool]
 
 
 class DeleteDomainUnitInputTypeDef(TypedDict):
@@ -1736,6 +1750,10 @@ class DeleteListingInputTypeDef(TypedDict):
 class DeleteNotebookInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
+
+
+class DeleteProgressTypeDef(TypedDict):
+    successfullyDeletedProjectCount: NotRequired[int]
 
 
 class DeleteProjectInputTypeDef(TypedDict):
@@ -1930,6 +1948,13 @@ class FailureCauseTypeDef(TypedDict):
     message: NotRequired[str]
 
 
+FailureReasonTypeDef = TypedDict(
+    "FailureReasonTypeDef",
+    {
+        "id": NotRequired[str],
+        "message": NotRequired[str],
+    },
+)
 FilterTypeDef = TypedDict(
     "FilterTypeDef",
     {
@@ -2151,6 +2176,10 @@ class NetworkConfigOutputTypeDef(TypedDict):
 
 class NotebookRunErrorTypeDef(TypedDict):
     message: str
+
+
+class NotificationConfigOutputTypeDef(TypedDict):
+    notifyOn: list[NotifyOnStateType]
 
 
 class StorageConfigTypeDef(TypedDict):
@@ -2604,16 +2633,19 @@ class ListNotebookRunsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListNotebooksInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    maxResults: NotRequired[int]
-    sortOrder: NotRequired[SortOrderType]
-    sortBy: NotRequired[SortKeyType]
-    status: NotRequired[NotebookStatusType]
-    nextToken: NotRequired[str]
-
-
+ListNotebooksInputTypeDef = TypedDict(
+    "ListNotebooksInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "maxResults": NotRequired[int],
+        "sortOrder": NotRequired[SortOrderType],
+        "sortBy": NotRequired[SortKeyType],
+        "status": NotRequired[NotebookStatusType],
+        "type": NotRequired[NotebookTypeType],
+        "nextToken": NotRequired[str],
+    },
+)
 NotebookSummaryTypeDef = TypedDict(
     "NotebookSummaryTypeDef",
     {
@@ -2622,6 +2654,7 @@ NotebookSummaryTypeDef = TypedDict(
         "owningProjectId": str,
         "domainId": str,
         "status": NotebookStatusType,
+        "type": NotRequired[NotebookTypeType],
         "description": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
@@ -2823,6 +2856,10 @@ class NotInExpressionTypeDef(TypedDict):
 class NotLikeExpressionTypeDef(TypedDict):
     columnName: str
     value: str
+
+
+class NotificationConfigTypeDef(TypedDict):
+    notifyOn: Sequence[NotifyOnStateType]
 
 
 NotificationResourceTypeDef = TypedDict(
@@ -3714,27 +3751,6 @@ CreateDomainOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-GetDomainOutputTypeDef = TypedDict(
-    "GetDomainOutputTypeDef",
-    {
-        "id": str,
-        "rootDomainUnitId": str,
-        "name": str,
-        "description": str,
-        "singleSignOn": SingleSignOnTypeDef,
-        "domainExecutionRole": str,
-        "arn": str,
-        "kmsKeyIdentifier": str,
-        "status": DomainStatusType,
-        "portalUrl": str,
-        "createdAt": datetime,
-        "lastUpdatedAt": datetime,
-        "tags": dict[str, str],
-        "domainVersion": DomainVersionType,
-        "serviceRole": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 
 
 class UpdateDomainInputTypeDef(TypedDict):
@@ -4283,6 +4299,29 @@ class UpdateSubscriptionGrantStatusInputTypeDef(TypedDict):
     targetName: NotRequired[str]
 
 
+GetDomainOutputTypeDef = TypedDict(
+    "GetDomainOutputTypeDef",
+    {
+        "id": str,
+        "rootDomainUnitId": str,
+        "name": str,
+        "description": str,
+        "singleSignOn": SingleSignOnTypeDef,
+        "domainExecutionRole": str,
+        "arn": str,
+        "kmsKeyIdentifier": str,
+        "status": DomainStatusType,
+        "portalUrl": str,
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
+        "tags": dict[str, str],
+        "domainVersion": DomainVersionType,
+        "serviceRole": str,
+        "failureReasons": list[FailureReasonTypeDef],
+        "deleteProgress": DeleteProgressTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 FilterClausePaginatorTypeDef = TypedDict(
     "FilterClausePaginatorTypeDef",
     {
@@ -4774,15 +4813,18 @@ class ListNotebookRunsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListNotebooksInputPaginateTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sortOrder: NotRequired[SortOrderType]
-    sortBy: NotRequired[SortKeyType]
-    status: NotRequired[NotebookStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
+ListNotebooksInputPaginateTypeDef = TypedDict(
+    "ListNotebooksInputPaginateTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "sortOrder": NotRequired[SortOrderType],
+        "sortBy": NotRequired[SortKeyType],
+        "status": NotRequired[NotebookStatusType],
+        "type": NotRequired[NotebookTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 ListNotificationsInputPaginateTypeDef = TypedDict(
     "ListNotificationsInputPaginateTypeDef",
     {
@@ -4993,6 +5035,7 @@ RowFilterExpressionTypeDef = TypedDict(
         "notLike": NotRequired[NotLikeExpressionTypeDef],
     },
 )
+NotificationConfigUnionTypeDef = Union[NotificationConfigTypeDef, NotificationConfigOutputTypeDef]
 
 
 class TopicTypeDef(TypedDict):
@@ -5472,6 +5515,7 @@ class CreateEnvironmentBlueprintInputTypeDef(TypedDict):
     provisioningProperties: ProvisioningPropertiesTypeDef
     description: NotRequired[str]
     userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+    blueprintCategory: NotRequired[Literal["TOOLING"]]
 
 
 CreateEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5485,6 +5529,7 @@ CreateEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -5500,6 +5545,7 @@ EnvironmentBlueprintSummaryTypeDef = TypedDict(
         "description": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
+        "blueprintCategory": NotRequired[Literal["TOOLING"]],
     },
 )
 GetEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5513,6 +5559,7 @@ GetEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -5526,6 +5573,7 @@ class UpdateEnvironmentBlueprintInputTypeDef(TypedDict):
     description: NotRequired[str]
     provisioningProperties: NotRequired[ProvisioningPropertiesTypeDef]
     userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+    blueprintCategory: NotRequired[Literal["TOOLING"]]
 
 
 UpdateEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5539,6 +5587,7 @@ UpdateEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -5752,6 +5801,7 @@ CreateNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,
@@ -5778,6 +5828,7 @@ GetNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,
@@ -5812,6 +5863,7 @@ GetNotebookRunOutputTypeDef = TypedDict(
         "timeoutConfiguration": TimeoutConfigTypeDef,
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "storageConfiguration": StorageConfigTypeDef,
+        "notificationConfiguration": NotificationConfigOutputTypeDef,
         "triggerSource": TriggerSourceTypeDef,
         "error": NotebookRunErrorTypeDef,
         "createdAt": datetime,
@@ -5840,6 +5892,7 @@ StartNotebookRunOutputTypeDef = TypedDict(
         "timeoutConfiguration": TimeoutConfigTypeDef,
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "storageConfiguration": StorageConfigTypeDef,
+        "notificationConfiguration": NotificationConfigOutputTypeDef,
         "triggerSource": TriggerSourceTypeDef,
         "error": NotebookRunErrorTypeDef,
         "createdAt": datetime,
@@ -5851,21 +5904,22 @@ StartNotebookRunOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-
-class UpdateNotebookInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    description: NotRequired[str]
-    status: NotRequired[NotebookStatusType]
-    name: NotRequired[str]
-    cellOrder: NotRequired[Sequence[Mapping[str, Any]]]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    environmentConfiguration: NotRequired[EnvironmentConfigTypeDef]
-    clientToken: NotRequired[str]
-
-
+UpdateNotebookInputTypeDef = TypedDict(
+    "UpdateNotebookInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "identifier": str,
+        "description": NotRequired[str],
+        "status": NotRequired[NotebookStatusType],
+        "name": NotRequired[str],
+        "cellOrder": NotRequired[Sequence[Mapping[str, Any]]],
+        "type": NotRequired[NotebookTypeType],
+        "metadata": NotRequired[Mapping[str, str]],
+        "parameters": NotRequired[Mapping[str, str]],
+        "environmentConfiguration": NotRequired[EnvironmentConfigTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
 UpdateNotebookOutputTypeDef = TypedDict(
     "UpdateNotebookOutputTypeDef",
     {
@@ -5875,6 +5929,7 @@ UpdateNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,
@@ -6208,20 +6263,6 @@ class EventSummaryTypeDef(TypedDict):
     openLineageRunEventSummary: NotRequired[OpenLineageRunEventSummaryTypeDef]
 
 
-class StartNotebookRunInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    notebookIdentifier: str
-    scheduleIdentifier: NotRequired[str]
-    computeConfiguration: NotRequired[ComputeConfigTypeDef]
-    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
-    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
-    triggerSource: NotRequired[TriggerSourceTypeDef]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
-
-
 RowFilterOutputTypeDef = TypedDict(
     "RowFilterOutputTypeDef",
     {
@@ -6238,6 +6279,23 @@ RowFilterTypeDef = TypedDict(
         "or": NotRequired[Sequence[Mapping[str, Any]]],
     },
 )
+
+
+class StartNotebookRunInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    notebookIdentifier: str
+    scheduleIdentifier: NotRequired[str]
+    computeConfiguration: NotRequired[ComputeConfigTypeDef]
+    networkConfiguration: NotRequired[NetworkConfigUnionTypeDef]
+    timeoutConfiguration: NotRequired[TimeoutConfigTypeDef]
+    notificationConfiguration: NotRequired[NotificationConfigUnionTypeDef]
+    triggerSource: NotRequired[TriggerSourceTypeDef]
+    metadata: NotRequired[Mapping[str, str]]
+    parameters: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
 NotificationOutputTypeDef = TypedDict(
     "NotificationOutputTypeDef",
     {

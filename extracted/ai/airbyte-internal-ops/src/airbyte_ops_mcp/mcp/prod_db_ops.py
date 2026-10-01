@@ -16,7 +16,7 @@ __all__: list[str] = []
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Annotated, Any
 
@@ -43,8 +43,10 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_destination_connection_stats,
     query_failed_sync_attempts_for_connector,
     query_new_connector_releases,
+    query_org_admin_contacts,
     query_org_connector_pins,
     query_org_pin_stats,
+    query_org_user_last_connection_events,
     query_recent_syncs_for_connector,
     query_source_connection_stats,
     query_syncs_for_connector_version,
@@ -63,6 +65,7 @@ from airbyte_ops_mcp.tier_cache import (
     enrich_rows_by_org,
     filter_rows_by_tier,
     get_org_tiers,
+    tier_source_warnings,
 )
 from airbyte_ops_mcp.version_summaries import (
     summarize_population,
@@ -309,9 +312,156 @@ class ConnectorConnectionStatsResponse(BaseModel):
     generated_at: datetime = Field(description="When this response was generated")
 
 
+class OrgAdminContact(BaseModel):
+    """An organization or selected-workspace administrator contact."""
+
+    user_id: str = Field(description="The Airbyte user UUID.")
+    name: str | None = Field(default=None, description="The administrator's name.")
+    email: str | None = Field(
+        default=None, description="The administrator's email address."
+    )
+    status: str | None = Field(default=None, description="The user's status.")
+    is_org_admin: bool = Field(description="Whether the user is an Org Admin.")
+    admin_workspace_ids: list[str] = Field(
+        description="Sorted workspace UUIDs where the user is a Workspace Admin."
+    )
+    user_created_at: datetime | None = Field(
+        default=None, description="When the user account was created."
+    )
+    user_updated_at: datetime | None = Field(
+        default=None, description="When the user account was last updated."
+    )
+    last_connection_event_at: datetime | None = Field(
+        default=None,
+        description="Latest user-attributed connection timeline event in the activity window.",
+    )
+
+
+class OrgAdminContactsResponse(BaseModel):
+    """Organization administrator contacts and recent user activity."""
+
+    organization_id: str = Field(description="The organization UUID.")
+    customer_tier: str = Field(
+        description="Organization customer tier, included for awareness only."
+    )
+    tier_warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while resolving the organization customer tier.",
+    )
+    activity_lookback_days: int = Field(
+        description="Number of days used to look back for connection activity."
+    )
+    admins: list[OrgAdminContact] = Field(
+        description="Administrators ordered by Airbyte user UUID."
+    )
+
+
 def _opt_str(value: Any) -> str | None:
     """Convert a nullable value to str, returning None if the value is None/falsy."""
     return str(value) if value else None
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+)
+def query_prod_org_admin_contacts(
+    organization_id: Annotated[
+        str,
+        Field(description="Organization UUID whose direct Org Admins to find."),
+    ],
+    workspace_ids: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Workspace UUIDs whose direct Workspace Admins to include. "
+                "Only these workspaces contribute Workspace Admins."
+            ),
+        ),
+    ] = [],  # noqa: B006
+    activity_lookback_days: Annotated[
+        int,
+        Field(
+            description="Days to look back for user-attributed connection activity.",
+            ge=1,
+            le=365,
+        ),
+    ] = 90,
+) -> OrgAdminContactsResponse:
+    """Find Org Admins and Workspace Admins of the given workspaces.
+
+    Activity is each user's latest user-attributed connection timeline event in
+    this organization within the lookback window. Emails are returned because
+    callers need them to CC customers; never log them. Only direct user grants
+    are included; group-granted permissions are not queried. The org's
+    `customer_tier` is included for awareness only; outreach must still reach
+    every affected organization regardless of tier.
+    """
+    normalized_organization_id = _require_organization_id(organization_id)
+    normalized_workspace_ids: list[str] = []
+    for workspace_id in workspace_ids:
+        try:
+            normalized_workspace_ids.append(str(uuid.UUID(workspace_id.strip())))
+        except (AttributeError, ValueError) as exc:
+            raise PyAirbyteInputError(
+                message=f"`workspace_ids` contains an invalid workspace UUID: {workspace_id!r}.",
+            ) from exc
+
+    tier_result = get_org_tiers(
+        organization_ids=[normalized_organization_id],
+        allow_degraded=True,
+    )[0]
+    admin_rows = query_org_admin_contacts(
+        normalized_organization_id,
+        normalized_workspace_ids,
+    )
+    admins_by_user_id: dict[str, OrgAdminContact] = {}
+    for row in admin_rows:
+        user_id = str(row["user_id"])
+        admin = admins_by_user_id.get(user_id)
+        if admin is None:
+            admin = OrgAdminContact(
+                user_id=user_id,
+                name=row["user_name"],
+                email=row["user_email"],
+                status=row["user_status"],
+                is_org_admin=False,
+                admin_workspace_ids=[],
+                user_created_at=row["user_created_at"],
+                user_updated_at=row["user_updated_at"],
+            )
+            admins_by_user_id[user_id] = admin
+
+        if row["admin_role"] == "organization_admin":
+            admin.is_org_admin = True
+        elif row["admin_role"] == "workspace_admin" and row["workspace_id"] is not None:
+            workspace_id = str(row["workspace_id"])
+            if workspace_id not in admin.admin_workspace_ids:
+                admin.admin_workspace_ids.append(workspace_id)
+
+    if admins_by_user_id:
+        activity_rows = query_org_user_last_connection_events(
+            normalized_organization_id,
+            sorted(admins_by_user_id),
+            datetime.now(timezone.utc) - timedelta(days=activity_lookback_days),
+        )
+        for row in activity_rows:
+            user_id = str(row["user_id"])
+            if user_id in admins_by_user_id:
+                admins_by_user_id[user_id].last_connection_event_at = row[
+                    "last_connection_event_at"
+                ]
+
+    admins = [admins_by_user_id[user_id] for user_id in sorted(admins_by_user_id)]
+    for admin in admins:
+        admin.admin_workspace_ids.sort()
+    return OrgAdminContactsResponse(
+        organization_id=normalized_organization_id,
+        customer_tier=str(tier_result.customer_tier),
+        tier_warnings=tier_source_warnings(tier_result.source_health),
+        activity_lookback_days=activity_lookback_days,
+        admins=admins,
+    )
 
 
 @mcp_tool(

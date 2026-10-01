@@ -121,6 +121,78 @@ SELECT_ORGANIZATION_AGENTIC_FLAGS = sqlalchemy.text(
     """
 )
 
+# This query includes only direct user grants. Group-granted permissions are
+# intentionally excluded because the replica role cannot read `group_member`.
+SELECT_ORG_ADMIN_CONTACTS = sqlalchemy.text(
+    """
+    WITH admin_grants AS (
+        SELECT
+             permission.user_id,
+             permission.organization_id AS organization_id,
+             CAST(NULL AS uuid) AS workspace_id,
+             'organization_admin' AS admin_role
+        FROM permission
+        WHERE permission.user_id IS NOT NULL
+          AND permission.organization_id = :organization_id
+          AND permission.permission_type = 'organization_admin'
+        UNION ALL
+        SELECT
+             permission.user_id,
+             workspace.organization_id AS organization_id,
+             permission.workspace_id AS workspace_id,
+             'workspace_admin' AS admin_role
+        FROM permission
+        JOIN workspace
+          ON workspace.id = permission.workspace_id
+        WHERE permission.user_id IS NOT NULL
+          AND permission.workspace_id = ANY(CAST(:workspace_ids AS uuid[]))
+          AND workspace.organization_id = :organization_id
+          AND workspace.tombstone = false
+          AND permission.permission_type = 'workspace_admin'
+    )
+    SELECT
+         admin_grants.organization_id,
+         admin_grants.workspace_id,
+         admin_grants.admin_role,
+         "user".id AS user_id,
+         "user".name AS user_name,
+         "user".email AS user_email,
+         "user".status AS user_status,
+         "user".created_at AS user_created_at,
+         "user".updated_at AS user_updated_at
+    FROM admin_grants
+    JOIN "user"
+      ON "user".id = admin_grants.user_id
+    ORDER BY
+         admin_grants.organization_id,
+         admin_grants.admin_role,
+         "user".id,
+         admin_grants.workspace_id
+    """
+)
+
+SELECT_ORG_USER_LAST_CONNECTION_EVENT = sqlalchemy.text(
+    """
+    SELECT
+         workspace.organization_id,
+         connection_timeline_event.user_id,
+         MAX(connection_timeline_event.created_at) AS last_connection_event_at
+    FROM workspace
+    JOIN actor
+      ON actor.workspace_id = workspace.id
+    JOIN connection
+      ON connection.source_id = actor.id
+    JOIN connection_timeline_event
+      ON connection_timeline_event.connection_id = connection.id
+    WHERE workspace.organization_id = :organization_id
+      AND connection_timeline_event.user_id = ANY(CAST(:user_ids AS uuid[]))
+      AND connection_timeline_event.created_at >= :cutoff_date
+    GROUP BY
+         workspace.organization_id,
+         connection_timeline_event.user_id
+    """
+)
+
 # Query connections by connector type (no organization filter)
 # Note: pg8000 cannot determine the type of NULL parameters in patterns like
 # "(:param IS NULL OR column = :param)", so we use separate queries instead

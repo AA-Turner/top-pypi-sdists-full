@@ -30,6 +30,7 @@ class IssueReachability(str, Enum):
     REACHABLE = 'Reachable'
     UNREACHABLE = 'Unreachable'
     POTENTIALLYREACHABLE = 'PotentiallyReachable'
+    NOCALLPATH = 'NoCallPath'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

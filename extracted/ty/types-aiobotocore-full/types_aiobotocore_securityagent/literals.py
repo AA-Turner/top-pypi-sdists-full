@@ -39,6 +39,7 @@ __all__ = (
     "IpAddressTypeType",
     "JobStatusType",
     "JobTypeType",
+    "ListActorMessagesPaginatorName",
     "ListAgentSpacesPaginatorName",
     "ListApplicationsPaginatorName",
     "ListArtifactsPaginatorName",
@@ -77,6 +78,7 @@ __all__ = (
     "ResourceTypeType",
     "RiskLevelType",
     "RiskTypeType",
+    "ScopeDecisionType",
     "SecurityAgentServiceName",
     "SecurityRequirementArtifactFormatType",
     "SecurityRequirementPackImportStatusType",
@@ -94,6 +96,7 @@ __all__ = (
     "UserRoleType",
     "ValidationModeType",
     "ValidationStatusType",
+    "WebhookActionType",
 )
 
 
@@ -114,7 +117,8 @@ FindingStatusType = Literal["ACCEPTED", "ACTIVE", "FALSE_POSITIVE", "RESOLVED"]
 GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
-JobTypeType = Literal["FULL", "REVALIDATION"]
+JobTypeType = Literal["CICD", "FULL", "REVALIDATION"]
+ListActorMessagesPaginatorName = Literal["list_actor_messages"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
@@ -147,7 +151,7 @@ PrivateConnectionStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
 PrivateConnectionTypeType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
-ProviderType = Literal["BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
+ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
 ProviderTypeType = Literal["DOCUMENTATION", "SOURCE_CODE"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT"]
@@ -182,6 +186,7 @@ RiskTypeType = Literal[
     "UNKNOWN",
     "XML_EXTERNAL_ENTITY",
 ]
+ScopeDecisionType = Literal["IN_SCOPE", "SCOPED_OUT", "SCOPE_CONFLICT"]
 SecurityRequirementArtifactFormatType = Literal["DOC", "DOCX", "MD", "PDF", "TXT"]
 SecurityRequirementPackImportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
 SecurityRequirementPackStatusType = Literal["DISABLED", "ENABLED"]
@@ -206,6 +211,7 @@ ValidationModeType = Literal["DISABLED", "SIMULATED"]
 ValidationStatusType = Literal[
     "CONFIRMED", "NOT_REPRODUCED", "NOT_VALIDATED", "VALIDATING", "VALIDATION_FAILED"
 ]
+WebhookActionType = Literal["CREATE_IF_ABSENT", "ROTATE"]
 SecurityAgentServiceName = Literal["securityagent"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -287,6 +293,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -361,6 +368,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -389,6 +397,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -483,6 +492,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -642,6 +652,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_actor_messages",
     "list_agent_spaces",
     "list_applications",
     "list_artifacts",

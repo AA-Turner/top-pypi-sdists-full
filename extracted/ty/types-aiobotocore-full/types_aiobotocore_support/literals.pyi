@@ -28,10 +28,12 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SupportServiceName",
+    "UploadStatusType",
 )
 
 DescribeCasesPaginatorName = Literal["describe_cases"]
 DescribeCommunicationsPaginatorName = Literal["describe_communications"]
+UploadStatusType = Literal["attachment-not-ready", "attachment-ready", "failed"]
 SupportServiceName = Literal["support"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -113,6 +115,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -187,6 +190,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -215,6 +219,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -309,6 +314,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -5,28 +5,25 @@ Pure helpers (no service deps) and service-dependent loaders (no display).
 
 # Python internals
 import json
-import tarfile
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from inspect import signature
 from io import BytesIO
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
-    Generator,
-    Iterator,
     Literal,
+    Mapping,
     NoReturn,
     Optional,
+    Sequence,
     Union,
+    cast,
 )
 from uuid import UUID
 
 # Other libraries
-import httpx
-import yaml
 from dlt._workspace._workspace_context import active
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.exceptions import CliCommandInnerException
@@ -61,16 +58,25 @@ from dlt.common.json import json as json_dlt
 
 # Current package
 from dlt_runtime import runtime as _runtime_module, urls
+
+# Re-export view constants needed by loaders
+from dlt_runtime._runtime_command_views import (  # noqa: F401
+    CONFIGURATION_HEADERS,
+    DEPLOYMENT_HEADERS,
+    _extract_keys,
+    _preprocess_run_output,
+    format_job_selector,
+)
 from dlt_runtime.exceptions import (
     AmbiguousWorkspaceName,
     NoRunsFound,
+    RuntimeClientException,
     RuntimeNotAuthenticated,
     RuntimeOperationNotAuthorized,
     WorkspaceNotFound,
-    exception_from_response,
     handle_client_exceptions,
 )
-from dlt_runtime.runtime import AuthenticationMethod, RuntimeAuthService, _tls_verify
+from dlt_runtime.runtime import AuthenticationMethod, CliSession, PrincipalKind
 from dlt_runtime.strings import (
     JOB_SELECTOR_NOT_FOUND,
     NOT_CONNECTED_TO_WORKSPACE,
@@ -90,86 +96,24 @@ from dlt_runtime.typing import (
     WorkspaceChoice,
     WorkspaceInfo,
 )
-from dlt_runtime.version import __version__
-from dlthub_sdk._gen.api.api.configurations import (
-    create_configuration,
-    get_configuration,
-    get_latest_configuration,
-    list_configurations,
+from dlthub_sdk import (
+    KEEP,
+    WORKSPACE_PROFILE,
+    Configuration,
+    Dataplane,
+    Deployment,
+    DeployReport,
+    Job,
+    JobRun,
+    Keep,
+    LogLine,
+    Runtime,
+    Sync,
+    VariableChange,
+    VariableScope,
+    Workspace,
 )
-from dlthub_sdk._gen.api.api.dataplanes import list_dataplanes
-from dlthub_sdk._gen.api.api.deployments import (
-    create_deployment,
-    get_deployment,
-    get_latest_deployment,
-    list_deployments,
-)
-from dlthub_sdk._gen.api.api.runs import get_run, list_runs
-from dlthub_sdk._gen.api.api.scripts import get_script, list_scripts
-from dlthub_sdk._gen.api.api.workspaces import (
-    deploy as deploy_manifest,
-    get_workspace as get_workspace_api,
-    get_workspace_dataplane_access_token,
-)
-from dlthub_sdk._gen.api.client import Client as ApiClient
-from dlthub_sdk._gen.api.models import (
-    DataplaneAccessTokenResponse,
-    DataplaneInfo,
-    DeployManifestRequest,
-    DeployManifestRequestJobsItem,
-    DetailedRunResponse,
-    PrincipalKind,
-    RunStatus,
-    UploadInitiatedResponse,
-    WorkspaceResponse,
-)
-from dlthub_sdk._gen.api.types import UNSET as API_UNSET, Unset
-from dlthub_sdk._gen.dataplane_api.api.variables import (
-    change_workspace_variables,
-    list_workspace_variables,
-)
-from dlthub_sdk._gen.dataplane_api.client import Client as DataplaneApiClient
-from dlthub_sdk._gen.dataplane_api.models import (
-    PlainVariableUpsert,
-    ScopeVariablesResponse,
-    SecretVariableUpsert,
-    VariablesChange,
-    VariablesChangeResponse,
-    WorkspaceVariablesResponse,
-)
-from dlthub_sdk._gen.dataplane_api.types import UNSET
-from dlthub_sdk._gen.logs.models import LogLine
-
-if TYPE_CHECKING:
-    # Current package
-    from dlthub_sdk._gen.api.models import DeployManifestResponse
-
-# Re-export view constants needed by loaders
-# Current package
-from dlt_runtime._runtime_command_views import (  # noqa: F401
-    CONFIGURATION_HEADERS,
-    DEPLOYMENT_HEADERS,
-    _extract_keys,
-    _format_log_line,
-    _preprocess_run_output,
-    format_job_selector,
-)
-
-NON_TERMINAL_RUN_STATUSES = frozenset(
-    {RunStatus.PENDING, RunStatus.STARTING, RunStatus.RUNNING, RunStatus.CANCELLING}
-)
-
-
-def _to_uuid(value: Union[str, UUID]) -> UUID:
-    if isinstance(value, UUID):
-        return value
-    try:
-        return UUID(value)
-    except ValueError:
-        raise CliCommandInnerException(
-            cmd="dlthub",
-            msg=f"Invalid UUID: {value}",
-        )
+from dlthub_sdk.errors import NotFound as SdkNotFound
 
 
 def _run_id_from_ref(ref: str, run_number: Optional[int] = None) -> Optional[UUID]:
@@ -222,10 +166,6 @@ def _resolve_workspace_id(caller_info: CallerInfo, workspace: str) -> str:
 def _active_orgs(caller_info: CallerInfo) -> list[OrganizationInfo]:
     """All organizations the caller is an active member of."""
     return [org for org in caller_info["organizations"] if org.get("active", True)]
-
-
-def _active_org_count(caller_info: CallerInfo) -> int:
-    return len(_active_orgs(caller_info))
 
 
 def _sole_active_org_id(caller_info: CallerInfo) -> Optional[str]:
@@ -385,14 +325,6 @@ def _group_workspaces_by_org(caller_info: CallerInfo) -> list[OrganizationGroup]
     return groups
 
 
-def _flatten_owned(groups: list[OrganizationGroup]) -> list[WorkspaceInfo]:
-    """Concat all owned workspaces across groups (for auto-select-single check)."""
-    out: list[WorkspaceInfo] = []
-    for g in groups:
-        out.extend(c["workspace"] for c in g["workspaces"])
-    return out
-
-
 def _get_workspace_name(
     workspaces: list[WorkspaceInfo], workspace_id: str
 ) -> Optional[str]:
@@ -435,17 +367,15 @@ def _ensure_profile_warning(required_profile: str) -> bool:
         return False
 
 
-def _job_to_api_item(job: Any) -> DeployManifestRequestJobsItem:
-    # manifests keep datetime interval bounds; the opaque request wrapper does not
-    # serialize them, so render JSON-native (isoformat) before wrapping.
-    return DeployManifestRequestJobsItem.from_dict(json.loads(json_dlt.dumps(job)))
+def _job_to_api_item(job: Any) -> Mapping[str, Any]:
+    # manifests keep datetime interval bounds; the SDK wraps each definition
+    # free-form, so render JSON-native (isoformat) before handing it over.
+    return cast(Mapping[str, Any], json.loads(json_dlt.dumps(job)))
 
 
 def _generate_local_manifest(
     name_or_path: str, use_all: bool = True
-) -> tuple[
-    TJobsDeploymentManifest, str, list["DeployManifestRequestJobsItem"], list[str]
-]:
+) -> tuple[TJobsDeploymentManifest, str, list[Mapping[str, Any]], list[str]]:
     """Generate a deployment manifest locally from a module or file."""
 
     manifest, manifest_hash, warnings = load_manifest_with_warnings(
@@ -456,7 +386,7 @@ def _generate_local_manifest(
 
 
 def _default_dashboard_manifest_bundle() -> tuple[
-    TJobsDeploymentManifest, str, list["DeployManifestRequestJobsItem"], list[str]
+    TJobsDeploymentManifest, str, list[Mapping[str, Any]], list[str]
 ]:
     """Build the ad-hoc dashboard-only manifest bundle."""
 
@@ -471,20 +401,10 @@ def _default_dashboard_manifest_bundle() -> tuple[
 # ---------------------------------------------------------------------------
 
 
-def _resolve_workspace_name(auth_service: RuntimeAuthService) -> Optional[str]:
-    """Look up the human-readable name for the currently connected workspace."""
-    try:
-        workspaces = auth_service.fetch_caller_info()["workspaces"]
-    except Exception:
-        return None
-    return _get_workspace_name(workspaces, auth_service.workspace_id)
-
-
 def _resolve_job_ref_from_server(
     name_or_ref: str,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
     include_archived: bool = True,
 ) -> str:
     """Resolve a name / partial ref / UUID to a canonical job_ref. Raises if unresolved."""
@@ -518,21 +438,10 @@ def _resolve_job_ref_from_server(
         pass
 
     # Bare name — fetch the workspace job list as the resolution scope.
-    # Including archived jobs means dropping the filter, not naming both values.
-    archived = API_UNSET if include_archived else False
-    with handle_client_exceptions():
-        res = list_scripts.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            archived=archived,
-        )
-    if (
-        isinstance(res.parsed, list_scripts.ListPageDetailedScriptResponse)
-        and res.parsed.items
-    ):
-        job_refs = [TJobRef(s.job_ref) for s in res.parsed.items]
+    jobs = _fetch_jobs(workspace, include_archived=include_archived)
+    if jobs:
         try:
-            return str(resolve_job_ref(name_or_ref, job_refs))
+            return str(resolve_job_ref(name_or_ref, [TJobRef(j.job_ref) for j in jobs]))
         except (InvalidJobRef, JobRefNotFound, AmbiguousJobRef):
             pass
 
@@ -545,13 +454,12 @@ def _resolve_job_ref_from_server(
 def _resolve_trigger_selectors(
     selectors: list[str],
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
 ) -> tuple[list[str], list[str]]:
     """Split CLI args into (selectors, job_refs); bare names resolve to canonical job_refs."""
     out_selectors: list[str] = []
     out_job_refs: list[str] = []
-    scripts: list[Any] | None = None
+    scripts: list[Job[Sync]] | None = None
 
     for s in selectors:
         if is_selector(s):
@@ -560,11 +468,11 @@ def _resolve_trigger_selectors(
 
         if scripts is None:
             try:
-                scripts = _fetch_jobs(api_client, auth_service)
+                scripts = _fetch_jobs(workspace)
             except Exception:
                 scripts = []
 
-        job_refs = [sc.job_ref for sc in scripts]
+        job_refs = [TJobRef(sc.job_ref) for sc in scripts]
         try:
             ref = str(resolve_job_ref(s, job_refs))
             out_job_refs.append(ref)
@@ -578,7 +486,7 @@ def _resolve_trigger_selectors(
 def requires_auth(
     _func: Optional[Callable[..., Any]] = None, *, auto_login: bool = True
 ) -> Callable[..., Any]:
-    """Inject authenticated `auth_service` kwarg; auto-runs login flow on missing
+    """Inject authenticated `session` kwarg; auto-runs login flow on missing
     token, unless an API key is configured."""
 
     # `auto_login=True` (default): device flow starts when login required,
@@ -587,16 +495,16 @@ def requires_auth(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            auth: Optional[RuntimeAuthService] = kwargs.pop("auth_service", None)
-            if auth is None:
-                auth = RuntimeAuthService(run_context=active())
+            session: Optional[CliSession] = kwargs.pop("session", None)
+            if session is None:
+                session = CliSession(run_context=active())
             # api-key mode: no JWT to validate; principal_kind() rejects unknown prefixes early
-            if auth.authentication_method() is AuthenticationMethod.API_KEY:
-                auth.principal_kind()
-                kwargs["auth_service"] = auth
+            if session.authentication_method() is AuthenticationMethod.API_KEY:
+                session.principal_kind()
+                kwargs["session"] = session
                 return func(*args, **kwargs)
             try:
-                auth.authenticate()
+                session.authenticate()
             except RuntimeNotAuthenticated as e:
                 if not auto_login:
                     raise CliCommandInnerException(
@@ -606,13 +514,15 @@ def requires_auth(
                     ) from e
                 # Late import: helpers → _runtime_command would otherwise cycle.
                 # Current package
-                from dlt_runtime._runtime_command import login as login_cmd
+                from dlt_runtime._runtime_command import (  # noqa: PLC0415
+                    login as login_cmd,
+                )
 
                 result = login_cmd(minimal_logging=True, not_logged_in_hint=True)
                 if result is None:
                     return None
-                auth = result
-            kwargs["auth_service"] = auth
+                session = result
+            kwargs["session"] = session
             return func(*args, **kwargs)
 
         return wrapper
@@ -621,39 +531,54 @@ def requires_auth(
 
 
 def requires_workspace(
-    _func: Optional[Callable[..., Any]] = None, *, auto_connect: bool = True
+    _func: Optional[Callable[..., Any]] = None,
+    *,
+    auto_connect: bool = True,
 ) -> Callable[..., Any]:
-    """Require connected workspace_id; inject `api_client`. Stack under @requires_auth."""
+    """Require connected workspace_id; inject `runtime`. Stack under @requires_auth."""
 
-    # Reads `auth_service` already placed by @requires_auth.
+    # Reads `session` already placed by @requires_auth.
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        wanted = set(signature(func).parameters)
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            auth: Optional[RuntimeAuthService] = kwargs.get("auth_service")
-            assert auth is not None, (
+            session: Optional[CliSession] = kwargs.get("session")
+            assert session is not None, (
                 "@requires_workspace must be stacked under @requires_auth"
             )
-            if not auth.has_workspace():
-                if auth.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
+            if not session.has_workspace():
+                if session.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
                     raise CliCommandInnerException(
                         cmd="dlthub", msg=WORKSPACE_API_KEY_NO_WORKSPACE
                     )
                 if (
                     not auto_connect
-                    or auth.authentication_method() is AuthenticationMethod.API_KEY
+                    or session.authentication_method() is AuthenticationMethod.API_KEY
                 ):
                     raise CliCommandInnerException(
                         cmd="dlthub", msg=NOT_CONNECTED_TO_WORKSPACE
                     )
                 # Current package
-                from dlt_runtime._runtime_command import _connect_workspace_with_picker
+                from dlt_runtime._runtime_command import (  # noqa: PLC0415
+                    _connect_workspace_with_picker,
+                )
 
-                _connect_workspace_with_picker(auth)
-            api_client = kwargs.pop("api_client", None)
-            if api_client is None:
-                # Module-attribute lookup keeps `patch.object(runtime, ...)` effective.
-                api_client = _runtime_module.get_api_client(auth)
-            kwargs["api_client"] = api_client
+                _connect_workspace_with_picker(session)
+            # Each command declares what it needs; the workspace is read once
+            # here rather than re-derived by every loader it calls.
+            # Module-attribute lookup keeps `patch.object(runtime, ...)` effective.
+            client = kwargs.get("runtime")
+            if client is None and {"runtime", "workspace"} & wanted:
+                client = _runtime_module.get_sdk_runtime(session)
+            if "runtime" in wanted:
+                kwargs["runtime"] = client
+            if "workspace" in wanted and kwargs.get("workspace") is None:
+                assert client is not None
+                with handle_client_exceptions():
+                    kwargs["workspace"] = client.workspaces.get(id=session.workspace_id)
+            if "session" not in wanted:
+                kwargs.pop("session", None)
             return func(*args, **kwargs)
 
         return wrapper
@@ -662,171 +587,77 @@ def requires_workspace(
 
 
 def _get_latest_run(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     script_id_or_name: Optional[str] = None,
-) -> DetailedRunResponse:
+) -> JobRun[Sync]:
     """Get the latest run for a script or workspace if script is not provided."""
-    if script_id_or_name:
+    with handle_client_exceptions():
+        runs = (
+            workspace.jobs.get(ref=script_id_or_name).runs
+            if script_id_or_name
+            else workspace.job_runs
+        )
+    # Translated outside the shim: it wraps everything raised inside it, so a
+    # NoRunsFound raised in there would reach `workspace info` as a RuntimeError.
+    try:
         with handle_client_exceptions():
-            script = get_script.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                script_id_or_ref=script_id_or_name,
-            )
-        if isinstance(script.parsed, get_script.DetailedScriptResponse):
-            with handle_client_exceptions():
-                runs = list_runs.sync_detailed(
-                    client=api_client,
-                    workspace_id=_to_uuid(auth_service.workspace_id),
-                    script_id=script.parsed.id,
-                    limit=1,
-                )
-            if isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse):
-                if not runs.parsed.items:
-                    raise NoRunsFound("No runs executed for this job")
-                else:
-                    return runs.parsed.items[0]
-            raise exception_from_response(
-                f"Failed to get runs for script with name or id {script_id_or_name}",
-                runs,
-            )
-        else:
-            raise exception_from_response(
-                f"Failed to get script with name or id {script_id_or_name}", script
-            )
-
-    else:
-        with handle_client_exceptions():
-            runs = list_runs.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                limit=1,
-            )
-        if isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse):
-            if not runs.parsed.items:
-                raise NoRunsFound("No runs executed in this workspace")
-            else:
-                return runs.parsed.items[0]
-        raise exception_from_response("Failed to get runs for workspace", runs)
+            return runs.latest()
+    except RuntimeClientException as e:
+        # The platform reports "nothing has run yet" the same way it reports a
+        # missing job; the job above already proved it exists.
+        if not isinstance(e.__cause__, SdkNotFound):
+            raise
+        raise NoRunsFound(
+            "No runs executed for this job"
+            if script_id_or_name
+            else "No runs executed in this workspace"
+        ) from e
 
 
 def _fetch_run_detail(
     run_id: UUID,
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> DetailedRunResponse:
+    workspace: Workspace[Sync],
+) -> JobRun[Sync]:
     """Fetch a single run's current detail (status, timings, duration) by ID."""
     with handle_client_exceptions():
-        result = get_run.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            run_id=run_id,
-        )
-    if not isinstance(result.parsed, DetailedRunResponse):
-        raise exception_from_response("Failed to get run info", result)
-    return result.parsed
+        return workspace.job_runs.get(id=str(run_id))
 
 
-def _fetch_available_regions(*, api_client: ApiClient) -> list[DataplaneInfo]:
+def _fetch_available_regions(*, runtime: Runtime[Sync]) -> Sequence[Dataplane[Sync]]:
     """Fetch available regions."""
     with handle_client_exceptions("Failed to fetch available regions"):
-        result = list_dataplanes.sync_detailed(client=api_client)
-    if not isinstance(result.parsed, list):
-        raise exception_from_response("Failed to fetch available regions", result)
-    return result.parsed
+        return runtime.dataplanes.list()
 
 
 def _resolve_run_id_by_number(
     *,
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     script_path_or_job_name: str,
     run_number: int,
 ) -> UUID:
+    # Client-side: the platform cannot address a run by its number.
     with handle_client_exceptions():
-        script = get_script.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path_or_job_name,
-        )
-    if not isinstance(script.parsed, get_script.DetailedScriptResponse):
-        raise exception_from_response(
-            f"Failed to get script with name or id {script_path_or_job_name}", script
-        )
-    with handle_client_exceptions():
-        runs = list_runs.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id=script.parsed.id,
-        )
-    if (
-        not isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse)
-        or not runs.parsed.items
-    ):
-        raise exception_from_response("Failed to get runs for script", runs)
-    for r in runs.parsed.items:
-        if r.number == run_number:
-            return r.id
+        job = workspace.jobs.get(ref=script_path_or_job_name)
+        for run in job.runs.list():
+            if run.number == run_number:
+                return UUID(run.id)
     raise CliCommandInnerException(
         cmd="job",
         msg=f"Run number {run_number} not found for script/job {script_path_or_job_name}",
     )
 
 
-def _read_files_manifest_from_tar(stream: BytesIO) -> tuple[list[str], int]:
-    """Read ``manifest.yaml`` from a deployment tarball and return its file list."""
-
-    stream.seek(0)
-    with tarfile.open(fileobj=stream, mode="r:*") as tar:
-        member = tar.getmember("manifest.yaml")
-        f = tar.extractfile(member)
-        assert f is not None, "manifest.yaml in tarball is not a regular file"
-        manifest = yaml.safe_load(f)
-    files = manifest.get("files", [])
-    file_names = [item["relative_path"] for item in files]
-    return file_names, len(file_names)
-
-
-def _post_upload_returning(
-    upload_url: str,
-    upload_token: str,
-    files: dict[str, tuple[str, bytes, str]],
-) -> dict[str, Any]:
-    """POST tarball bytes to the DP API upload route and return the JSON body."""
-
-    response = httpx.post(
-        upload_url,
-        files=files,
-        headers={
-            "Authorization": f"Bearer {upload_token}",
-            "User-Agent": f"dlt-runtime-cli/{__version__}",
-        },
-        timeout=httpx.Timeout(60.0),
-        verify=_tls_verify(),
-    )
-    if response.status_code not in (200, 201):
-        raise CliCommandInnerException(
-            "sync",
-            f"Upload failed (HTTP {response.status_code}): {response.text[:500]}",
-        )
-    body: dict[str, Any] = response.json()
-    return body
-
-
 def _do_sync_deployment(
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
     dry_run: bool = False,
-    compute_diff: bool = False,
 ) -> SyncResult:
     """Three-step sync: empty-body POST mints upload token; multipart upload
     to the DP API stores bytes in vault and writes the row back to the CP;
     the upload response carries the full ``DeploymentResponse``.
     """
-    workspace_id = _to_uuid(auth_service.workspace_id)
+    deployments = workspace.deployments
 
     # Build the tarball locally (gives us the ``content_hash``) so we can
     # short-circuit when the latest deployment already matches.
@@ -835,22 +666,14 @@ def _do_sync_deployment(
     package_hash = package_builder.write_package_to_stream(
         file_selector=WorkspaceFileSelector(active()), output_stream=content_stream
     )
+    # A workspace with nothing deployed yet has no latest, which is not an error.
     with handle_client_exceptions():
-        latest_deployment = get_latest_deployment.sync_detailed(
-            workspace_id=workspace_id,
-            client=api_client,
-        )
-    if isinstance(latest_deployment.parsed, get_latest_deployment.DeploymentResponse):
-        if latest_deployment.parsed.content_hash == package_hash:
-            content_stream.close()
-            return SyncResult(status="no_changes")
-    elif isinstance(latest_deployment.parsed, get_latest_deployment.ErrorResponse404):
-        pass  # will create below
-    else:
-        content_stream.close()
-        raise exception_from_response(
-            "Failed to get latest deployment", latest_deployment
-        )
+        try:
+            if deployments.latest().content_hash == package_hash:
+                content_stream.close()
+                return SyncResult(status="no_changes")
+        except SdkNotFound:
+            pass
 
     if dry_run:
         content_stream.close()
@@ -868,126 +691,68 @@ def _do_sync_deployment(
     save_requirements(manifest, requirements_stream)
     requirements_bytes = requirements_stream.getvalue()
 
-    code_bytes = content_stream.getvalue()
-
-    # Step 1: empty-body POST — mints the DataplaneUserJwt + returns upload URL.
+    # The SDK owns both phases: the create call mints an id, a URL and a token
+    # scoped to this one upload, so nothing else can supply them.
     with handle_client_exceptions():
-        create_deployment_result = create_deployment.sync_detailed(
-            workspace_id=workspace_id,
-            client=api_client,
+        stored = deployments.upload(
+            code=content_stream.getvalue(), requirements=requirements_bytes
         )
-    if not isinstance(create_deployment_result.parsed, UploadInitiatedResponse):
-        raise exception_from_response(
-            "Failed to create deployment", create_deployment_result
-        )
-    initiated = create_deployment_result.parsed
-
-    # Step 2: multipart upload to the DP API. Response is the full row.
-    deployment_dict = _post_upload_returning(
-        upload_url=initiated.upload_url,
-        upload_token=initiated.upload_token,
-        files={
-            "files": ("workspace.tar.gz", code_bytes, "application/x-tar"),
-            "requirements": (
-                "requirements.json",
-                requirements_bytes,
-                "application/json",
-            ),
-        },
-    )
     return SyncResult(
         status="created",
-        data=_extract_keys(deployment_dict, DEPLOYMENT_HEADERS),
+        data=_extract_keys(stored.to_dict(), DEPLOYMENT_HEADERS),
     )
 
 
 def _do_sync_configuration(
     *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
+    workspace: Workspace[Sync],
     dry_run: bool = False,
-    compute_diff: bool = False,
 ) -> SyncResult:
     """Three-step sync (configuration variant). See ``_do_sync_deployment``."""
-    workspace_id = _to_uuid(auth_service.workspace_id)
+    configurations = workspace.configurations
     content_stream = BytesIO()
     package_builder = PackageBuilder(context=active())
     package_hash = package_builder.write_package_to_stream(
         file_selector=ConfigurationFileSelector(active()), output_stream=content_stream
     )
 
+    # A workspace with nothing configured yet has no latest, which is not an error.
     with handle_client_exceptions():
-        latest_configuration = get_latest_configuration.sync_detailed(
-            workspace_id=workspace_id,
-            client=api_client,
-        )
-    if isinstance(
-        latest_configuration.parsed, get_latest_configuration.ConfigurationResponse
-    ):
-        if latest_configuration.parsed.content_hash == package_hash:
-            content_stream.close()
-            return SyncResult(status="no_changes")
-    elif isinstance(
-        latest_configuration.parsed,
-        get_latest_configuration.ErrorResponse404,
-    ):
-        pass  # will create below
-    else:
-        content_stream.close()
-        raise exception_from_response(
-            "Failed to get latest configuration", latest_configuration
-        )
+        try:
+            if configurations.latest().content_hash == package_hash:
+                content_stream.close()
+                return SyncResult(status="no_changes")
+        except SdkNotFound:
+            pass
 
     if dry_run:
         content_stream.close()
         return SyncResult(status="would_create", data={"package_hash": package_hash})
 
-    config_bytes = content_stream.getvalue()
-
     with handle_client_exceptions():
-        create_configuration_result = create_configuration.sync_detailed(
-            workspace_id=workspace_id,
-            client=api_client,
-        )
-    if not isinstance(create_configuration_result.parsed, UploadInitiatedResponse):
-        raise exception_from_response(
-            "Failed to create configuration", create_configuration_result
-        )
-    initiated = create_configuration_result.parsed
-
-    config_dict = _post_upload_returning(
-        upload_url=initiated.upload_url,
-        upload_token=initiated.upload_token,
-        files={
-            "data": (
-                "configurations.tar.gz",
-                config_bytes,
-                "application/x-tar",
-            ),
-        },
-    )
+        stored = configurations.upload(data=content_stream.getvalue())
     return SyncResult(
         status="created",
-        data=_extract_keys(config_dict, CONFIGURATION_HEADERS),
+        data=_extract_keys(stored.to_dict(), CONFIGURATION_HEADERS),
     )
 
 
 def _fetch_runtime_info(
-    *, auth_service: RuntimeAuthService, api_client: ApiClient
+    *, session: CliSession, workspace: Workspace[Sync]
 ) -> RuntimeInfo:
     """Fetch workspace overview data — returns RuntimeInfo model.
 
     Email is shown for humans only; a workspace key's service-account email stays hidden.
     """
-    caller_info = auth_service.fetch_caller_info()
+    caller_info = session.fetch_caller_info()
     workspaces = caller_info["workspaces"]
     identity = caller_info.get("identity")
     email = (
         identity["email"]
-        if identity and auth_service.principal_kind() is PrincipalKind.HUMAN
+        if identity and session.principal_kind() is PrincipalKind.HUMAN
         else None
     )
-    ws_id = auth_service.workspace_id
+    ws_id = workspace.id
 
     info = RuntimeInfo(
         workspace_id=ws_id,
@@ -1002,67 +767,40 @@ def _fetch_runtime_info(
 
     # jobs
     with handle_client_exceptions():
-        scr = list_scripts.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(ws_id),
-        )
-    if (
-        isinstance(scr.parsed, list_scripts.ListPageDetailedScriptResponse)
-        and scr.parsed.items
-    ):
-        info["job_count"] = len(scr.parsed.items)
+        job_count = workspace.jobs.count()
+    if job_count:
+        info["job_count"] = job_count
 
     # latest run
     try:
-        latest_run = _get_latest_run(api_client, auth_service)
+        latest_run = _get_latest_run(workspace)
     except NoRunsFound:
         latest_run = None
-    if isinstance(latest_run, DetailedRunResponse):
+    if latest_run is not None:
         # No manifest in this code path — `section.name` is the safe shortest form.
-        info["latest_run_name"] = format_job_selector(
-            latest_run.script.job_definition.job_ref
-        )
+        info["latest_run_name"] = format_job_selector(latest_run.job_ref)
         info["latest_run_status"] = str(latest_run.status)
-        if isinstance(latest_run.time_started, datetime):
-            info["latest_run_started"] = latest_run.time_started
-        if isinstance(latest_run.time_ended, datetime):
-            info["latest_run_ended"] = latest_run.time_ended
-    elif latest_run is not None:
-        raise exception_from_response("Failed to get latest run", latest_run)
+        if latest_run.started_at is not None:
+            info["latest_run_started"] = latest_run.started_at
+        if latest_run.ended_at is not None:
+            info["latest_run_ended"] = latest_run.ended_at
 
-    # deployment
+    # deployment and configuration — a workspace may have neither yet
     with handle_client_exceptions():
-        latest_deployment = get_latest_deployment.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(ws_id),
-        )
-    if isinstance(latest_deployment.parsed, get_latest_deployment.DeploymentResponse):
-        info["deployment_version"] = latest_deployment.parsed.version
-        info["deployment_date"] = latest_deployment.parsed.date_added
-    elif not isinstance(
-        latest_deployment.parsed, get_latest_deployment.ErrorResponse404
-    ):
-        raise exception_from_response(
-            "Failed to get latest deployment", latest_deployment
-        )
-
-    # configuration
-    with handle_client_exceptions():
-        latest_configuration = get_latest_configuration.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(ws_id),
-        )
-    if isinstance(
-        latest_configuration.parsed, get_latest_configuration.ConfigurationResponse
-    ):
-        info["configuration_version"] = latest_configuration.parsed.version
-        info["configuration_date"] = latest_configuration.parsed.date_added
-    elif not isinstance(
-        latest_configuration.parsed, get_latest_configuration.ErrorResponse404
-    ):
-        raise exception_from_response(
-            "Failed to get latest configuration", latest_configuration
-        )
+        try:
+            latest_deployment = workspace.deployments.latest()
+        except SdkNotFound:
+            latest_deployment = None
+        try:
+            latest_configuration = workspace.configurations.latest()
+        except SdkNotFound:
+            latest_configuration = None
+    if latest_deployment is not None:
+        info["deployment_version"] = latest_deployment.version
+        info["deployment_date"] = latest_deployment.created_at
+    if latest_configuration is not None:
+        info["configuration_version"] = latest_configuration.version
+        info["configuration_date"] = latest_configuration.created_at
 
     # Predefined profiles from the current workspace (server-side)
     for ws in workspaces:
@@ -1091,116 +829,40 @@ def _is_recently_finished_terminal(time_ended: datetime | None) -> bool:
     return datetime.now(timezone.utc) - ended < RECENTLY_FINISHED_LOG_WINDOW
 
 
-def _resolve_dataplane_endpoint(
-    api_client: ApiClient,
-    workspace_id: UUID,
-) -> tuple[str, str]:
-    """Return ``(dataplane_base_url, dataplane_user_jwt)`` for the workspace.
-
-    The minted token carries every capability the caller's workspace role
-    allows, so one resolver serves logs, variables and any later surface.
-    """
-    with handle_client_exceptions("Failed to read workspace"):
-        ws_resp = get_workspace_api.sync_detailed(
-            client=api_client, workspace_id=workspace_id
-        )
-    if not isinstance(ws_resp.parsed, WorkspaceResponse):
-        raise exception_from_response("Failed to read workspace", ws_resp)
-
-    with handle_client_exceptions("Failed to mint dataplane access token"):
-        token_resp = get_workspace_dataplane_access_token.sync_detailed(
-            client=api_client, workspace_id=workspace_id
-        )
-    if not isinstance(token_resp.parsed, DataplaneAccessTokenResponse):
-        raise exception_from_response(
-            "Failed to mint dataplane access token", token_resp
-        )
-
-    return ws_resp.parsed.dataplane_url.rstrip("/"), token_resp.parsed.token
-
-
-def _dataplane_client(
-    api_client: ApiClient,
-    workspace_id: UUID,
-) -> DataplaneApiClient:
-    """A data-plane client bound to this workspace, carrying a freshly minted token."""
-    base_url, token = _resolve_dataplane_endpoint(api_client, workspace_id)
-    return DataplaneApiClient(
-        base_url=base_url,
-        verify_ssl=_tls_verify(),
-        headers={
-            "User-Agent": f"dlt-runtime-cli/{__version__}",
-            "Authorization": f"Bearer {token}",
-        },
-        raise_on_unexpected_status=True,
-    )
-
-
 def _fetch_workspace_variables(
-    api_client: ApiClient,
-    workspace_id: UUID,
+    workspace: Workspace[Sync],
     *,
     profile: Optional[str] = None,
     workspace_only: bool = False,
-) -> list[ScopeVariablesResponse]:
+) -> tuple[VariableScope, ...]:
     """Every scope unless a selector narrows it to one."""
+    # The SDK takes one selector: KEEP for every scope, None for the
+    # workspace-level one, a name for that profile.
+    wanted: Union[str, None, Keep] = KEEP
+    if workspace_only:
+        wanted = WORKSPACE_PROFILE
+    elif profile is not None:
+        wanted = profile
     with handle_client_exceptions("Failed to list variables"):
-        resp = list_workspace_variables.sync_detailed(
-            client=_dataplane_client(api_client, workspace_id),
-            workspace_id=workspace_id,
-            profile=profile if profile is not None else UNSET,
-            workspace=True if workspace_only else UNSET,
-        )
-    if not isinstance(resp.parsed, WorkspaceVariablesResponse):
-        raise exception_from_response("Failed to list variables", resp)
-    return resp.parsed.scopes
+        return workspace.variables.list(profile=wanted)
 
 
 def _change_workspace_variables(
-    api_client: ApiClient,
-    workspace_id: UUID,
+    workspace: Workspace[Sync],
     *,
     profile: Optional[str],
-    upserts: Optional[list[Union[PlainVariableUpsert, SecretVariableUpsert]]] = None,
+    plain: Optional[dict[str, str]] = None,
+    secrets: Optional[dict[str, str]] = None,
     deletes: Optional[list[str]] = None,
-) -> VariablesChangeResponse:
+) -> tuple[VariableChange, ...]:
     """One atomic batch against a single scope; ``profile=None`` is workspace-wide."""
-    body = VariablesChange(
-        profile=profile,
-        upserts=upserts if upserts is not None else UNSET,
-        deletes=deletes if deletes is not None else UNSET,
-    )
     with handle_client_exceptions("Failed to change variables"):
-        resp = change_workspace_variables.sync_detailed(
-            client=_dataplane_client(api_client, workspace_id),
-            workspace_id=workspace_id,
-            body=body,
+        return workspace.variables.apply(
+            profile=profile,
+            upserts=plain,
+            secrets=secrets,
+            deletes=deletes,
         )
-    if not isinstance(resp.parsed, VariablesChangeResponse):
-        raise exception_from_response("Failed to change variables", resp)
-    return resp.parsed
-
-
-def _build_logs_request(
-    suffix: str,
-    accept: str,
-    *,
-    run_id: UUID,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> tuple[str, dict[str, str]]:
-    """Resolve the dataplane logs endpoint and build the request URL + auth headers."""
-    workspace_id = _to_uuid(auth_service.workspace_id)
-    dataplane_url, dataplane_token = _resolve_dataplane_endpoint(
-        api_client, workspace_id
-    )
-    url = f"{dataplane_url}/logs/v1/workspaces/{workspace_id}/runs/{run_id}{suffix}"
-    headers = {
-        "Accept": accept,
-        "User-Agent": f"dlt-runtime-cli/{__version__}",
-        "Authorization": f"Bearer {dataplane_token}",
-    }
-    return url, headers
 
 
 def _should_hide_log_line(log: LogLine) -> bool:
@@ -1208,365 +870,151 @@ def _should_hide_log_line(log: LogLine) -> bool:
     return log.phase in ("runner", "provider")
 
 
-def _parse_log_line_event(json_str: str) -> Optional[LogStreamEvent]:
-    """Parse a JSON-encoded LogLine into a ``('log', formatted)`` event."""
-
-    try:
-        log = LogLine.from_dict(json.loads(json_str))
-    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
-        return ("warning", f"Failed to parse log line: {e}")
-    if _should_hide_log_line(log):
-        return None
-    return ("log", _format_log_line(log))
-
-
-@contextmanager
-def _open_historical_run_logs(
-    run_id: UUID,
-    *,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> Iterator[tuple[int, Generator[LogStreamEvent, None, None]]]:
-    """Open persisted run logs once, yielding ``(status, events)``.
-
-    The connection stays open for the ``with`` block so the caller can branch on the
-    status (e.g. 404 → logs not consolidated yet) before consuming the events.
-    """
-    url, headers = _build_logs_request(
-        "/logs",
-        "application/x-ndjson",
-        run_id=run_id,
-        auth_service=auth_service,
-        api_client=api_client,
-    )
-    try:
-        with httpx.stream(
-            "GET", url, headers=headers, verify=_tls_verify()
-        ) as response:
-
-            def _events() -> Generator[LogStreamEvent, None, None]:
-                try:
-                    for line in response.iter_lines():
-                        if not line:
-                            continue
-                        event = _parse_log_line_event(line)
-                        if event is not None:
-                            yield event
-                except httpx.HTTPError as e:
-                    yield ("error", f"HTTP error while fetching logs: {e}")
-
-            yield response.status_code, _events()
-    except httpx.HTTPError as e:
-        raise ConnectionError(f"Error fetching run logs. Underlying error: {e}") from e
-
-
-def _iter_run_log_stream(
-    run_id: UUID,
-    *,
-    follow: bool = True,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> Generator[LogStreamEvent, None, None]:
-    """Yield ``(level, message)`` events from the live SSE log stream.
-
-    When *follow* is False the generator replays existing logs and stops;
-    a 1-second read timeout detects the end of the replay.
-    """
-    url, headers = _build_logs_request(
-        "/logs/stream",
-        "text/event-stream",
-        run_id=run_id,
-        auth_service=auth_service,
-        api_client=api_client,
-    )
-    # In non-follow mode a 1 s read timeout acts as end-of-replay detection.
-    stream_timeout = None if follow else httpx.Timeout(None, read=1.0)
-
-    try:
-        with httpx.stream(
-            "GET",
-            url,
-            headers=headers,
-            timeout=stream_timeout,
-            verify=_tls_verify(),
-        ) as response:
-            if response.status_code != 200:
-                yield (
-                    "error",
-                    f"Failed to connect to log stream: {response.status_code}",
-                )
-                return
-            try:
-                for line in response.iter_lines():
-                    if line.startswith("data: "):
-                        event = _parse_log_line_event(line[6:])
-                        if event is not None:
-                            yield event
-                    elif line.startswith("event: error"):
-                        yield ("error", "Stream error event received")
-                        return
-            except httpx.ReadTimeout:
-                return
-    except httpx.HTTPError as e:
-        yield ("error", f"HTTP error while streaming logs: {e}")
-    except Exception as e:
-        yield ("error", f"Error streaming logs: {e}")
-
-
-# ---------------------------------------------------------------------------
-# Entity loaders (fetch API data, return models — no display)
-# ---------------------------------------------------------------------------
-
-
 def _fetch_workspaces(
-    auth_service: RuntimeAuthService,
+    session: CliSession,
 ) -> tuple[list[Any], Optional[str]]:
     """Return (workspaces, current_workspace_id) for display."""
     try:
-        current_ws_id: Optional[str] = auth_service.workspace_id
+        current_ws_id: Optional[str] = session.workspace_id
     except (RuntimeOperationNotAuthorized, WorkspaceRunContextNotAvailable):
         current_ws_id = None
-    return auth_service.fetch_caller_info()["workspaces"], current_ws_id
+    return session.fetch_caller_info()["workspaces"], current_ws_id
 
 
 def _fetch_job_run_info(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     *,
     script_path_or_job_name: str,
     run_number: Optional[int] = None,
-) -> "get_run.DetailedRunResponse":
-    """Resolve and fetch a single run, return DetailedRunResponse."""
+) -> JobRun[Sync]:
+    """Resolve and fetch a single run."""
     run_id = _run_id_from_ref(script_path_or_job_name, run_number)
-    if run_id is None:
-        if run_number is None:
-            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
-            run_id = run.id
-        else:
-            run_id = _resolve_run_id_by_number(
-                api_client=api_client,
-                auth_service=auth_service,
-                script_path_or_job_name=script_path_or_job_name,
-                run_number=run_number,
-            )
-
-    with handle_client_exceptions():
-        get_run_result = get_run.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            run_id=_to_uuid(run_id),
-        )
-    if isinstance(get_run_result.parsed, get_run.DetailedRunResponse):
-        return get_run_result.parsed
-    raise exception_from_response("Failed to get run status", get_run_result)
+    if run_id is not None:
+        return _fetch_run_detail(run_id, workspace=workspace)
+    if run_number is None:
+        # `latest` already returns the full run, so there is nothing to re-read.
+        return _get_latest_run(workspace, script_path_or_job_name)
+    run_id = _resolve_run_id_by_number(
+        workspace=workspace,
+        script_path_or_job_name=script_path_or_job_name,
+        run_number=run_number,
+    )
+    return _fetch_run_detail(run_id, workspace=workspace)
 
 
 def _fetch_runs(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     script_path_or_job_name: Optional[str] = None,
     *,
     running_only: bool = False,
-) -> list[Any]:
+) -> list[JobRun[Sync]]:
     """Fetch runs, optionally filtered by script. Returns runs sorted desc by number."""
     # `running_only` filters out terminal-state runs client-side; the server
     # endpoint has no equivalent flag yet (issue: TODO follow-up).
-    script_id: Optional[UUID] = None
-    if script_path_or_job_name:
-        with handle_client_exceptions():
-            script = get_script.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                script_id_or_ref=script_path_or_job_name,
-            )
-        if isinstance(script.parsed, get_script.DetailedScriptResponse):
-            script_id = script.parsed.id
-        else:
-            raise exception_from_response(
-                f"Failed to get script with name {script_path_or_job_name} from runtime."
-                " Did you create one?",
-                script,
-            )
-
     with handle_client_exceptions():
-        list_runs_result = list_runs.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id=script_id,
+        runs = (
+            workspace.jobs.get(ref=script_path_or_job_name).runs
+            if script_path_or_job_name
+            else workspace.job_runs
         )
-    if not isinstance(list_runs_result.parsed, list_runs.ListPageDetailedRunResponse):
-        raise exception_from_response("Failed to list workspace runs", list_runs_result)
-
-    items = list(list_runs_result.parsed.items) if list_runs_result.parsed.items else []
+        items = list(runs.list(limit=100))
     if running_only:
-        items = [r for r in items if r.status in NON_TERMINAL_RUN_STATUSES]
+        items = [r for r in items if not r.finished]
     # Server orders by date_added DESC; trust that — no client-side resort.
     return items
 
 
 def _fetch_deployments(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
-) -> list[Any]:
-    """Fetch all deployments. Returns list of deployment models."""
+    workspace: Workspace[Sync],
+) -> list[Deployment[Sync]]:
+    """Fetch the newest 100 deployments."""
     with handle_client_exceptions():
-        list_deployments_result = list_deployments.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-        )
-    if isinstance(
-        list_deployments_result.parsed, list_deployments.ListPageDeploymentResponse
-    ):
-        return (
-            list(list_deployments_result.parsed.items)
-            if list_deployments_result.parsed.items
-            else []
-        )
-    raise exception_from_response("Failed to list deployments", list_deployments_result)
+        return list(workspace.deployments.list(limit=100))
 
 
 def _fetch_deployment_info(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     deployment_version_no: Optional[int] = None,
-) -> Any:
+) -> Deployment[Sync]:
     """Fetch a single deployment (latest or by version). Returns deployment model."""
-    if deployment_version_no is None:
-        with handle_client_exceptions():
-            result = get_latest_deployment.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-            )
-    else:
-        with handle_client_exceptions():
-            result = get_deployment.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                deployment_id_or_version=deployment_version_no,
-            )
-    if isinstance(result.parsed, get_deployment.DeploymentResponse):
-        return result.parsed
-    raise exception_from_response("Failed to get deployment info", result)
+    with handle_client_exceptions():
+        held = workspace.deployments
+        if deployment_version_no is None:
+            return held.latest()
+        return held.get(version=deployment_version_no)
 
 
 def _fetch_configurations(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
-) -> list[Any]:
-    """Fetch all configurations. Returns list of configuration models."""
+    workspace: Workspace[Sync],
+) -> list[Configuration[Sync]]:
+    """Fetch the newest 100 configurations."""
     with handle_client_exceptions():
-        list_configurations_result = list_configurations.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-        )
-    if isinstance(
-        list_configurations_result.parsed,
-        list_configurations.ListPageConfigurationResponse,
-    ) and isinstance(list_configurations_result.parsed.items, list):
-        return (
-            list(list_configurations_result.parsed.items)
-            if list_configurations_result.parsed.items
-            else []
-        )
-    raise exception_from_response(
-        "Failed to list configurations", list_configurations_result
-    )
+        return list(workspace.configurations.list(limit=100))
 
 
 def _fetch_configuration_info(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     configuration_version_no: Optional[int] = None,
-) -> Any:
+) -> Configuration[Sync]:
     """Fetch a single configuration (latest or by version). Returns configuration model."""
-    if configuration_version_no is None:
-        with handle_client_exceptions():
-            result = get_latest_configuration.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-            )
-    else:
-        with handle_client_exceptions():
-            result = get_configuration.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                configuration_id_or_version=configuration_version_no,
-            )
-    if isinstance(result.parsed, get_configuration.ConfigurationResponse):
-        return result.parsed
-    raise exception_from_response("Failed to get configuration info", result)
+    with handle_client_exceptions():
+        held = workspace.configurations
+        if configuration_version_no is None:
+            return held.latest()
+        return held.get(version=configuration_version_no)
 
 
 def _fetch_jobs(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     *,
     include_archived: bool = False,
-) -> list[Any]:
-    """Fetch all jobs (scripts). Returns list of script models."""
+) -> list[Job[Sync]]:
+    """Fetch all jobs (scripts). Returns list of job models."""
     # Including archived jobs means dropping the filter, not naming both values.
-    archived = API_UNSET if include_archived else False
     with handle_client_exceptions():
-        res = list_scripts.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            archived=archived,
-        )
-    if isinstance(
-        res.parsed, list_scripts.ListPageDetailedScriptResponse
-    ) and isinstance(res.parsed.items, list):
-        return list(res.parsed.items) if res.parsed.items else []
-    raise exception_from_response("Failed to list jobs", res)
+        jobs = workspace.jobs
+        return list(jobs.list(archived=KEEP if include_archived else False))
 
 
 def _filter_scripts_by_selectors(
-    scripts: list[Any],
+    scripts: list[Job[Sync]],
     selectors: list[str],
-) -> list[Any]:
-    """Filter ScriptResponse objects by trigger selectors (client-side).
+) -> list[Job[Sync]]:
+    """Filter jobs by trigger selectors (client-side).
 
     Empty selectors → empty match (nothing was asked for).
     """
     if not selectors:
         return []
 
-    matched = []
-    for script in scripts:
-        raw_triggers = getattr(script, "triggers", None)
-        if raw_triggers is None or isinstance(raw_triggers, Unset):
-            triggers: list[TTrigger] = []
-        else:
-            triggers = [TTrigger(t) for t in raw_triggers]
-        job_type = (
-            script.script_type.value
-            if hasattr(script.script_type, "value")
-            else str(script.script_type)
+    return [
+        job
+        for job in scripts
+        if match_triggers_with_selectors(
+            str(job.job_type), [TTrigger(t) for t in job.triggers], selectors
         )
-        if match_triggers_with_selectors(job_type, triggers, selectors):
-            matched.append(script)
-    return matched
+    ]
 
 
 def _resolve_selectors_to_scripts(
     args: list[str],
     *,
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     include_archived: bool = False,
-) -> list[Any]:
-    """Resolve CLI selector/job-ref args to matched ScriptResponse objects.
+) -> list[Job[Sync]]:
+    """Resolve CLI selector/job-ref args to matched jobs.
 
     Splits *args* into selectors and bare job refs, fetches all jobs,
     applies selector matching and ref resolution, returns the union.
-    Returns all scripts when *args* is empty.
+    Returns all jobs when *args* is empty.
     """
-    scripts = _fetch_jobs(api_client, auth_service, include_archived=include_archived)
+    scripts = _fetch_jobs(workspace, include_archived=include_archived)
     if not args:
         return scripts
 
     selectors: list[str] = []
     ref_set: set[str] = set()
-    job_refs = [sc.job_ref for sc in scripts]
+    job_refs = [TJobRef(sc.job_ref) for sc in scripts]
 
     for s in args:
         if is_selector(s):
@@ -1581,7 +1029,7 @@ def _resolve_selectors_to_scripts(
     ref_matched = [sc for sc in scripts if sc.job_ref in ref_set]
 
     seen: set[str] = set()
-    result: list[Any] = []
+    result: list[Job[Sync]] = []
     for sc in [*selector_matched, *ref_matched]:
         if sc.job_ref not in seen:
             seen.add(sc.job_ref)
@@ -1590,52 +1038,29 @@ def _resolve_selectors_to_scripts(
 
 
 def _fetch_job_info(
-    api_client: ApiClient,
-    auth_service: RuntimeAuthService,
+    workspace: Workspace[Sync],
     script_path_or_job_name: str,
-) -> Any:
-    """Fetch a single job (script). Returns script model."""
+) -> Job[Sync]:
+    """Fetch a single job (script). Returns job model."""
     with handle_client_exceptions():
-        res = get_script.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            script_id_or_ref=script_path_or_job_name,
-        )
-    if isinstance(res.parsed, get_script.DetailedScriptResponse):
-        return res.parsed
-    raise exception_from_response("Failed to get job info", res)
-
-
-def _job_is_paused(job: Any) -> bool:
-    """Whether the job's schedule is paused, treating an absent field as not paused."""
-    paused = getattr(job, "paused", False)
-    return not isinstance(paused, Unset) and bool(paused)
+        return workspace.jobs.get(ref=script_path_or_job_name)
 
 
 def _do_deploy_manifest(
     *,
     manifest_hash: str,
-    api_jobs: list["DeployManifestRequestJobsItem"],
+    api_jobs: Sequence[Mapping[str, Any]],
     deployment_module: str | None,
     description: str | None,
     dry_run: bool,
-    auth_service: RuntimeAuthService,
-    api_client: ApiClient,
-) -> "DeployManifestResponse":
-    """Call deploy_manifest API and return the response."""
-    with handle_client_exceptions():
-        result = deploy_manifest.sync_detailed(
-            client=api_client,
-            workspace_id=_to_uuid(auth_service.workspace_id),
-            body=DeployManifestRequest(
-                job_definition_engine_version=MANIFEST_ENGINE_VERSION,
-                job_definition_hash=manifest_hash,
-                jobs=api_jobs,
-                deployment_module=deployment_module,
-                description=description,
-                dry_run=dry_run,
-            ),
+    workspace: Workspace[Sync],
+) -> DeployReport[Sync]:
+    """Reconcile the workspace's jobs against the manifest."""
+    with handle_client_exceptions("Failed to deploy manifest"):
+        return workspace.jobs.deploy_manifest(
+            {"engine_version": MANIFEST_ENGINE_VERSION, "jobs": api_jobs},
+            manifest_hash=manifest_hash,
+            module=deployment_module,
+            description=description,
+            dry_run=dry_run,
         )
-    if isinstance(result.parsed, deploy_manifest.DeployManifestResponse):
-        return result.parsed
-    raise exception_from_response("Failed to deploy manifest", result)

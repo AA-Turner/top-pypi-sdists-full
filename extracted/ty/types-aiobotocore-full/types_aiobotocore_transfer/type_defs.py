@@ -28,6 +28,7 @@ from .literals import (
     CertificateStatusTypeType,
     CertificateTypeType,
     CertificateUsageTypeType,
+    CommunicationModeType,
     CompressionEnumType,
     ConnectorEgressTypeType,
     ConnectorsIpAddressTypeType,
@@ -51,6 +52,7 @@ from .literals import (
     PreserveFilenameTypeType,
     ProfileTypeType,
     ProtocolType,
+    ProxyModeType,
     SecurityPolicyProtocolType,
     SecurityPolicyResourceTypeType,
     SetStatOptionType,
@@ -241,6 +243,7 @@ __all__ = (
     "ProtocolDetailsOutputTypeDef",
     "ProtocolDetailsTypeDef",
     "ProtocolDetailsUnionTypeDef",
+    "ProxyConfigTypeDef",
     "ResponseMetadataTypeDef",
     "S3FileLocationTypeDef",
     "S3InputFileLocationTypeDef",
@@ -252,6 +255,7 @@ __all__ = (
     "SftpConnectorConfigTypeDef",
     "SftpConnectorConfigUnionTypeDef",
     "SftpConnectorConnectionDetailsTypeDef",
+    "SftpPortWithOptionsTypeDef",
     "SshPublicKeyTypeDef",
     "StartDirectoryListingRequestTypeDef",
     "StartDirectoryListingResponseTypeDef",
@@ -560,6 +564,7 @@ class SftpConnectorConfigOutputTypeDef(TypedDict):
     UserSecretId: NotRequired[str]
     TrustedHostKeys: NotRequired[list[str]]
     MaxConcurrentConnections: NotRequired[int]
+    OrderedUserSecretVersionStages: NotRequired[list[str]]
 
 
 class LoggingConfigurationTypeDef(TypedDict):
@@ -579,13 +584,6 @@ class EndpointDetailsOutputTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     VpcId: NotRequired[str]
     SecurityGroupIds: NotRequired[list[str]]
-
-
-class ProtocolDetailsOutputTypeDef(TypedDict):
-    PassiveIp: NotRequired[str]
-    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
-    SetStatOption: NotRequired[SetStatOptionType]
-    As2Transports: NotRequired[list[Literal["HTTP"]]]
 
 
 class SshPublicKeyTypeDef(TypedDict):
@@ -831,11 +829,13 @@ class PosixProfileTypeDef(TypedDict):
     SecondaryGids: NotRequired[Sequence[int]]
 
 
-class ProtocolDetailsTypeDef(TypedDict):
-    PassiveIp: NotRequired[str]
-    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
-    SetStatOption: NotRequired[SetStatOptionType]
-    As2Transports: NotRequired[Sequence[Literal["HTTP"]]]
+class ProxyConfigTypeDef(TypedDict):
+    SftpMode: NotRequired[ProxyModeType]
+
+
+class SftpPortWithOptionsTypeDef(TypedDict):
+    SftpPort: int
+    CommunicationMode: NotRequired[CommunicationModeType]
 
 
 class S3TagTypeDef(TypedDict):
@@ -860,6 +860,7 @@ class SftpConnectorConfigTypeDef(TypedDict):
     UserSecretId: NotRequired[str]
     TrustedHostKeys: NotRequired[Sequence[str]]
     MaxConcurrentConnections: NotRequired[int]
+    OrderedUserSecretVersionStages: NotRequired[Sequence[str]]
 
 
 class SftpConnectorConnectionDetailsTypeDef(TypedDict):
@@ -1484,7 +1485,24 @@ class ListWorkflowsResponseTypeDef(TypedDict):
 
 
 PosixProfileUnionTypeDef = Union[PosixProfileTypeDef, PosixProfileOutputTypeDef]
-ProtocolDetailsUnionTypeDef = Union[ProtocolDetailsTypeDef, ProtocolDetailsOutputTypeDef]
+
+
+class ProtocolDetailsOutputTypeDef(TypedDict):
+    PassiveIp: NotRequired[str]
+    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
+    SetStatOption: NotRequired[SetStatOptionType]
+    SftpPorts: NotRequired[list[SftpPortWithOptionsTypeDef]]
+    As2Transports: NotRequired[list[Literal["HTTP"]]]
+    ProxyConfig: NotRequired[ProxyConfigTypeDef]
+
+
+class ProtocolDetailsTypeDef(TypedDict):
+    PassiveIp: NotRequired[str]
+    TlsSessionResumptionMode: NotRequired[TlsSessionResumptionModeType]
+    SetStatOption: NotRequired[SetStatOptionType]
+    SftpPorts: NotRequired[Sequence[SftpPortWithOptionsTypeDef]]
+    As2Transports: NotRequired[Sequence[Literal["HTTP"]]]
+    ProxyConfig: NotRequired[ProxyConfigTypeDef]
 
 
 class TagStepDetailsOutputTypeDef(TypedDict):
@@ -1678,6 +1696,7 @@ class UpdateUserRequestTypeDef(TypedDict):
     Role: NotRequired[str]
 
 
+ProtocolDetailsUnionTypeDef = Union[ProtocolDetailsTypeDef, ProtocolDetailsOutputTypeDef]
 TagStepDetailsUnionTypeDef = Union[TagStepDetailsTypeDef, TagStepDetailsOutputTypeDef]
 
 

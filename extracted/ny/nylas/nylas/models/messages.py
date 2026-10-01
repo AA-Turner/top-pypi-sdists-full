@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Literal, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any, Union
 from dataclasses_json import dataclass_json, config
 from typing_extensions import TypedDict, NotRequired, get_type_hints
 
@@ -38,12 +38,16 @@ class TrackingOptions:
         thread_replies: When true, shows that thread replied tracking is enabled.
         links: When true, shows that link clicked tracking is enabled.
         label: A label describing the message tracking purpose.
+        domain_name: The custom hostname used for link and open tracking.
     """
 
     opens: Optional[bool] = None
     thread_replies: Optional[bool] = None
     links: Optional[bool] = None
     label: Optional[str] = None
+    domain_name: Optional[str] = field(
+        default=None, metadata=config(exclude=lambda value: value is None)
+    )
 
 
 @dataclass_json
@@ -265,6 +269,18 @@ class CleanMessagesRequest(TypedDict):
     images_as_markdown: NotRequired[bool]
     ignore_tables: NotRequired[bool]
     remove_conclusion_phrases: NotRequired[bool]
+
+
+class SendRawMimeRequest(TypedDict):
+    """
+    A request to send a message as raw MIME data.
+
+    Attributes:
+        mime: The complete RFC 822 MIME message, including all headers and body parts.
+            Pass bytes to send the message exactly as encoded; strings are encoded as UTF-8.
+    """
+
+    mime: Union[str, bytes]
 
 
 @dataclass_json

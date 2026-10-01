@@ -16,15 +16,11 @@
 
 import json
 import sys
-from enum import IntEnum
 from typing import Any
 
+import click
 from rich.console import Console as _RichConsole  # noqa: TID251
-
-
-class ExitCode(IntEnum):
-    OK = 0
-    ERROR = 1
+from rich.markup import escape
 
 
 class Console(_RichConsole):
@@ -40,7 +36,19 @@ def emit(data: dict) -> None:
     print(json.dumps(data), file=sys.stdout)
 
 
-def emit_error(msg: str, code: int = ExitCode.ERROR) -> None:
-    """Write error message to stderr and exit."""
-    print(json.dumps({"error": msg}), file=sys.stderr)
-    raise SystemExit(code)
+def print_error(message: str) -> None:
+    """Print an error message to stderr with a red "❌ Error:" prefix."""
+    # escape() so text like "[cyan]" or "[0]" in the message is shown as-is.
+    Console(stderr=True, highlight=False).print(
+        f"[bold red]❌ Error:[/bold red] {escape(message)}"
+    )
+
+
+def print_click_exception(e: click.ClickException) -> None:
+    """Show a ClickException like Click does, but with a red "❌ Error:" prefix."""
+    if isinstance(e, click.UsageError) and e.ctx is not None:
+        hint = ""
+        if e.ctx.command.get_help_option(e.ctx) is not None:
+            hint = f"Try '{e.ctx.command_path} {e.ctx.help_option_names[0]}' for help.\n"
+        click.echo(f"{e.ctx.get_usage()}\n{hint}", err=True, color=e.ctx.color)
+    print_error(e.format_message())

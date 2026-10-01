@@ -52,6 +52,7 @@ from .literals import (
     PoolFilterNameType,
     PoolOriginationIdentitiesFilterNameType,
     PoolStatusType,
+    PreferenceTypeType,
     ProtectConfigurationFilterNameType,
     ProtectConfigurationRuleOverrideActionType,
     ProtectConfigurationRuleSetNumberOverrideFilterNameType,
@@ -98,6 +99,9 @@ __all__ = (
     "CarrierLookupResultTypeDef",
     "CarrierStatusInformationTypeDef",
     "CloudWatchLogsDestinationTypeDef",
+    "ConditionalBehaviorTypeDef",
+    "ConditionalRuleTypeDef",
+    "ConditionalValidationTypeDef",
     "ConfigurationSetFilterTypeDef",
     "ConfigurationSetInformationTypeDef",
     "CountryLaunchStatusFilterTypeDef",
@@ -242,6 +246,7 @@ __all__ = (
     "DiscardRegistrationVersionRequestTypeDef",
     "DiscardRegistrationVersionResultTypeDef",
     "EventDestinationTypeDef",
+    "FieldConditionTypeDef",
     "GetProtectConfigurationCountryRuleSetRequestTypeDef",
     "GetProtectConfigurationCountryRuleSetResultTypeDef",
     "GetResourcePolicyRequestTypeDef",
@@ -249,6 +254,9 @@ __all__ = (
     "KeywordFilterTypeDef",
     "KeywordInformationTypeDef",
     "KinesisFirehoseDestinationTypeDef",
+    "ListAvailablePhoneNumbersRequestPaginateTypeDef",
+    "ListAvailablePhoneNumbersRequestTypeDef",
+    "ListAvailablePhoneNumbersResultTypeDef",
     "ListNotifyCountriesRequestPaginateTypeDef",
     "ListNotifyCountriesRequestTypeDef",
     "ListNotifyCountriesResultTypeDef",
@@ -263,11 +271,13 @@ __all__ = (
     "ListRegistrationAssociationsResultTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResultTypeDef",
+    "MessagingLimitsTypeDef",
     "NotifyConfigurationFilterTypeDef",
     "NotifyConfigurationInformationTypeDef",
     "NotifyCountryInformationTypeDef",
     "NotifyTemplateFilterTypeDef",
     "NotifyTemplateInformationTypeDef",
+    "NumberPreferenceItemTypeDef",
     "OptOutListInformationTypeDef",
     "OptedOutFilterTypeDef",
     "OptedOutNumberInformationTypeDef",
@@ -460,6 +470,19 @@ class CarrierStatusInformationTypeDef(TypedDict):
 class CloudWatchLogsDestinationTypeDef(TypedDict):
     IamRoleArn: str
     LogGroupArn: str
+
+
+class ConditionalValidationTypeDef(TypedDict):
+    MinLength: NotRequired[int]
+    MaxLength: NotRequired[int]
+    Pattern: NotRequired[str]
+    AllowedValues: NotRequired[list[str]]
+
+
+class FieldConditionTypeDef(TypedDict):
+    DependsOnFieldPath: str
+    Operator: str
+    Values: NotRequired[list[str]]
 
 
 class ConfigurationSetFilterTypeDef(TypedDict):
@@ -664,28 +687,6 @@ class PhoneNumberFilterTypeDef(TypedDict):
     Values: Sequence[str]
 
 
-class PhoneNumberInformationTypeDef(TypedDict):
-    PhoneNumberArn: str
-    PhoneNumber: str
-    Status: NumberStatusType
-    IsoCountryCode: str
-    MessageType: MessageTypeType
-    NumberCapabilities: list[NumberCapabilityType]
-    NumberType: NumberTypeType
-    MonthlyLeasingPrice: str
-    TwoWayEnabled: bool
-    SelfManagedOptOutsEnabled: bool
-    OptOutListName: str
-    DeletionProtectionEnabled: bool
-    CreatedTimestamp: datetime
-    PhoneNumberId: NotRequired[str]
-    TwoWayChannelArn: NotRequired[str]
-    TwoWayChannelRole: NotRequired[str]
-    InternationalSendingEnabled: NotRequired[bool]
-    PoolId: NotRequired[str]
-    RegistrationId: NotRequired[str]
-
-
 class PoolFilterTypeDef(TypedDict):
     Name: PoolFilterNameType
     Values: Sequence[str]
@@ -808,17 +809,6 @@ class SenderIdFilterTypeDef(TypedDict):
     Values: Sequence[str]
 
 
-class SenderIdInformationTypeDef(TypedDict):
-    SenderIdArn: str
-    SenderId: str
-    IsoCountryCode: str
-    MessageTypes: list[MessageTypeType]
-    MonthlyLeasingPrice: str
-    DeletionProtectionEnabled: bool
-    Registered: bool
-    RegistrationId: NotRequired[str]
-
-
 class DescribeSpendLimitsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -872,6 +862,11 @@ class ProtectConfigurationCountryRuleSetInformationTypeDef(TypedDict):
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
     ResourceArn: str
+
+
+class NumberPreferenceItemTypeDef(TypedDict):
+    PreferenceType: Sequence[PreferenceTypeType]
+    Filter: Sequence[str]
 
 
 class ListNotifyCountriesRequestTypeDef(TypedDict):
@@ -932,6 +927,11 @@ class RegistrationAssociationMetadataTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
+
+
+class MessagingLimitsTypeDef(TypedDict):
+    RateLimits: NotRequired[dict[str, int]]
+    DailyMessageCaps: NotRequired[dict[str, int]]
 
 
 TemplateVariableMetadataTypeDef = TypedDict(
@@ -1575,6 +1575,12 @@ class GetResourcePolicyResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAvailablePhoneNumbersResultTypeDef(TypedDict):
+    AvailablePhoneNumbers: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class PutKeywordResultTypeDef(TypedDict):
     OriginationIdentityArn: str
     OriginationIdentity: str
@@ -1862,6 +1868,12 @@ class CountryLaunchStatusInformationTypeDef(TypedDict):
     RcsPlatformId: NotRequired[str]
 
 
+class ConditionalRuleTypeDef(TypedDict):
+    Conditions: list[FieldConditionTypeDef]
+    RuleBehavior: str
+    ConditionalValidation: NotRequired[ConditionalValidationTypeDef]
+
+
 class DescribeConfigurationSetsRequestTypeDef(TypedDict):
     ConfigurationSetNames: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[ConfigurationSetFilterTypeDef]]
@@ -2060,20 +2072,6 @@ class ListTagsForResourceResultTypeDef(TypedDict):
     ResourceArn: str
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RequestPhoneNumberRequestTypeDef(TypedDict):
-    IsoCountryCode: str
-    MessageType: MessageTypeType
-    NumberCapabilities: Sequence[NumberCapabilityType]
-    NumberType: RequestableNumberTypeType
-    OptOutListName: NotRequired[str]
-    PoolId: NotRequired[str]
-    RegistrationId: NotRequired[str]
-    InternationalSendingEnabled: NotRequired[bool]
-    DeletionProtectionEnabled: NotRequired[bool]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    ClientToken: NotRequired[str]
 
 
 class RequestPhoneNumberResultTypeDef(TypedDict):
@@ -2341,12 +2339,6 @@ class DescribePhoneNumbersRequestTypeDef(TypedDict):
     Owner: NotRequired[OwnerType]
 
 
-class DescribePhoneNumbersResultTypeDef(TypedDict):
-    PhoneNumbers: list[PhoneNumberInformationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class DescribePoolsRequestPaginateTypeDef(TypedDict):
     PoolIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[PoolFilterTypeDef]]
@@ -2492,12 +2484,6 @@ class DescribeSenderIdsRequestTypeDef(TypedDict):
     Owner: NotRequired[OwnerType]
 
 
-class DescribeSenderIdsResultTypeDef(TypedDict):
-    SenderIds: list[SenderIdInformationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class DescribeSpendLimitsResultTypeDef(TypedDict):
     SpendLimits: list[SpendLimitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2545,6 +2531,40 @@ class UpdateProtectConfigurationCountryRuleSetResultTypeDef(TypedDict):
     NumberCapability: NumberCapabilityType
     CountryRuleSet: dict[str, ProtectConfigurationCountryRuleSetInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAvailablePhoneNumbersRequestPaginateTypeDef(TypedDict):
+    IsoCountryCode: str
+    NumberCapabilities: Sequence[NumberCapabilityType]
+    NumberType: Literal["TEN_DLC"]
+    RegistrationId: NotRequired[str]
+    NumberPreference: NotRequired[Sequence[NumberPreferenceItemTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAvailablePhoneNumbersRequestTypeDef(TypedDict):
+    IsoCountryCode: str
+    NumberCapabilities: Sequence[NumberCapabilityType]
+    NumberType: Literal["TEN_DLC"]
+    RegistrationId: NotRequired[str]
+    NumberPreference: NotRequired[Sequence[NumberPreferenceItemTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class RequestPhoneNumberRequestTypeDef(TypedDict):
+    IsoCountryCode: str
+    MessageType: MessageTypeType
+    NumberCapabilities: Sequence[NumberCapabilityType]
+    NumberType: RequestableNumberTypeType
+    OptOutListName: NotRequired[str]
+    PoolId: NotRequired[str]
+    RegistrationId: NotRequired[str]
+    NumberPreference: NotRequired[Sequence[NumberPreferenceItemTypeDef]]
+    InternationalSendingEnabled: NotRequired[bool]
+    DeletionProtectionEnabled: NotRequired[bool]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
 
 
 class ListNotifyCountriesResultTypeDef(TypedDict):
@@ -2617,6 +2637,41 @@ class ListRegistrationAssociationsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class PhoneNumberInformationTypeDef(TypedDict):
+    PhoneNumberArn: str
+    PhoneNumber: str
+    Status: NumberStatusType
+    IsoCountryCode: str
+    MessageType: MessageTypeType
+    NumberCapabilities: list[NumberCapabilityType]
+    NumberType: NumberTypeType
+    MonthlyLeasingPrice: str
+    TwoWayEnabled: bool
+    SelfManagedOptOutsEnabled: bool
+    OptOutListName: str
+    DeletionProtectionEnabled: bool
+    CreatedTimestamp: datetime
+    PhoneNumberId: NotRequired[str]
+    TwoWayChannelArn: NotRequired[str]
+    TwoWayChannelRole: NotRequired[str]
+    InternationalSendingEnabled: NotRequired[bool]
+    PoolId: NotRequired[str]
+    RegistrationId: NotRequired[str]
+    MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+
+
+class SenderIdInformationTypeDef(TypedDict):
+    SenderIdArn: str
+    SenderId: str
+    IsoCountryCode: str
+    MessageTypes: list[MessageTypeType]
+    MonthlyLeasingPrice: str
+    DeletionProtectionEnabled: bool
+    Registered: bool
+    RegistrationId: NotRequired[str]
+    MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+
+
 class NotifyTemplateInformationTypeDef(TypedDict):
     TemplateId: str
     Version: int
@@ -2670,6 +2725,7 @@ class RcsAgentInformationTypeDef(TypedDict):
     TwoWayMediaS3Role: NotRequired[str]
     TwoWayRcsEventsEnabled: NotRequired[list[str]]
     TestingAgent: NotRequired[TestingAgentInformationTypeDef]
+    MessagingLimits: NotRequired[MessagingLimitsTypeDef]
 
 
 class RegistrationVersionInformationTypeDef(TypedDict):
@@ -2708,6 +2764,11 @@ class DescribeRcsAgentCountryLaunchStatusResultTypeDef(TypedDict):
     CountryLaunchStatus: list[CountryLaunchStatusInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ConditionalBehaviorTypeDef(TypedDict):
+    Rules: list[ConditionalRuleTypeDef]
+    DefaultBehavior: str
 
 
 class ConfigurationSetInformationTypeDef(TypedDict):
@@ -2753,6 +2814,18 @@ class UpdateEventDestinationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribePhoneNumbersResultTypeDef(TypedDict):
+    PhoneNumbers: list[PhoneNumberInformationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeSenderIdsResultTypeDef(TypedDict):
+    SenderIds: list[SenderIdInformationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DescribeNotifyTemplatesResultTypeDef(TypedDict):
     NotifyTemplates: list[NotifyTemplateInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2782,16 +2855,6 @@ class DescribeRegistrationVersionsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class RegistrationFieldDefinitionTypeDef(TypedDict):
-    SectionPath: str
-    FieldPath: str
-    FieldType: FieldTypeType
-    FieldRequirement: FieldRequirementType
-    DisplayHints: RegistrationFieldDisplayHintsTypeDef
-    SelectValidation: NotRequired[SelectValidationTypeDef]
-    TextValidation: NotRequired[TextValidationTypeDef]
-
-
 class DescribeRegistrationSectionDefinitionsResultTypeDef(TypedDict):
     RegistrationType: str
     RegistrationSectionDefinitions: list[RegistrationSectionDefinitionTypeDef]
@@ -2803,6 +2866,17 @@ class DescribeRegistrationTypeDefinitionsResultTypeDef(TypedDict):
     RegistrationTypeDefinitions: list[RegistrationTypeDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class RegistrationFieldDefinitionTypeDef(TypedDict):
+    SectionPath: str
+    FieldPath: str
+    FieldType: FieldTypeType
+    FieldRequirement: FieldRequirementType
+    DisplayHints: RegistrationFieldDisplayHintsTypeDef
+    SelectValidation: NotRequired[SelectValidationTypeDef]
+    TextValidation: NotRequired[TextValidationTypeDef]
+    ConditionalBehavior: NotRequired[ConditionalBehaviorTypeDef]
 
 
 class DescribeConfigurationSetsResultTypeDef(TypedDict):

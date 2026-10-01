@@ -284,6 +284,16 @@ def _resolve_conversation_type(ctx: Any, parent_conversation_id: str | None = No
             explicit=None,
             parent_conversation_id=parent_conversation_id,
         )
+    # 🚨 A MANDATE CANDIDATE'S CONVERSATIONS ARE ALL HIDDEN (PLAN §2.7). The
+    # marker wins over every fork's own type: the candidate's top run AND each
+    # sub-agent it starts (a child fork stamps "subagent") must land in the
+    # hidden lane, never in anyone's chat list.
+    from matrx_graph.candidate import candidate_marker
+
+    if candidate_marker(getattr(ctx, "metadata", None)) is not None:
+        from matrx_ai.agents.conversation_type import ConversationType
+
+        return ConversationType.MANDATE_CANDIDATE.value
     return derive_conversation_type(
         explicit=getattr(ctx, "conversation_type", None),
         is_internal_agent=bool(getattr(ctx, "is_internal_agent", False)),

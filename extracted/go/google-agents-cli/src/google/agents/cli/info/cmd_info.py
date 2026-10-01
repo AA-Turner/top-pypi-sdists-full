@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import platform
 from pathlib import Path
+from typing import Any
 
 import click
 
 import google.agents.cli as _cli_pkg
+from google.agents.cli import _telemetry
 from google.agents.cli.__init__ import __version__
 from google.agents.cli._output import emit
 from google.agents.cli._project import (
@@ -35,6 +37,13 @@ from google.agents.cli.extension._loader import ExtensionSet, load_extension_set
 from google.agents.cli.extension._paths import user_config_root
 
 _CLI_INSTALL_PATH = str(Path(_cli_pkg.__file__).parent)
+
+
+def _telemetry_status(enabled: bool) -> str:
+    """Human-readable telemetry state + how to change it."""
+    if enabled:
+        return "enabled (opt out with AGENTS_CLI_TELEMETRY=0 or DO_NOT_TRACK=1)"
+    return "disabled"
 
 
 def _print_extensions(extension_set: ExtensionSet) -> None:
@@ -92,25 +101,32 @@ def cmd_info(as_json: bool) -> None:
     installed_skills = get_installed_skills()
     project_root = find_project_root()
     os_info = platform.platform()
+    # Telemetry is experimental: only surface it in `info` while the experiment
+    # is active. When off, the feature is invisible here entirely.
+    show_telemetry = _telemetry.is_experiment_enabled()
+    telemetry_enabled = _telemetry.is_telemetry_enabled()
     extension_set = load_extension_set(project_root, user_config_root())
     if project_root is None:
         if as_json:
-            emit(
-                {
-                    "cli_version": __version__,
-                    "cli_install_path": _CLI_INSTALL_PATH,
-                    "os_info": os_info,
-                    "installed_skills": installed_skills,
-                    "project": None,
-                    "extensions": extension_set.command_rows(),
-                    "extension_conflicts": extension_set.conflict_rows(),
-                    "extension_incompatible": extension_set.incompatible_rows(),
-                }
-            )
+            payload: dict[str, Any] = {
+                "cli_version": __version__,
+                "cli_install_path": _CLI_INSTALL_PATH,
+                "os_info": os_info,
+                "installed_skills": installed_skills,
+                "project": None,
+                "extensions": extension_set.command_rows(),
+                "extension_conflicts": extension_set.conflict_rows(),
+                "extension_incompatible": extension_set.incompatible_rows(),
+            }
+            if show_telemetry:
+                payload["telemetry_enabled"] = telemetry_enabled
+            emit(payload)
         else:
             click.echo(f"CLI version:        {__version__}")
             click.echo(f"CLI install path:   {_CLI_INSTALL_PATH}")
             click.echo(f"OS info:            {os_info}")
+            if show_telemetry:
+                click.echo(f"Telemetry:          {_telemetry_status(telemetry_enabled)}")
             _print_installed_skills(installed_skills)
             _print_extensions(extension_set)
             click.echo()
@@ -139,6 +155,8 @@ def cmd_info(as_json: bool) -> None:
         "extension_conflicts": extension_set.conflict_rows(),
         "extension_incompatible": extension_set.incompatible_rows(),
     }
+    if show_telemetry:
+        info["telemetry_enabled"] = telemetry_enabled
 
     if as_json:
         emit(info)
@@ -147,6 +165,8 @@ def cmd_info(as_json: bool) -> None:
     click.echo(f"CLI version:        {__version__}")
     click.echo(f"CLI install path:   {_CLI_INSTALL_PATH}")
     click.echo(f"OS info:            {os_info}")
+    if show_telemetry:
+        click.echo(f"Telemetry:          {_telemetry_status(telemetry_enabled)}")
     _print_installed_skills(installed_skills)
     click.echo()
     click.echo(f"Project root:       {project_root}")

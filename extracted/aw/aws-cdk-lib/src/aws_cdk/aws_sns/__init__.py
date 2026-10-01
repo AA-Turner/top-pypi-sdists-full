@@ -1206,6 +1206,7 @@ class CfnTopic(
             fifo_throughput_scope="fifoThroughputScope",
             fifo_topic=False,
             kms_master_key_id="kmsMasterKeyId",
+            maximum_message_size=123,
             signature_version="signatureVersion",
             subscription=[sns.CfnTopic.SubscriptionProperty(
                 endpoint="endpoint",
@@ -1233,6 +1234,7 @@ class CfnTopic(
         fifo_throughput_scope: typing.Optional[builtins.str] = None,
         fifo_topic: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
+        maximum_message_size: typing.Optional[jsii.Number] = None,
         signature_version: typing.Optional[builtins.str] = None,
         subscription: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopic.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1251,6 +1253,7 @@ class CfnTopic(
         :param fifo_throughput_scope: Specifies the throughput quota and deduplication behavior to apply for the FIFO topic. Valid values are ``Topic`` or ``MessageGroup`` .
         :param fifo_topic: Set to true to create a FIFO topic.
         :param kms_master_key_id: The ID of an AWS managed customer master key (CMK) for Amazon or a custom CMK. For more information, see `Key terms <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html#sse-key-terms>`_ . For more examples, see ``[KeyId](https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters)`` in the *AWS Key Management Service API Reference* . This property applies only to `server-side-encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html>`_ .
+        :param maximum_message_size: 
         :param signature_version: The signature version corresponds to the hashing algorithm used while creating the signature of the notifications, subscription confirmations, or unsubscribe confirmation messages sent by Amazon SNS. By default, ``SignatureVersion`` is set to ``1`` .
         :param subscription: The Amazon subscriptions (endpoints) for this topic. .. epigraph:: If you specify the ``Subscription`` property in the ``AWS::SNS::Topic`` resource and it creates an associated subscription resource, the associated subscription is not deleted when the ``AWS::SNS::Topic`` resource is deleted.
         :param tags: The list of tags to add to a new topic. .. epigraph:: To be able to tag a topic on creation, you must have the ``sns:CreateTopic`` and ``sns:TagResource`` permissions.
@@ -1270,6 +1273,7 @@ class CfnTopic(
             fifo_throughput_scope=fifo_throughput_scope,
             fifo_topic=fifo_topic,
             kms_master_key_id=kms_master_key_id,
+            maximum_message_size=maximum_message_size,
             signature_version=signature_version,
             subscription=subscription,
             tags=tags,
@@ -1490,6 +1494,18 @@ class CfnTopic(
             type_hints = cached_type_hints(_typecheckingstub__d940f36146ec2822d49a51165f9625c406a6b8add68591ddb68de7681318435b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsMasterKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumMessageSize")
+    def maximum_message_size(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMessageSize"))
+
+    @maximum_message_size.setter
+    def maximum_message_size(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71c9347cdff3495cbdfda41fb4881cabc1ba2994a113ea33690e1e02084fb472)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumMessageSize", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="signatureVersion")
@@ -2191,6 +2207,7 @@ class CfnTopicPolicyProps:
         "fifo_throughput_scope": "fifoThroughputScope",
         "fifo_topic": "fifoTopic",
         "kms_master_key_id": "kmsMasterKeyId",
+        "maximum_message_size": "maximumMessageSize",
         "signature_version": "signatureVersion",
         "subscription": "subscription",
         "tags": "tags",
@@ -2210,6 +2227,7 @@ class CfnTopicProps:
         fifo_throughput_scope: typing.Optional[builtins.str] = None,
         fifo_topic: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_master_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]] = None,
+        maximum_message_size: typing.Optional[jsii.Number] = None,
         signature_version: typing.Optional[builtins.str] = None,
         subscription: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopic.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2226,6 +2244,7 @@ class CfnTopicProps:
         :param fifo_throughput_scope: Specifies the throughput quota and deduplication behavior to apply for the FIFO topic. Valid values are ``Topic`` or ``MessageGroup`` .
         :param fifo_topic: Set to true to create a FIFO topic.
         :param kms_master_key_id: The ID of an AWS managed customer master key (CMK) for Amazon or a custom CMK. For more information, see `Key terms <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html#sse-key-terms>`_ . For more examples, see ``[KeyId](https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters)`` in the *AWS Key Management Service API Reference* . This property applies only to `server-side-encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-server-side-encryption.html>`_ .
+        :param maximum_message_size: 
         :param signature_version: The signature version corresponds to the hashing algorithm used while creating the signature of the notifications, subscription confirmations, or unsubscribe confirmation messages sent by Amazon SNS. By default, ``SignatureVersion`` is set to ``1`` .
         :param subscription: The Amazon subscriptions (endpoints) for this topic. .. epigraph:: If you specify the ``Subscription`` property in the ``AWS::SNS::Topic`` resource and it creates an associated subscription resource, the associated subscription is not deleted when the ``AWS::SNS::Topic`` resource is deleted.
         :param tags: The list of tags to add to a new topic. .. epigraph:: To be able to tag a topic on creation, you must have the ``sns:CreateTopic`` and ``sns:TagResource`` permissions.
@@ -2261,6 +2280,7 @@ class CfnTopicProps:
                 fifo_throughput_scope="fifoThroughputScope",
                 fifo_topic=False,
                 kms_master_key_id="kmsMasterKeyId",
+                maximum_message_size=123,
                 signature_version="signatureVersion",
                 subscription=[sns.CfnTopic.SubscriptionProperty(
                     endpoint="endpoint",
@@ -2284,6 +2304,7 @@ class CfnTopicProps:
             check_type(argname="argument fifo_throughput_scope", value=fifo_throughput_scope, expected_type=type_hints["fifo_throughput_scope"])
             check_type(argname="argument fifo_topic", value=fifo_topic, expected_type=type_hints["fifo_topic"])
             check_type(argname="argument kms_master_key_id", value=kms_master_key_id, expected_type=type_hints["kms_master_key_id"])
+            check_type(argname="argument maximum_message_size", value=maximum_message_size, expected_type=type_hints["maximum_message_size"])
             check_type(argname="argument signature_version", value=signature_version, expected_type=type_hints["signature_version"])
             check_type(argname="argument subscription", value=subscription, expected_type=type_hints["subscription"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2306,6 +2327,8 @@ class CfnTopicProps:
             self._values["fifo_topic"] = fifo_topic
         if kms_master_key_id is not None:
             self._values["kms_master_key_id"] = kms_master_key_id
+        if maximum_message_size is not None:
+            self._values["maximum_message_size"] = maximum_message_size
         if signature_version is not None:
             self._values["signature_version"] = signature_version
         if subscription is not None:
@@ -2422,6 +2445,14 @@ class CfnTopicProps:
         '''
         result = self._values.get("kms_master_key_id")
         return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IAliasRef", "_aws_kms_18db7412.IKeyRef"]], result)
+
+    @builtins.property
+    def maximum_message_size(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sns-topic.html#cfn-sns-topic-maximummessagesize
+        '''
+        result = self._values.get("maximum_message_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def signature_version(self) -> typing.Optional[builtins.str]:
@@ -7518,6 +7549,7 @@ def _typecheckingstub__3c3e689eaa6b740299fa6db2e53acc51021bc5deb0a8dd6d7bc29e8a3
     fifo_throughput_scope: typing.Optional[builtins.str] = None,
     fifo_topic: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_master_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
+    maximum_message_size: typing.Optional[jsii.Number] = None,
     signature_version: typing.Optional[builtins.str] = None,
     subscription: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopic.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7595,6 +7627,12 @@ def _typecheckingstub__2a91ed56c1865e9ea5cd3d8d5ffef0aab07b45ce41c2580607fd14116
 
 def _typecheckingstub__d940f36146ec2822d49a51165f9625c406a6b8add68591ddb68de7681318435b(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71c9347cdff3495cbdfda41fb4881cabc1ba2994a113ea33690e1e02084fb472(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7753,6 +7791,7 @@ def _typecheckingstub__39eaeffb1fed865d99c7cf51cdf720d8471aec20b2163161ef50035fb
     fifo_throughput_scope: typing.Optional[builtins.str] = None,
     fifo_topic: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_master_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IAliasRef, _aws_kms_18db7412.IKeyRef]] = None,
+    maximum_message_size: typing.Optional[jsii.Number] = None,
     signature_version: typing.Optional[builtins.str] = None,
     subscription: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopic.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -1,3 +1,4 @@
+import builtins
 import collections
 import collections.abc
 import decimal
@@ -28,6 +29,7 @@ from typing import (
     Deque,
     Dict,
     FrozenSet,
+    Generic,
     Hashable,
     List,
     Mapping,
@@ -39,11 +41,12 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    TypeVar,
 )
 from zoneinfo import ZoneInfo
 
 import pytest
-from typing_extensions import Final, LiteralString
+from typing_extensions import Buffer, Final, LiteralString, TypedDict
 
 from mashumaro import DataClassDictMixin
 from mashumaro.codecs import BasicDecoder, BasicEncoder
@@ -132,6 +135,7 @@ class Fixture:
     BYTES = b"123"
     BYTES_BASE64 = "MTIz\n"
     BYTE_ARRAY = bytearray(b"123")
+    MEMORY_VIEW = memoryview(b"123")
     STR = "123"
     ENUM = MyEnum.a
     INT_ENUM = MyIntEnum.a
@@ -151,6 +155,8 @@ class Fixture:
     TIME_STR = "12:46:55.308495"
     TIMEDELTA = timedelta(3.14159265358979323846)
     TIMEZONE = timezone(timedelta(hours=3))
+    SLICE = slice(0, 5, 2)
+    SLICE_DUMPED = [0, 5, 2]
     UUID = uuid.UUID("3c25dd74-f208-46a2-9606-dd3919e975b7")
     UUID_STR = "3c25dd74-f208-46a2-9606-dd3919e975b7"
     IP4ADDRESS_STR = "127.0.0.1"
@@ -253,6 +259,8 @@ inner_values = [
     (collections.abc.MutableSequence, Fixture.LIST, Fixture.LIST),
     (bytes, Fixture.BYTES, Fixture.BYTES_BASE64),
     (bytearray, Fixture.BYTE_ARRAY, Fixture.BYTES_BASE64),
+    (memoryview, Fixture.MEMORY_VIEW, Fixture.BYTES_BASE64),
+    (Buffer, Fixture.BYTES, Fixture.BYTES_BASE64),
     (str, Fixture.STR, Fixture.STR),
     (MyEnum, Fixture.ENUM, Fixture.ENUM.value),
     (MyStrEnum, Fixture.STR_ENUM, Fixture.STR_ENUM.value),
@@ -269,6 +277,7 @@ inner_values = [
     (time, Fixture.TIME, Fixture.TIME_STR),
     (timedelta, Fixture.TIMEDELTA, Fixture.TIMEDELTA.total_seconds()),
     (timezone, Fixture.TIMEZONE, "UTC+03:00"),
+    (slice, Fixture.SLICE, Fixture.SLICE_DUMPED),
     (ZoneInfo, ZoneInfo("Europe/Moscow"), "Europe/Moscow"),
     (uuid.UUID, Fixture.UUID, Fixture.UUID_STR),
     (ipaddress.IPv4Address, Fixture.IP4ADDRESS, Fixture.IP4ADDRESS_STR),
@@ -477,6 +486,20 @@ def test_one_level(value_info):
     assert instance_loaded == instance
     assert same_types(instance_dumped, dumped)
     assert same_types(instance_loaded.x, x_value)
+
+
+@pytest.mark.parametrize(
+    "value", [b"123", bytearray(b"123"), memoryview(b"123")]
+)
+def test_buffer(value):
+    @dataclass
+    class DataClass(DataClassDictMixin):
+        x: Buffer
+
+    assert DataClass(value).to_dict() == {"x": Fixture.BYTES_BASE64}
+    loaded = DataClass.from_dict({"x": Fixture.BYTES_BASE64})
+    assert loaded.x == Fixture.BYTES
+    assert type(loaded.x) is bytes
 
 
 @pytest.mark.parametrize("value_info", inner_values)
@@ -697,19 +720,21 @@ def test_with_optional(value_info):
     @dataclass
     class DataClass(DataClassDictMixin):
         x: Optional[x_type] = None
+        xx: x_type | None = None
 
-    for instance in [DataClass(x_value), DataClass()]:
+    for instance in [DataClass(x_value, x_value), DataClass()]:
         if instance.x is None:
             v_dumped = None
         else:
             v_dumped = x_value_dumped
-        dumped = {"x": v_dumped}
+        dumped = {"x": v_dumped, "xx": v_dumped}
         instance_dumped = instance.to_dict()
         instance_loaded = DataClass.from_dict(dumped)
         assert instance_dumped == dumped
         assert instance_loaded == instance
         assert same_types(instance_dumped, dumped)
         assert same_types(instance_loaded.x, instance.x)
+        assert same_types(instance_loaded.xx, instance.xx)
 
 
 def test_raises_missing_field():
@@ -760,7 +785,7 @@ def test_rounded_decimal(places, rounding):
                 decimal.Decimal: RoundedDecimal(places, rounding)
             }
 
-    digit = decimal.Decimal(0.35)
+    digit = decimal.Decimal("0.35")
     if places is not None:
         exp = decimal.Decimal((0, (1,), -places))
         quantized = digit.quantize(exp, rounding)
@@ -979,7 +1004,7 @@ def test_invalid_field_value_deserialization_with_rounded_decimal_with_default()
     ],
 )
 def test_serialize_deserialize_options(value_info):
-    x_type, x_value, x_value_dumped = value_info
+    x_type, x_value, _x_value_dumped = value_info
 
     @dataclass
     class DataClass(DataClassDictMixin):
@@ -1399,6 +1424,47 @@ def test_bound_generic_typed_dict():
     assert encoder.encode(obj) == {"x": {"x": "2023-01-22", "y": 42}}
 
 
+def test_inherited_bound_generic_typed_dict():
+    T = TypeVar("T")
+
+    class Base(TypedDict, Generic[T]):
+        value: T
+
+    class Intermediate(Base[list[T]], Generic[T]):
+        pass
+
+    class Child(Intermediate[date]):
+        pass
+
+    class OptionalBase(TypedDict, Generic[T], total=False):
+        optional: T
+
+    @dataclass
+    class DataClass(DataClassDictMixin):
+        child: Child
+        optional: OptionalBase[date]
+
+    obj = DataClass(
+        child={"value": [date(2023, 1, 22)]},
+        optional={"optional": date(2024, 2, 23)},
+    )
+    dumped = {
+        "child": {"value": ["2023-01-22"]},
+        "optional": {"optional": "2024-02-23"},
+    }
+
+    assert DataClass.from_dict(dumped) == obj
+    assert obj.to_dict() == dumped
+
+    decoder = BasicDecoder(DataClass)
+    encoder = BasicEncoder(DataClass)
+    assert decoder.decode(dumped) == obj
+    assert encoder.encode(obj) == dumped
+
+    missing_optional = {"child": {"value": ["2023-01-22"]}, "optional": {}}
+    assert decoder.decode(missing_optional).optional == {}
+
+
 def test_dataclass_with_init_false_field():
     @dataclass
     class DataClass(DataClassDictMixin):
@@ -1472,6 +1538,24 @@ def test_dataclass_with_default_int_flag_omit_default():
 
     assert DataClass().to_dict() == {}
     assert DataClass(MyIntFlag.a, MyIntFlag.b).to_dict() == {}
+
+
+@pytest.mark.skipif(
+    not hasattr(builtins, "frozendict"), reason="requires Python 3.15"
+)
+def test_builtin_frozendict():
+    frozendict = builtins.frozendict
+    shape_type = frozendict[str, int]
+    value = frozendict({"a": 1, "b": 2})
+
+    assert BasicEncoder(shape_type).encode(value) == {"a": 1, "b": 2}
+    loaded = BasicDecoder(shape_type).decode({"a": 1, "b": 2})
+    assert loaded == value
+    assert type(loaded) is frozendict
+
+    untyped = BasicDecoder(frozendict).decode({"a": 1})
+    assert untyped == frozendict({"a": 1})
+    assert type(untyped) is frozendict
 
 
 @pytest.mark.parametrize("value_info", inner_values)

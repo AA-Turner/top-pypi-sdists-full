@@ -7217,6 +7217,7 @@ class CfnEventSourceMapping(
             ),
             self_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
                 consumer_group_id="consumerGroupId",
+                consumption_mode="consumptionMode",
                 schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
                     access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
                         type="type",
@@ -8944,6 +8945,7 @@ class CfnEventSourceMapping(
         jsii_struct_bases=[],
         name_mapping={
             "consumer_group_id": "consumerGroupId",
+            "consumption_mode": "consumptionMode",
             "schema_registry_config": "schemaRegistryConfig",
         },
     )
@@ -8952,11 +8954,13 @@ class CfnEventSourceMapping(
             self,
             *,
             consumer_group_id: typing.Optional[builtins.str] = None,
+            consumption_mode: typing.Optional[builtins.str] = None,
             schema_registry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEventSourceMapping.SchemaRegistryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specific configuration settings for a self-managed Apache Kafka event source.
 
             :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka-process.html#services-smaa-topic-add>`_ .
+            :param consumption_mode: The mode that determines how Lambda reads from a Kafka topic. Use Stream for ordered processing or Queue for higher throughput when ordering is not required.
             :param schema_registry_config: Specific configuration settings for a Kafka schema registry.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
@@ -8970,6 +8974,7 @@ class CfnEventSourceMapping(
                 
                 self_managed_kafka_event_source_config_property = lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
                     consumer_group_id="consumerGroupId",
+                    consumption_mode="consumptionMode",
                     schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
                         access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
                             type="type",
@@ -8986,10 +8991,13 @@ class CfnEventSourceMapping(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__da32c0d6c5c0b8e4a97d90195ff7f689e87587b466dc192a0b2972c1b6740d3d)
                 check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
+                check_type(argname="argument consumption_mode", value=consumption_mode, expected_type=type_hints["consumption_mode"])
                 check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if consumer_group_id is not None:
                 self._values["consumer_group_id"] = consumer_group_id
+            if consumption_mode is not None:
+                self._values["consumption_mode"] = consumption_mode
             if schema_registry_config is not None:
                 self._values["schema_registry_config"] = schema_registry_config
 
@@ -9002,6 +9010,17 @@ class CfnEventSourceMapping(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html#cfn-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig-consumergroupid
             '''
             result = self._values.get("consumer_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def consumption_mode(self) -> typing.Optional[builtins.str]:
+            '''The mode that determines how Lambda reads from a Kafka topic.
+
+            Use Stream for ordered processing or Queue for higher throughput when ordering is not required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html#cfn-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig-consumptionmode
+            '''
+            result = self._values.get("consumption_mode")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -9282,6 +9301,7 @@ class CfnEventSourceMappingProps:
                 ),
                 self_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
                     consumer_group_id="consumerGroupId",
+                    consumption_mode="consumptionMode",
                     schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
                         access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
                             type="type",
@@ -11186,7 +11206,7 @@ class CfnFunction(
 
             :param arn: The Amazon Resource Name (ARN) of the Amazon EFS access point that provides access to the file system.
             :param local_mount_path: The path where the function can access the file system, starting with ``/mnt/`` .
-            :param s3_files_config: 
+            :param s3_files_config: Setting controls how your function accesses data from an Amazon S3 file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-filesystemconfig.html
             :exampleMetadata: fixture=_generated
@@ -11243,7 +11263,8 @@ class CfnFunction(
         def s3_files_config(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.S3FilesConfigProperty"]]:
-            '''
+            '''Setting controls how your function accesses data from an Amazon S3 file system.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-filesystemconfig.html#cfn-lambda-function-filesystemconfig-s3filesconfig
             '''
             result = self._values.get("s3_files_config")
@@ -11738,8 +11759,9 @@ class CfnFunction(
             *,
             direct_s3_read: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param direct_s3_read: Specifies if a function reads from the file system for the lowest latency, or through Amazon S3 Files feature "direct Amazon S3 bucket reads" for the highest throughput.
+            '''Setting controls how your function accesses data from an Amazon S3 file system.
+
+            :param direct_s3_read: Specifies if a function reads from the file system for the lowest latency, or through Amazon S3 Files feature "direct Amazon S3 bucket reads" for the highest throughput. Valid values: - ``AUTO`` (default) – Direct reads are active for functions you configure with 512 MB or more of memory. - ``ENABLED`` – Enforces all reads are directly from the Amazon S3 bucket, regardless of available memory (less than 512 MB). - ``DISABLED`` – Routes all reads through the file system, regardless of memory configuration. To use direct reads, you must grant the execution role the ``s3:GetObject`` and ``s3:GetObjectVersion`` permissions. If a direct read fails, Lambda automatically falls back to reading through the file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-s3filesconfig.html
             :exampleMetadata: fixture=_generated
@@ -11764,6 +11786,14 @@ class CfnFunction(
         @builtins.property
         def direct_s3_read(self) -> typing.Optional[builtins.str]:
             '''Specifies if a function reads from the file system for the lowest latency, or through Amazon S3 Files feature "direct Amazon S3 bucket reads" for the highest throughput.
+
+            Valid values:
+
+            - ``AUTO`` (default) – Direct reads are active for functions you configure with 512 MB or more of memory.
+            - ``ENABLED`` – Enforces all reads are directly from the Amazon S3 bucket, regardless of available memory (less than 512 MB).
+            - ``DISABLED`` – Routes all reads through the file system, regardless of memory configuration.
+
+            To use direct reads, you must grant the execution role the ``s3:GetObject`` and ``s3:GetObjectVersion`` permissions. If a direct read fails, Lambda automatically falls back to reading through the file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-s3filesconfig.html#cfn-lambda-function-s3filesconfig-directs3read
             '''
@@ -16314,7 +16344,7 @@ class CfnResourcePolicy(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param policy_document: The policy document you want to add to your LAM resource. This is formatted as a JSON string. For more information, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
-        :param resource_arn: The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to. For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
+        :param resource_arn: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0d757597efb0a34c4403ed42d8fb86bd812be37571f27a4a825572982775554)
@@ -16400,7 +16430,6 @@ class CfnResourcePolicy(
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
     def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to.'''
         return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
 
     @resource_arn.setter
@@ -16426,7 +16455,7 @@ class CfnResourcePolicyProps:
         '''Properties for defining a ``CfnResourcePolicy``.
 
         :param policy_document: The policy document you want to add to your LAM resource. This is formatted as a JSON string. For more information, see `Working with resource-based policies in <https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html>`_ in the *Developer Guide*.
-        :param resource_arn: The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to. For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
+        :param resource_arn: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html
         :exampleMetadata: fixture=_generated
@@ -16468,10 +16497,7 @@ class CfnResourcePolicyProps:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the LAM resource you want to add the policy to.
-
-        For a function, you can use a qualified or an unqualified ARN. The value must be a complete ARN, and the operation does not accept wildcard characters.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html#cfn-lambda-resourcepolicy-resourcearn
         '''
         result = self._values.get("resource_arn")
@@ -39613,6 +39639,7 @@ def _typecheckingstub__a93b51262658dc9dfd71e073cc42d4549a6e56e4c3b47edd31d26c3a4
 def _typecheckingstub__da32c0d6c5c0b8e4a97d90195ff7f689e87587b466dc192a0b2972c1b6740d3d(
     *,
     consumer_group_id: typing.Optional[builtins.str] = None,
+    consumption_mode: typing.Optional[builtins.str] = None,
     schema_registry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventSourceMapping.SchemaRegistryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

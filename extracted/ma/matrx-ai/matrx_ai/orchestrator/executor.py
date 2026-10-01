@@ -913,6 +913,62 @@ async def _suspend_for_delegation(
     )
 
 
+async def _stop_for_candidate(
+    *,
+    exec_ctx: Any,
+    state: ExecutionState,
+    current_request: AIMatrixRequest,
+    response: UnifiedResponse,
+    iteration: int,
+    stopped_at: dict[str, Any],
+    trigger_position: int,
+    pre_execution_message_count: int,
+    debug: bool,
+) -> CompletedRequest:
+    """End a mandate-candidate run TERMINALLY at a contained call.
+
+    Not a failure, not a suspension: the candidate reached a call it may not
+    make (PLAN.md P3). Nothing resumes it and the stopped call was never
+    answered. ``CompletedRequest.metadata`` carries ``status="candidate_stopped"``,
+    ``candidate_stopped`` (the §2.1 ``stopped_at``) and ``tool_dispositions``
+    (stamped by ``_finalize_and_persist`` for every candidate exit).
+    """
+    from matrx_ai.tools.candidate_containment import CANDIDATE_STOPPED_STATUS
+
+    metadata: dict[str, Any] = {
+        "status": CANDIDATE_STOPPED_STATUS,
+        CANDIDATE_STOPPED_STATUS: stopped_at,
+        "iteration": iteration,
+    }
+    await exec_ctx.emitter.send_phase("complete")
+    await exec_ctx.emitter.send_info(
+        InfoPayload(
+            code=CANDIDATE_STOPPED_STATUS,
+            system_message=(
+                f"Candidate run stopped at step {stopped_at.get('step')}: "
+                f"{stopped_at.get('tool')} ({stopped_at.get('class')}) was not executed."
+            ),
+            user_message="",
+            metadata={
+                "iteration": iteration,
+                "will_continue": False,
+                "status": CANDIDATE_STOPPED_STATUS,
+                "stopped_at": stopped_at,
+            },
+        )
+    )
+    return await _finalize_and_persist(
+        current_request=current_request,
+        iteration=iteration,
+        final_response=response,
+        metadata=metadata,
+        trigger_position=trigger_position,
+        pre_execution_message_count=pre_execution_message_count,
+        debug=debug,
+        state=state,
+    )
+
+
 def _resolve_allowed_tools(config: UnifiedConfig) -> frozenset[str] | None:
     """Return the set of tool names that were actually sent to the model.
 
@@ -2328,6 +2384,18 @@ async def _finalize_and_persist(
 
     await ensure_pricing_lookup()
 
+    # Mandate-candidate runs expose what containment decided on EVERY exit
+    # (completed, failed, stopped): the executor lane records these on the pair.
+    from matrx_ai.tools.candidate_containment import candidate_outcome
+
+    _candidate = candidate_outcome()
+    if _candidate is not None:
+        metadata = {**metadata}
+        metadata.setdefault("tool_dispositions", _candidate["tool_dispositions"])
+        for _key, _value in _candidate.items():
+            if _key != "tool_dispositions" and _value is not None:
+                metadata.setdefault(_key, _value)
+
     completed = CompletedRequest(
         request=current_request,
         total_usage=current_request.total_usage,
@@ -3002,6 +3070,14 @@ async def _apply_output_directive_if_present(parsed: Any) -> None:
 
         ctx = try_get_app_context()
         if ctx is None:
+            return
+
+        # 🚨 A MANDATE CANDIDATE NEVER APPLIES ITS OUTPUT (PLAN P3/P14). An
+        # ``__matrx_apply`` envelope creates real rows; a candidate's answer is
+        # recorded on its pair and compared, never acted on.
+        from matrx_graph.candidate import candidate_marker
+
+        if candidate_marker(getattr(ctx, "metadata", None)) is not None:
             return
 
         await dispatcher(parsed=parsed, ctx=ctx)
@@ -4562,37 +4638,44 @@ async def _execute_until_complete_inner(
                 # tokens is skipped (`cache_protect`). Never call
                 # trim_messages_context — or add a new shaping step — anywhere
                 # but config/send_boundary.py; the guard test enforces it.
-                from matrx_ai.config.send_boundary import STAGE_LOOP, prepare_for_send
+                #
+                # ── SEND ONCE ─────────────────────────────────────────────
+                # The boundary, the provider execute, the capture and the
+                # restore are ONE shared step (orchestrator/send_once.py) —
+                # the same step Hindsight's wire replay re-issues a recorded
+                # call through, so a replay runs exactly the code the original
+                # did. Never call client.execute anywhere else
+                # (tests/test_send_once_guard.py).
+                from matrx_ai.orchestrator.send_once import send_once
 
-                _send_prep = await prepare_for_send(
-                    current_request.config,
-                    stage=STAGE_LOOP,
-                    conversation_id=current_request.conversation_id,
-                    request_id=current_request.request_id,
-                    iteration=iteration,
-                    organization_id=getattr(current_request, "organization_id", None),
-                )
-
-                _wire_config = _send_prep.wire_config
-                _orig_config = current_request.config
-                if _wire_config is not None:
-                    current_request.config = _wire_config
-                chat_timing_mark("wire_config_built", "build_wire_config complete")
-                chat_timing_mark(
-                    "pre_provider_execute",
-                    "calling UnifiedAIClient.execute",
-                )
-                from matrx_connect.request_latency import mark_first_provider_call
-
-                mark_first_provider_call()
-                try:
+                async def _stoppable(call: Any) -> Any:
                     async with buffer_error_events():
-                        api_response: UnifiedResponse = await _execute_stoppable(
-                            client.execute(current_request), request_control_id
+                        return await _execute_stoppable(call, request_control_id)
+
+                async def _on_provider_error(_provider_exc: Exception) -> None:
+                    await _write_request_snapshot_on_failure(
+                        exec_ctx=exec_ctx,
+                        iteration=iteration,
+                        current_request=current_request,
+                        state=state,
+                        error=_provider_exc,
+                        trigger_position=trigger_position,
+                        first_assistant_position=first_assistant_position,
+                    )
+
+                try:
+                    api_response: UnifiedResponse = (
+                        await send_once(
+                            client,
+                            current_request,
+                            state=state,
+                            iteration=iteration,
+                            around=_stoppable,
+                            stop_exceptions=(ProviderCallStopped,),
+                            on_provider_error=_on_provider_error,
                         )
+                    ).response
                 except ProviderCallStopped as _stopped:
-                    if _wire_config is not None:
-                        current_request.config = _orig_config
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
@@ -4616,30 +4699,6 @@ async def _execute_until_complete_inner(
                         debug=debug,
                         state=state,
                     )
-                except Exception as _provider_exc:
-                    if _wire_config is not None:
-                        current_request.config = _orig_config
-                        # Redact (values → their placeholder/fence keys) instead
-                        # of dropping — a reference-heavy request keeps a
-                        # debuggable payload; fail-closed → None (dropped).
-                        from matrx_ai.config.picklist_runtime import redact_wire_payload
-
-                        state.snapshot_payload = redact_wire_payload(state.snapshot_payload)
-                    await _write_request_snapshot_on_failure(
-                        exec_ctx=exec_ctx,
-                        iteration=iteration,
-                        current_request=current_request,
-                        state=state,
-                        error=_provider_exc,
-                        trigger_position=trigger_position,
-                        first_assistant_position=first_assistant_position,
-                    )
-                    raise
-                if _wire_config is not None:
-                    current_request.config = _orig_config
-                    from matrx_ai.config.picklist_runtime import redact_wire_payload
-
-                    state.snapshot_payload = redact_wire_payload(state.snapshot_payload)
                 chat_timing_mark(
                     "provider_execute_complete",
                     "UnifiedAIClient.execute complete",
@@ -6149,6 +6208,27 @@ async def _execute_until_complete_inner(
                     response=response,
                     iteration=iteration,
                     pending_call_ids=pending_call_ids,
+                    trigger_position=trigger_position,
+                    pre_execution_message_count=pre_execution_message_count,
+                    debug=debug,
+                )
+
+            # ── MANDATE-CANDIDATE STOP (terminal) ──────────────────────────
+            # A contained call in this batch (or in a child run under it) was
+            # stopped before it could act. The turn above committed what DID
+            # happen; the run ends here — no stopped call was answered, and
+            # nothing resumes it (this is not the delegation suspend).
+            from matrx_ai.tools.candidate_containment import candidate_stop
+
+            _candidate_stopped_at = candidate_stop()
+            if _candidate_stopped_at is not None:
+                return await _stop_for_candidate(
+                    exec_ctx=exec_ctx,
+                    state=state,
+                    current_request=current_request,
+                    response=response,
+                    iteration=iteration,
+                    stopped_at=_candidate_stopped_at,
                     trigger_position=trigger_position,
                     pre_execution_message_count=pre_execution_message_count,
                     debug=debug,

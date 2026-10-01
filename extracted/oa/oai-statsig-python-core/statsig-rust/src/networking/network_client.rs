@@ -1,5 +1,6 @@
 use chrono::Utc;
 
+use super::http2::http2_enabled;
 use super::network_error::NetworkError;
 use super::providers::get_network_provider;
 use super::{
@@ -52,6 +53,7 @@ pub struct NetworkClient {
     disable_file_streaming: bool,
     log_event_connection_reuse: bool,
     loggable_sdk_key: String,
+    http2_enabled: bool,
 }
 
 impl NetworkClient {
@@ -120,6 +122,7 @@ impl NetworkClient {
                 .unwrap_or(false),
             log_event_connection_reuse,
             loggable_sdk_key: get_loggable_sdk_key(sdk_key),
+            http2_enabled: http2_enabled(options),
         }
     }
 
@@ -211,6 +214,7 @@ impl NetworkClient {
         if let Some(proxy_config) = &self.proxy_config {
             request_args.proxy_config = Some(proxy_config.clone());
         }
+
         let mut attempt = 0;
 
         loop {
@@ -230,6 +234,15 @@ impl NetworkClient {
             let request_start = Instant::now();
             let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
                 match self.net_provider.upgrade() {
+                    Some(net_provider) if self.http2_enabled => net_provider
+                            .send_http2_preferred(
+                                &method,
+                                &request_args,
+                                max_response_bytes,
+                                disable_redirects,
+                            )
+                            .await
+                            .into_parts(),
                     Some(net_provider) => match (max_response_bytes, disable_redirects) {
                         (Some(max_response_bytes), _) => net_provider
                             .send_with_response_limit(&method, &request_args, max_response_bytes)
@@ -287,8 +300,10 @@ impl NetworkClient {
                 && !response_limit_unsupported
                 && (200..300).contains(&status.unwrap_or(0))
                 && (max_response_bytes.is_none() || response.error.is_none());
-            let duration_ms = request_start.elapsed().as_millis() as f64;
-            self.log_network_request_latency_to_ob(&request_args, status, success, duration_ms);
+            if !response_limit_unsupported {
+                let duration_ms = request_start.elapsed().as_millis() as f64;
+                self.log_network_request_latency_to_ob(&request_args, status, success, duration_ms);
+            }
 
             if let Some(key) = request_args.diagnostics_key {
                 let mut end_marker =
@@ -540,7 +555,16 @@ fn get_error_message_for_status(
 }
 
 #[cfg(test)]
+#[path = "__tests__/network_client_latency_tests.rs"]
+mod latency_tests;
+
+#[cfg(test)]
+#[path = "__tests__/network_client_http2_tests.rs"]
+mod http2_tests;
+
+#[cfg(test)]
 mod tests {
+    use super::latency_tests::take_network_latencies;
     use super::{
         DELTAS_USED_TAG, ID_LIST_FILE_ID_TAG, NetworkClient, REQUEST_PATH_TAG, STATUS_CODE_TAG,
         get_network_error_extra_tags, get_network_request_latency_tags, get_request_path,
@@ -551,6 +575,7 @@ mod tests {
         ResponseLimitOutcome, get_source_service_and_request_path,
         should_log_network_request_latency,
     };
+    use crate::observability::ops_stats::OpsStatsForInstance;
     use async_trait::async_trait;
     use std::sync::{
         Arc,
@@ -628,11 +653,13 @@ mod tests {
         let network_provider: Arc<dyn NetworkProvider> = provider.clone();
         let mut client = NetworkClient::new("secret-test", None, None);
         client.net_provider = Arc::downgrade(&network_provider);
+        client.ops_stats = Arc::new(OpsStatsForInstance::new());
+        let mut metrics = client.ops_stats.subscribe_for_test();
 
         let response = client
             .get_with_response_limit(
                 RequestArgs {
-                    url: "https://example.com/remote-value".to_string(),
+                    url: "https://statsigcdn.openai.com/v1/dynamic_config_value/retry".to_string(),
                     retries: 1,
                     ..RequestArgs::new()
                 },
@@ -643,6 +670,13 @@ mod tests {
 
         assert!(response.data.is_some());
         assert_eq!(provider.attempts.load(Ordering::SeqCst), 2);
+        let latencies = take_network_latencies(&mut metrics);
+        assert_eq!(latencies.len(), 2);
+        for (event, success) in latencies.iter().zip(["false", "true"]) {
+            let tags = event.tags.as_ref().unwrap();
+            assert_eq!(tags[STATUS_CODE_TAG], "200");
+            assert_eq!(tags[super::IS_SUCCESS_TAG], success);
+        }
     }
 
     #[tokio::test]
@@ -672,71 +706,6 @@ mod tests {
         assert_eq!(provider.limited_calls.load(Ordering::SeqCst), 1);
     }
 
-    #[cfg(not(feature = "custom_network_provider"))]
-    #[tokio::test]
-    async fn response_limited_blob_urls_retry_oversized_errors() {
-        use crate::networking::providers::net_provider_reqwest::NetworkProviderReqwest;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
-
-        let server = MockServer::start().await;
-        Mock::given(method("GET"))
-            .and(path("/v1/dynamic_config_value/retry"))
-            .respond_with(ResponseTemplate::new(500).set_body_bytes(b"temporary upstream failure"))
-            .up_to_n_times(1)
-            .with_priority(1)
-            .expect(1)
-            .mount(&server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/v1/dynamic_config_value/retry"))
-            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"retry"))
-            .with_priority(2)
-            .expect(1)
-            .mount(&server)
-            .await;
-        let network_provider: Arc<dyn NetworkProvider> = Arc::new(NetworkProviderReqwest::new());
-        let mut client = NetworkClient::new("secret-test", None, None);
-        client.net_provider = Arc::downgrade(&network_provider);
-
-        let retry_response = client
-            .get_with_response_limit(
-                RequestArgs {
-                    url: format!("{}/v1/dynamic_config_value/retry", server.uri()),
-                    retries: 1,
-                    ..RequestArgs::new()
-                },
-                5,
-            )
-            .await
-            .expect("retrying blob request should succeed");
-        assert_eq!(retry_response.status_code, Some(200));
-
-        Mock::given(method("GET"))
-            .and(path("/v1/dynamic_config_value/oversized-success"))
-            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"too-large"))
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let oversized_success = client
-            .get_with_response_limit(
-                RequestArgs {
-                    url: format!("{}/v1/dynamic_config_value/oversized-success", server.uri()),
-                    retries: 1,
-                    ..RequestArgs::new()
-                },
-                5,
-            )
-            .await;
-        assert!(matches!(
-            oversized_success,
-            Err(NetworkError::RequestNotRetryable(_, Some(200), _))
-        ));
-
-        server.verify().await;
-    }
-
     #[test]
     fn test_log_event_connection_reuse_defaults_to_true() {
         assert!(NetworkClient::new("secret-test", None, None).log_event_connection_reuse);
@@ -756,6 +725,14 @@ mod tests {
 
     #[test]
     fn test_get_request_path_with_sample_urls() {
+        for hash in ["a".repeat(64), "b".repeat(64)] {
+            assert_eq!(
+                get_request_path(&format!(
+                    "https://statsigcdn.openai.com/v1/dynamic_config_value/{hash}?token=private#fragment"
+                )),
+                "/v1/dynamic_config_value"
+            );
+        }
         assert_eq!(
             get_request_path(
                 "https://statsigcdn.openai.com/v1/download_id_list_file/3wHgh0FhoQH0p"
@@ -787,6 +764,15 @@ mod tests {
     #[test]
     fn test_should_log_network_request_latency_for_supported_endpoints() {
         assert!(should_log_network_request_latency(
+            "http://statsig-forward-proxy/v1/dynamic_config_value/blob-sha"
+        ));
+        assert!(!should_log_network_request_latency(
+            "https://statsigcdn.openai.com/v1/dynamic_config_values/blob-sha"
+        ));
+        assert!(!should_log_network_request_latency(
+            "https://statsigcdn.openai.com/unknown?path=/v1/dynamic_config_value/blob-sha"
+        ));
+        assert!(should_log_network_request_latency(
             "https://api.oaistatsig.com/v1/log_event"
         ));
         assert!(!should_log_network_request_latency(
@@ -810,6 +796,14 @@ mod tests {
         );
         assert_eq!(source_service, "http://127.0.0.1:12345/mock-uuid");
         assert_eq!(request_path, "/v2/download_config_specs");
+
+        for endpoint in ["dynamic_config_value", "download_config_specs"] {
+            let (source_service, request_path) = get_source_service_and_request_path(&format!(
+                "https://user:password@statsig-forward-proxy/proxy/v1/{endpoint}/blob-sha?token=private#fragment"
+            ));
+            assert_eq!(source_service, "https://statsig-forward-proxy/proxy");
+            assert_eq!(request_path, format!("/v1/{endpoint}"));
+        }
     }
 
     #[test]

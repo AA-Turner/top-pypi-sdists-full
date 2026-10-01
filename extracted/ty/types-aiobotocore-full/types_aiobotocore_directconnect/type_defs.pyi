@@ -25,6 +25,7 @@ from .literals import (
     AsPathTypeType,
     BGPPeerStateType,
     BGPStatusType,
+    BillingModeType,
     ConnectionStateType,
     DirectConnectGatewayAssociationProposalStateType,
     DirectConnectGatewayAssociationStateType,
@@ -36,6 +37,10 @@ from .literals import (
     InterconnectStateType,
     LagStateType,
     NniPartnerTypeType,
+    RequestBillingModeType,
+    ResiliencyGroupAssociationStateType,
+    ResiliencyGroupStateType,
+    ResiliencyModelType,
     RouteDirectionType,
     VirtualInterfaceStateType,
 )
@@ -56,12 +61,15 @@ __all__ = (
     "AllocateTransitVirtualInterfaceResultTypeDef",
     "AsPathSegmentTypeDef",
     "AssociateConnectionWithLagRequestTypeDef",
+    "AssociateConnectionsToResiliencyGroupRequestTypeDef",
+    "AssociateConnectionsToResiliencyGroupResultTypeDef",
     "AssociateHostedConnectionRequestTypeDef",
     "AssociateMacSecKeyRequestTypeDef",
     "AssociateMacSecKeyResponseTypeDef",
     "AssociateVirtualInterfaceRequestTypeDef",
     "AssociatedCoreNetworkTypeDef",
     "AssociatedGatewayTypeDef",
+    "AvailableBillingModeTypeDef",
     "BGPPeerTypeDef",
     "ConfirmConnectionRequestTypeDef",
     "ConfirmConnectionResponseTypeDef",
@@ -89,6 +97,8 @@ __all__ = (
     "CreateLagRequestTypeDef",
     "CreatePrivateVirtualInterfaceRequestTypeDef",
     "CreatePublicVirtualInterfaceRequestTypeDef",
+    "CreateResiliencyGroupRequestTypeDef",
+    "CreateResiliencyGroupResultTypeDef",
     "CreateTransitVirtualInterfaceRequestTypeDef",
     "CreateTransitVirtualInterfaceResultTypeDef",
     "CustomerAgreementTypeDef",
@@ -104,6 +114,8 @@ __all__ = (
     "DeleteInterconnectRequestTypeDef",
     "DeleteInterconnectResponseTypeDef",
     "DeleteLagRequestTypeDef",
+    "DeleteResiliencyGroupRequestTypeDef",
+    "DeleteResiliencyGroupResultTypeDef",
     "DeleteVirtualInterfaceRequestTypeDef",
     "DeleteVirtualInterfaceResponseTypeDef",
     "DescribeConnectionLoaRequestTypeDef",
@@ -138,14 +150,22 @@ __all__ = (
     "DirectConnectGatewayAttachmentTypeDef",
     "DirectConnectGatewayTypeDef",
     "DisassociateConnectionFromLagRequestTypeDef",
+    "DisassociateConnectionsFromResiliencyGroupRequestTypeDef",
+    "DisassociateConnectionsFromResiliencyGroupResultTypeDef",
     "DisassociateMacSecKeyRequestTypeDef",
     "DisassociateMacSecKeyResponseTypeDef",
+    "GetResiliencyGroupRequestTypeDef",
+    "GetResiliencyGroupResultTypeDef",
     "InterconnectResponseTypeDef",
     "InterconnectTypeDef",
     "InterconnectsTypeDef",
     "LagResponseTypeDef",
     "LagTypeDef",
     "LagsTypeDef",
+    "ListResiliencyGroupAssociationsRequestTypeDef",
+    "ListResiliencyGroupAssociationsResultTypeDef",
+    "ListResiliencyGroupsRequestTypeDef",
+    "ListResiliencyGroupsResultTypeDef",
     "ListVirtualInterfaceRoutesRequestTypeDef",
     "ListVirtualInterfaceRoutesResponseTypeDef",
     "ListVirtualInterfaceTestHistoryRequestTypeDef",
@@ -164,6 +184,9 @@ __all__ = (
     "NewTransitVirtualInterfaceTypeDef",
     "PaginatorConfigTypeDef",
     "RateLimiterStatusTypeDef",
+    "ResiliencyGroupAssociationTypeDef",
+    "ResiliencyGroupSummaryTypeDef",
+    "ResiliencyGroupTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "RouteFilterPrefixTypeDef",
@@ -178,11 +201,15 @@ __all__ = (
     "TagTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateConnectionRequestTypeDef",
+    "UpdateConnectionsBillingModeRequestTypeDef",
+    "UpdateConnectionsBillingModeResponseTypeDef",
     "UpdateDirectConnectGatewayAssociationRequestTypeDef",
     "UpdateDirectConnectGatewayAssociationResultTypeDef",
     "UpdateDirectConnectGatewayRequestTypeDef",
     "UpdateDirectConnectGatewayResponseTypeDef",
     "UpdateLagRequestTypeDef",
+    "UpdateResiliencyGroupRequestTypeDef",
+    "UpdateResiliencyGroupResultTypeDef",
     "UpdateVirtualInterfaceAttributesRequestTypeDef",
     "VirtualGatewayTypeDef",
     "VirtualGatewaysTypeDef",
@@ -221,6 +248,16 @@ class AssociateConnectionWithLagRequestTypeDef(TypedDict):
     connectionId: str
     lagId: str
 
+class AssociateConnectionsToResiliencyGroupRequestTypeDef(TypedDict):
+    connectionIdentifiers: Sequence[str]
+    resiliencyGroupId: str
+    clientToken: NotRequired[str]
+
+class ResiliencyGroupAssociationTypeDef(TypedDict):
+    resiliencyGroupId: NotRequired[str]
+    connectionArn: NotRequired[str]
+    state: NotRequired[ResiliencyGroupAssociationStateType]
+
 class AssociateHostedConnectionRequestTypeDef(TypedDict):
     connectionId: str
     parentConnectionId: str
@@ -258,6 +295,11 @@ AssociatedGatewayTypeDef = TypedDict(
         "region": NotRequired[str],
     },
 )
+
+class AvailableBillingModeTypeDef(TypedDict):
+    billingMode: NotRequired[BillingModeType]
+    availablePortSpeeds: NotRequired[list[str]]
+    includedRegions: NotRequired[list[str]]
 
 class BGPPeerTypeDef(TypedDict):
     bgpPeerId: NotRequired[str]
@@ -334,6 +376,9 @@ class DeleteInterconnectRequestTypeDef(TypedDict):
 
 class DeleteLagRequestTypeDef(TypedDict):
     lagId: str
+
+class DeleteResiliencyGroupRequestTypeDef(TypedDict):
+    resiliencyGroupId: str
 
 class DeleteVirtualInterfaceRequestTypeDef(TypedDict):
     virtualInterfaceId: str
@@ -445,9 +490,34 @@ class DisassociateConnectionFromLagRequestTypeDef(TypedDict):
     connectionId: str
     lagId: str
 
+class DisassociateConnectionsFromResiliencyGroupRequestTypeDef(TypedDict):
+    connectionIdentifiers: Sequence[str]
+    resiliencyGroupId: str
+    clientToken: NotRequired[str]
+
 class DisassociateMacSecKeyRequestTypeDef(TypedDict):
     connectionId: str
     secretARN: str
+
+class GetResiliencyGroupRequestTypeDef(TypedDict):
+    resiliencyGroupId: str
+
+class ListResiliencyGroupAssociationsRequestTypeDef(TypedDict):
+    resiliencyGroupId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListResiliencyGroupsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ResiliencyGroupSummaryTypeDef(TypedDict):
+    resiliencyGroupId: NotRequired[str]
+    resiliencyGroupArn: NotRequired[str]
+    resiliencyGroupName: NotRequired[str]
+    resiliencyGroupType: NotRequired[Literal["Managed"]]
+    ownerAccount: NotRequired[str]
+    state: NotRequired[ResiliencyGroupStateType]
 
 class RouteFiltersTypeDef(TypedDict):
     routeDirection: NotRequired[RouteDirectionType]
@@ -474,14 +544,6 @@ class VirtualInterfaceTestHistoryTypeDef(TypedDict):
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
 
-class LocationTypeDef(TypedDict):
-    locationCode: NotRequired[str]
-    locationName: NotRequired[str]
-    region: NotRequired[str]
-    availablePortSpeeds: NotRequired[list[str]]
-    availableProviders: NotRequired[list[str]]
-    availableMacSecPortSpeeds: NotRequired[list[str]]
-
 class StartBgpFailoverTestRequestTypeDef(TypedDict):
     virtualInterfaceId: str
     bgpPeers: NotRequired[Sequence[str]]
@@ -499,6 +561,10 @@ class UpdateConnectionRequestTypeDef(TypedDict):
     connectionName: NotRequired[str]
     encryptionMode: NotRequired[str]
 
+class UpdateConnectionsBillingModeRequestTypeDef(TypedDict):
+    connectionIds: Sequence[str]
+    billingMode: RequestBillingModeType
+
 class UpdateDirectConnectGatewayRequestTypeDef(TypedDict):
     directConnectGatewayId: str
     newDirectConnectGatewayName: str
@@ -509,11 +575,18 @@ class UpdateLagRequestTypeDef(TypedDict):
     minimumLinks: NotRequired[int]
     encryptionMode: NotRequired[str]
 
+class UpdateResiliencyGroupRequestTypeDef(TypedDict):
+    resiliencyGroupId: str
+    resiliencyGroupName: str
+    clientToken: NotRequired[str]
+
 class UpdateVirtualInterfaceAttributesRequestTypeDef(TypedDict):
     virtualInterfaceId: str
     mtu: NotRequired[int]
     enableSiteLink: NotRequired[bool]
     virtualInterfaceName: NotRequired[str]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class VirtualGatewayTypeDef(TypedDict):
@@ -593,6 +666,7 @@ class CreateConnectionRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
     providerName: NotRequired[str]
     requestMACSec: NotRequired[bool]
+    billingMode: NotRequired[RequestBillingModeType]
 
 class CreateDirectConnectGatewayRequestTypeDef(TypedDict):
     directConnectGatewayName: str
@@ -618,6 +692,13 @@ class CreateLagRequestTypeDef(TypedDict):
     childConnectionTags: NotRequired[Sequence[TagTypeDef]]
     providerName: NotRequired[str]
     requestMACSec: NotRequired[bool]
+    billingMode: NotRequired[RequestBillingModeType]
+
+class CreateResiliencyGroupRequestTypeDef(TypedDict):
+    resiliencyGroupName: str
+    intendedResiliencyModel: ResiliencyModelType
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 class DirectConnectGatewayTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
@@ -626,6 +707,7 @@ class DirectConnectGatewayTypeDef(TypedDict):
     ownerAccount: NotRequired[str]
     directConnectGatewayState: NotRequired[DirectConnectGatewayStateType]
     stateChangeError: NotRequired[str]
+    totalPrefixPoolAllocations: NotRequired[int]
     tags: NotRequired[list[TagTypeDef]]
 
 class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -655,6 +737,8 @@ class NewPrivateVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
@@ -709,7 +793,18 @@ class NewTransitVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
+
+class ResiliencyGroupTypeDef(TypedDict):
+    resiliencyGroupId: NotRequired[str]
+    resiliencyGroupArn: NotRequired[str]
+    resiliencyGroupName: NotRequired[str]
+    resiliencyGroupType: NotRequired[Literal["Managed"]]
+    ownerAccount: NotRequired[str]
+    state: NotRequired[ResiliencyGroupStateType]
+    tags: NotRequired[list[TagTypeDef]]
 
 class ResourceTagTypeDef(TypedDict):
     resourceArn: NotRequired[str]
@@ -727,6 +822,19 @@ class RouteTypeDef(TypedDict):
     communities: NotRequired[list[str]]
     awsLogicalDeviceId: NotRequired[str]
     routeInstalledAt: NotRequired[datetime]
+
+class AssociateConnectionsToResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroupAssociations: list[ResiliencyGroupAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DisassociateConnectionsFromResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroupAssociations: list[ResiliencyGroupAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListResiliencyGroupAssociationsResultTypeDef(TypedDict):
+    items: list[ResiliencyGroupAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class AssociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
@@ -803,6 +911,15 @@ class DirectConnectGatewayAssociationTypeDef(TypedDict):
     virtualGatewayRegion: NotRequired[str]
     virtualGatewayOwnerAccount: NotRequired[str]
 
+class LocationTypeDef(TypedDict):
+    locationCode: NotRequired[str]
+    locationName: NotRequired[str]
+    region: NotRequired[str]
+    availablePortSpeeds: NotRequired[list[str]]
+    availableProviders: NotRequired[list[str]]
+    availableMacSecPortSpeeds: NotRequired[list[str]]
+    availableBillingModes: NotRequired[list[AvailableBillingModeTypeDef]]
+
 class VirtualInterfaceResponseTypeDef(TypedDict):
     ownerAccount: str
     virtualInterfaceId: str
@@ -831,6 +948,8 @@ class VirtualInterfaceResponseTypeDef(TypedDict):
     awsLogicalDeviceId: str
     tags: list[TagTypeDef]
     siteLinkEnabled: bool
+    prefixPoolAllocatedCountIpv4: int
+    prefixPoolAllocatedCountIpv6: int
     rateLimit: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -862,6 +981,8 @@ class VirtualInterfaceTypeDef(TypedDict):
     awsLogicalDeviceId: NotRequired[str]
     tags: NotRequired[list[TagTypeDef]]
     siteLinkEnabled: NotRequired[bool]
+    prefixPoolAllocatedCountIpv4: NotRequired[int]
+    prefixPoolAllocatedCountIpv6: NotRequired[int]
     rateLimit: NotRequired[str]
 
 class ConnectionResponseTypeDef(TypedDict):
@@ -889,6 +1010,11 @@ class ConnectionResponseTypeDef(TypedDict):
     macSecKeys: list[MacSecKeyTypeDef]
     rateLimiterStatus: RateLimiterStatusTypeDef
     partnerInterconnectMacSecCapable: bool
+    prefixPoolSizeIpv4: int
+    prefixPoolSizeIpv6: int
+    prefixPoolUnallocatedCountIpv4: int
+    prefixPoolUnallocatedCountIpv6: int
+    billingMode: BillingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ConnectionTypeDef(TypedDict):
@@ -916,6 +1042,11 @@ class ConnectionTypeDef(TypedDict):
     macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
     rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
     partnerInterconnectMacSecCapable: NotRequired[bool]
+    prefixPoolSizeIpv4: NotRequired[int]
+    prefixPoolSizeIpv6: NotRequired[int]
+    prefixPoolUnallocatedCountIpv4: NotRequired[int]
+    prefixPoolUnallocatedCountIpv6: NotRequired[int]
+    billingMode: NotRequired[BillingModeType]
 
 class CreateBGPPeerRequestTypeDef(TypedDict):
     virtualInterfaceId: NotRequired[str]
@@ -962,6 +1093,11 @@ class DescribeRouterConfigurationResponseTypeDef(TypedDict):
     virtualInterfaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListResiliencyGroupsResultTypeDef(TypedDict):
+    items: list[ResiliencyGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListVirtualInterfaceRoutesRequestTypeDef(TypedDict):
     virtualInterfaceId: NotRequired[str]
     filters: NotRequired[RouteFiltersTypeDef]
@@ -979,10 +1115,6 @@ class StartBgpFailoverTestResponseTypeDef(TypedDict):
 
 class StopBgpFailoverTestResponseTypeDef(TypedDict):
     virtualInterfaceTest: VirtualInterfaceTestHistoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class LocationsTypeDef(TypedDict):
-    locations: list[LocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VirtualGatewaysTypeDef(TypedDict):
@@ -1033,6 +1165,22 @@ class CreateTransitVirtualInterfaceRequestTypeDef(TypedDict):
     connectionId: str
     newTransitVirtualInterface: NewTransitVirtualInterfaceTypeDef
 
+class CreateResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroup: ResiliencyGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroup: ResiliencyGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroup: ResiliencyGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateResiliencyGroupResultTypeDef(TypedDict):
+    resiliencyGroup: ResiliencyGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeTagsResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1080,6 +1228,10 @@ class DescribeDirectConnectGatewayAssociationsResultTypeDef(TypedDict):
 
 class UpdateDirectConnectGatewayAssociationResultTypeDef(TypedDict):
     directConnectGatewayAssociation: DirectConnectGatewayAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class LocationsTypeDef(TypedDict):
+    locations: list[LocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AllocateTransitVirtualInterfaceResultTypeDef(TypedDict):
@@ -1130,7 +1282,12 @@ class LagResponseTypeDef(TypedDict):
     macSecCapable: bool
     encryptionMode: str
     macSecKeys: list[MacSecKeyTypeDef]
+    prefixPoolSizeIpv4: int
+    prefixPoolSizeIpv6: int
+    prefixPoolUnallocatedCountIpv4: int
+    prefixPoolUnallocatedCountIpv6: int
     rateLimiterStatus: RateLimiterStatusTypeDef
+    billingMode: BillingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class LagTypeDef(TypedDict):
@@ -1155,7 +1312,17 @@ class LagTypeDef(TypedDict):
     macSecCapable: NotRequired[bool]
     encryptionMode: NotRequired[str]
     macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
+    prefixPoolSizeIpv4: NotRequired[int]
+    prefixPoolSizeIpv6: NotRequired[int]
+    prefixPoolUnallocatedCountIpv4: NotRequired[int]
+    prefixPoolUnallocatedCountIpv6: NotRequired[int]
     rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
+    billingMode: NotRequired[BillingModeType]
+
+class UpdateConnectionsBillingModeResponseTypeDef(TypedDict):
+    billingMode: BillingModeType
+    connections: list[ConnectionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class LagsTypeDef(TypedDict):
     lags: list[LagTypeDef]

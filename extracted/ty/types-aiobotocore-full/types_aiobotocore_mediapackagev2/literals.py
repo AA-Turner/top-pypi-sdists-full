@@ -27,6 +27,7 @@ __all__ = (
     "AdMarkerHlsType",
     "CmafEncryptionMethodType",
     "ContainerTypeType",
+    "ContentKeyPeriodTimingType",
     "CustomAdTypeType",
     "DashAudioTimelinePatternType",
     "DashCompactnessType",
@@ -48,6 +49,7 @@ __all__ = (
     "ListOriginEndpointsPaginatorName",
     "Mediapackagev2ServiceName",
     "MssManifestLayoutType",
+    "MultiviewLayoutTypeType",
     "OutputLockingModeType",
     "OutputTimestampModeType",
     "PaginatorName",
@@ -59,6 +61,7 @@ __all__ = (
     "ScteInManifestsType",
     "ScteInSegmentsType",
     "ServiceName",
+    "SpekeVersionType",
     "StreamNameOutputModeType",
     "TsEncryptionMethodType",
     "UriPathTypeType",
@@ -71,6 +74,7 @@ AdMarkerDashType = Literal["BINARY", "XML"]
 AdMarkerHlsType = Literal["DATERANGE", "SCTE35_ENHANCED"]
 CmafEncryptionMethodType = Literal["CBCS", "CENC"]
 ContainerTypeType = Literal["CMAF", "ISM", "TS"]
+ContentKeyPeriodTimingType = Literal["INDEX_ONLY", "INDEX_WITH_START_END", "START_END_ONLY"]
 CustomAdTypeType = Literal[
     "ALTERNATE_CONTENT_OPPORTUNITY", "CHAPTER", "NETWORK", "PROGRAM", "UNSCHEDULED_EVENT"
 ]
@@ -90,13 +94,16 @@ EndpointErrorConditionType = Literal[
 ]
 HarvestJobFinishedWaiterName = Literal["harvest_job_finished"]
 HarvestJobStatusType = Literal["CANCELLED", "COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
-InputTypeType = Literal["CMAF", "HLS"]
+InputTypeType = Literal["CMAF", "HLS", "MULTIVIEW"]
 IsmEncryptionMethodType = Literal["CENC"]
 ListChannelGroupsPaginatorName = Literal["list_channel_groups"]
 ListChannelsPaginatorName = Literal["list_channels"]
 ListHarvestJobsPaginatorName = Literal["list_harvest_jobs"]
 ListOriginEndpointsPaginatorName = Literal["list_origin_endpoints"]
 MssManifestLayoutType = Literal["COMPACT", "FULL"]
+MultiviewLayoutTypeType = Literal[
+    "LAYOUT_2EH", "LAYOUT_2PL", "LAYOUT_3EL", "LAYOUT_3PL", "LAYOUT_4E", "LAYOUT_4PL"
+]
 OutputLockingModeType = Literal["EPOCH_LOCKED", "NON_EPOCH_LOCKED"]
 OutputTimestampModeType = Literal["PASSTHROUGH", "REBASED_TO_CHANNEL_START"]
 PresetSpeke20AudioType = Literal[
@@ -137,6 +144,7 @@ ScteFilterType = Literal[
 ]
 ScteInManifestsType = Literal["ALL", "MATCHES_FILTER"]
 ScteInSegmentsType = Literal["ALL", "MATCHES_FILTER", "NONE"]
+SpekeVersionType = Literal["V2_0", "V2_1"]
 StreamNameOutputModeType = Literal["INDEX", "PASSTHROUGH_NAME"]
 TsEncryptionMethodType = Literal["AES_128", "SAMPLE_AES"]
 UriPathTypeType = Literal["LEAF", "ROOT"]
@@ -222,6 +230,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -296,6 +305,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -324,6 +334,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -418,6 +429,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

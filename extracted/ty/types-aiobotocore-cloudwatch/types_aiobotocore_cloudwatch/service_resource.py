@@ -54,6 +54,7 @@ from .type_defs import (
     PutMetricAlarmInputMetricPutAlarmTypeDef,
     PutMetricDataInputMetricPutDataTypeDef,
     SetAlarmStateInputAlarmSetStateTypeDef,
+    WarmUpConfigurationTypeDef,
 )
 
 try:
@@ -396,6 +397,7 @@ class Alarm(AIOBoto3ServiceResource):
     evaluation_state: Awaitable[EvaluationStateType]
     state_transitioned_timestamp: Awaitable[datetime]
     evaluation_window: Awaitable[EvaluationWindowOutputTypeDef]
+    warm_up_configuration: Awaitable[WarmUpConfigurationTypeDef]
     evaluation_criteria: Awaitable[EvaluationCriteriaTypeDef]
     evaluation_interval: Awaitable[int]
     meta: CloudWatchResourceMeta  # type: ignore[override]

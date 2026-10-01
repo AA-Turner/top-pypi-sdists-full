@@ -26,6 +26,8 @@ from typing import Any
 import pytest
 
 from ... import Client
+from ... import environments
+from ... import interactions
 from ..._gaos.google_genai import (
     AsyncGeminiNextGenEnvironmentFiles,
     GeminiNextGenEnvironmentFiles,
@@ -706,3 +708,28 @@ def test_python_environments_types_and_models():
       from_environment="environments/env_abc_1234",
   )
   assert create_req.from_environment == "environments/env_abc_1234"
+
+
+def test_python_environments_dedicated_module_and_from_environment():
+  """Tests dedicated environments module and from_environment creation."""
+  assert hasattr(environments, "CreateEnvironmentRequest")
+  assert hasattr(environments, "Environment")
+  assert hasattr(environments, "EnvironmentListResponse")
+  assert hasattr(environments, "EnvironmentFile")
+  assert hasattr(environments, "GetEnvironmentFilesResponse")
+  assert hasattr(environments, "EnvironmentStatus")
+  assert hasattr(environments, "EnvironmentListParams")
+  assert hasattr(environments, "EnvironmentDeleteResponse")
+
+  # Test backward-compatible re-exports in interactions module
+  assert hasattr(interactions, "Environment")
+  assert hasattr(interactions, "CreateEnvironmentRequest")
+  assert hasattr(interactions, "EnvironmentFile")
+
+  req = environments.CreateEnvironmentRequest(
+      from_environment="environments/env_abc_1234",
+  )
+  assert req.from_environment == "environments/env_abc_1234"
+
+  req_dict = req.model_dump(exclude_unset=True, by_alias=True)
+  assert req_dict == {"from_environment": "environments/env_abc_1234"}

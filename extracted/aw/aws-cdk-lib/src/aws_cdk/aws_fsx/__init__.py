@@ -322,6 +322,308 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IBackupRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnBackup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_fsx.CfnBackup",
+):
+    '''Creates a backup of an existing Amazon FSx for Windows File Server file system, Amazon FSx for Lustre file system, Amazon FSx for NetApp ONTAP volume, or Amazon FSx for OpenZFS file system.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html
+    :cloudformationResource: AWS::FSx::Backup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_fsx as fsx
+        
+        cfn_backup = fsx.CfnBackup(self, "MyCfnBackup",
+            file_system_id="fileSystemId",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        file_system_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::FSx::Backup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param file_system_id: The ID of the file system to back up.
+        :param tags: The tags to apply to the backup at backup creation.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26dfe3ea364b9a93927d902214c276884d1ca4860a889c892b012975a049965d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBackupProps(file_system_id=file_system_id, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBackup")
+    @builtins.classmethod
+    def arn_for_backup(cls, resource: "_aws_fsx_fc5af96b.IBackupRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98a116833d16096326296c0c623972af037275535f094be1c7e580a7c1b9ffaa)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackup", [resource]))
+
+    @jsii.member(jsii_name="fromBackupId")
+    @builtins.classmethod
+    def from_backup_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_id: builtins.str,
+    ) -> "_aws_fsx_fc5af96b.IBackupRef":
+        '''Creates a new IBackupRef from a backupId.
+
+        :param scope: -
+        :param id: -
+        :param backup_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c91afcb9838bce020f962e1c1a0b59fd74cc24e1a06d0a24c72c4f04d9b1a3da)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_id", value=backup_id, expected_type=type_hints["backup_id"])
+        return typing.cast("_aws_fsx_fc5af96b.IBackupRef", jsii.sinvoke(cls, "fromBackupId", [scope, id, backup_id]))
+
+    @jsii.member(jsii_name="isCfnBackup")
+    @builtins.classmethod
+    def is_cfn_backup(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c10475e126aaedef0f4e2a8c903ad38f7f9f4f9ba5cd047c4daa564969fc5606)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__272991187350844497585bd90f07e8f505e5aed243d302fd231df89dba4f488f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__62a9fcf53a103b30e6f51918218fed8446a9ccc1b4352e5c7dc6f974d45d81ae)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBackupId")
+    def attr_backup_id(self) -> builtins.str:
+        '''The ID of the backup.
+
+        :cloudformationAttribute: BackupId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBackupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time when the backup was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLifecycle")
+    def attr_lifecycle(self) -> builtins.str:
+        '''The lifecycle status of the backup.
+
+        :cloudformationAttribute: Lifecycle
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifecycle"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the backup.
+
+        :cloudformationAttribute: ResourceARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The type of the backup.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupRef")
+    def backup_ref(self) -> "_aws_fsx_fc5af96b.BackupReference":
+        '''A reference to a Backup resource.'''
+        return typing.cast("_aws_fsx_fc5af96b.BackupReference", jsii.get(self, "backupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileSystemId")
+    def file_system_id(self) -> builtins.str:
+        '''The ID of the file system to back up.'''
+        return typing.cast(builtins.str, jsii.get(self, "fileSystemId"))
+
+    @file_system_id.setter
+    def file_system_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55f9a9276c7baf7570ddc8e1afc7c01c7badf8430ddfc4888ed2b3b5d0e1f785)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fileSystemId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to apply to the backup at backup creation.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e548506a383c06ad73d13db4f63ecf8995017492e16c79d51b28ff41bf7442e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_fsx.CfnBackupProps",
+    jsii_struct_bases=[],
+    name_mapping={"file_system_id": "fileSystemId", "tags": "tags"},
+)
+class CfnBackupProps:
+    def __init__(
+        self,
+        *,
+        file_system_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBackup``.
+
+        :param file_system_id: The ID of the file system to back up.
+        :param tags: The tags to apply to the backup at backup creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_fsx as fsx
+            
+            cfn_backup_props = fsx.CfnBackupProps(
+                file_system_id="fileSystemId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__641796a18683e869138904002c3cb1c67680cde8bde1c7f1c10a9421468fd8f2)
+            check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "file_system_id": file_system_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def file_system_id(self) -> builtins.str:
+        '''The ID of the file system to back up.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html#cfn-fsx-backup-filesystemid
+        '''
+        result = self._values.get("file_system_id")
+        assert result is not None, "Required property 'file_system_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to apply to the backup at backup creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html#cfn-fsx-backup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBackupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IDataRepositoryAssociationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDataRepositoryAssociation(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1002,6 +1304,1030 @@ class CfnDataRepositoryAssociationProps:
 
     def __repr__(self) -> str:
         return "CfnDataRepositoryAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_fsx_fc5af96b.IFileCacheRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnFileCache(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_fsx.CfnFileCache",
+):
+    '''Resource Type definition for AWS::FSx::FileCache.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html
+    :cloudformationResource: AWS::FSx::FileCache
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_fsx as fsx
+        
+        cfn_file_cache = fsx.CfnFileCache(self, "MyCfnFileCache",
+            file_cache_type="fileCacheType",
+            file_cache_type_version="fileCacheTypeVersion",
+            storage_capacity=123,
+            subnet_ids=["subnetIds"],
+        
+            # the properties below are optional
+            copy_tags_to_data_repository_associations=False,
+            data_repository_associations=[fsx.CfnFileCache.DataRepositoryAssociationProperty(
+                data_repository_path="dataRepositoryPath",
+                file_cache_path="fileCachePath"
+            )],
+            kms_key_id="kmsKeyId",
+            lustre_configuration=fsx.CfnFileCache.LustreConfigurationProperty(
+                deployment_type="deploymentType",
+                metadata_configuration=fsx.CfnFileCache.MetadataConfigurationProperty(
+                    storage_capacity=123
+                ),
+                per_unit_storage_throughput=123,
+        
+                # the properties below are optional
+                log_configuration=fsx.CfnFileCache.LogConfigurationProperty(
+                    level="level",
+        
+                    # the properties below are optional
+                    destination="destination"
+                ),
+                mount_name="mountName",
+                weekly_maintenance_start_time="weeklyMaintenanceStartTime"
+            ),
+            security_group_ids=["securityGroupIds"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        file_cache_type: builtins.str,
+        file_cache_type_version: builtins.str,
+        storage_capacity: jsii.Number,
+        subnet_ids: typing.Sequence[builtins.str],
+        copy_tags_to_data_repository_associations: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        data_repository_associations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.DataRepositoryAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        lustre_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::FSx::FileCache``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param file_cache_type: The type of cache, which must be LUSTRE.
+        :param file_cache_type_version: The Lustre version of the cache, which must be 2.12.
+        :param storage_capacity: The storage capacity of the cache in gibibytes (GiB).
+        :param subnet_ids: A list of subnet IDs for the cache.
+        :param copy_tags_to_data_repository_associations: Whether tags should be copied to data repository associations.
+        :param data_repository_associations: Data repository associations for the cache.
+        :param kms_key_id: The KMS key ID for encrypting data.
+        :param lustre_configuration: 
+        :param security_group_ids: A list of security group IDs for the cache.
+        :param tags: Tags to associate with the file cache.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1968c75d0f6bb6c3346262977045712d21d34b7f28ab2dc657397b78842ae5fa)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFileCacheProps(
+            file_cache_type=file_cache_type,
+            file_cache_type_version=file_cache_type_version,
+            storage_capacity=storage_capacity,
+            subnet_ids=subnet_ids,
+            copy_tags_to_data_repository_associations=copy_tags_to_data_repository_associations,
+            data_repository_associations=data_repository_associations,
+            kms_key_id=kms_key_id,
+            lustre_configuration=lustre_configuration,
+            security_group_ids=security_group_ids,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFileCache")
+    @builtins.classmethod
+    def arn_for_file_cache(
+        cls,
+        resource: "_aws_fsx_fc5af96b.IFileCacheRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b4f4c495047ce066f0d857bd0b0b817876ffa434f22853d07102c283cf51c3c6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFileCache", [resource]))
+
+    @jsii.member(jsii_name="fromFileCacheId")
+    @builtins.classmethod
+    def from_file_cache_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        file_cache_id: builtins.str,
+    ) -> "_aws_fsx_fc5af96b.IFileCacheRef":
+        '''Creates a new IFileCacheRef from a fileCacheId.
+
+        :param scope: -
+        :param id: -
+        :param file_cache_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b53128b8219f2cf430760d68cf05485e32b00acf7284e2e153671a1c55148f97)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument file_cache_id", value=file_cache_id, expected_type=type_hints["file_cache_id"])
+        return typing.cast("_aws_fsx_fc5af96b.IFileCacheRef", jsii.sinvoke(cls, "fromFileCacheId", [scope, id, file_cache_id]))
+
+    @jsii.member(jsii_name="isCfnFileCache")
+    @builtins.classmethod
+    def is_cfn_file_cache(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFileCache.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1ca77f5f145aedf74e636bde39a748d9ed70111f69781a3a86232944c17f9d9f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFileCache", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c85766a0afc92f9e7da4441d0938d6e5b259bda80ec2afdd6ee1a2ad5f6ddd5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ede97f09361916ffbda48cdf525dc402157d912623345b80f2e5a60d85b4dc3a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time the cache was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDataRepositoryAssociationIds")
+    def attr_data_repository_association_ids(self) -> typing.List[builtins.str]:
+        '''A list of IDs of data repository associations that are associated with this cache.
+
+        :cloudformationAttribute: DataRepositoryAssociationIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrDataRepositoryAssociationIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDnsName")
+    def attr_dns_name(self) -> builtins.str:
+        '''The DNS name for the cache.
+
+        :cloudformationAttribute: DNSName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDnsName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFileCacheId")
+    def attr_file_cache_id(self) -> builtins.str:
+        '''The ID of the file cache.
+
+        :cloudformationAttribute: FileCacheId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFileCacheId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLifecycle")
+    def attr_lifecycle(self) -> builtins.str:
+        '''The lifecycle status of the cache.
+
+        :cloudformationAttribute: Lifecycle
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLifecycle"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLustreConfigurationLogConfiguration")
+    def attr_lustre_configuration_log_configuration(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: LustreConfiguration.LogConfiguration
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLustreConfigurationLogConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLustreConfigurationMountName")
+    def attr_lustre_configuration_mount_name(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LustreConfiguration.MountName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLustreConfigurationMountName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNetworkInterfaceIds")
+    def attr_network_interface_ids(self) -> typing.List[builtins.str]:
+        '''Network interface IDs for the cache.
+
+        :cloudformationAttribute: NetworkInterfaceIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrNetworkInterfaceIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerId")
+    def attr_owner_id(self) -> builtins.str:
+        '''The AWS account ID of the cache owner.
+
+        :cloudformationAttribute: OwnerId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the file cache.
+
+        :cloudformationAttribute: ResourceARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The VPC ID of the cache.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileCacheRef")
+    def file_cache_ref(self) -> "_aws_fsx_fc5af96b.FileCacheReference":
+        '''A reference to a FileCache resource.'''
+        return typing.cast("_aws_fsx_fc5af96b.FileCacheReference", jsii.get(self, "fileCacheRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileCacheType")
+    def file_cache_type(self) -> builtins.str:
+        '''The type of cache, which must be LUSTRE.'''
+        return typing.cast(builtins.str, jsii.get(self, "fileCacheType"))
+
+    @file_cache_type.setter
+    def file_cache_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17154d2038f1b244b07ed3d3b7fdfbcac5bf62c67d34fbd3dfc280b75ae148e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fileCacheType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fileCacheTypeVersion")
+    def file_cache_type_version(self) -> builtins.str:
+        '''The Lustre version of the cache, which must be 2.12.'''
+        return typing.cast(builtins.str, jsii.get(self, "fileCacheTypeVersion"))
+
+    @file_cache_type_version.setter
+    def file_cache_type_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c718ec796f2209726c9714cc50bd3a3e23c90f6fe0536f355ee239efbd0e7660)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fileCacheTypeVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="storageCapacity")
+    def storage_capacity(self) -> jsii.Number:
+        '''The storage capacity of the cache in gibibytes (GiB).'''
+        return typing.cast(jsii.Number, jsii.get(self, "storageCapacity"))
+
+    @storage_capacity.setter
+    def storage_capacity(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__63f51edbb7f7f7e6d0ef44ee70682f0dc129af04a46b9644413dca412d7bce6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageCapacity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetIds")
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''A list of subnet IDs for the cache.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "subnetIds"))
+
+    @subnet_ids.setter
+    def subnet_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23ff55718ffadd97a6e97f66d7fe3ee97255e2bda896bd4d2f282dafe34eb41e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="copyTagsToDataRepositoryAssociations")
+    def copy_tags_to_data_repository_associations(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether tags should be copied to data repository associations.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "copyTagsToDataRepositoryAssociations"))
+
+    @copy_tags_to_data_repository_associations.setter
+    def copy_tags_to_data_repository_associations(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f8fd6666d00ae74a0f8718ceeeee94226e6c479ae66ecb7de002e2bb4bd9567)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "copyTagsToDataRepositoryAssociations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dataRepositoryAssociations")
+    def data_repository_associations(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.DataRepositoryAssociationProperty"]]]]:
+        '''Data repository associations for the cache.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.DataRepositoryAssociationProperty"]]]], jsii.get(self, "dataRepositoryAssociations"))
+
+    @data_repository_associations.setter
+    def data_repository_associations(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.DataRepositoryAssociationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0417c14a45198c8b4592acf70bdd7f17a30a6be8b8726814a262e661650eb39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataRepositoryAssociations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The KMS key ID for encrypting data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d3908d596213fb5f78816df4596449732c4e9c8aaf73d562776f73735ec73f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="lustreConfiguration")
+    def lustre_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LustreConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LustreConfigurationProperty"]], jsii.get(self, "lustreConfiguration"))
+
+    @lustre_configuration.setter
+    def lustre_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LustreConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74242d1bde415f159a395c9c8a968ab120a6388055a87bb6f2e5466f4ddc6ae1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "lustreConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="securityGroupIds")
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of security group IDs for the cache.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroupIds"))
+
+    @security_group_ids.setter
+    def security_group_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1013e51a50f31eba32bd2a12486eb4a0d70df9b7c7d30074d3863d23079652a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the file cache.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d37808081da0a415eace887f8437af6f6f07ffc9b2a8456c4cd8360163987c67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileCache.DataRepositoryAssociationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "data_repository_path": "dataRepositoryPath",
+            "file_cache_path": "fileCachePath",
+        },
+    )
+    class DataRepositoryAssociationProperty:
+        def __init__(
+            self,
+            *,
+            data_repository_path: builtins.str,
+            file_cache_path: builtins.str,
+        ) -> None:
+            '''
+            :param data_repository_path: 
+            :param file_cache_path: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-datarepositoryassociation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                data_repository_association_property = fsx.CfnFileCache.DataRepositoryAssociationProperty(
+                    data_repository_path="dataRepositoryPath",
+                    file_cache_path="fileCachePath"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d282f5f6f76c2493905726cfa909207ed2ad6db46c69d0630a50fd4a2935df2a)
+                check_type(argname="argument data_repository_path", value=data_repository_path, expected_type=type_hints["data_repository_path"])
+                check_type(argname="argument file_cache_path", value=file_cache_path, expected_type=type_hints["file_cache_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "data_repository_path": data_repository_path,
+                "file_cache_path": file_cache_path,
+            }
+
+        @builtins.property
+        def data_repository_path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-datarepositoryassociation.html#cfn-fsx-filecache-datarepositoryassociation-datarepositorypath
+            '''
+            result = self._values.get("data_repository_path")
+            assert result is not None, "Required property 'data_repository_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def file_cache_path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-datarepositoryassociation.html#cfn-fsx-filecache-datarepositoryassociation-filecachepath
+            '''
+            result = self._values.get("file_cache_path")
+            assert result is not None, "Required property 'file_cache_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataRepositoryAssociationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileCache.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"level": "level", "destination": "destination"},
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            level: builtins.str,
+            destination: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param level: 
+            :param destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                log_configuration_property = fsx.CfnFileCache.LogConfigurationProperty(
+                    level="level",
+                
+                    # the properties below are optional
+                    destination="destination"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dc79d4e5582d09e354eb86d890d6c8c47bc206ca66b0188e3667d38232eabc0e)
+                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "level": level,
+            }
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def level(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-logconfiguration.html#cfn-fsx-filecache-logconfiguration-level
+            '''
+            result = self._values.get("level")
+            assert result is not None, "Required property 'level' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-logconfiguration.html#cfn-fsx-filecache-logconfiguration-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileCache.LustreConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deployment_type": "deploymentType",
+            "metadata_configuration": "metadataConfiguration",
+            "per_unit_storage_throughput": "perUnitStorageThroughput",
+            "log_configuration": "logConfiguration",
+            "mount_name": "mountName",
+            "weekly_maintenance_start_time": "weeklyMaintenanceStartTime",
+        },
+    )
+    class LustreConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            deployment_type: builtins.str,
+            metadata_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            per_unit_storage_throughput: jsii.Number,
+            log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mount_name: typing.Optional[builtins.str] = None,
+            weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param deployment_type: 
+            :param metadata_configuration: 
+            :param per_unit_storage_throughput: 
+            :param log_configuration: 
+            :param mount_name: 
+            :param weekly_maintenance_start_time: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                lustre_configuration_property = fsx.CfnFileCache.LustreConfigurationProperty(
+                    deployment_type="deploymentType",
+                    metadata_configuration=fsx.CfnFileCache.MetadataConfigurationProperty(
+                        storage_capacity=123
+                    ),
+                    per_unit_storage_throughput=123,
+                
+                    # the properties below are optional
+                    log_configuration=fsx.CfnFileCache.LogConfigurationProperty(
+                        level="level",
+                
+                        # the properties below are optional
+                        destination="destination"
+                    ),
+                    mount_name="mountName",
+                    weekly_maintenance_start_time="weeklyMaintenanceStartTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bbb4dc9f188ab5c069a6141e69157daee704aa141551f32531750c34cf8ffd67)
+                check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
+                check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+                check_type(argname="argument per_unit_storage_throughput", value=per_unit_storage_throughput, expected_type=type_hints["per_unit_storage_throughput"])
+                check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+                check_type(argname="argument mount_name", value=mount_name, expected_type=type_hints["mount_name"])
+                check_type(argname="argument weekly_maintenance_start_time", value=weekly_maintenance_start_time, expected_type=type_hints["weekly_maintenance_start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "deployment_type": deployment_type,
+                "metadata_configuration": metadata_configuration,
+                "per_unit_storage_throughput": per_unit_storage_throughput,
+            }
+            if log_configuration is not None:
+                self._values["log_configuration"] = log_configuration
+            if mount_name is not None:
+                self._values["mount_name"] = mount_name
+            if weekly_maintenance_start_time is not None:
+                self._values["weekly_maintenance_start_time"] = weekly_maintenance_start_time
+
+        @builtins.property
+        def deployment_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-deploymenttype
+            '''
+            result = self._values.get("deployment_type")
+            assert result is not None, "Required property 'deployment_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metadata_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.MetadataConfigurationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-metadataconfiguration
+            '''
+            result = self._values.get("metadata_configuration")
+            assert result is not None, "Required property 'metadata_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.MetadataConfigurationProperty"], result)
+
+        @builtins.property
+        def per_unit_storage_throughput(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-perunitstoragethroughput
+            '''
+            result = self._values.get("per_unit_storage_throughput")
+            assert result is not None, "Required property 'per_unit_storage_throughput' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def log_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LogConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-logconfiguration
+            '''
+            result = self._values.get("log_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LogConfigurationProperty"]], result)
+
+        @builtins.property
+        def mount_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-mountname
+            '''
+            result = self._values.get("mount_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def weekly_maintenance_start_time(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-lustreconfiguration.html#cfn-fsx-filecache-lustreconfiguration-weeklymaintenancestarttime
+            '''
+            result = self._values.get("weekly_maintenance_start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LustreConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileCache.MetadataConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"storage_capacity": "storageCapacity"},
+    )
+    class MetadataConfigurationProperty:
+        def __init__(self, *, storage_capacity: jsii.Number) -> None:
+            '''
+            :param storage_capacity: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-metadataconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                metadata_configuration_property = fsx.CfnFileCache.MetadataConfigurationProperty(
+                    storage_capacity=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__26f057b365134b701c7689281d8a47ff894af66442db904f9795974bdbbb09cb)
+                check_type(argname="argument storage_capacity", value=storage_capacity, expected_type=type_hints["storage_capacity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "storage_capacity": storage_capacity,
+            }
+
+        @builtins.property
+        def storage_capacity(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-metadataconfiguration.html#cfn-fsx-filecache-metadataconfiguration-storagecapacity
+            '''
+            result = self._values.get("storage_capacity")
+            assert result is not None, "Required property 'storage_capacity' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetadataConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_fsx.CfnFileCacheProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "file_cache_type": "fileCacheType",
+        "file_cache_type_version": "fileCacheTypeVersion",
+        "storage_capacity": "storageCapacity",
+        "subnet_ids": "subnetIds",
+        "copy_tags_to_data_repository_associations": "copyTagsToDataRepositoryAssociations",
+        "data_repository_associations": "dataRepositoryAssociations",
+        "kms_key_id": "kmsKeyId",
+        "lustre_configuration": "lustreConfiguration",
+        "security_group_ids": "securityGroupIds",
+        "tags": "tags",
+    },
+)
+class CfnFileCacheProps:
+    def __init__(
+        self,
+        *,
+        file_cache_type: builtins.str,
+        file_cache_type_version: builtins.str,
+        storage_capacity: jsii.Number,
+        subnet_ids: typing.Sequence[builtins.str],
+        copy_tags_to_data_repository_associations: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        data_repository_associations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.DataRepositoryAssociationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        lustre_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFileCache.LustreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFileCache``.
+
+        :param file_cache_type: The type of cache, which must be LUSTRE.
+        :param file_cache_type_version: The Lustre version of the cache, which must be 2.12.
+        :param storage_capacity: The storage capacity of the cache in gibibytes (GiB).
+        :param subnet_ids: A list of subnet IDs for the cache.
+        :param copy_tags_to_data_repository_associations: Whether tags should be copied to data repository associations.
+        :param data_repository_associations: Data repository associations for the cache.
+        :param kms_key_id: The KMS key ID for encrypting data.
+        :param lustre_configuration: 
+        :param security_group_ids: A list of security group IDs for the cache.
+        :param tags: Tags to associate with the file cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_fsx as fsx
+            
+            cfn_file_cache_props = fsx.CfnFileCacheProps(
+                file_cache_type="fileCacheType",
+                file_cache_type_version="fileCacheTypeVersion",
+                storage_capacity=123,
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                copy_tags_to_data_repository_associations=False,
+                data_repository_associations=[fsx.CfnFileCache.DataRepositoryAssociationProperty(
+                    data_repository_path="dataRepositoryPath",
+                    file_cache_path="fileCachePath"
+                )],
+                kms_key_id="kmsKeyId",
+                lustre_configuration=fsx.CfnFileCache.LustreConfigurationProperty(
+                    deployment_type="deploymentType",
+                    metadata_configuration=fsx.CfnFileCache.MetadataConfigurationProperty(
+                        storage_capacity=123
+                    ),
+                    per_unit_storage_throughput=123,
+            
+                    # the properties below are optional
+                    log_configuration=fsx.CfnFileCache.LogConfigurationProperty(
+                        level="level",
+            
+                        # the properties below are optional
+                        destination="destination"
+                    ),
+                    mount_name="mountName",
+                    weekly_maintenance_start_time="weeklyMaintenanceStartTime"
+                ),
+                security_group_ids=["securityGroupIds"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ed42a472bf591731b3bf34f8844c13b47a4d286d9121cf30d8bea5bd3d97b35)
+            check_type(argname="argument file_cache_type", value=file_cache_type, expected_type=type_hints["file_cache_type"])
+            check_type(argname="argument file_cache_type_version", value=file_cache_type_version, expected_type=type_hints["file_cache_type_version"])
+            check_type(argname="argument storage_capacity", value=storage_capacity, expected_type=type_hints["storage_capacity"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument copy_tags_to_data_repository_associations", value=copy_tags_to_data_repository_associations, expected_type=type_hints["copy_tags_to_data_repository_associations"])
+            check_type(argname="argument data_repository_associations", value=data_repository_associations, expected_type=type_hints["data_repository_associations"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument lustre_configuration", value=lustre_configuration, expected_type=type_hints["lustre_configuration"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "file_cache_type": file_cache_type,
+            "file_cache_type_version": file_cache_type_version,
+            "storage_capacity": storage_capacity,
+            "subnet_ids": subnet_ids,
+        }
+        if copy_tags_to_data_repository_associations is not None:
+            self._values["copy_tags_to_data_repository_associations"] = copy_tags_to_data_repository_associations
+        if data_repository_associations is not None:
+            self._values["data_repository_associations"] = data_repository_associations
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if lustre_configuration is not None:
+            self._values["lustre_configuration"] = lustre_configuration
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def file_cache_type(self) -> builtins.str:
+        '''The type of cache, which must be LUSTRE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-filecachetype
+        '''
+        result = self._values.get("file_cache_type")
+        assert result is not None, "Required property 'file_cache_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def file_cache_type_version(self) -> builtins.str:
+        '''The Lustre version of the cache, which must be 2.12.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-filecachetypeversion
+        '''
+        result = self._values.get("file_cache_type_version")
+        assert result is not None, "Required property 'file_cache_type_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def storage_capacity(self) -> jsii.Number:
+        '''The storage capacity of the cache in gibibytes (GiB).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-storagecapacity
+        '''
+        result = self._values.get("storage_capacity")
+        assert result is not None, "Required property 'storage_capacity' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''A list of subnet IDs for the cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def copy_tags_to_data_repository_associations(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether tags should be copied to data repository associations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-copytagstodatarepositoryassociations
+        '''
+        result = self._values.get("copy_tags_to_data_repository_associations")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def data_repository_associations(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.DataRepositoryAssociationProperty"]]]]:
+        '''Data repository associations for the cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-datarepositoryassociations
+        '''
+        result = self._values.get("data_repository_associations")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.DataRepositoryAssociationProperty"]]]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The KMS key ID for encrypting data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def lustre_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LustreConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-lustreconfiguration
+        '''
+        result = self._values.get("lustre_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFileCache.LustreConfigurationProperty"]], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of security group IDs for the cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the file cache.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html#cfn-fsx-filecache-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFileCacheProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -10350,8 +11676,12 @@ class LustreFileSystem(
 
 
 __all__ = [
+    "CfnBackup",
+    "CfnBackupProps",
     "CfnDataRepositoryAssociation",
     "CfnDataRepositoryAssociationProps",
+    "CfnFileCache",
+    "CfnFileCacheProps",
     "CfnFileSystem",
     "CfnFileSystemProps",
     "CfnS3AccessPointAttachment",
@@ -10383,6 +11713,68 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__26dfe3ea364b9a93927d902214c276884d1ca4860a889c892b012975a049965d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    file_system_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98a116833d16096326296c0c623972af037275535f094be1c7e580a7c1b9ffaa(
+    resource: _aws_fsx_fc5af96b.IBackupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c91afcb9838bce020f962e1c1a0b59fd74cc24e1a06d0a24c72c4f04d9b1a3da(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c10475e126aaedef0f4e2a8c903ad38f7f9f4f9ba5cd047c4daa564969fc5606(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__272991187350844497585bd90f07e8f505e5aed243d302fd231df89dba4f488f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62a9fcf53a103b30e6f51918218fed8446a9ccc1b4352e5c7dc6f974d45d81ae(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55f9a9276c7baf7570ddc8e1afc7c01c7badf8430ddfc4888ed2b3b5d0e1f785(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e548506a383c06ad73d13db4f63ecf8995017492e16c79d51b28ff41bf7442e6(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__641796a18683e869138904002c3cb1c67680cde8bde1c7f1c10a9421468fd8f2(
+    *,
+    file_system_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__dbe6e92927c4082cced17704c323c0e8dfbb17ada263b6e29e1a80b6990378c7(
     scope: _constructs_77d1e7e8.Construct,
@@ -10489,6 +11881,167 @@ def _typecheckingstub__44687c3c12e4575aa7d1eed69c1c33c3b113d2851a10f81139de84750
     batch_import_meta_data_on_create: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     imported_file_chunk_size: typing.Optional[jsii.Number] = None,
     s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataRepositoryAssociation.S3Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1968c75d0f6bb6c3346262977045712d21d34b7f28ab2dc657397b78842ae5fa(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    file_cache_type: builtins.str,
+    file_cache_type_version: builtins.str,
+    storage_capacity: jsii.Number,
+    subnet_ids: typing.Sequence[builtins.str],
+    copy_tags_to_data_repository_associations: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    data_repository_associations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.DataRepositoryAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    lustre_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4f4c495047ce066f0d857bd0b0b817876ffa434f22853d07102c283cf51c3c6(
+    resource: _aws_fsx_fc5af96b.IFileCacheRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b53128b8219f2cf430760d68cf05485e32b00acf7284e2e153671a1c55148f97(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    file_cache_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ca77f5f145aedf74e636bde39a748d9ed70111f69781a3a86232944c17f9d9f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c85766a0afc92f9e7da4441d0938d6e5b259bda80ec2afdd6ee1a2ad5f6ddd5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ede97f09361916ffbda48cdf525dc402157d912623345b80f2e5a60d85b4dc3a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17154d2038f1b244b07ed3d3b7fdfbcac5bf62c67d34fbd3dfc280b75ae148e8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c718ec796f2209726c9714cc50bd3a3e23c90f6fe0536f355ee239efbd0e7660(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63f51edbb7f7f7e6d0ef44ee70682f0dc129af04a46b9644413dca412d7bce6c(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23ff55718ffadd97a6e97f66d7fe3ee97255e2bda896bd4d2f282dafe34eb41e(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f8fd6666d00ae74a0f8718ceeeee94226e6c479ae66ecb7de002e2bb4bd9567(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0417c14a45198c8b4592acf70bdd7f17a30a6be8b8726814a262e661650eb39(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileCache.DataRepositoryAssociationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d3908d596213fb5f78816df4596449732c4e9c8aaf73d562776f73735ec73f3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74242d1bde415f159a395c9c8a968ab120a6388055a87bb6f2e5466f4ddc6ae1(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFileCache.LustreConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1013e51a50f31eba32bd2a12486eb4a0d70df9b7c7d30074d3863d23079652a(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d37808081da0a415eace887f8437af6f6f07ffc9b2a8456c4cd8360163987c67(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d282f5f6f76c2493905726cfa909207ed2ad6db46c69d0630a50fd4a2935df2a(
+    *,
+    data_repository_path: builtins.str,
+    file_cache_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc79d4e5582d09e354eb86d890d6c8c47bc206ca66b0188e3667d38232eabc0e(
+    *,
+    level: builtins.str,
+    destination: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbb4dc9f188ab5c069a6141e69157daee704aa141551f32531750c34cf8ffd67(
+    *,
+    deployment_type: builtins.str,
+    metadata_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    per_unit_storage_throughput: jsii.Number,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mount_name: typing.Optional[builtins.str] = None,
+    weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26f057b365134b701c7689281d8a47ff894af66442db904f9795974bdbbb09cb(
+    *,
+    storage_capacity: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ed42a472bf591731b3bf34f8844c13b47a4d286d9121cf30d8bea5bd3d97b35(
+    *,
+    file_cache_type: builtins.str,
+    file_cache_type_version: builtins.str,
+    storage_capacity: jsii.Number,
+    subnet_ids: typing.Sequence[builtins.str],
+    copy_tags_to_data_repository_associations: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    data_repository_associations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.DataRepositoryAssociationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    lustre_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFileCache.LustreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1386,7 +1386,10 @@ mod tests {
     async fn scoped_remote_values_are_hydrated_without_credentials_or_per_scope_observers() {
         let server = MockServer::start().await;
         let body = br#"{"answer":"hydrated"}"#;
-        let digest = format!("{:x}", Sha256::digest(body));
+        let digest = Sha256::digest(body)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         let download_path = format!("/v1/dynamic_config_value/{digest}");
 
         Mock::given(method("GET"))
@@ -1478,7 +1481,10 @@ mod tests {
     #[tokio::test]
     async fn trusted_hydration_origin_rejects_foreign_values_and_reports_failure() {
         let body = br#"{}"#;
-        let digest = format!("{:x}", Sha256::digest(body));
+        let digest = Sha256::digest(body)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         let source = Arc::new(RemotePayloadSource {
             payload: remote_payload(
                 &format!("https://untrusted.example/v1/dynamic_config_value/{digest}"),

@@ -14,12 +14,22 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import torch
 
 from auto_round.logger import deprecated, logger
-from auto_round.schemes import QuantizationScheme, parse_scheme
+from auto_round.scheme_entry import (
+    collect_config_scheme_overrides,
+    eager_validate_scheme,
+    is_gguf_k_target,
+    is_weight_scheme,
+    preview_resolved_attrs,
+    resolve_entry_scheme,
+)
+from auto_round.schemes import QuantizationScheme
 from auto_round.utils.device_manager import normalize_default_device_map
 
 if TYPE_CHECKING:
@@ -27,83 +37,6 @@ if TYPE_CHECKING:
     from auto_round.algorithms.quantization.rtn.config import RTNConfig
     from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
     from auto_round.compressors.base import BaseOrchestrator as BaseCompressor
-
-
-def _collect_config_scheme_overrides(config) -> dict:
-    """Return the config's explicitly-set scheme fields as a ``{field: value}`` dict.
-
-    These are exactly the per-field overrides layered on top of ``scheme=`` — the
-    single mechanism through which ``bits`` / ``act_bits`` / ``data_type`` etc.
-    reach the resolved scheme. Fields left as ``None`` are omitted so the scheme's
-    own value wins.
-    """
-    return {k: getattr(config, k) for k in config._scheme_fields if getattr(config, k, None) is not None}
-
-
-def _preview_resolved_attrs(config, scheme=None) -> dict:
-    from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
-
-    """Resolve scheme attributes without mutating config, for routing decisions.
-
-    Called in ``AutoRound.__new__`` before the concrete compressor class is
-    chosen.  ``SchemeMixin.resolve_scheme()`` will do the authoritative
-    resolution later; this is just a lightweight preview so routing logic
-    (``enable_imatrix``, ``needs_act_calib``, etc.) can use the correct values
-    even when the user specified only ``scheme=`` without explicit bit/dtype args.
-
-    This is the single source of resolved scheme fields for entry-level routing:
-    callers read from the returned dict and never re-read raw ``config`` attrs.
-    When the scheme cannot be previewed (``AutoScheme``, or a deferred parse
-    error), the config's own explicitly-set scheme overrides are returned so the
-    values still reflect what the user passed.
-
-    Returns:
-        dict: resolved scheme attributes (config overrides when preview is skipped).
-    """
-    config_overrides = _collect_config_scheme_overrides(config)
-    if isinstance(scheme, AutoScheme):
-        # AutoScheme needs model info — cannot preview; fall back to raw config attrs.
-        return config_overrides
-    try:
-        _, _, final_attrs = parse_scheme(scheme, config_overrides)
-        return final_attrs
-    except Exception:
-        return config_overrides
-
-
-def _eager_validate_scheme(config, scheme=None) -> None:
-    from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
-
-    """Eagerly validate scheme/config constraints at construction time.
-
-    Mirrors the old-arch ``_check_configs()`` call in ``BaseCompressor.__init__``.
-    Raises ``ValueError`` or ``NotImplementedError`` immediately if the scheme
-    contains config-only invalid combinations (e.g. tuple group_size with non-fp8
-    weight dtype) so that callers get a fast failure rather than a deferred error
-    buried inside ``post_init()``.
-
-    ``AutoScheme`` is skipped because it requires model information.
-    """
-    if isinstance(scheme, AutoScheme):
-        return
-
-    user_overrides = _collect_config_scheme_overrides(config)
-    try:
-        _, _, final_attrs = parse_scheme(scheme, user_overrides)
-    except (ValueError, NotImplementedError):
-        raise
-    except Exception:
-        return  # Other parse errors are deferred to post_init
-
-    import copy
-
-    temp_config = copy.copy(config)
-    if hasattr(config, "scheme"):
-        temp_config.scheme = config.scheme.copy()
-        temp_config._user_set_scheme_fields = set(getattr(config, "_user_set_scheme_fields", set()))
-    for key, value in final_attrs.items():
-        setattr(temp_config, key, value)
-    temp_config.check_config()  # raises ValueError / NotImplementedError if invalid
 
 
 # ---------------------------------------------------------------------------
@@ -139,37 +72,6 @@ def _get_compressor_class(model_type: str, base_cls: type) -> type:
     combined = type(f"{model_type.capitalize()}{base_cls.__name__}", (mixin, base_cls), {})
     _COMPRESSOR_REGISTRY[key] = combined
     return combined
-
-
-def is_weight_scheme(scheme: Union[str, dict, object]) -> bool:
-    if isinstance(scheme, str):
-        return scheme.upper().startswith("W")
-    if isinstance(scheme, dict):
-        return all(isinstance(s, str) and s.upper().startswith("W") for s in scheme.values())
-    from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
-
-    if isinstance(scheme, AutoScheme):
-        opts = scheme.options
-        if isinstance(opts, (list, tuple)):
-            return all(isinstance(s, str) and s.upper().startswith("W") for s in opts)
-        if isinstance(opts, str):
-            return opts.upper().startswith("W")
-    return False
-
-
-def is_gguf_k_target(value: Union[str, "AutoScheme", object]) -> bool:
-    from auto_round.auto_scheme.gen_auto_scheme import AutoScheme
-
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        return normalized.startswith("gguf:") and "_k" in normalized
-    if isinstance(value, AutoScheme):
-        opts = value.options
-        if isinstance(opts, str):
-            opts = [opts]
-        if isinstance(opts, (list, tuple)):
-            return any(isinstance(opt, str) and is_gguf_k_target(opt) for opt in opts)
-    return False
 
 
 def _resolve_quant_config_for_routing(alg_configs) -> tuple[list, list, "QuantizationConfig"]:
@@ -262,7 +164,7 @@ def _select_rtn_compressor_base_cls(quant_config: "RTNConfig", scheme, format, b
     # resolution later; this preview only chooses the class). Computed once: neither
     # `quant_config`'s scheme fields nor `scheme` itself change within this function,
     # so the result is invariant across every use below — no need to recompute it.
-    resolved_attrs = _preview_resolved_attrs(quant_config, scheme)
+    resolved_attrs = preview_resolved_attrs(quant_config, scheme, format=format)
 
     # Auto-disable rtn optimization for W8A16/W8A8-equivalent resolved schemes,
     # unless the user already set disable_opt_rtn explicitly.
@@ -332,7 +234,6 @@ _ENTRY_KWARG_OWNERS = {
     "model_dtype": "base",
     "trust_remote_code": "base",
     "amp": "base",
-    "disable_deterministic_algorithms": "base",
     "enable_deterministic_algorithms": "base",
     "static_kv_dtype": "base",
     "static_attention_dtype": "base",
@@ -345,55 +246,56 @@ _ENTRY_KWARG_OWNERS = {
     "quant_nontext_module": "mllm",
     "guidance_scale": "diffusion",
     "num_inference_steps": "diffusion",
+    "calib_num_inference_steps": "diffusion",
     "generator_seed": "diffusion",
+    "diffusion_tuning_cache_size": "diffusion",
 }
 
 _SCHEME_FIELDS = set(QuantizationScheme.get_attributes())
-_SIGNROUND_FIELDS = {
-    "iters",
-    "lr",
-    "minmax_lr",
-    "lr_scheduler",
-    "momentum",
-    "nblocks",
-    "enable_minmax_tuning",
-    "enable_norm_bias_tuning",
-    "gradient_accumulate_steps",
-    "enable_alg_ext",
-    "not_use_best_mse",
-    "dynamic_max_gap",
-    "enable_quanted_input",
-    "optimizer",
-    "enable_adam",
-    "enable_lfq",
-}
-_RTN_FIELDS = {"disable_opt_rtn", "enable_opt_rtn"}
-_AWQ_FIELDS = {
-    "duo_scaling",
-    "n_grid",
-    "seqlen",
-    "nsamples",
-    "batch_size",
-    "apply_smooth",
-    "smooth_iters",
-    "apply_clip",
-    "clip_as_init",
-    "clip_n_grid",
-    "clip_max_shrink",
-    "clip_n_sample_token",
-    "awq_seqlen",
-    "smooth_batch_size",
-    "disable_opt_rtn",
-    "enable_opt_rtn",
-    "skip_moe",
-    "mappings",
-}
-_ROTATION_FIELDS = {
-    "hadamard_type",
-    "block_size",
-    "fuse_online_to_weight",
-    "allow_online_rotation",
-}
+
+
+def _iter_registered_alg_configs() -> list[tuple[str, type]]:
+    """Return each registered algorithm's canonical name and config class."""
+    from auto_round.algorithms.registry import iter_algorithm_entries
+
+    result = []
+    seen = set()
+    for entry in iter_algorithm_entries():
+        factory = entry.config_factory
+        if factory is None:
+            continue
+        config_cls = factory if isinstance(factory, type) else type(factory())
+        if config_cls not in seen:
+            seen.add(config_cls)
+            result.append((entry.name, config_cls))
+    return result
+
+
+@functools.lru_cache(maxsize=None)
+def _discover_alg_config_fields(config_cls: type) -> frozenset:
+    """Discover accepted config fields without maintaining per-algorithm lists."""
+    from pydantic import BaseModel
+
+    if issubclass(config_cls, BaseModel):
+        return frozenset(config_cls.model_fields.keys())
+
+    from auto_round.algorithms.config import AlgorithmConfig
+    from auto_round.algorithms.quantization.config import QuantizationConfig
+
+    fields = set()
+    for klass in config_cls.__mro__:
+        if klass in (QuantizationConfig, AlgorithmConfig, object):
+            break
+        init = klass.__dict__.get("__init__")
+        if init is None:
+            continue
+        for name, parameter in inspect.signature(init).parameters.items():
+            if name != "self" and parameter.kind not in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                fields.add(name)
+    return frozenset(fields)
 
 
 def _filter_supported_entry_kwargs(kwargs, *, context="AutoRound"):
@@ -416,17 +318,11 @@ def _split_entry_kwargs(kwargs, *, context="AutoRound"):
 
 
 def _config_fields(config):
-    fields = set(_SCHEME_FIELDS)
-    name = type(config).__name__.lower()
-    if "awq" in name:
-        fields.update(_AWQ_FIELDS)
-    elif "rtn" in name:
-        fields.update(_RTN_FIELDS)
-    elif "signround" in name or "adamround" in name:
-        fields.update(_SIGNROUND_FIELDS)
-    elif "rotation" in name:
-        fields.update(_ROTATION_FIELDS)
-    return fields
+    return set(_SCHEME_FIELDS) | set(_discover_alg_config_fields(type(config)))
+
+
+def _owning_algorithm_names(field_name: str) -> list[str]:
+    return [cls.__name__ for _, cls in _iter_registered_alg_configs() if field_name in _discover_alg_config_fields(cls)]
 
 
 def _normalize_alg_configs(alg_configs, direct_kwargs=None):
@@ -570,7 +466,8 @@ def _normalize_alg_configs(alg_configs, direct_kwargs=None):
             # ignored algorithm-specific error after selecting RTN.
             if key == "iters" and any(isinstance(config, RTNConfig) for config in configs):
                 continue
-            owner = "AWQ" if key in _AWQ_FIELDS else "the selected algorithm"
+            owners = _owning_algorithm_names(key)
+            owner = "/".join(owners) if owners else "the selected algorithm"
             logger.error(
                 "%s-specific parameter '%s' was provided, but %s is not enabled by alg_configs. "
                 "The parameter is ignored.",
@@ -710,8 +607,17 @@ class _CompressorBuilder(object):
         route_scheme = (
             scheme
             if hasattr(scheme, "options") and hasattr(scheme, "avg_bits")
-            else QuantizationScheme.from_dict(_preview_resolved_attrs(quant_config, scheme))
+            else QuantizationScheme.from_dict(preview_resolved_attrs(quant_config, scheme, format=format))
         )
+        # Eagerly validate scheme constraints that do not require model info.
+        # This mirrors old-arch _check_configs() called at __init__ time so that
+        # callers get ValueError/NotImplementedError on construction, not deferred.
+        # Runs before the model-free early return so both routes enforce the
+        # same config-level constraints (e.g. the format-scoped 8-bit asym rule).
+        eager_validate_scheme(quant_config, scheme, format=format)
+        # NOTE: the W8-asym opt-in is the AR_ALLOW_W8_ASYM environment
+        # variable, read directly by parse_scheme and the generation-time
+        # gates; nothing is threaded through the compressor here.
         if is_model_free_route(
             model, route_scheme, model_free_iters, model_free_disable_opt_rtn, route_decision_kwargs
         ):
@@ -732,17 +638,13 @@ class _CompressorBuilder(object):
                 seed=seed,
                 enable_torch_compile=enable_torch_compile,
                 disable_opt_rtn=model_free_disable_opt_rtn,
+                format=format,
                 **compressor_kwargs,
                 **base_kwargs,
                 **mllm_kwargs,
                 **diffusion_kwargs,
                 **route_kwargs,
             )
-
-        # Eagerly validate scheme constraints that do not require model info.
-        # This mirrors old-arch _check_configs() called at __init__ time so that
-        # callers get ValueError/NotImplementedError on construction, not deferred.
-        _eager_validate_scheme(quant_config, scheme)
 
         local_args = dict(
             model=model,
@@ -779,9 +681,41 @@ class _CompressorBuilder(object):
 class AutoRound:
     """Unified AutoRound entry point.
 
-    alg_configs accepts an algorithm alias, one QuantizationConfig, or a
-    sequence of either. When omitted, SignRound is selected. AWQ-only
-    pipelines receive an RTN block quantizer by default.
+    ``alg_configs`` accepts an algorithm alias, one config object, or a
+    sequence of aliases and config objects. A sequence may combine a
+    preprocessor with one block quantizer, for example
+    ``["auto_round", "quarot"]``. Preprocessors execute in their listed
+    order; the block quantizer is always the final quantization stage,
+    regardless of its position in the sequence. When omitted, SignRound is
+    selected. AWQ-only pipelines receive an RTN block quantizer by default.
+
+    Args:
+        model: A model name/path or an already-loaded ``torch.nn.Module``.
+        tokenizer: Optional tokenizer used for calibration data.
+        scheme: Quantization scheme such as ``"W4A16"`` or ``"MXFP4"``.
+        schemes: Optional candidate quantization schemes for AutoScheme
+            (adaptive mixed-bit selection), e.g. ``("W4A16", "W8A16")`` or
+            ``"W4A16,W8A16"``. Providing schemes enables AutoScheme; ``bits``
+            then sets the average target bits. Mutually exclusive with
+            ``scheme``.
+        bits: Weight quantization bit width. When ``schemes`` is provided it
+            is the average target bits for AutoScheme (e.g. ``4.2``).
+        alg_configs: Algorithm alias, config instance, or sequence of either.
+            Use config instances to provide algorithm-specific options, such
+            as ``SignRoundConfig(iters=50)`` or ``AWQConfig(apply_clip=True)``.
+        layer_config: Optional per-layer quantization overrides.
+        dataset: Calibration dataset name, samples, or dataloader.
+        seqlen: Calibration sequence length.
+        nsamples: Number of calibration samples.
+        batch_size: Calibration batch size.
+        low_gpu_mem_usage: Enable lower-memory calibration at the cost of speed.
+        device_map: Device or device mapping used for quantization.
+        enable_torch_compile: Whether to use ``torch.compile`` where supported.
+        seed: Random seed used by calibration and tuning.
+        **kwargs: Additional compressor, model-type, evaluation, and legacy
+            compatibility options. Unsupported options are ignored with a
+            warning; algorithm-specific options should be placed in the
+            corresponding config object.
     """
 
     SKIP_ARGS = ("local_args", "kwargs", "cls", "model_cls", "dynamic_compressor", "alg_configs")
@@ -792,6 +726,8 @@ class AutoRound:
         tokenizer=None,
         platform: str = "hf",
         scheme: Union[str, dict, QuantizationScheme, "AutoScheme"] = "W4A16",
+        schemes: Union[str, list, tuple, None] = None,
+        bits: Union[int, float, None] = None,
         layer_config: dict[str, Union[str, dict, QuantizationScheme]] = None,
         dataset: Optional[Union[str, list, tuple, torch.utils.data.DataLoader]] = None,
         iters: int | None = None,
@@ -820,6 +756,9 @@ class AutoRound:
             direct_kwargs["gradient_accumulate_steps"] = gradient_accumulate_steps
         if algorithm is not None:
             direct_kwargs["algorithm"] = algorithm
+        if bits is not None:
+            direct_kwargs["bits"] = bits
+        scheme, direct_kwargs = resolve_entry_scheme(scheme, schemes, direct_kwargs)
 
         configs, runtime_kwargs = _prepare_entry_kwargs(alg_configs, direct_kwargs)
         runtime_kwargs["batch_size"] = batch_size

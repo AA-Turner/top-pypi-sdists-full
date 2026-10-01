@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -22,6 +23,7 @@ class PipelineRunSummaryResponse:
         destination_name (None | str | Unset): Name of the destination the pipeline wrote to
         duration_ms (int | None | Unset): Duration of the pipeline run in milliseconds
         finished_at (datetime.datetime | None | Unset): When the pipeline run finished
+        pipeline_run_id (None | Unset | UUID): Telemetry ID of the pipeline run
         started_at (datetime.datetime | None | Unset): When the pipeline run started
         status (None | str | Unset): Status of the pipeline run
         total_rows (int | None | Unset): Total number of rows loaded by the pipeline
@@ -33,6 +35,7 @@ class PipelineRunSummaryResponse:
     destination_name: None | str | Unset = UNSET
     duration_ms: int | None | Unset = UNSET
     finished_at: datetime.datetime | None | Unset = UNSET
+    pipeline_run_id: None | Unset | UUID = UNSET
     started_at: datetime.datetime | None | Unset = UNSET
     status: None | str | Unset = UNSET
     total_rows: int | None | Unset = UNSET
@@ -67,6 +70,14 @@ class PipelineRunSummaryResponse:
             finished_at = self.finished_at.isoformat()
         else:
             finished_at = self.finished_at
+
+        pipeline_run_id: None | str | Unset
+        if isinstance(self.pipeline_run_id, Unset):
+            pipeline_run_id = UNSET
+        elif isinstance(self.pipeline_run_id, UUID):
+            pipeline_run_id = str(self.pipeline_run_id)
+        else:
+            pipeline_run_id = self.pipeline_run_id
 
         started_at: None | str | Unset
         if isinstance(self.started_at, Unset):
@@ -109,6 +120,8 @@ class PipelineRunSummaryResponse:
             field_dict["duration_ms"] = duration_ms
         if finished_at is not UNSET:
             field_dict["finished_at"] = finished_at
+        if pipeline_run_id is not UNSET:
+            field_dict["pipeline_run_id"] = pipeline_run_id
         if started_at is not UNSET:
             field_dict["started_at"] = started_at
         if status is not UNSET:
@@ -169,6 +182,23 @@ class PipelineRunSummaryResponse:
 
         finished_at = _parse_finished_at(d.pop("finished_at", UNSET))
 
+        def _parse_pipeline_run_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                pipeline_run_id_type_0 = UUID(data)
+
+                return pipeline_run_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        pipeline_run_id = _parse_pipeline_run_id(d.pop("pipeline_run_id", UNSET))
+
         def _parse_started_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -219,6 +249,7 @@ class PipelineRunSummaryResponse:
             destination_name=destination_name,
             duration_ms=duration_ms,
             finished_at=finished_at,
+            pipeline_run_id=pipeline_run_id,
             started_at=started_at,
             status=status,
             total_rows=total_rows,

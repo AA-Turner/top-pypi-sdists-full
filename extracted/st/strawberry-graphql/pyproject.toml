@@ -1,6 +1,6 @@
 [project]
 name = "strawberry-graphql"
-version = "0.327.7"
+version = "0.328.0"
 description = "A library for creating GraphQL APIs"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -20,7 +20,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4.0"
 dependencies = [
-    "graphql-core>=3.2.0,<3.4.0",
+    "graphql-core>=3.3.0,<3.4.0",
     "typing-extensions>=4.14.0",
     "python-dateutil>=2.7",
     "packaging>=23",
@@ -169,6 +169,9 @@ addopts = "--emoji"
 DJANGO_SETTINGS_MODULE = "tests.django.django_settings"
 testpaths = ["tests/"]
 markers = [
+    "benchmark_native: native elapsed-time workloads (HTTP and process startup)",
+    "benchmark_stress: large scaling cases for scheduled and manual runs",
+    "benchmark_memory: bounded workloads suitable for allocation profiling",
     "aiohttp",
     "asgi",
     "chalice",

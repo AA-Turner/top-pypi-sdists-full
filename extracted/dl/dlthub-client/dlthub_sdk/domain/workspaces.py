@@ -205,7 +205,8 @@ class Workspace(Entity[M]):
         """Who has access to this workspace, and in what role.
 
         Args:
-            limit: Return at most this many. ``None`` walks to the end.
+            limit: Return at most this many. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many, server-side.
 
         Returns:
@@ -487,7 +488,8 @@ class Workspaces(Collection[M]):
         Args:
             organization_id: Overrides the organization in scope. Required when
                 the context carries none.
-            limit: Return at most this many workspaces. ``None`` walks to the end.
+            limit: Return at most this many workspaces. ``None`` walks to the end, or
+                to row 10,100, past which the platform does not page.
             offset: Skip this many workspaces, server-side.
 
         Returns:

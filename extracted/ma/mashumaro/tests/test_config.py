@@ -12,8 +12,10 @@ from mashumaro.types import Discriminator, SerializationStrategy
 from .entities import (
     MyDataClassWithOptional,
     MyDataClassWithOptionalAndOmitNoneFlag,
+    MyDataClassWithPEP604Optional,
     MyNamedTuple,
     MyNamedTupleWithDefaults,
+    MyNamedTupleWithRequiredAndDefaults,
     MyUntypedNamedTuple,
     MyUntypedNamedTupleWithDefaults,
     TypedDictRequiredKeys,
@@ -57,6 +59,41 @@ def test_config_without_base_config_base(mocker):
     mocked_print.assert_called()
 
 
+def test_config_without_base_config_base_inheritance():
+    class ParentConfig:
+        forbid_extra_keys = True
+        sort_keys = True
+
+    @dataclass
+    class Parent(DataClassDictMixin):
+        foo: int
+        bar: int
+
+        class Config(ParentConfig):
+            pass
+
+    @dataclass
+    class Child(Parent):
+        class Config(Parent.Config):
+            pass
+
+    @dataclass
+    class ChildWithOverrides(Parent):
+        class Config(Parent.Config):
+            forbid_extra_keys = False
+            sort_keys = False
+
+    child = Child(foo=1, bar=2)
+    assert str(child.to_dict()) == "{'bar': 2, 'foo': 1}"
+    with pytest.raises(ExtraKeysError) as exc_info:
+        Child.from_dict({"foo": 1, "bar": 2, "extra": 3})
+    assert exc_info.value.extra_keys == {"extra"}
+    assert exc_info.value.target_type is Child
+
+    overridden = ChildWithOverrides.from_dict({"foo": 1, "bar": 2, "extra": 3})
+    assert str(overridden.to_dict()) == "{'foo': 1, 'bar': 2}"
+
+
 def test_debug_false_option(mocker):
     mocked_print = mocker.patch("builtins.print")
 
@@ -92,10 +129,14 @@ def test_no_omit_none_code_generation_flag():
         DataClass().to_dict(omit_none=True)
 
 
-def test_omit_none_flag_for_inner_class_without_it():
+@pytest.mark.parametrize(
+    "optional_inner_class",
+    [MyDataClassWithOptional, MyDataClassWithPEP604Optional],
+)
+def test_omit_none_flag_for_inner_class_without_it(optional_inner_class):
     @dataclass
     class DataClass(DataClassDictMixin):
-        x: Optional[MyDataClassWithOptional] = None
+        x: Optional[optional_inner_class] = None
 
         class Config(BaseConfig):
             code_generation_options = [TO_DICT_ADD_OMIT_NONE_FLAG]
@@ -103,7 +144,7 @@ def test_omit_none_flag_for_inner_class_without_it():
     assert DataClass().to_dict() == {"x": None}
     assert DataClass().to_dict(omit_none=True) == {}
 
-    empty_x = MyDataClassWithOptional()
+    empty_x = optional_inner_class()
     assert DataClass(empty_x).to_dict() == {"x": {"a": None, "b": None}}
     assert DataClass(empty_x).to_dict(omit_none=True) == {
         "x": {"a": None, "b": None}
@@ -202,6 +243,62 @@ def test_untyped_named_tuple_with_defaults_as_dict():
     obj = DataClass(munpwd=MyUntypedNamedTupleWithDefaults(i=1, f=2.0))
     assert obj.to_dict() == {"munpwd": {"i": 1, "f": 2.0}}
     assert DataClass.from_dict({"munpwd": {"i": 1, "f": 2.0}}) == obj
+
+
+def test_named_tuple_as_dict_with_missing_trailing_default_keys():
+    @dataclass
+    class DataClass(DataClassDictMixin):
+        mnpwd: MyNamedTupleWithDefaults
+        munpwd: MyUntypedNamedTupleWithDefaults
+        mnpwrd: MyNamedTupleWithRequiredAndDefaults
+
+        class Config(BaseConfig):
+            namedtuple_as_dict = True
+
+    # Omitting a key that has a default should fall back to that default,
+    # the same way an omitted trailing element does for the as_list engine.
+    obj = DataClass(
+        mnpwd=MyNamedTupleWithDefaults(i=10),
+        munpwd=MyUntypedNamedTupleWithDefaults(i=10),
+        mnpwrd=MyNamedTupleWithRequiredAndDefaults(i=10, s="sss"),
+    )
+    assert (
+        DataClass.from_dict(
+            {
+                "mnpwd": {"i": 10},
+                "munpwd": {"i": 10},
+                "mnpwrd": {"i": 10, "s": "sss"},
+            }
+        )
+        == obj
+    )
+
+
+def test_named_tuple_as_dict_with_missing_middle_default_keys():
+    @dataclass
+    class DataClass(DataClassDictMixin):
+        mnpwd: MyNamedTupleWithDefaults
+        munpwd: MyUntypedNamedTupleWithDefaults
+        mnpwrd: MyNamedTupleWithRequiredAndDefaults
+
+        class Config(BaseConfig):
+            namedtuple_as_dict = True
+
+    obj = DataClass(
+        mnpwd=MyNamedTupleWithDefaults(f=2.2),
+        munpwd=MyUntypedNamedTupleWithDefaults(f=2.2),
+        mnpwrd=MyNamedTupleWithRequiredAndDefaults(33, f=2.2),
+    )
+    assert (
+        DataClass.from_dict(
+            {
+                "mnpwd": {"f": 2.2},
+                "munpwd": {"f": 2.2},
+                "mnpwrd": {"i": 33, "f": 2.2},
+            }
+        )
+        == obj
+    )
 
 
 def test_named_tuple_as_dict_and_as_list_engine():
@@ -455,3 +552,44 @@ def test_forbid_extra_keys_with_discriminator_for_subclass():
             {"x": "foo", "__type": "_VariantByField4", "y": "bar"}
         )
     assert exc_info.value.extra_keys == {"y"}
+
+
+def test_plain_config_inheritance_with_discriminator():
+    def tagger(cls: type) -> str:
+        return f"{cls.__module__}.{cls.__qualname__}"
+
+    @dataclass
+    class Root(DataClassDictMixin):
+        name: str = "root"
+
+        class Config:
+            forbid_extra_keys = True
+            discriminator = Discriminator(
+                field="type", include_subtypes=True, variant_tagger_fn=tagger
+            )
+
+        def __post_serialize__(self, data: dict):
+            data["type"] = tagger(type(self))
+            return data
+
+        @classmethod
+        def __pre_deserialize__(cls, data: dict) -> dict:
+            return {key: value for key, value in data.items() if key != "type"}
+
+    @dataclass
+    class Middle(Root):
+        value: int = 0
+
+        class Config(Root.Config):
+            pass
+
+    @dataclass
+    class Child(Middle):
+        extra: int = 0
+
+    child = Child(name="child", value=1, extra=2)
+    serialized = child.to_dict()
+
+    assert Root.from_dict(serialized) == child
+    assert Middle.from_dict(serialized) == child
+    assert Child.from_dict(serialized) == child

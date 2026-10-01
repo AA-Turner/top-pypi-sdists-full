@@ -33,6 +33,7 @@ __all__ = (
     "RegistrationStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "WhatsAppDayOfWeekType",
 )
 
 ListLinkedWhatsAppBusinessAccountsPaginatorName = Literal["list_linked_whatsapp_business_accounts"]
@@ -52,6 +53,9 @@ MetaFlowCategoryType = Literal[
     "SURVEY",
 ]
 RegistrationStatusType = Literal["COMPLETE", "INCOMPLETE"]
+WhatsAppDayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -133,6 +137,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -207,6 +212,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -235,6 +241,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -329,6 +336,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

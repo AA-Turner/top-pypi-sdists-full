@@ -1429,6 +1429,7 @@ class CfnConnector(
             security_policy_name="securityPolicyName",
             sftp_config=transfer.CfnConnector.SftpConfigProperty(
                 max_concurrent_connections=123,
+                ordered_user_secret_version_stages=["orderedUserSecretVersionStages"],
                 trusted_host_keys=["trustedHostKeys"],
                 user_secret_id="userSecretId"
             ),
@@ -2281,6 +2282,7 @@ class CfnConnector(
         jsii_struct_bases=[],
         name_mapping={
             "max_concurrent_connections": "maxConcurrentConnections",
+            "ordered_user_secret_version_stages": "orderedUserSecretVersionStages",
             "trusted_host_keys": "trustedHostKeys",
             "user_secret_id": "userSecretId",
         },
@@ -2290,12 +2292,14 @@ class CfnConnector(
             self,
             *,
             max_concurrent_connections: typing.Optional[jsii.Number] = None,
+            ordered_user_secret_version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
             trusted_host_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
             user_secret_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A structure that contains the parameters for an SFTP connector object.
 
             :param max_concurrent_connections: Specify the number of concurrent connections that your connector creates to the remote server. The default value is ``1`` . The maximum values is ``5`` . .. epigraph:: If you are using the AWS Management Console , the default value is ``5`` . This parameter specifies the number of active connections that your connector can establish with the remote server at the same time. Increasing this value can enhance connector performance when transferring large file batches by enabling parallel operations. Default: - 1
+            :param ordered_user_secret_version_stages: Specifies the order in which the connector attempts to use secret versions during authentication. This enables fallback to alternative credentials if the primary version fails.
             :param trusted_host_keys: The public portion of the host key, or keys, that are used to identify the external server to which you are connecting. You can use the ``ssh-keyscan`` command against the SFTP server to retrieve the necessary key. .. epigraph:: ``TrustedHostKeys`` is optional for ``CreateConnector`` . If not provided, you can use ``TestConnection`` to retrieve the server host key during the initial connection attempt, and subsequently update the connector with the observed host key. When creating connectors with egress config (VPC_LATTICE type connectors), since host name is not something we can verify, the only accepted trusted host key format is ``key-type key-body`` without the host name. For example: ``ssh-rsa AAAAB3Nza...<long-string-for-public-key>`` The three standard SSH public key format elements are ``<key type>`` , ``<body base64>`` , and an optional ``<comment>`` , with spaces between each element. Specify only the ``<key type>`` and ``<body base64>`` : do not enter the ``<comment>`` portion of the key. For the trusted host key, AWS Transfer Family accepts RSA and ECDSA keys. - For RSA keys, the ``<key type>`` string is ``ssh-rsa`` . - For ECDSA keys, the ``<key type>`` string is either ``ecdsa-sha2-nistp256`` , ``ecdsa-sha2-nistp384`` , or ``ecdsa-sha2-nistp521`` , depending on the size of the key you generated. Run this command to retrieve the SFTP server host key, where your SFTP server name is ``ftp.host.com`` . ``ssh-keyscan ftp.host.com`` This prints the public host key to standard output. ``ftp.host.com ssh-rsa AAAAB3Nza...<long-string-for-public-key>`` Copy and paste this string into the ``TrustedHostKeys`` field for the ``create-connector`` command or into the *Trusted host keys* field in the console. For VPC Lattice type connectors (VPC_LATTICE), remove the hostname from the key and use only the ``key-type key-body`` format. In this example, it should be: ``ssh-rsa AAAAB3Nza...<long-string-for-public-key>``
             :param user_secret_id: The identifier for the secret (in AWS Secrets Manager) that contains the SFTP user's private key, password, or both. The identifier must be the Amazon Resource Name (ARN) of the secret. .. epigraph:: - Required when creating an SFTP connector - Optional when updating an existing SFTP connector
 
@@ -2310,6 +2314,7 @@ class CfnConnector(
                 
                 sftp_config_property = transfer.CfnConnector.SftpConfigProperty(
                     max_concurrent_connections=123,
+                    ordered_user_secret_version_stages=["orderedUserSecretVersionStages"],
                     trusted_host_keys=["trustedHostKeys"],
                     user_secret_id="userSecretId"
                 )
@@ -2317,11 +2322,14 @@ class CfnConnector(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__f4f8d4be2ad63a06a458c41605c9c21318e1d9117d48f21b9ee2ea6bb109d2e8)
                 check_type(argname="argument max_concurrent_connections", value=max_concurrent_connections, expected_type=type_hints["max_concurrent_connections"])
+                check_type(argname="argument ordered_user_secret_version_stages", value=ordered_user_secret_version_stages, expected_type=type_hints["ordered_user_secret_version_stages"])
                 check_type(argname="argument trusted_host_keys", value=trusted_host_keys, expected_type=type_hints["trusted_host_keys"])
                 check_type(argname="argument user_secret_id", value=user_secret_id, expected_type=type_hints["user_secret_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if max_concurrent_connections is not None:
                 self._values["max_concurrent_connections"] = max_concurrent_connections
+            if ordered_user_secret_version_stages is not None:
+                self._values["ordered_user_secret_version_stages"] = ordered_user_secret_version_stages
             if trusted_host_keys is not None:
                 self._values["trusted_host_keys"] = trusted_host_keys
             if user_secret_id is not None:
@@ -2344,6 +2352,19 @@ class CfnConnector(
             '''
             result = self._values.get("max_concurrent_connections")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ordered_user_secret_version_stages(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specifies the order in which the connector attempts to use secret versions during authentication.
+
+            This enables fallback to alternative credentials if the primary version fails.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-sftpconfig.html#cfn-transfer-connector-sftpconfig-orderedusersecretversionstages
+            '''
+            result = self._values.get("ordered_user_secret_version_stages")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def trusted_host_keys(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2482,6 +2503,7 @@ class CfnConnectorProps:
                 security_policy_name="securityPolicyName",
                 sftp_config=transfer.CfnConnector.SftpConfigProperty(
                     max_concurrent_connections=123,
+                    ordered_user_secret_version_stages=["orderedUserSecretVersionStages"],
                     trusted_host_keys=["trustedHostKeys"],
                     user_secret_id="userSecretId"
                 ),
@@ -3438,6 +3460,9 @@ class CfnServer(
             protocol_details=transfer.CfnServer.ProtocolDetailsProperty(
                 as2_transports=["as2Transports"],
                 passive_ip="passiveIp",
+                proxy_config=transfer.CfnServer.ProxyConfigProperty(
+                    sftp_mode="sftpMode"
+                ),
                 set_stat_option="setStatOption",
                 tls_session_resumption_mode="tlsSessionResumptionMode"
             ),
@@ -4215,6 +4240,7 @@ class CfnServer(
         name_mapping={
             "as2_transports": "as2Transports",
             "passive_ip": "passiveIp",
+            "proxy_config": "proxyConfig",
             "set_stat_option": "setStatOption",
             "tls_session_resumption_mode": "tlsSessionResumptionMode",
         },
@@ -4225,6 +4251,7 @@ class CfnServer(
             *,
             as2_transports: typing.Optional[typing.Sequence[builtins.str]] = None,
             passive_ip: typing.Optional[builtins.str] = None,
+            proxy_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServer.ProxyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             set_stat_option: typing.Optional[builtins.str] = None,
             tls_session_resumption_mode: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4241,6 +4268,7 @@ class CfnServer(
 
             :param as2_transports: List of ``As2Transport`` objects.
             :param passive_ip: Indicates passive mode, for FTP and FTPS protocols. Enter a single IPv4 address, such as the public IP address of a firewall, router, or load balancer. For example: ``aws transfer update-server --protocol-details PassiveIp=0.0.0.0`` Replace ``0.0.0.0`` in the example above with the actual IP address you want to use. .. epigraph:: If you change the ``PassiveIp`` value, you must stop and then restart your Transfer Family server for the change to take effect. For details on using passive mode (PASV) in a NAT environment, see `Configuring your FTPS server behind a firewall or NAT with AWS Transfer Family <https://docs.aws.amazon.com/storage/configuring-your-ftps-server-behind-a-firewall-or-nat-with-aws-transfer-family/>`_ . Additionally, avoid placing Network Load Balancers (NLBs) or NAT gateways in front of AWS Transfer Family servers. This configuration increases costs and can cause performance issues. When NLBs or NATs are in the communication path, Transfer Family cannot accurately recognize client IP addresses, which impacts connection sharding and limits FTPS servers to only 300 simultaneous connections instead of 10,000. If you must use an NLB, use port 21 for health checks and enable TLS session resumption by setting ``TlsSessionResumptionMode = ENFORCED`` . For optimal performance, migrate to VPC endpoints with Elastic IP addresses instead of using NLBs. For more details, see `Avoid placing NLBs and NATs in front of AWS Transfer Family <https://docs.aws.amazon.com/transfer/latest/userguide/infrastructure-security.html#nlb-considerations>`_ . *Special values* The ``AUTO`` and ``0.0.0.0`` are special values for the ``PassiveIp`` parameter. The value ``PassiveIp=AUTO`` is assigned by default to FTP and FTPS type servers. In this case, the server automatically responds with one of the endpoint IPs within the PASV response. ``PassiveIp=0.0.0.0`` has a more unique application for its usage. For example, if you have a High Availability (HA) Network Load Balancer (NLB) environment, where you have 3 subnets, you can only specify a single IP address using the ``PassiveIp`` parameter. This reduces the effectiveness of having High Availability. In this case, you can specify ``PassiveIp=0.0.0.0`` . This tells the client to use the same IP address as the Control connection and utilize all AZs for their connections. Note, however, that not all FTP clients support the ``PassiveIp=0.0.0.0`` response. FileZilla and WinSCP do support it. If you are using other clients, check to see if your client supports the ``PassiveIp=0.0.0.0`` response.
+            :param proxy_config: 
             :param set_stat_option: Use the ``SetStatOption`` to ignore the error that is generated when the client attempts to use ``SETSTAT`` on a file you are uploading to an S3 bucket. Some SFTP file transfer clients can attempt to change the attributes of remote files, including timestamp and permissions, using commands, such as ``SETSTAT`` when uploading the file. However, these commands are not compatible with object storage systems, such as Amazon S3. Due to this incompatibility, file uploads from these clients can result in errors even when the file is otherwise successfully uploaded. Set the value to ``ENABLE_NO_OP`` to have the Transfer Family server ignore the ``SETSTAT`` command, and upload files without needing to make any changes to your SFTP client. While the ``SetStatOption`` ``ENABLE_NO_OP`` setting ignores the error, it does generate a log entry in Amazon CloudWatch Logs, so you can determine when the client is making a ``SETSTAT`` call. .. epigraph:: If you want to preserve the original timestamp for your file, and modify other file attributes using ``SETSTAT`` , you can use Amazon EFS as backend storage with Transfer Family.
             :param tls_session_resumption_mode: A property used with Transfer Family servers that use the FTPS protocol. TLS Session Resumption provides a mechanism to resume or share a negotiated secret key between the control and data connection for an FTPS session. ``TlsSessionResumptionMode`` determines whether or not the server resumes recent, negotiated sessions through a unique session ID. This property is available during ``CreateServer`` and ``UpdateServer`` calls. If a ``TlsSessionResumptionMode`` value is not specified during ``CreateServer`` , it is set to ``ENFORCED`` by default. - ``DISABLED`` : the server does not process TLS session resumption client requests and creates a new TLS session for each request. - ``ENABLED`` : the server processes and accepts clients that are performing TLS session resumption. The server doesn't reject client data connections that do not perform the TLS session resumption client processing. - ``ENFORCED`` : the server processes and accepts clients that are performing TLS session resumption. The server rejects client data connections that do not perform the TLS session resumption client processing. Before you set the value to ``ENFORCED`` , test your clients. .. epigraph:: Not all FTPS clients perform TLS session resumption. So, if you choose to enforce TLS session resumption, you prevent any connections from FTPS clients that don't perform the protocol negotiation. To determine whether or not you can use the ``ENFORCED`` value, you need to test your clients.
 
@@ -4256,6 +4284,9 @@ class CfnServer(
                 protocol_details_property = transfer.CfnServer.ProtocolDetailsProperty(
                     as2_transports=["as2Transports"],
                     passive_ip="passiveIp",
+                    proxy_config=transfer.CfnServer.ProxyConfigProperty(
+                        sftp_mode="sftpMode"
+                    ),
                     set_stat_option="setStatOption",
                     tls_session_resumption_mode="tlsSessionResumptionMode"
                 )
@@ -4264,6 +4295,7 @@ class CfnServer(
                 type_hints = cached_type_hints(_typecheckingstub__0b1af46c3c18a62e5483e3be74497e66aaecc076ccfe0d473686a4e4b38255cc)
                 check_type(argname="argument as2_transports", value=as2_transports, expected_type=type_hints["as2_transports"])
                 check_type(argname="argument passive_ip", value=passive_ip, expected_type=type_hints["passive_ip"])
+                check_type(argname="argument proxy_config", value=proxy_config, expected_type=type_hints["proxy_config"])
                 check_type(argname="argument set_stat_option", value=set_stat_option, expected_type=type_hints["set_stat_option"])
                 check_type(argname="argument tls_session_resumption_mode", value=tls_session_resumption_mode, expected_type=type_hints["tls_session_resumption_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4271,6 +4303,8 @@ class CfnServer(
                 self._values["as2_transports"] = as2_transports
             if passive_ip is not None:
                 self._values["passive_ip"] = passive_ip
+            if proxy_config is not None:
+                self._values["proxy_config"] = proxy_config
             if set_stat_option is not None:
                 self._values["set_stat_option"] = set_stat_option
             if tls_session_resumption_mode is not None:
@@ -4308,6 +4342,16 @@ class CfnServer(
             '''
             result = self._values.get("passive_ip")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def proxy_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.ProxyConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-protocoldetails.html#cfn-transfer-server-protocoldetails-proxyconfig
+            '''
+            result = self._values.get("proxy_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServer.ProxyConfigProperty"]], result)
 
         @builtins.property
         def set_stat_option(self) -> typing.Optional[builtins.str]:
@@ -4352,6 +4396,55 @@ class CfnServer(
 
         def __repr__(self) -> str:
             return "ProtocolDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_transfer.CfnServer.ProxyConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"sftp_mode": "sftpMode"},
+    )
+    class ProxyConfigProperty:
+        def __init__(self, *, sftp_mode: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param sftp_mode: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-proxyconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_transfer as transfer
+                
+                proxy_config_property = transfer.CfnServer.ProxyConfigProperty(
+                    sftp_mode="sftpMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bc0fceb521a85155beedd3a0637eb4627db16007d3597dff82f05b07cecf0eb4)
+                check_type(argname="argument sftp_mode", value=sftp_mode, expected_type=type_hints["sftp_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if sftp_mode is not None:
+                self._values["sftp_mode"] = sftp_mode
+
+        @builtins.property
+        def sftp_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-proxyconfig.html#cfn-transfer-server-proxyconfig-sftpmode
+            '''
+            result = self._values.get("sftp_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProxyConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4688,6 +4781,9 @@ class CfnServerProps:
                 protocol_details=transfer.CfnServer.ProtocolDetailsProperty(
                     as2_transports=["as2Transports"],
                     passive_ip="passiveIp",
+                    proxy_config=transfer.CfnServer.ProxyConfigProperty(
+                        sftp_mode="sftpMode"
+                    ),
                     set_stat_option="setStatOption",
                     tls_session_resumption_mode="tlsSessionResumptionMode"
                 ),
@@ -8831,6 +8927,7 @@ def _typecheckingstub__53a48f28bdc82ead21fcc7f4a6cb2d63a8b7bb31c09769a4d8ab452c1
 def _typecheckingstub__f4f8d4be2ad63a06a458c41605c9c21318e1d9117d48f21b9ee2ea6bb109d2e8(
     *,
     max_concurrent_connections: typing.Optional[jsii.Number] = None,
+    ordered_user_secret_version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
     trusted_host_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     user_secret_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -9186,8 +9283,16 @@ def _typecheckingstub__0b1af46c3c18a62e5483e3be74497e66aaecc076ccfe0d473686a4e4b
     *,
     as2_transports: typing.Optional[typing.Sequence[builtins.str]] = None,
     passive_ip: typing.Optional[builtins.str] = None,
+    proxy_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServer.ProxyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     set_stat_option: typing.Optional[builtins.str] = None,
     tls_session_resumption_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc0fceb521a85155beedd3a0637eb4627db16007d3597dff82f05b07cecf0eb4(
+    *,
+    sftp_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

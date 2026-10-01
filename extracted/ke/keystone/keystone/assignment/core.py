@@ -84,6 +84,7 @@ class Manager(manager.Manager):
     ):
         domain_id = payload['resource_info']
         self.driver.delete_domain_assignments(domain_id)
+        COMPUTED_ASSIGNMENTS_REGION.invalidate()
 
     def _get_group_ids_for_user_id(self, user_id):
         # TODO(morganfainberg): Implement a way to get only group_ids
@@ -92,14 +93,6 @@ class Manager(manager.Manager):
             x['id']
             for x in PROVIDERS.identity_api.list_groups_for_user(user_id)
         ]
-
-    def list_user_ids_for_project(self, project_id):
-        PROVIDERS.resource_api.get_project(project_id)
-        assignment_list = self.list_role_assignments(
-            project_id=project_id, effective=True
-        )
-        # Use set() to process the list to remove any duplicates
-        return list({x['user_id'] for x in assignment_list})
 
     def _send_app_cred_notification_for_role_removal(self, role_id):
         """Delete all application credential for a specific role.
@@ -277,38 +270,6 @@ class Manager(manager.Manager):
             {x['project_id'] for x in assignment_list if x.get('project_id')}
         )
         return PROVIDERS.resource_api.list_projects_from_ids(project_ids)
-
-    @notifications.role_assignment('deleted')
-    def _remove_role_from_user_and_project_adapter(
-        self,
-        role_id,
-        user_id=None,
-        group_id=None,
-        domain_id=None,
-        project_id=None,
-        inherited_to_projects=False,
-        context=None,
-    ):
-        # The parameters for this method must match the parameters for
-        # delete_grant so that the notifications.role_assignment decorator
-        # will work.
-
-        self.driver.remove_role_from_user_and_project(
-            user_id, project_id, role_id
-        )
-        payload = {'user_id': user_id, 'project_id': project_id}
-        notifications.Audit.internal(
-            notifications.REMOVE_APP_CREDS_FOR_USER, payload
-        )
-        self._invalidate_token_cache(
-            role_id, group_id, user_id, project_id, domain_id
-        )
-
-    def remove_role_from_user_and_project(self, user_id, project_id, role_id):
-        self._remove_role_from_user_and_project_adapter(
-            role_id, user_id=user_id, project_id=project_id
-        )
-        COMPUTED_ASSIGNMENTS_REGION.invalidate()
 
     def _invalidate_token_cache(
         self, role_id, group_id, user_id, project_id, domain_id
@@ -1377,6 +1338,7 @@ class Manager(manager.Manager):
         self.driver.create_system_grant(
             role_id, user_id, target_id, assignment_type, inherited
         )
+        COMPUTED_ASSIGNMENTS_REGION.invalidate()
 
     def delete_system_grant_for_user(self, user_id, role_id):
         """Remove a system grant from a user.
@@ -1448,6 +1410,7 @@ class Manager(manager.Manager):
         self.driver.create_system_grant(
             role_id, group_id, target_id, assignment_type, inherited
         )
+        COMPUTED_ASSIGNMENTS_REGION.invalidate()
 
     def delete_system_grant_for_group(self, group_id, role_id):
         """Remove a system grant from a group.

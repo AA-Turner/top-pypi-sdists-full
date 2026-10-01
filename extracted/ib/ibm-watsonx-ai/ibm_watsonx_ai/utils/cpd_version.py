@@ -35,13 +35,7 @@ class CPDVersion:
 
     """
 
-    supported_version_list = [
-        "5.0",
-        "5.1",
-        "5.2",
-        "5.3",
-        "5.4",
-    ]
+    supported_version_list = ["5.0", "5.1", "5.2", "5.3", "5.4", "6.0"]
 
     def __init__(self, version: str | None = None):
         self.cpd_version = version

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rasterio
-Version: 1.5.1
+Version: 1.5.2
 Summary: Fast and direct raster I/O for use with NumPy
 Author-email: Sean Gillies <sean.gillies@gmail.com>
 Maintainer: Rasterio contributors

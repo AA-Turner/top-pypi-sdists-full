@@ -26,6 +26,7 @@ import tempfile
 import inspect
 
 from stanza.tests import TEST_WORKING_DIR
+from stanza.models.tokenizer import build_argparse
 from stanza.models.tokenization import data as data_module
 from stanza.models.tokenization.data import (
     DataLoader,
@@ -40,17 +41,33 @@ pytestmark = [pytest.mark.travis, pytest.mark.pipeline]
 
 def discover_augmentation_probs():
     """
-    Find every '*_prob' DataLoader argument referenced in data.py, by
-    scanning its source for args.get('xxx_prob', ...) / args['xxx_prob'].
+    Find every '*_prob' argument that DataLoader reads from args, by
+    scanning the source of the whole DataLoader class.
 
-    This drives the next()-integration smoke test below. Deriving the list
-    from the source (instead of hand-maintaining it here) means a newly
-    added augmentation is automatically picked up the next time the tests
-    run -- no separate edit to this test file is required when someone adds
-    a new `whatever_prob` argument to DataLoader.
+    Some probs (e.g. last_char_drop_prob) are only read inside next() /
+    strings_starting() and not in __init__, so the whole class is needed.
+    This drives both the next()-integration smoke test and the argparse
+    coverage check below.
     """
-    source = inspect.getsource(data_module)
+    source = inspect.getsource(DataLoader)
     return sorted(set(re.findall(r"args(?:\.get)?\(?\[?'(\w+_prob)'", source)))
+
+
+def discover_argparse_prob_args():
+    """
+    Find every '*_prob' argument registered in build_argparse() by actually
+    calling it and inspecting the resulting parser's registered actions.
+
+    This is more robust than scanning source text: it reflects exactly what
+    argparse will expose at runtime, regardless of how build_argparse() is
+    implemented internally (helper functions, loops, etc.).
+    """
+    parser = build_argparse()
+    return sorted(
+        action.dest
+        for action in parser._actions
+        if action.dest.endswith('_prob')
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +119,12 @@ def write_and_load(raw_text, labels, extra_args=None):
             f.write(labels)
         data = DataLoader(args=args, input_files={'txt': txt_path, 'label': lbl_path})
     return data
+
+
+def chars_with_labels(text, labels):
+    """Zip a text and a string of labels into the (char, label) chunk format used by data.py"""
+    assert len(text) == len(labels), "text %s has length %d but labels have length %d" % (text, len(text), len(labels))
+    return [(char, int(label)) for char, label in zip(text, labels)]
 
 
 def run_trials(fn, n=200):
@@ -156,6 +179,18 @@ class TestAugmentVocab:
         vocab, data = self._make(data)
         assert DataLoader.augment_vocab(vocab, data, ',', '\u2013', final=False) is True
         assert '\u2013' in vocab
+
+    def test_standalone_new_unit_blocks_by_default(self):
+        """Without allow_standalone, any occurrence of the new unit blocks the augmentation."""
+        data = [chars_with_labels("Hi, you – me.", "0110001010012")]
+        vocab, data = self._make(data)
+        assert DataLoader.augment_vocab(vocab, data, ',', '–', final=False) is False
+
+    def test_standalone_new_unit_allowed(self):
+        """With allow_standalone, a standalone occurrence of the new unit is acceptable."""
+        data = [chars_with_labels("Hi, you – me.", "0110001010012")]
+        vocab, data = self._make(data)
+        assert DataLoader.augment_vocab(vocab, data, ',', '–', final=False, allow_standalone=True) is True
 
     def test_not_final_includes_all_positions(self):
         """final=False counts all positions including the final character."""
@@ -224,15 +259,92 @@ class TestBuildMidSentAugmentations:
         assert ',' in result
         assert '\u2013' in result[','] or '\u2014' in result[',']
 
-    def test_dash_present_blocks_activation(self):
-        """En dash already in data -> comma->en dash substitution should not activate,
-        even when commas are also present."""
-        data = [[('H',0),('e',0),('l',0),('l',0),('o',0),(',',1),(' ',0),
-                 ('w',0),('o',0),('r',0),('l',0),('d',1),(' ',0),('\u2013',1),
-                 ('f',0),('o',0),('o',1),('.',2)]]
+    def test_dash_inside_token_blocks_activation(self):
+        """En dash already in data as part of a larger token -> comma->en dash
+        substitution should not activate, even when commas are also present."""
+        # "Hello, 1947\u20131950." with 1947\u20131950 as a single token
+        data = [chars_with_labels("Hello, 1947\u20131950.",
+                                  "000011" "0" "000000001" "2")]
         vocab = Vocab(data, "en")
         result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
         assert '\u2013' not in result.get(',', [])
+
+    def test_dash_starting_token_blocks_activation(self):
+        """A dash glued to the front of a token, such as "\u2013foo" as one token,
+        is not standalone and should block the substitution."""
+        # "Hello, world \u2013foo."
+        data = [chars_with_labels("Hello, world \u2013foo.",
+                                  "000011" "0" "00001" "0" "0001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' not in result.get(',', [])
+
+    def test_dash_ending_token_blocks_activation(self):
+        """A dash glued to the end of a token, such as "world\u2013" as one token,
+        is not standalone and should block the substitution."""
+        # "Hello, world\u2013 foo."
+        data = [chars_with_labels("Hello, world\u2013 foo.",
+                                  "000011" "0" "000001" "0" "001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' not in result.get(',', [])
+
+    def test_spaced_standalone_dash_allows_activation(self):
+        """Dashes which only occur as spaced standalone tokens, "a \u2013 b",
+        should still allow the substitution, so that the tokenizer learns "a\u2013b"."""
+        data = [chars_with_labels("Hello, world \u2013 foo.",
+                                  "000011" "0" "00001" "0" "1" "0" "001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' in result[',']
+
+    def test_attached_standalone_dash_allows_activation(self):
+        """A standalone dash does not need whitespace on both sides.
+        In "(1947 \u2013)" the dash is its own token, glued to the ")" """
+        data = [chars_with_labels("Naci\u00f3, (1947 \u2013).",
+                                  "000001" "0" "10001" "0" "1" "1" "2")]
+        vocab = Vocab(data, "es")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' in result[',']
+
+    def test_attached_both_sides_standalone_dash_allows_activation(self):
+        """A dash split off from both neighbors, "1947\u20131950" as three
+        tokens, is standalone even with no whitespace at all."""
+        data = [chars_with_labels("Hello, 1947\u20131950.",
+                                  "000011" "0" "0001" "1" "0001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' in result[',']
+
+    def test_dash_at_chunk_start_allows_activation(self):
+        """A single character dash token at the very start of a chunk is standalone."""
+        data = [chars_with_labels("\u2013 Hello, world.",
+                                  "1" "0" "00001" "1" "0" "00001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' in result[',']
+
+    def test_mixed_standalone_and_attached_blocks_activation(self):
+        """A single non-standalone dash blocks the substitution, even if all
+        of the other dashes are standalone."""
+        data = [chars_with_labels("Hello, world \u2013 foo.",
+                                  "000011" "0" "00001" "0" "1" "0" "001" "2"),
+                chars_with_labels("Hello, 1947\u20131950.",
+                                  "000011" "0" "000000001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, [(',', '\u2013')])
+        assert '\u2013' not in result.get(',', [])
+
+    def test_standalone_only_affects_matching_dash(self):
+        """Standalone en dashes do not interfere with the em dash augmentation,
+        and a non-standalone em dash only blocks the em dash."""
+        data = [chars_with_labels("Hello, world \u2013 foo.",
+                                  "000011" "0" "00001" "0" "1" "0" "001" "2"),
+                chars_with_labels("Hello, bar\u2014baz.",
+                                  "000011" "0" "0000001" "2")]
+        vocab = Vocab(data, "en")
+        result = DataLoader.build_mid_sent_augmentations(vocab, data, MID_SENT_AUGMENT_PAIRS)
+        assert result[','] == ['\u2013']
 
     def test_empty_when_no_comma(self):
         """No comma in data -> nothing to augment."""
@@ -311,6 +423,18 @@ class TestAugmentMidSentPunct:
             for char, label in zip(new_sentence[3], new_sentence[1]):
                 if char in ('\u2013', '\u2014'):
                     assert label != 0, "dash should not have continuation label"
+
+    def test_glued_dash_with_standalone_dashes_in_data(self):
+        """If the data only has spaced standalone dashes, "a – b", the
+        augmentation should still produce the glued "a–b" style."""
+        text = "Hello, world – foo."
+        labels = "000011" "0" "00001" "0" "1" "0" "001" "2"
+        loader = write_and_load(text, labels, extra_args={'augment_mid_punct_prob': 1.0})
+        assert '–' in loader.mid_sent_augmentations[',']
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.augment_mid_sent_punct(sentence))
+        glued = ["".join(result[0][3]) for result in results]
+        assert "Hello–world – foo." in glued
 
     def test_comma_in_number_not_replaced(self):
         """A comma with label 0 (inside a number token) should never be replaced."""
@@ -652,6 +776,186 @@ class TestCommaGlue:
         sentence = loader.sentences[0][0]
         results = run_trials(lambda: loader.comma_glue(sentence))
         assert len(results) == 0
+
+
+# ---------------------------------------------------------------------------
+# drop_initial_punct
+# ---------------------------------------------------------------------------
+
+# "¿Cómo estás?"  ¿(1) C(0)ó(0)m(0)o(1) space(0) e(0)s(0)t(0)á(0)s(1) ?(2)
+INITIAL_PUNCT_TEXT = "¿Cómo estás?"
+INITIAL_PUNCT_LABELS = "1" + "0001" + "0" + "000012"
+
+# "¿ Cómo estás?"  space after ¿ (unusual, but should still work)
+INITIAL_PUNCT_SPACED_TEXT = "¿ Cómo estás?"
+INITIAL_PUNCT_SPACED_LABELS = "1" + "0" + "0001" + "0" + "000012"
+
+# "¿Cómo ¿estás?"  two ¿ in the sentence -- must never be touched
+INITIAL_PUNCT_TWICE_TEXT = "¿Cómo ¿estás?"
+INITIAL_PUNCT_TWICE_LABELS = "1" + "0001" + "0" + "1" + "00001" + "2"
+
+
+class TestDropInitialPunct:
+
+    def _loader(self, text=INITIAL_PUNCT_TEXT, labels=INITIAL_PUNCT_LABELS):
+        # drop_initial_punct_prob=1.0 activates the vocab check in
+        # __init__; all other augmentation probs remain at 0.0
+        return write_and_load(text, labels, extra_args={'drop_initial_punct_prob': 1.0})
+
+    def test_eligible_when_punct_present(self):
+        """A ¿ anywhere in the training data marks drop_initial_punct as eligible."""
+        loader = self._loader()
+        assert loader.drop_initial_punct_eligible is True
+
+    def test_ineligible_when_no_punct(self):
+        """No ¿ anywhere in the training data -> drop_initial_punct never activates."""
+        # "Hi there."  H i   t h e r e  .   labels 0 1 0 0 0 0 0 1 2
+        loader = self._loader(text="Hi there.", labels="010000012")
+        assert loader.drop_initial_punct_eligible is False
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) == 0
+
+    def test_drops_leading_punct_no_space(self):
+        """'¿Cómo estás?' should always become 'Cómo estás?'."""
+        loader = self._loader()
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) > 0, "drop_initial_punct never returned a result"
+        for result in results:
+            assert ''.join(result[0][3]) == "Cómo estás?"
+
+    def test_matches_natural_sentence_without_leading_punct(self):
+        """
+        The augmented 'Cómo estás?' should be character-for-character and
+        label-for-label identical to the naturally occurring 'Cómo estás?'
+        -- i.e. dropping ¿ should produce a label sequence consistent with
+        how the corpus already encodes a question with no leading ¿.
+        """
+        loader = self._loader()
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) > 0
+
+        gold_loader = self._loader(text="Cómo estás?", labels="0001" + "0" + "000012")
+        gold_sentence = gold_loader.sentences[0][0]
+        gold_chars = list(gold_sentence[3])
+        gold_labels = [int(l) for l in gold_sentence[1]]
+
+        for result in results:
+            new_sentence = result[0]
+            assert list(new_sentence[3]) == gold_chars
+            assert [int(l) for l in new_sentence[1]] == gold_labels
+
+    def test_drops_leading_punct_and_following_space(self):
+        """'¿ Cómo estás?' (space after ¿) should also become 'Cómo estás?'."""
+        loader = self._loader(text=INITIAL_PUNCT_SPACED_TEXT, labels=INITIAL_PUNCT_SPACED_LABELS)
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) > 0
+        for result in results:
+            assert ''.join(result[0][3]) == "Cómo estás?"
+
+    def test_does_not_touch_sentence_with_two_leading_punct_marks(self):
+        """A sentence with ¿ appearing more than once must never be touched."""
+        loader = self._loader(text=INITIAL_PUNCT_TWICE_TEXT, labels=INITIAL_PUNCT_TWICE_LABELS)
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) == 0
+
+    def test_does_not_touch_sentence_with_mixed_marks(self):
+        """
+        A leading ¿ plus a DIFFERENT mark (¡) elsewhere in the sentence
+        must also be blocked, not just a repeat of the SAME leading mark.
+        '¿Dijo "¡hola!"?' has one ¿ and one ¡ -- neither mark is
+        individually repeated, but there are still two candidate marks.
+        """
+        text   = '¿Dijo "¡hola!"?'
+        labels = "100010110001112"
+        loader = self._loader(text=text, labels=labels)
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) == 0
+
+    def test_does_not_touch_sentence_without_leading_punct(self):
+        """A sentence that doesn't start with ¿ is never touched, even if ¿ is used elsewhere in the corpus."""
+        text   = "Hello, ¿que?"
+        labels = "000011010012"
+        loader = self._loader(text=text, labels=labels)
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) == 0
+
+    def test_no_op_when_not_eligible(self):
+        """Even with the per-call gate active, an explicitly disabled loader stays inert."""
+        loader = self._loader()
+        loader.drop_initial_punct_eligible = False
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) == 0
+
+    def test_neptuno(self):
+        """A specific test case that never showed up when logging modified sentences - spaces were at the start of next sentences"""
+        text   = " ¿Y qué le ocurrió a Neptuno?"
+        labels = "01100010010000000101000000012"
+        loader = self._loader(text=text, labels=labels)
+        sentence = loader.sentences[0][0]
+        results = run_trials(lambda: loader.drop_initial_punct(sentence))
+        assert len(results) > 0
+        for result in results:
+            assert ''.join(result[0][3]) == " Y qué le ocurrió a Neptuno?"
+
+# ---------------------------------------------------------------------------
+# Structural: augmentation prob coverage in tokenizer.py's build_argparse()
+# ---------------------------------------------------------------------------
+
+class TestArgparseAugmentationCoverage:
+    """
+    Every '*_prob' augmentation argument consumed by DataLoader.__init__ in
+    data.py must have a corresponding '--xxx_prob' flag registered in
+    build_argparse() in tokenizer.py.  Without it, the argument will always
+    be missing from args when the tokenizer is run from the command line,
+    silently falling back to the DataLoader's default of 0.0 and effectively
+    disabling the augmentation in production even though the implementation
+    exists.
+
+    This test catches that omission automatically: it derives both sets from
+    the module sources (via discover_augmentation_probs() and
+    discover_argparse_prob_args()), so neither list needs to be maintained
+    manually here -- adding a new augmentation to data.py and forgetting to
+    add its flag to build_argparse() will cause this test to fail.
+    """
+
+    def test_all_augmentation_probs_have_argparse_flags(self):
+        data_probs    = set(discover_augmentation_probs())
+        argparse_probs = set(discover_argparse_prob_args())
+        missing = data_probs - argparse_probs
+        assert not missing, (
+            "The following augmentation prob(s) are used in DataLoader "
+            "but have no corresponding flag in build_argparse():\n"
+            + "\n".join(f"  --{p}" for p in sorted(missing))
+            + "\nAdd parser.add_argument('--{name}', ...) to build_argparse() "
+            "in tokenizer.py for each."
+        )
+
+    def test_no_orphan_argparse_prob_flags(self):
+        """
+        Inverse check: a '*_prob' flag in build_argparse() that data.py
+        never reads is dead configuration -- probably a leftover from a
+        removed augmentation or a renamed arg.  Flag it as a warning-level
+        issue so it stays visible without blocking the build if there is a
+        legitimate reason for the asymmetry.
+        """
+        data_probs     = set(discover_augmentation_probs())
+        argparse_probs = set(discover_argparse_prob_args())
+        orphans = argparse_probs - data_probs
+        assert not orphans, (
+            "The following '*_prob' flag(s) are registered in build_argparse() "
+            "but are not referenced in DataLoader:\n"
+            + "\n".join(f"  --{p}" for p in sorted(orphans))
+            + "\nRemove from build_argparse() or add the corresponding "
+            "args.get() call in data.py if intentional."
+        )
 
 
 # ---------------------------------------------------------------------------

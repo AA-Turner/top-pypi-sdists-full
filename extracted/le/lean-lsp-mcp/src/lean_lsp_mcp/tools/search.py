@@ -29,6 +29,7 @@ from lean_lsp_mcp.search_utils import (
     workspace_symbol_matches,
 )
 from lean_lsp_mcp.models import (
+    IndexStatus,
     LeanFinderResult,
     LeanFinderResults,
     LeanSearchResult,
@@ -39,8 +40,6 @@ from lean_lsp_mcp.models import (
     LoogleResults,
     PremiseResult,
     PremiseResults,
-    StateSearchResult,
-    StateSearchResults,
 )
 from lean_lsp_mcp.tool_registry import tool
 
@@ -54,7 +53,7 @@ async def _with_index_matches(
     query: str,
     limit: int,
     policy: LeanPathPolicy,
-) -> list[dict[str, str]]:
+) -> tuple[list[dict[str, str]], IndexStatus]:
     """Add declarations that exist in the symbol index but not in source text.
 
     Ripgrep can only match declarations someone wrote. Mathlib derives a large
@@ -64,32 +63,35 @@ async def _with_index_matches(
     so a source-only search reports them as absent, which reads as "this lemma
     does not exist" rather than "this search cannot see it".
 
-    The language server answers ``workspace/symbol`` from the compiled
-    ``.ilean`` index and does know them.
-
-    Returns *source_matches* unchanged when no language server is running for
-    the project. Starting one costs a full ``lake serve`` boot, and a search is
-    not the right moment to pay it.
+    The returned status is what lets a caller tell those two apart: only
+    ``consulted`` makes an empty result mean the declaration is absent.
     """
     client = running_shared_client(policy.project_root)
     if client is None:
-        return source_matches
+        # Starting a language server costs a full ``lake serve`` boot, and a
+        # search is not the right moment to pay it.
+        return source_matches, IndexStatus.unavailable
 
     try:
         # wait_for_index=0: report what the index has now rather than stalling
         # a search behind index loading.
-        symbols, _index_ready = await client.workspace_symbol(
+        symbols, index_ready = await client.workspace_symbol(
             query, max_results=limit, wait_for_index=0.0, timeout=2.0
         )
     except Exception as exc:  # a search must survive a symbol query failure
         server.logger.warning(f"workspace/symbol lookup failed: {exc}")
-        return source_matches
+        return source_matches, IndexStatus.error
 
-    return merge_local_search_matches(
-        source_matches,
-        workspace_symbol_matches(symbols, policy),
-        query,
-        limit,
+    return (
+        merge_local_search_matches(
+            source_matches,
+            workspace_symbol_matches(symbols, policy, query),
+            query,
+            limit,
+        ),
+        # The server reports whether the index finished loading. Claiming
+        # "consulted" without it would promise a completeness nobody checked.
+        IndexStatus.consulted if index_ready else IndexStatus.warming,
     )
 
 
@@ -146,14 +148,14 @@ async def local_search(
             project_root=policy.project_root,
             path_policy=policy,
         )
-        raw_results = await _with_index_matches(
+        raw_results, index_status = await _with_index_matches(
             raw_results, normalized_query, limit, policy
         )
         results = [
             LocalSearchResult(name=r["name"], kind=r["kind"], file=r["file"])
             for r in raw_results
         ]
-        return LocalSearchResults(items=results)
+        return LocalSearchResults(items=results, index=index_status)
     except RuntimeError as exc:
         raise LocalSearchError(f"Search failed: {exc}")
 
@@ -328,7 +330,7 @@ async def leanfinder(
         ctx,
         progress=1,
         total=10,
-        message="Awaiting response from Lean Finder (Hugging Face)",
+        message="Awaiting response from Lean Finder",
     )
     data = await server._urlopen_json(req, timeout=10)
     if isinstance(data, dict) and "error" in data:
@@ -348,63 +350,6 @@ async def leanfinder(
         )
 
     return LeanFinderResults(items=results)
-
-
-@tool(
-    "lean_state_search",
-    annotations=ToolAnnotations(
-        title="State Search",
-        read_only_hint=True,
-        idempotent_hint=True,
-        open_world_hint=True,
-    ),
-)
-@server.rate_limited(
-    "lean_state_search",
-    *config.RATE_LIMITS["lean_state_search"],
-    bypass=lambda: server._custom_backend(
-        "LEAN_STATE_SEARCH_URL", config.DEFAULT_STATE_SEARCH_URL
-    ),
-)
-async def state_search(
-    ctx: server.ToolContext,
-    file_path: Annotated[
-        str, Field(description="Absolute or project-root-relative path to Lean file")
-    ],
-    line: Annotated[int, Field(description="Line number (1-indexed)", ge=1)],
-    column: Annotated[int, Field(description="Column number (1-indexed)", ge=1)],
-    num_results: Annotated[int, Field(description="Max results", ge=1)] = 5,
-) -> StateSearchResults:
-    """Find lemmas to close the goal at a position. Searches premise-search.com."""
-    rel_path = await require_client_for_file(ctx, file_path)
-
-    client = get_client(ctx)
-    await open_synced(ctx, rel_path)
-    goal = await client.goal(rel_path, line - 1, column - 1)
-
-    if goal.status != "goals":
-        raise server.LeanToolError(
-            f"No goals found at line {line}, column {column} "
-            f"(status: {goal.status}). Try a different position."
-        )
-
-    goal_str = urllib.parse.quote(goal.goals[0])
-
-    url = config.state_search_url()
-    req = urllib.request.Request(
-        f"{url}/api/search?query={goal_str}&results={num_results}"
-        f"&rev={config.state_search_rev()}",
-        headers={"User-Agent": "lean-lsp-mcp/0.1"},
-        method="GET",
-    )
-
-    await server._safe_report_progress(
-        ctx, progress=1, total=10, message=f"Awaiting response from {url}"
-    )
-    results = await server._urlopen_json(req, timeout=10)
-
-    items = [StateSearchResult(name=r["name"]) for r in results]
-    return StateSearchResults(items=items)
 
 
 @tool(

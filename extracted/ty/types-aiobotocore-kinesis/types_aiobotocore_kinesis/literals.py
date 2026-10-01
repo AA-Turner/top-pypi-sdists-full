@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_kinesis.literals import ConsumerStatusType
+    from types_aiobotocore_kinesis.literals import ChannelActiveWaiterName
 
-    data: ConsumerStatusType = "ACTIVE"
+    data: ChannelActiveWaiterName = "channel_active"
     ```
 """
 
@@ -23,10 +23,15 @@ else:
 
 
 __all__ = (
+    "ChannelActiveWaiterName",
+    "ChannelDestinationTypeType",
+    "ChannelEncryptionTypeType",
+    "ChannelStatusType",
     "ConsumerStatusType",
     "DescribeStreamPaginatorName",
     "EncryptionTypeType",
     "KinesisServiceName",
+    "ListChannelsPaginatorName",
     "ListShardsPaginatorName",
     "ListStreamConsumersPaginatorName",
     "ListStreamsPaginatorName",
@@ -34,8 +39,14 @@ __all__ = (
     "MinimumThroughputBillingCommitmentInputStatusType",
     "MinimumThroughputBillingCommitmentOutputStatusType",
     "PaginatorName",
+    "PartitionTransformType",
+    "RecordDistributionStrategyType",
+    "RecordFormatTypeType",
     "RegionName",
     "ResourceServiceName",
+    "S3CompressionTypeType",
+    "S3StorageClassType",
+    "S3TablesCompressionTypeType",
     "ScalingTypeType",
     "ServiceName",
     "ShardFilterTypeType",
@@ -48,9 +59,14 @@ __all__ = (
 )
 
 
+ChannelActiveWaiterName = Literal["channel_active"]
+ChannelDestinationTypeType = Literal["S3", "S3_TABLES"]
+ChannelEncryptionTypeType = Literal["KMS"]
+ChannelStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 ConsumerStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DescribeStreamPaginatorName = Literal["describe_stream"]
 EncryptionTypeType = Literal["KMS", "NONE"]
+ListChannelsPaginatorName = Literal["list_channels"]
 ListShardsPaginatorName = Literal["list_shards"]
 ListStreamConsumersPaginatorName = Literal["list_stream_consumers"]
 ListStreamsPaginatorName = Literal["list_streams"]
@@ -68,6 +84,12 @@ MinimumThroughputBillingCommitmentInputStatusType = Literal["DISABLED", "ENABLED
 MinimumThroughputBillingCommitmentOutputStatusType = Literal[
     "DISABLED", "ENABLED", "ENABLED_UNTIL_EARLIEST_ALLOWED_END"
 ]
+PartitionTransformType = Literal["TIME_HOUR"]
+RecordDistributionStrategyType = Literal["AUTO", "USER_PARTITION_KEY"]
+RecordFormatTypeType = Literal["BYTE_ARRAY", "GSR_JSON", "JSON", "STRING"]
+S3CompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
+S3StorageClassType = Literal["GLACIER_IR", "INTELLIGENT_TIERING", "STANDARD"]
+S3TablesCompressionTypeType = Literal["NONE", "SNAPPY", "ZSTD"]
 ScalingTypeType = Literal["UNIFORM_SCALING"]
 ShardFilterTypeType = Literal[
     "AFTER_SHARD_ID",
@@ -165,6 +187,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -239,6 +262,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -267,6 +291,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -361,6 +386,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -519,8 +545,10 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["describe_stream", "list_shards", "list_stream_consumers", "list_streams"]
-WaiterName = Literal["stream_exists", "stream_not_exists"]
+PaginatorName = Literal[
+    "describe_stream", "list_channels", "list_shards", "list_stream_consumers", "list_streams"
+]
+WaiterName = Literal["channel_active", "stream_exists", "stream_not_exists"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

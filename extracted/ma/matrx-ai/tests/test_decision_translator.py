@@ -838,3 +838,76 @@ async def test_verbalized_answer_records_the_resolved_model_name_not_the_uuid(
     assert len(events) == 1
     assert events[0].model == resolved_name
     assert events[0].method == "verbalized"
+
+
+# --- A MISSING probability is an unanswered question, never a confident "no" --
+#
+# THE BREAK: ``float(payload.get("noul", 0.0))`` read a payload that carried
+# no probability as p = 0.0 — a confident "no" that routes a workflow, while
+# the model in fact said nothing. Two forcing inputs per path: a present
+# probability must still be read (so "always unanswerable" cannot pass).
+
+_ONE_NOUL = DecisionQuestions.model_validate(
+    {
+        "questions": [
+            {"name": "is_defect", "type": "noul", "instructions": "x", "suggested_threshold": 0.7}
+        ]
+    }
+)
+
+
+@pytest.mark.parametrize("raw", [{}, {"noul": None}, {"noul": "high"}, {"noul": 1.4}])
+def test_native_missing_noul_probability_is_unanswerable(raw: dict) -> None:
+    from matrx_ai.decisions.translate import decision_answers_from_system_one
+
+    answers = decision_answers_from_system_one(
+        {"is_defect": {"type": "noul", **raw}},
+        _ONE_NOUL,
+        model="m",
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+    )
+    assert answers.answers == {}
+    assert "probability" in answers.unanswerable["is_defect"]
+    read = decision_answers_from_system_one(
+        {"is_defect": {"type": "noul", "noul": 0.0}},
+        _ONE_NOUL,
+        model="m",
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+    )
+    assert read.answers["is_defect"].probability == 0.0 and read.unanswerable == {}
+
+
+@pytest.mark.parametrize("raw", [{"answer": False}, {"answer": True, "probability": None}])
+def test_verbalized_missing_noul_probability_is_unanswerable(raw: dict) -> None:
+    answers = decision_answers_from_verbalized(
+        {"answers": {"is_defect": raw}},
+        _ONE_NOUL,
+        model="m",
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+    )
+    assert answers.answers == {}
+    assert "probability" in answers.unanswerable["is_defect"]
+
+
+@pytest.mark.parametrize(
+    ("stated", "probability", "verdict"), [(True, 0.6, False), (False, 0.75, True)]
+)
+def test_verbalized_noul_verdict_is_read_off_the_probability(
+    stated: bool, probability: float, verdict: bool
+) -> None:
+    """The model's stated true/false never contradicts its own number on the payload."""
+    answers = decision_answers_from_verbalized(
+        {"answers": {"is_defect": {"answer": stated, "probability": probability}}},
+        _ONE_NOUL,
+        model="m",
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+    )
+    assert answers.answers["is_defect"].answer is verdict

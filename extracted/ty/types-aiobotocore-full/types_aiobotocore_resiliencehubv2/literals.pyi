@@ -25,6 +25,7 @@ __all__ = (
     "AccountTargetingType",
     "AchievabilityStatusType",
     "ActorTypeType",
+    "AlarmStateType",
     "AssertionSourceType",
     "AssessmentErrorCodeType",
     "AssessmentSortFieldType",
@@ -34,17 +35,22 @@ __all__ = (
     "DependencyCriticalityType",
     "DependencyDiscoveryInputType",
     "DependencyDiscoveryStatusType",
+    "DependencyInsightsErrorCodeType",
+    "DependencyInsightsStatusType",
+    "EksLabelSelectorOperatorType",
     "FailureCategoryType",
     "FailureModeAssessmentSuccessWaiterName",
     "FindingSeverityType",
     "FindingStatusType",
     "InputSourceTypeType",
+    "InsightsCategoryType",
     "ListAssertionsPaginatorName",
     "ListDependenciesPaginatorName",
     "ListFailureModeAssessmentsPaginatorName",
     "ListFailureModeFindingsPaginatorName",
     "ListInputSourcesPaginatorName",
     "ListPoliciesPaginatorName",
+    "ListPolicyEventsPaginatorName",
     "ListReportsPaginatorName",
     "ListResolvedTestRunTargetResourcesPaginatorName",
     "ListResourcesPaginatorName",
@@ -54,7 +60,9 @@ __all__ = (
     "ListServicesPaginatorName",
     "ListSystemEventsPaginatorName",
     "ListSystemsPaginatorName",
+    "ListTestRunDependenciesPaginatorName",
     "ListTestRunEventsPaginatorName",
+    "ListTestRunSourceEventsPaginatorName",
     "ListTestRunSourcesPaginatorName",
     "ListTestRunsPaginatorName",
     "ListTestSourcesPaginatorName",
@@ -65,6 +73,8 @@ __all__ = (
     "PaginatorName",
     "ParameterTypeType",
     "PolicyComponentType",
+    "PolicyDisassociationReasonType",
+    "PolicyEventTypeType",
     "PolicyValueSourceType",
     "QueryGranularityType",
     "RegionName",
@@ -85,6 +95,9 @@ __all__ = (
     "SortOrderType",
     "StopConditionSourceType",
     "SystemEventTypeType",
+    "TestRunDependencySourceType",
+    "TestRunSourceEventErrorCodeType",
+    "TestRunSourceEventTypeType",
     "TestRunSourceTypeType",
     "TestRunStatusType",
     "TestSourceOutcomeType",
@@ -96,6 +109,7 @@ __all__ = (
 AccountTargetingType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 AchievabilityStatusType = Literal["ACHIEVABLE", "NOT_ACHIEVABLE"]
 ActorTypeType = Literal["SYSTEM", "USER"]
+AlarmStateType = Literal["ALARM", "INSUFFICIENT_DATA", "OK"]
 AssertionSourceType = Literal["AI_GENERATED", "USER"]
 AssessmentErrorCodeType = Literal[
     "AGENT_ERROR",
@@ -121,6 +135,11 @@ CostCurrencyType = Literal["USD"]
 DependencyCriticalityType = Literal["HARD", "SOFT", "UNKNOWN"]
 DependencyDiscoveryInputType = Literal["DISABLED", "ENABLED"]
 DependencyDiscoveryStatusType = Literal["DISABLED", "ENABLED", "INITIALIZING"]
+DependencyInsightsErrorCodeType = Literal[
+    "INSUFFICIENT_DATA", "INTERNAL_ERROR", "LLM_GENERATION_FAILED"
+]
+DependencyInsightsStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+EksLabelSelectorOperatorType = Literal["DOES_NOT_EXIST", "EXISTS", "IN", "NOT_IN"]
 FailureCategoryType = Literal[
     "EXCESSIVE_LATENCY",
     "EXCESSIVE_LOAD",
@@ -132,12 +151,16 @@ FailureModeAssessmentSuccessWaiterName = Literal["failure_mode_assessment_succes
 FindingSeverityType = Literal["HIGH", "LOW", "MEDIUM"]
 FindingStatusType = Literal["IRRELEVANT", "OPEN", "RESOLVED"]
 InputSourceTypeType = Literal["CFN_STACK", "DESIGN_FILE", "EKS", "MONITORING", "TAGS", "TERRAFORM"]
+InsightsCategoryType = Literal[
+    "AWS_SERVICE", "CROSS_REGION", "NEW_DEPENDENCY", "THIRD_PARTY", "UNEVEN_USAGE"
+]
 ListAssertionsPaginatorName = Literal["list_assertions"]
 ListDependenciesPaginatorName = Literal["list_dependencies"]
 ListFailureModeAssessmentsPaginatorName = Literal["list_failure_mode_assessments"]
 ListFailureModeFindingsPaginatorName = Literal["list_failure_mode_findings"]
 ListInputSourcesPaginatorName = Literal["list_input_sources"]
 ListPoliciesPaginatorName = Literal["list_policies"]
+ListPolicyEventsPaginatorName = Literal["list_policy_events"]
 ListReportsPaginatorName = Literal["list_reports"]
 ListResolvedTestRunTargetResourcesPaginatorName = Literal["list_resolved_test_run_target_resources"]
 ListResourcesPaginatorName = Literal["list_resources"]
@@ -147,7 +170,9 @@ ListServiceTopologyEdgesPaginatorName = Literal["list_service_topology_edges"]
 ListServicesPaginatorName = Literal["list_services"]
 ListSystemEventsPaginatorName = Literal["list_system_events"]
 ListSystemsPaginatorName = Literal["list_systems"]
+ListTestRunDependenciesPaginatorName = Literal["list_test_run_dependencies"]
 ListTestRunEventsPaginatorName = Literal["list_test_run_events"]
+ListTestRunSourceEventsPaginatorName = Literal["list_test_run_source_events"]
 ListTestRunSourcesPaginatorName = Literal["list_test_run_sources"]
 ListTestRunsPaginatorName = Literal["list_test_runs"]
 ListTestSourcesPaginatorName = Literal["list_test_sources"]
@@ -165,6 +190,13 @@ PolicyComponentType = Literal[
     "DATA_RECOVERY",
     "MULTI_AZ_DISASTER_RECOVERY",
     "MULTI_REGION_DISASTER_RECOVERY",
+]
+PolicyDisassociationReasonType = Literal["POLICY_DELETED", "REPLACED_BY_UPDATE", "SHARING_REVOKED"]
+PolicyEventTypeType = Literal[
+    "POLICY_ATTACHED_TO_SERVICE",
+    "POLICY_DELETED",
+    "POLICY_DETACHED_FROM_SERVICE",
+    "POLICY_SHARING_REVOKED",
 ]
 PolicyValueSourceType = Literal["CROSS_ACCOUNT", "SELF"]
 QueryGranularityType = Literal["DAILY", "HOURLY"]
@@ -224,6 +256,9 @@ SystemEventTypeType = Literal[
     "SYSTEM_USER_JOURNEY_DELETED",
     "SYSTEM_USER_JOURNEY_UPDATED",
 ]
+TestRunDependencySourceType = Literal["DISCOVERED", "MANUAL"]
+TestRunSourceEventErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_ERROR"]
+TestRunSourceEventTypeType = Literal["ALARM"]
 TestRunSourceTypeType = Literal["OBSERVABILITY", "SUCCESS_CRITERIA"]
 TestRunStatusType = Literal[
     "ERROR", "FAILED", "INITIALIZING", "PASSED", "RUNNING", "STOPPED", "STOPPING"
@@ -312,6 +347,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -386,6 +422,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -414,6 +451,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -508,6 +546,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -673,6 +712,7 @@ PaginatorName = Literal[
     "list_failure_mode_findings",
     "list_input_sources",
     "list_policies",
+    "list_policy_events",
     "list_reports",
     "list_resolved_test_run_target_resources",
     "list_resources",
@@ -682,7 +722,9 @@ PaginatorName = Literal[
     "list_services",
     "list_system_events",
     "list_systems",
+    "list_test_run_dependencies",
     "list_test_run_events",
+    "list_test_run_source_events",
     "list_test_run_sources",
     "list_test_runs",
     "list_test_sources",

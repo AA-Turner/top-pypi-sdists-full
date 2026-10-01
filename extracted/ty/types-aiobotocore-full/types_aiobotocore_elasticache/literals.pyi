@@ -31,6 +31,7 @@ __all__ = (
     "CacheClusterDeletedWaiterName",
     "ChangeTypeType",
     "ClusterModeType",
+    "ConnectionTypeType",
     "DataStorageUnitType",
     "DataTieringStatusType",
     "DescribeCacheClustersPaginatorName",
@@ -93,6 +94,7 @@ CacheClusterAvailableWaiterName = Literal["cache_cluster_available"]
 CacheClusterDeletedWaiterName = Literal["cache_cluster_deleted"]
 ChangeTypeType = Literal["immediate", "requires-reboot"]
 ClusterModeType = Literal["compatible", "disabled", "enabled"]
+ConnectionTypeType = Literal["public", "vpc"]
 DataStorageUnitType = Literal["GB"]
 DataTieringStatusType = Literal["disabled", "enabled"]
 DescribeCacheClustersPaginatorName = Literal["describe_cache_clusters"]
@@ -245,6 +247,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -319,6 +322,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -347,6 +351,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -441,6 +446,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

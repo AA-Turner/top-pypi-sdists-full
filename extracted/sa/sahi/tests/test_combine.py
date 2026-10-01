@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pytest
@@ -57,6 +57,21 @@ PREDS_BATCHED_NMM = [
 
 class TestEdgeCases:
     """Test edge cases for NMS/NMM functions."""
+
+    @pytest.mark.parametrize("postprocess", [batched_greedy_nmm, batched_nmm])
+    def test_batched_merging_empty(self, postprocess: Callable[..., dict[int, list[int]]]) -> None:
+        """Empty batched merging results retain the mapping interface."""
+        result = postprocess(np.empty((0, 6), dtype=np.float32))
+        assert result == {}
+
+    def test_batched_nms_empty(self) -> None:
+        """Empty batched suppression returns a list of kept indices."""
+        assert batched_nms(np.empty((0, 6), dtype=np.float32)) == []
+
+    @pytest.mark.parametrize("postprocess_class", [GreedyNMMPostprocess, NMMPostprocess])
+    def test_class_aware_merging_empty(self, postprocess_class: type[NMMPostprocess]) -> None:
+        """Class-aware postprocessors accept images without detections."""
+        assert postprocess_class(class_agnostic=False)([]) == []
 
     def test_nms_empty(self) -> None:
         """Test NMS with empty predictions."""
@@ -326,6 +341,24 @@ class TestPostprocessClasses:
         pp = GreedyNMMPostprocess(match_threshold=0.1, match_metric="IOU")
         result = pp(obj_preds)
         assert len(result) >= 1
+
+    @pytest.mark.parametrize("postprocess_cls", [NMMPostprocess, GreedyNMMPostprocess])
+    @pytest.mark.parametrize(
+        ("match_metric", "second_box", "merged_box"),
+        [
+            ("IOS", [5, 0, 15, 10], [0, 0, 15, 10]),  # IoS = 50 / 100
+            ("IOU", [0, 0, 10, 20], [0, 0, 10, 20]),  # IoU = 100 / 200
+        ],
+    )
+    def test_merge_postprocess_at_exact_threshold(
+        self, postprocess_cls: type, match_metric: str, second_box: list, merged_box: list
+    ) -> None:
+        """A box whose overlap equals the threshold is merged, not dropped."""
+        obj_preds = _make_object_predictions([make_pred(0, 0, 10, 10, 0.9, 1), make_pred(*second_box, 0.8, 1)])
+        pp = postprocess_cls(match_threshold=0.5, match_metric=match_metric)
+        result = pp(obj_preds)
+        assert len(result) == 1
+        assert result[0].bbox.to_xyxy() == merged_box
 
     def test_nms_postprocess_single(self) -> None:
         """Test NMSPostprocess with single prediction."""

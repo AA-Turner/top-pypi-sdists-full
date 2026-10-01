@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_agent_registry_control.literals import AutoApprovalRuleType
+    from types_aiobotocore_agent_registry_control.literals import AgentCoreGatewayProtocolTypeType
 
-    data: AutoApprovalRuleType = "APPROVE_ALL"
+    data: AgentCoreGatewayProtocolTypeType = "MCP"
     ```
 """
 
@@ -23,14 +23,20 @@ else:
 
 
 __all__ = (
+    "AgentCoreGatewayProtocolTypeType",
+    "AgentCoreRuntimeServerProtocolType",
     "AgentRegistryControlServiceName",
     "AutoApprovalRuleType",
+    "AutoDetectionScopeType",
+    "AutoDetectionStatusType",
     "ClaimMatchOperatorTypeType",
+    "CustomMetadataSchemaComplianceStatusType",
     "EndpointIpAddressTypeType",
     "InboundTokenClaimValueTypeType",
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "PaginatorName",
+    "ProvenanceRelationType",
     "RecordTypeType",
     "RegistryAuthorizerTypeType",
     "RegistryFilterNameType",
@@ -43,17 +49,24 @@ __all__ = (
     "RegistryStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "SourceTypeType",
     "WaiterName",
 )
 
 
+AgentCoreGatewayProtocolTypeType = Literal["MCP"]
+AgentCoreRuntimeServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 AutoApprovalRuleType = Literal["APPROVE_ALL"]
+AutoDetectionScopeType = Literal["ORGANIZATION"]
+AutoDetectionStatusType = Literal["ACTIVE", "INACTIVE"]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
+CustomMetadataSchemaComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "MCP", "SKILL"]
+ProvenanceRelationType = Literal["DETECTED_FROM"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryFilterNameType = Literal["discoveryConfiguration.authorizerType", "status"]
 RegistryReadyWaiterName = Literal["registry_ready"]
@@ -75,6 +88,7 @@ RegistryRecordStatusType = Literal[
 RegistryStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
+SourceTypeType = Literal["AWS::BedrockAgentCore::Gateway", "AWS::BedrockAgentCore::Runtime"]
 AgentRegistryControlServiceName = Literal["agent-registry-control"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -156,6 +170,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -230,6 +245,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -258,6 +274,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -352,6 +369,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

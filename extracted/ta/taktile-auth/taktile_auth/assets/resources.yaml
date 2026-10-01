@@ -125,6 +125,11 @@ decision_history:
   org_id: wildcard
   ws_id: wildcard
   env: wildcard
+aggregate_decision_history:
+  # read: can chart aggregates over decision history (Insights), without reading individual decisions
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
 workspace_job:
   # write: can create, update, delete jobs
   org_id: wildcard
@@ -317,10 +322,6 @@ workspace_wizard:
   org_id: wildcard
   ws_id: wildcard
   env: wildcard
-workspace_sdk_bundle:
-  # read: can fetch SDK bundle configurations, i.e. the /init call the web SDK makes
-  org_id: wildcard
-  ws_id: wildcard
 workspace_case_analytics:
   # read: can read workspace case analytics
   org_id: wildcard

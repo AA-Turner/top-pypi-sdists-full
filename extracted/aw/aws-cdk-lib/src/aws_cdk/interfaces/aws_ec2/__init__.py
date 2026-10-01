@@ -2417,6 +2417,51 @@ class _IIPAMScopeRefProxy(
 typing.cast(typing.Any, IIPAMScopeRef).__jsii_proxy_class__ = lambda : _IIPAMScopeRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPv4PoolRef")
+class IIPv4PoolRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IPv4Pool.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="iPv4PoolRef")
+    def i_pv4_pool_ref(self) -> "IPv4PoolReference":
+        '''(experimental) A reference to a IPv4Pool resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIPv4PoolRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IPv4Pool.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.IIPv4PoolRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="iPv4PoolRef")
+    def i_pv4_pool_ref(self) -> "IPv4PoolReference":
+        '''(experimental) A reference to a IPv4Pool resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IPv4PoolReference", jsii.get(self, "iPv4PoolRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIPv4PoolRef).__jsii_proxy_class__ = lambda : _IIPv4PoolRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInstanceConnectEndpointRef")
 class IInstanceConnectEndpointRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2460,6 +2505,51 @@ class _IInstanceConnectEndpointRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IInstanceConnectEndpointRef).__jsii_proxy_class__ = lambda : _IInstanceConnectEndpointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInstanceEventWindowRef")
+class IInstanceEventWindowRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceEventWindow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceEventWindowRef")
+    def instance_event_window_ref(self) -> "InstanceEventWindowReference":
+        '''(experimental) A reference to a InstanceEventWindow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceEventWindowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceEventWindow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.IInstanceEventWindowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceEventWindowRef")
+    def instance_event_window_ref(self) -> "InstanceEventWindowReference":
+        '''(experimental) A reference to a InstanceEventWindow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceEventWindowReference", jsii.get(self, "instanceEventWindowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceEventWindowRef).__jsii_proxy_class__ = lambda : _IInstanceEventWindowRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IInstanceRef")
@@ -4253,6 +4343,55 @@ class _IPrefixListRefProxy(
 typing.cast(typing.Any, IPrefixListRef).__jsii_proxy_class__ = lambda : _IPrefixListRefProxy
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.IPv4PoolReference",
+    jsii_struct_bases=[],
+    name_mapping={"i_pv4_pool_arn": "iPv4PoolArn"},
+)
+class IPv4PoolReference:
+    def __init__(self, *, i_pv4_pool_arn: builtins.str) -> None:
+        '''A reference to a IPv4Pool resource.
+
+        :param i_pv4_pool_arn: The Arn of the IPv4Pool resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            i_pv4_pool_reference = {
+                "i_pv4_pool_arn": "iPv4PoolArn"
+            }
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7204c49da51ea01c9ef169e1599771e11faede7d0eb357f9367b24d7bfb4aa48)
+            check_type(argname="argument i_pv4_pool_arn", value=i_pv4_pool_arn, expected_type=type_hints["i_pv4_pool_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "i_pv4_pool_arn": i_pv4_pool_arn,
+        }
+
+    @builtins.property
+    def i_pv4_pool_arn(self) -> builtins.str:
+        '''The Arn of the IPv4Pool resource.'''
+        result = self._values.get("i_pv4_pool_arn")
+        assert result is not None, "Required property 'i_pv4_pool_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IPv4PoolReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IRouteRef")
 class IRouteRef(
     _constructs_77d1e7e8.IConstruct,
@@ -4940,6 +5079,51 @@ class _ISubnetCidrBlockRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISubnetCidrBlockRef).__jsii_proxy_class__ = lambda : _ISubnetCidrBlockRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISubnetCidrReservationRef")
+class ISubnetCidrReservationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubnetCidrReservation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetCidrReservationRef")
+    def subnet_cidr_reservation_ref(self) -> "SubnetCidrReservationReference":
+        '''(experimental) A reference to a SubnetCidrReservation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubnetCidrReservationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubnetCidrReservation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ISubnetCidrReservationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetCidrReservationRef")
+    def subnet_cidr_reservation_ref(self) -> "SubnetCidrReservationReference":
+        '''(experimental) A reference to a SubnetCidrReservation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubnetCidrReservationReference", jsii.get(self, "subnetCidrReservationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubnetCidrReservationRef).__jsii_proxy_class__ = lambda : _ISubnetCidrReservationRefProxy
 
 
 @jsii.interface(
@@ -7346,6 +7530,55 @@ class InstanceConnectEndpointReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.InstanceEventWindowReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_event_window_arn": "instanceEventWindowArn"},
+)
+class InstanceEventWindowReference:
+    def __init__(self, *, instance_event_window_arn: builtins.str) -> None:
+        '''A reference to a InstanceEventWindow resource.
+
+        :param instance_event_window_arn: The Arn of the InstanceEventWindow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            instance_event_window_reference = interfaces_ec2.InstanceEventWindowReference(
+                instance_event_window_arn="instanceEventWindowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98afa25f9847cf153c090b90563eddca1d521777fd8673f2b72cbb720f107907)
+            check_type(argname="argument instance_event_window_arn", value=instance_event_window_arn, expected_type=type_hints["instance_event_window_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_event_window_arn": instance_event_window_arn,
+        }
+
+    @builtins.property
+    def instance_event_window_arn(self) -> builtins.str:
+        '''The Arn of the InstanceEventWindow resource.'''
+        result = self._values.get("instance_event_window_arn")
+        assert result is not None, "Required property 'instance_event_window_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceEventWindowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.InstanceReference",
     jsii_struct_bases=[],
     name_mapping={"instance_id": "instanceId"},
@@ -9634,6 +9867,87 @@ class SubnetCidrBlockReference:
 
     def __repr__(self) -> str:
         return "SubnetCidrBlockReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.SubnetCidrReservationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subnet_cidr_reservation_arn": "subnetCidrReservationArn",
+        "subnet_cidr_reservation_id": "subnetCidrReservationId",
+        "subnet_id": "subnetId",
+    },
+)
+class SubnetCidrReservationReference:
+    def __init__(
+        self,
+        *,
+        subnet_cidr_reservation_arn: builtins.str,
+        subnet_cidr_reservation_id: builtins.str,
+        subnet_id: builtins.str,
+    ) -> None:
+        '''A reference to a SubnetCidrReservation resource.
+
+        :param subnet_cidr_reservation_arn: The ARN of the SubnetCidrReservation resource.
+        :param subnet_cidr_reservation_id: The SubnetCidrReservationId of the SubnetCidrReservation resource.
+        :param subnet_id: The SubnetId of the SubnetCidrReservation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            subnet_cidr_reservation_reference = interfaces_ec2.SubnetCidrReservationReference(
+                subnet_cidr_reservation_arn="subnetCidrReservationArn",
+                subnet_cidr_reservation_id="subnetCidrReservationId",
+                subnet_id="subnetId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fbee8dc94ad67534ab62e2ab41cb8bea935d303119de4a640a112d713fca9669)
+            check_type(argname="argument subnet_cidr_reservation_arn", value=subnet_cidr_reservation_arn, expected_type=type_hints["subnet_cidr_reservation_arn"])
+            check_type(argname="argument subnet_cidr_reservation_id", value=subnet_cidr_reservation_id, expected_type=type_hints["subnet_cidr_reservation_id"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subnet_cidr_reservation_arn": subnet_cidr_reservation_arn,
+            "subnet_cidr_reservation_id": subnet_cidr_reservation_id,
+            "subnet_id": subnet_id,
+        }
+
+    @builtins.property
+    def subnet_cidr_reservation_arn(self) -> builtins.str:
+        '''The ARN of the SubnetCidrReservation resource.'''
+        result = self._values.get("subnet_cidr_reservation_arn")
+        assert result is not None, "Required property 'subnet_cidr_reservation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_cidr_reservation_id(self) -> builtins.str:
+        '''The SubnetCidrReservationId of the SubnetCidrReservation resource.'''
+        result = self._values.get("subnet_cidr_reservation_id")
+        assert result is not None, "Required property 'subnet_cidr_reservation_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_id(self) -> builtins.str:
+        '''The SubnetId of the SubnetCidrReservation resource.'''
+        result = self._values.get("subnet_id")
+        assert result is not None, "Required property 'subnet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubnetCidrReservationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -12438,7 +12752,9 @@ __all__ = [
     "IIPAMResourceDiscoveryAssociationRef",
     "IIPAMResourceDiscoveryRef",
     "IIPAMScopeRef",
+    "IIPv4PoolRef",
     "IInstanceConnectEndpointRef",
+    "IInstanceEventWindowRef",
     "IInstanceRef",
     "IInternetGatewayRef",
     "IIpPoolRouteTableAssociationRef",
@@ -12473,6 +12789,7 @@ __all__ = [
     "IPAMScopeReference",
     "IPlacementGroupRef",
     "IPrefixListRef",
+    "IPv4PoolReference",
     "IRouteRef",
     "IRouteServerAssociationRef",
     "IRouteServerEndpointRef",
@@ -12488,6 +12805,7 @@ __all__ = [
     "ISpotFleetRef",
     "ISqlHaStandbyDetectedInstanceRef",
     "ISubnetCidrBlockRef",
+    "ISubnetCidrReservationRef",
     "ISubnetNetworkAclAssociationRef",
     "ISubnetRef",
     "ISubnetRouteTableAssociationRef",
@@ -12538,6 +12856,7 @@ __all__ = [
     "IVolumeAttachmentRef",
     "IVolumeRef",
     "InstanceConnectEndpointReference",
+    "InstanceEventWindowReference",
     "InstanceReference",
     "InternetGatewayReference",
     "IpPoolRouteTableAssociationReference",
@@ -12578,6 +12897,7 @@ __all__ = [
     "SpotFleetReference",
     "SqlHaStandbyDetectedInstanceReference",
     "SubnetCidrBlockReference",
+    "SubnetCidrReservationReference",
     "SubnetNetworkAclAssociationReference",
     "SubnetReference",
     "SubnetRouteTableAssociationReference",
@@ -12847,10 +13167,24 @@ def _typecheckingstub__da183a6f045185e65fe67a7bb0f4e74662c652173a7c3c2d9103452e5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7204c49da51ea01c9ef169e1599771e11faede7d0eb357f9367b24d7bfb4aa48(
+    *,
+    i_pv4_pool_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__04da4a11a170a51c13416eafbc1b7d6de587ae16bc76f69212089fec3dfd9e2d(
     *,
     instance_connect_endpoint_arn: builtins.str,
     instance_connect_endpoint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98afa25f9847cf153c090b90563eddca1d521777fd8673f2b72cbb720f107907(
+    *,
+    instance_event_window_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13149,6 +13483,15 @@ def _typecheckingstub__4e0fc44bd7688cacf09a167c4442dd9f4fc5294b2dc974d3c030094ee
 def _typecheckingstub__6afd0bd0b6454ebc029c534dc448712d3ba20ac3ab16969fba368228dfe49c40(
     *,
     subnet_cidr_block_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbee8dc94ad67534ab62e2ab41cb8bea935d303119de4a640a112d713fca9669(
+    *,
+    subnet_cidr_reservation_arn: builtins.str,
+    subnet_cidr_reservation_id: builtins.str,
+    subnet_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13516,5 +13859,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IIPv4PoolRef, IInstanceConnectEndpointRef, IInstanceEventWindowRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetCidrReservationRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

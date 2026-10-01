@@ -14,6 +14,9 @@ Usage::
     from types_aiobotocore_guardduty.paginator import (
         DescribeMalwareScansPaginator,
         ListCoveragePaginator,
+        ListCustomDetectionRuleAssociationsPaginator,
+        ListCustomDetectionRuleOrgConfigurationsPaginator,
+        ListCustomDetectionRulesPaginator,
         ListDetectorsPaginator,
         ListFiltersPaginator,
         ListFindingsPaginator,
@@ -34,6 +37,9 @@ Usage::
 
         describe_malware_scans_paginator: DescribeMalwareScansPaginator = client.get_paginator("describe_malware_scans")
         list_coverage_paginator: ListCoveragePaginator = client.get_paginator("list_coverage")
+        list_custom_detection_rule_associations_paginator: ListCustomDetectionRuleAssociationsPaginator = client.get_paginator("list_custom_detection_rule_associations")
+        list_custom_detection_rule_org_configurations_paginator: ListCustomDetectionRuleOrgConfigurationsPaginator = client.get_paginator("list_custom_detection_rule_org_configurations")
+        list_custom_detection_rules_paginator: ListCustomDetectionRulesPaginator = client.get_paginator("list_custom_detection_rules")
         list_detectors_paginator: ListDetectorsPaginator = client.get_paginator("list_detectors")
         list_filters_paginator: ListFiltersPaginator = client.get_paginator("list_filters")
         list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
@@ -61,6 +67,12 @@ from .type_defs import (
     DescribeMalwareScansResponseTypeDef,
     ListCoverageRequestPaginateTypeDef,
     ListCoverageResponseTypeDef,
+    ListCustomDetectionRuleAssociationsRequestPaginateTypeDef,
+    ListCustomDetectionRuleAssociationsResponseTypeDef,
+    ListCustomDetectionRuleOrgConfigurationsRequestPaginateTypeDef,
+    ListCustomDetectionRuleOrgConfigurationsResponseTypeDef,
+    ListCustomDetectionRulesRequestPaginateTypeDef,
+    ListCustomDetectionRulesResponseTypeDef,
     ListDetectorsRequestPaginateTypeDef,
     ListDetectorsResponseTypeDef,
     ListFiltersRequestPaginateTypeDef,
@@ -96,6 +108,9 @@ else:
 __all__ = (
     "DescribeMalwareScansPaginator",
     "ListCoveragePaginator",
+    "ListCustomDetectionRuleAssociationsPaginator",
+    "ListCustomDetectionRuleOrgConfigurationsPaginator",
+    "ListCustomDetectionRulesPaginator",
     "ListDetectorsPaginator",
     "ListFiltersPaginator",
     "ListFindingsPaginator",
@@ -150,6 +165,77 @@ class ListCoveragePaginator(_ListCoveragePaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCoverage.html#GuardDuty.Paginator.ListCoverage.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcoveragepaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCustomDetectionRuleAssociationsPaginatorBase = AioPaginator[
+        ListCustomDetectionRuleAssociationsResponseTypeDef
+    ]
+else:
+    _ListCustomDetectionRuleAssociationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCustomDetectionRuleAssociationsPaginator(
+    _ListCustomDetectionRuleAssociationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRuleAssociations.html#GuardDuty.Paginator.ListCustomDetectionRuleAssociations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionruleassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCustomDetectionRuleAssociationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCustomDetectionRuleAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRuleAssociations.html#GuardDuty.Paginator.ListCustomDetectionRuleAssociations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionruleassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCustomDetectionRuleOrgConfigurationsPaginatorBase = AioPaginator[
+        ListCustomDetectionRuleOrgConfigurationsResponseTypeDef
+    ]
+else:
+    _ListCustomDetectionRuleOrgConfigurationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCustomDetectionRuleOrgConfigurationsPaginator(
+    _ListCustomDetectionRuleOrgConfigurationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRuleOrgConfigurations.html#GuardDuty.Paginator.ListCustomDetectionRuleOrgConfigurations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionruleorgconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCustomDetectionRuleOrgConfigurationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCustomDetectionRuleOrgConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRuleOrgConfigurations.html#GuardDuty.Paginator.ListCustomDetectionRuleOrgConfigurations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionruleorgconfigurationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCustomDetectionRulesPaginatorBase = AioPaginator[ListCustomDetectionRulesResponseTypeDef]
+else:
+    _ListCustomDetectionRulesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListCustomDetectionRulesPaginator(_ListCustomDetectionRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRules.html#GuardDuty.Paginator.ListCustomDetectionRules)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionrulespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCustomDetectionRulesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCustomDetectionRulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListCustomDetectionRules.html#GuardDuty.Paginator.ListCustomDetectionRules.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listcustomdetectionrulespaginator)
         """
 
 

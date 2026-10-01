@@ -44140,6 +44140,7 @@ __all__ = [
     "aws_events",
     "aws_events_targets",
     "aws_eventschemas",
+    "aws_eventsv2",
     "aws_evidently",
     "aws_evs",
     "aws_finspace",
@@ -44158,6 +44159,7 @@ __all__ = [
     "aws_greengrassv2",
     "aws_groundstation",
     "aws_guardduty",
+    "aws_healthagent",
     "aws_healthimaging",
     "aws_healthlake",
     "aws_iam",
@@ -44226,6 +44228,7 @@ __all__ = [
     "aws_networkfirewall",
     "aws_networkflowmonitor",
     "aws_networkmanager",
+    "aws_networkmonitor",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
@@ -44490,6 +44493,7 @@ if typing.TYPE_CHECKING:
     from . import aws_events as aws_events
     from . import aws_events_targets as aws_events_targets
     from . import aws_eventschemas as aws_eventschemas
+    from . import aws_eventsv2 as aws_eventsv2
     from . import aws_evidently as aws_evidently
     from . import aws_evs as aws_evs
     from . import aws_finspace as aws_finspace
@@ -44508,6 +44512,7 @@ if typing.TYPE_CHECKING:
     from . import aws_greengrassv2 as aws_greengrassv2
     from . import aws_groundstation as aws_groundstation
     from . import aws_guardduty as aws_guardduty
+    from . import aws_healthagent as aws_healthagent
     from . import aws_healthimaging as aws_healthimaging
     from . import aws_healthlake as aws_healthlake
     from . import aws_iam as aws_iam
@@ -44576,6 +44581,7 @@ if typing.TYPE_CHECKING:
     from . import aws_networkfirewall as aws_networkfirewall
     from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
+    from . import aws_networkmonitor as aws_networkmonitor
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
     from . import aws_notificationscontacts as aws_notificationscontacts
@@ -44838,6 +44844,7 @@ _SUBMODULES = {
     "aws_events",
     "aws_events_targets",
     "aws_eventschemas",
+    "aws_eventsv2",
     "aws_evidently",
     "aws_evs",
     "aws_finspace",
@@ -44856,6 +44863,7 @@ _SUBMODULES = {
     "aws_greengrassv2",
     "aws_groundstation",
     "aws_guardduty",
+    "aws_healthagent",
     "aws_healthimaging",
     "aws_healthlake",
     "aws_iam",
@@ -44924,6 +44932,7 @@ _SUBMODULES = {
     "aws_networkfirewall",
     "aws_networkflowmonitor",
     "aws_networkmanager",
+    "aws_networkmonitor",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",

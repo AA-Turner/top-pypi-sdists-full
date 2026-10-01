@@ -94,6 +94,7 @@ __all__ = (
     "MalwareProtectionResourceTypeType",
     "MalwareProtectionScanStatusType",
     "MalwareProtectionScanTypeType",
+    "ManagedByType",
     "ManagementTypeType",
     "MfaStatusType",
     "NetworkDirectionType",
@@ -365,6 +366,7 @@ MalwareProtectionScanStatusType = Literal[
     "COMPLETED", "COMPLETED_WITH_ISSUES", "FAILED", "RUNNING", "SKIPPED"
 ]
 MalwareProtectionScanTypeType = Literal["BACKUP_INITIATED", "GUARDDUTY_INITIATED", "ON_DEMAND"]
+ManagedByType = Literal["GUARDDUTY_POLICY"]
 ManagementTypeType = Literal["AUTO_MANAGED", "DISABLED", "MANUAL"]
 MfaStatusType = Literal["DISABLED", "ENABLED"]
 NetworkDirectionType = Literal["INBOUND", "OUTBOUND"]

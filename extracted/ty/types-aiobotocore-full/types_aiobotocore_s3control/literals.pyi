@@ -64,14 +64,17 @@ __all__ = (
     "ReplicationTimeStatusType",
     "RequestedJobStatusType",
     "ResourceServiceName",
+    "S3AnnotationDirectiveType",
     "S3CannedAccessControlListType",
     "S3ChecksumAlgorithmType",
     "S3ControlServiceName",
     "S3GlacierJobTierType",
     "S3GranteeTypeIdentifierType",
     "S3MetadataDirectiveType",
+    "S3ObjectLockEventHoldType",
     "S3ObjectLockLegalHoldStatusType",
     "S3ObjectLockModeType",
+    "S3ObjectLockRetentionEventHoldType",
     "S3ObjectLockRetentionModeType",
     "S3PermissionType",
     "S3PrefixTypeType",
@@ -198,6 +201,7 @@ ReplicationStorageClassType = Literal[
 ]
 ReplicationTimeStatusType = Literal["Disabled", "Enabled"]
 RequestedJobStatusType = Literal["Cancelled", "Ready"]
+S3AnnotationDirectiveType = Literal["COPY", "EXCLUDE"]
 S3CannedAccessControlListType = Literal[
     "authenticated-read",
     "aws-exec-read",
@@ -222,8 +226,10 @@ S3ChecksumAlgorithmType = Literal[
 S3GlacierJobTierType = Literal["BULK", "STANDARD"]
 S3GranteeTypeIdentifierType = Literal["emailAddress", "id", "uri"]
 S3MetadataDirectiveType = Literal["COPY", "REPLACE"]
+S3ObjectLockEventHoldType = Literal["OFF", "ON"]
 S3ObjectLockLegalHoldStatusType = Literal["OFF", "ON"]
 S3ObjectLockModeType = Literal["COMPLIANCE", "GOVERNANCE"]
+S3ObjectLockRetentionEventHoldType = Literal["OFF", "ON"]
 S3ObjectLockRetentionModeType = Literal["COMPLIANCE", "GOVERNANCE"]
 S3PermissionType = Literal["FULL_CONTROL", "READ", "READ_ACP", "WRITE", "WRITE_ACP"]
 S3PrefixTypeType = Literal["Object"]
@@ -332,6 +338,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -406,6 +413,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -434,6 +442,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -528,6 +537,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

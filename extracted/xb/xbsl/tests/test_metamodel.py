@@ -315,6 +315,60 @@ def test_localized_keeps_names_without_term_pairs(mm_root):
     assert set(metamodel.localized(props, "en")) == set(props)  # no terms.json - Russian stays
 
 
+# --- the languages a project may be localized into ----------------------------------------
+
+
+#: The language table as the extractor writes it. The modes are the test's own: what is
+#: tested is how a project's mode is held against them, not the platform's numbers.
+_LANGUAGE_ROWS = [
+    {"ru": "Английский", "en": "English", "code": "en", "since": "1.0"},
+    {"ru": "Русский", "en": "Russian", "code": "ru", "since": "1.0"},
+    {"ru": "Вьетнамский", "en": "Vietnamese", "code": "vi", "since": "9.1"},
+]
+
+
+@pytest.fixture
+def languages_root(tmp_path):
+    yield _root(tmp_path, {**_MM, "languages": _LANGUAGE_ROWS})
+    dataset.set_data_root(None)
+
+
+def test_the_languages_come_from_the_data_in_its_order(languages_root):
+    assert [language.code for language in metamodel.languages()] == ["en", "ru", "vi"]
+    vietnamese = metamodel.languages()[2]
+    assert (vietnamese.russian, vietnamese.english, vietnamese.since) == (
+        "Вьетнамский", "Vietnamese", "9.1")
+
+
+def test_a_language_answers_to_either_name_and_to_its_code_in_any_case(languages_root):
+    for value in ("Вьетнамский", "вьетнамский", "Vietnamese", "vi", "Vi", "VI", " 'Vi' "):
+        assert metamodel.language_named(value).code == "vi", value
+    assert metamodel.language_named("Эльфийский") is None
+    assert metamodel.language_named("") is None
+
+
+def test_a_language_is_available_from_the_mode_it_appeared_in(languages_root):
+    vietnamese = metamodel.language_named("vi")
+    assert not metamodel.language_available(vietnamese, "9.0")
+    assert metamodel.language_available(vietnamese, "9.1")
+    assert metamodel.language_available(vietnamese, "9.12")  # compared as numbers, not text
+    # A project naming no mode, or a mode the data cannot read, is not limited: the platform
+    # then goes by its newest mode.
+    assert metamodel.language_available(vietnamese, None)
+    assert metamodel.language_available(vietnamese, "latest")
+
+
+def test_data_without_the_table_knows_the_two_base_languages(mm_root):
+    """Data extracted before the table existed - the base two stand in, every mode has them."""
+    assert [language.code for language in metamodel.languages()] == ["en", "ru"]
+    assert metamodel.language_named("Английский").english == "English"
+    assert metamodel.language_named("Вьетнамский") is None
+
+
+def test_the_base_languages_stand_without_any_data(no_data):
+    assert [language.russian for language in metamodel.languages()] == ["Английский", "Русский"]
+
+
 # --- MCP ---------------------------------------------------------------------------------
 
 
@@ -350,6 +404,57 @@ def test_mcp_metadata_schema(mcp_module, mm_root):
     one = mcp_module.metadata_schema("Справочник")
     assert one["props"]["Иерархический"]["kind"] == "boolean"
     assert one["enums"]["VisibilityScopeEnum"] == ["ВПодсистеме", "ВПроекте", "Глобально"]
+
+
+def test_a_value_is_available_between_the_modes_its_record_names(tmp_path):
+    """The mode a value appeared in and the last mode that has it both count; a value without
+    a record, a mode the data cannot read and an unknown project mode limit nothing."""
+    dated = {**_MM, "enum_items": {"VisibilityScopeEnum": {
+        "ВПодсистеме": {"en": "InSubsystem", "since": "9.1"},
+        "Глобально": {"en": "Global", "since": "8.2", "until": "9.0"},
+        "ВПроекте": {"en": "InProject", "until": "later"},
+    }}}
+    _root(tmp_path, dated)
+    try:
+        available = [(value, mode) for value in metamodel.enum_values("VisibilityScopeEnum")
+                     for mode in ((8, 0), (8, 2), (9, 0), (9, 1))
+                     if metamodel.enum_value_available("VisibilityScopeEnum", value, mode)]
+        assert available == [
+            ("ВПодсистеме", (9, 1)),
+            ("ВПроекте", (8, 0)), ("ВПроекте", (8, 2)), ("ВПроекте", (9, 0)), ("ВПроекте", (9, 1)),
+            ("Глобально", (8, 2)), ("Глобально", (9, 0)),
+        ]
+        assert metamodel.enum_value_modes("VisibilityScopeEnum", "Глобально") == ("8.2", "9.0")
+        assert metamodel.enum_value_available("VisibilityScopeEnum", "ВПодсистеме", None)
+        assert metamodel.enum_value_english("VisibilityScopeEnum", "Глобально") == "Global"
+        assert metamodel.enum_value_english("VisibilityScopeEnum", "Нигде") is None
+    finally:
+        dataset.set_data_root(None)
+
+
+def test_legacy_data_limits_no_value_and_spells_none(legacy_root):
+    assert metamodel.enum_value_modes("VisibilityScopeEnum", "Глобально") == (None, None)
+    assert metamodel.enum_value_available("VisibilityScopeEnum", "Глобально", (9, 0))
+    assert metamodel.enum_value_english("VisibilityScopeEnum", "Глобально") is None
+
+
+def test_mcp_metadata_schema_names_the_modes_a_value_is_limited_to(mcp_module, tmp_path):
+    """The values keep their list; the ones a compatibility mode limits come with the limits,
+    and an answer with nothing limited has no such section at all."""
+    dated = {**_MM, "enum_items": {"VisibilityScopeEnum": {
+        "ВПодсистеме": {"en": "InSubsystem", "since": "9.1"},
+        "ВПроекте": {"en": "InProject"},
+        "Глобально": {"en": "Global", "until": "9.0"},
+    }}}
+    _root(tmp_path, dated)
+    try:
+        one = mcp_module.metadata_schema("Справочник")
+        assert one["enums"]["VisibilityScopeEnum"] == ["ВПодсистеме", "ВПроекте", "Глобально"]
+        assert one["enum_modes"] == {"VisibilityScopeEnum": {
+            "ВПодсистеме": {"since": "9.1"}, "Глобально": {"until": "9.0"}}}
+        assert "enum_modes" not in mcp_module.metadata_schema("Документ")
+    finally:
+        dataset.set_data_root(None)
 
 
 def test_mcp_metadata_schema_of_a_collection_item(mcp_module, mm_root):

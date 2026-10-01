@@ -247,7 +247,12 @@ def adapt_block_data(block_type: str, data: dict[str, Any]) -> dict[str, Any]:
     adapted = copy.deepcopy(data)
 
     if block_type == "flashcards":
-        adapted.setdefault("title", "Flashcards")
+        # The set's own ``Title:`` line when the text carried one. Otherwise
+        # the PLACEHOLDER the kind's required ``title`` needs — never a name:
+        # whatever names a record from this value replaces it (the frontend's
+        # ``deriveFlashcardDeckName``). ``or`` rather than ``setdefault`` so an
+        # explicit ``None``/empty title can never reach a ``type: string``.
+        adapted["title"] = adapted.get("title") or "Flashcards"
 
     elif block_type == "quiz":
         adapted.setdefault(

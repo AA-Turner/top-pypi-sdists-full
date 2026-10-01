@@ -66,6 +66,7 @@ from .literals import (
     EFSAuthorizationConfigIAMType,
     EFSTransitEncryptionType,
     ExecuteCommandLoggingType,
+    ExpressCpuArchitectureType,
     ExpressGatewayServiceScalingMetricType,
     ExpressGatewayServiceStatusCodeType,
     FirelensConfigurationTypeType,
@@ -100,6 +101,7 @@ from .literals import (
     ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
     ServiceDeploymentStatusType,
+    ServiceRevisionCleanupType,
     SettingNameType,
     SettingTypeType,
     SortOrderType,
@@ -226,6 +228,7 @@ __all__ = (
     "DeploymentConfigurationTypeDef",
     "DeploymentConfigurationUnionTypeDef",
     "DeploymentControllerTypeDef",
+    "DeploymentEarlySuccessCriteriaTypeDef",
     "DeploymentEphemeralStorageTypeDef",
     "DeploymentLifecycleHookDetailTypeDef",
     "DeploymentLifecycleHookOutputTypeDef",
@@ -481,6 +484,7 @@ __all__ = (
     "ServiceRevisionOverridesTypeDef",
     "ServiceRevisionSummaryTypeDef",
     "ServiceRevisionTypeDef",
+    "ServiceRevisionVpcLatticeConfigurationTypeDef",
     "ServiceTypeDef",
     "ServiceVolumeConfigurationOutputTypeDef",
     "ServiceVolumeConfigurationTypeDef",
@@ -552,6 +556,7 @@ __all__ = (
     "VolumeOutputTypeDef",
     "VolumeTypeDef",
     "VolumeUnionTypeDef",
+    "VpcLatticeAdvancedConfigurationTypeDef",
     "VpcLatticeConfigurationTypeDef",
     "WaiterConfigTypeDef",
 )
@@ -830,11 +835,6 @@ class ServiceRegistryTypeDef(TypedDict):
     containerName: NotRequired[str]
     containerPort: NotRequired[int]
 
-class VpcLatticeConfigurationTypeDef(TypedDict):
-    roleArn: str
-    targetGroupArn: str
-    portName: str
-
 class ScaleTypeDef(TypedDict):
     value: NotRequired[float]
     unit: NotRequired[Literal["PERCENT"]]
@@ -852,6 +852,7 @@ class DaemonAlarmConfigurationTypeDef(TypedDict):
 class DaemonCapacityProviderTypeDef(TypedDict):
     arn: NotRequired[str]
     runningCount: NotRequired[int]
+    withoutDaemonCount: NotRequired[int]
 
 class DaemonCircuitBreakerTypeDef(TypedDict):
     failureCount: NotRequired[int]
@@ -871,6 +872,7 @@ class DaemonDeploymentAlarmsTypeDef(TypedDict):
 class DaemonDeploymentCapacityProviderTypeDef(TypedDict):
     arn: NotRequired[str]
     runningInstanceCount: NotRequired[int]
+    withoutDaemonInstanceCount: NotRequired[int]
     drainingInstanceCount: NotRequired[int]
 
 class DaemonDeploymentSummaryTypeDef(TypedDict):
@@ -987,6 +989,11 @@ ThresholdConfigurationTypeDef = TypedDict(
         "value": int,
     },
 )
+
+class DeploymentEarlySuccessCriteriaTypeDef(TypedDict):
+    enable: bool
+    healthyPercent: NotRequired[int]
+    sourceServiceRevisionCleanup: NotRequired[ServiceRevisionCleanupType]
 
 class LinearConfigurationTypeDef(TypedDict):
     stepPercent: NotRequired[float]
@@ -1473,6 +1480,10 @@ class ServiceRevisionLoadBalancerTypeDef(TypedDict):
     targetGroupArn: NotRequired[str]
     productionListenerRule: NotRequired[str]
 
+class ServiceRevisionVpcLatticeConfigurationTypeDef(TypedDict):
+    targetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+
 ResourceTypeDef = TypedDict(
     "ResourceTypeDef",
     {
@@ -1594,6 +1605,11 @@ class UpdateTaskProtectionRequestTypeDef(TypedDict):
     tasks: Sequence[str]
     protectionEnabled: bool
     expiresInMinutes: NotRequired[int]
+
+class VpcLatticeAdvancedConfigurationTypeDef(TypedDict):
+    alternateTargetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+    testListenerRule: NotRequired[str]
 
 class LoadBalancerTypeDef(TypedDict):
     targetGroupArn: NotRequired[str]
@@ -1890,6 +1906,7 @@ class DaemonRevisionDetailTypeDef(TypedDict):
     arn: NotRequired[str]
     capacityProviders: NotRequired[list[DaemonCapacityProviderTypeDef]]
     totalRunningCount: NotRequired[int]
+    totalWithoutDaemonCount: NotRequired[int]
 
 class DaemonRevisionTypeDef(TypedDict):
     daemonRevisionArn: NotRequired[str]
@@ -1901,11 +1918,13 @@ class DaemonRevisionTypeDef(TypedDict):
     propagateTags: NotRequired[DaemonPropagateTagsType]
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
+    critical: NotRequired[bool]
 
 class DaemonDeploymentRevisionDetailTypeDef(TypedDict):
     arn: NotRequired[str]
     capacityProviders: NotRequired[list[DaemonDeploymentCapacityProviderTypeDef]]
     totalRunningInstanceCount: NotRequired[int]
+    totalWithoutDaemonInstanceCount: NotRequired[int]
     totalDrainingInstanceCount: NotRequired[int]
 
 class ListDaemonDeploymentsResponseTypeDef(TypedDict):
@@ -2240,6 +2259,7 @@ class MonitoringConfigurationTypeDef(TypedDict):
 
 class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
+    vpcLatticeConfigurations: NotRequired[list[ServiceRevisionVpcLatticeConfigurationTypeDef]]
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
 
@@ -2256,6 +2276,13 @@ class ServiceConnectTlsConfigurationTypeDef(TypedDict):
     roleArn: NotRequired[str]
 
 TmpfsUnionTypeDef = Union[TmpfsTypeDef, TmpfsOutputTypeDef]
+
+class VpcLatticeConfigurationTypeDef(TypedDict):
+    roleArn: str
+    targetGroupArn: str
+    portName: str
+    advancedConfiguration: NotRequired[VpcLatticeAdvancedConfigurationTypeDef]
+
 ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigurationOutputTypeDef]
 TaskSetTypeDef = TypedDict(
     "TaskSetTypeDef",
@@ -2494,6 +2521,7 @@ class DeploymentConfigurationOutputTypeDef(TypedDict):
     lifecycleHooks: NotRequired[list[DeploymentLifecycleHookOutputTypeDef]]
     linearConfiguration: NotRequired[LinearConfigurationTypeDef]
     canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+    earlySuccessCriteria: NotRequired[DeploymentEarlySuccessCriteriaTypeDef]
 
 class DeploymentConfigurationTypeDef(TypedDict):
     deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
@@ -2505,6 +2533,7 @@ class DeploymentConfigurationTypeDef(TypedDict):
     lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
     linearConfiguration: NotRequired[LinearConfigurationTypeDef]
     canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+    earlySuccessCriteria: NotRequired[DeploymentEarlySuccessCriteriaTypeDef]
 
 class ClusterConfigurationTypeDef(TypedDict):
     executeCommandConfiguration: NotRequired[ExecuteCommandConfigurationTypeDef]
@@ -2517,6 +2546,7 @@ class ExpressGatewayServiceConfigurationTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationOutputTypeDef]
     healthCheckPath: NotRequired[str]
     primaryContainer: NotRequired[ExpressGatewayContainerOutputTypeDef]
@@ -2747,6 +2777,7 @@ class CreateDaemonRequestTypeDef(TypedDict):
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
     clientToken: NotRequired[str]
+    critical: NotRequired[bool]
 
 class UpdateDaemonRequestTypeDef(TypedDict):
     daemonArn: str
@@ -2756,6 +2787,7 @@ class UpdateDaemonRequestTypeDef(TypedDict):
     propagateTags: NotRequired[DaemonPropagateTagsType]
     enableECSManagedTags: NotRequired[bool]
     enableExecuteCommand: NotRequired[bool]
+    critical: NotRequired[bool]
 
 class DescribeDaemonResponseTypeDef(TypedDict):
     daemon: DaemonDetailTypeDef
@@ -2872,6 +2904,7 @@ class CreateExpressGatewayServiceRequestTypeDef(TypedDict):
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
     taskDefinitionArn: NotRequired[str]
@@ -2885,6 +2918,7 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     taskDefinitionArn: NotRequired[str]
 

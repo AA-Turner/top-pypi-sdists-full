@@ -243,6 +243,7 @@ __all__ = (
     "FleetConfigurationTypeDef",
     "FleetConfigurationUnionTypeDef",
     "FleetMemberTypeDef",
+    "FleetSoftwareAddOnTypeDef",
     "FleetSummaryTypeDef",
     "GetBudgetRequestTypeDef",
     "GetBudgetResponseTypeDef",
@@ -315,7 +316,9 @@ __all__ = (
     "JobEntityIdentifiersUnionTypeDef",
     "JobEntityTypeDef",
     "JobMemberTypeDef",
+    "JobParameterOutputTypeDef",
     "JobParameterTypeDef",
+    "JobParameterUnionTypeDef",
     "JobRunAsUserTypeDef",
     "JobSearchSummaryTypeDef",
     "JobSummaryTypeDef",
@@ -682,13 +685,21 @@ class BatchGetJobIdentifierTypeDef(TypedDict):
     queueId: str
     jobId: str
 
-JobParameterTypeDef = TypedDict(
-    "JobParameterTypeDef",
+JobParameterOutputTypeDef = TypedDict(
+    "JobParameterOutputTypeDef",
     {
         "int": NotRequired[str],
         "float": NotRequired[str],
         "string": NotRequired[str],
         "path": NotRequired[str],
+        "bool": NotRequired[str],
+        "rangeExpr": NotRequired[str],
+        "stringList": NotRequired[list[str]],
+        "pathList": NotRequired[list[str]],
+        "intList": NotRequired[list[str]],
+        "floatList": NotRequired[list[str]],
+        "boolList": NotRequired[list[str]],
+        "intListList": NotRequired[list[list[str]]],
     },
 )
 
@@ -1034,6 +1045,8 @@ class EnvironmentDetailsEntityTypeDef(TypedDict):
     environmentId: str
     schemaVersion: str
     template: dict[str, Any]
+    extensions: NotRequired[list[str]]
+    resolvedSymbolTable: NotRequired[str]
 
 class EnvironmentDetailsErrorTypeDef(TypedDict):
     jobId: str
@@ -1084,6 +1097,9 @@ class FleetMemberTypeDef(TypedDict):
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+
+class FleetSoftwareAddOnTypeDef(TypedDict):
+    name: Literal["docker"]
 
 class GetBudgetRequestTypeDef(TypedDict):
     farmId: str
@@ -1250,6 +1266,8 @@ class StepDetailsEntityTypeDef(TypedDict):
     schemaVersion: str
     template: dict[str, Any]
     dependencies: list[str]
+    extensions: NotRequired[list[str]]
+    resolvedSymbolTable: NotRequired[str]
 
 class JobMemberTypeDef(TypedDict):
     farmId: str
@@ -1259,6 +1277,24 @@ class JobMemberTypeDef(TypedDict):
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+
+JobParameterTypeDef = TypedDict(
+    "JobParameterTypeDef",
+    {
+        "int": NotRequired[str],
+        "float": NotRequired[str],
+        "string": NotRequired[str],
+        "path": NotRequired[str],
+        "bool": NotRequired[str],
+        "rangeExpr": NotRequired[str],
+        "stringList": NotRequired[Sequence[str]],
+        "pathList": NotRequired[Sequence[str]],
+        "intList": NotRequired[Sequence[str]],
+        "floatList": NotRequired[Sequence[str]],
+        "boolList": NotRequired[Sequence[str]],
+        "intListList": NotRequired[Sequence[Sequence[str]]],
+    },
+)
 
 class PosixUserTypeDef(TypedDict):
     user: str
@@ -2122,7 +2158,7 @@ class JobSearchSummaryTypeDef(TypedDict):
     startedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
-    jobParameters: NotRequired[dict[str, JobParameterTypeDef]]
+    jobParameters: NotRequired[dict[str, JobParameterOutputTypeDef]]
     maxWorkerCount: NotRequired[int]
     sourceJobId: NotRequired[str]
 
@@ -2526,6 +2562,8 @@ class ListJobMembersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+JobParameterUnionTypeDef = Union[JobParameterTypeDef, JobParameterOutputTypeDef]
+
 class JobRunAsUserTypeDef(TypedDict):
     runAs: RunAsType
     posix: NotRequired[PosixUserTypeDef]
@@ -2707,6 +2745,7 @@ class ServiceManagedEc2InstanceCapabilitiesOutputTypeDef(TypedDict):
     excludedInstanceTypes: NotRequired[list[str]]
     customAmounts: NotRequired[list[FleetAmountCapabilityTypeDef]]
     customAttributes: NotRequired[list[FleetAttributeCapabilityOutputTypeDef]]
+    softwareAddOns: NotRequired[list[FleetSoftwareAddOnTypeDef]]
 
 class ServiceManagedEc2InstanceCapabilitiesTypeDef(TypedDict):
     vCpuCount: VCpuCountRangeTypeDef
@@ -2719,6 +2758,7 @@ class ServiceManagedEc2InstanceCapabilitiesTypeDef(TypedDict):
     excludedInstanceTypes: NotRequired[Sequence[str]]
     customAmounts: NotRequired[Sequence[FleetAmountCapabilityTypeDef]]
     customAttributes: NotRequired[Sequence[FleetAttributeCapabilityTypeDef]]
+    softwareAddOns: NotRequired[Sequence[FleetSoftwareAddOnTypeDef]]
 
 class AssignedSessionActionDefinitionTypeDef(TypedDict):
     envEnter: NotRequired[AssignedEnvironmentEnterSessionActionDefinitionTypeDef]
@@ -2779,7 +2819,7 @@ class BatchGetJobItemTypeDef(TypedDict):
     storageProfileId: NotRequired[str]
     maxFailedTasksCount: NotRequired[int]
     maxRetriesPerTask: NotRequired[int]
-    parameters: NotRequired[dict[str, JobParameterTypeDef]]
+    parameters: NotRequired[dict[str, JobParameterOutputTypeDef]]
     attachments: NotRequired[AttachmentsOutputTypeDef]
     description: NotRequired[str]
     maxWorkerCount: NotRequired[int]
@@ -2804,7 +2844,7 @@ class GetJobResponseTypeDef(TypedDict):
     storageProfileId: str
     maxFailedTasksCount: int
     maxRetriesPerTask: int
-    parameters: dict[str, JobParameterTypeDef]
+    parameters: dict[str, JobParameterOutputTypeDef]
     attachments: AttachmentsOutputTypeDef
     description: str
     maxWorkerCount: int
@@ -2971,7 +3011,8 @@ class JobDetailsEntityTypeDef(TypedDict):
     jobAttachmentSettings: NotRequired[JobDetailsJobAttachmentSettingsTypeDef]
     jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
     queueRoleArn: NotRequired[str]
-    parameters: NotRequired[dict[str, JobParameterTypeDef]]
+    parameters: NotRequired[dict[str, JobParameterOutputTypeDef]]
+    extensions: NotRequired[list[str]]
     pathMappingRules: NotRequired[list[PathMappingRuleTypeDef]]
 
 class SchedulingConfigurationOutputTypeDef(TypedDict):
@@ -3075,7 +3116,7 @@ class CreateJobRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     template: NotRequired[str]
     templateType: NotRequired[JobTemplateTypeType]
-    parameters: NotRequired[Mapping[str, JobParameterTypeDef]]
+    parameters: NotRequired[Mapping[str, JobParameterUnionTypeDef]]
     attachments: NotRequired[AttachmentsUnionTypeDef]
     storageProfileId: NotRequired[str]
     targetTaskRunStatus: NotRequired[CreateJobTargetTaskRunStatusType]
@@ -3238,6 +3279,7 @@ class AssignedSessionTypeDef(TypedDict):
     jobId: str
     sessionActions: list[AssignedSessionActionTypeDef]
     logConfiguration: LogConfigurationTypeDef
+    metadata: NotRequired[dict[str, str]]
 
 class ListSessionActionsResponseTypeDef(TypedDict):
     sessionActions: list[SessionActionSummaryTypeDef]

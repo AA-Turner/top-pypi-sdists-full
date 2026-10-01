@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_connect.literals import AccessTypeType
+    from types_aiobotocore_connect.literals import AIAgentTypeType
 
-    data: AccessTypeType = "ALLOW"
+    data: AIAgentTypeType = "THIRD_PARTY"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AIAgentTypeType",
     "AccessTypeType",
     "ActionTypeType",
     "AgentAvailabilityTimerType",
@@ -42,10 +43,12 @@ __all__ = (
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
     "ChannelType",
+    "ChannelWorkloadBehaviorTypeType",
     "ChatEventTypeType",
     "ComparisonType",
     "ConfigurableNotificationPriorityType",
     "ConnectServiceName",
+    "ConnectionTypeType",
     "ContactEvaluationAttributeComparisonTypeType",
     "ContactEvaluationAttributeKeyType",
     "ContactFieldType",
@@ -75,12 +78,14 @@ __all__ = (
     "EncryptionTypeType",
     "EndpointTypeType",
     "EntityTypeType",
+    "EvaluationFormAIVersionStatusType",
     "EvaluationFormItemEnablementActionType",
     "EvaluationFormItemEnablementOperatorType",
     "EvaluationFormItemEnablementSourceTypeType",
     "EvaluationFormItemEnablementSourceValueTypeType",
     "EvaluationFormItemSourceValuesComparatorType",
     "EvaluationFormLanguageCodeType",
+    "EvaluationFormMetricTypeType",
     "EvaluationFormMultiSelectQuestionDisplayModeType",
     "EvaluationFormQuestionAutomationAnswerSourceTypeType",
     "EvaluationFormQuestionTypeType",
@@ -138,6 +143,7 @@ __all__ = (
     "ListDataTablesPaginatorName",
     "ListDefaultVocabulariesPaginatorName",
     "ListEntitySecurityProfilesPaginatorName",
+    "ListEvaluationFormAIVersionsPaginatorName",
     "ListEvaluationFormVersionsPaginatorName",
     "ListEvaluationFormsPaginatorName",
     "ListExtractionDefinitionsPaginatorName",
@@ -164,6 +170,7 @@ __all__ = (
     "ListRoutingProfilesPaginatorName",
     "ListRulesPaginatorName",
     "ListSecurityKeysPaginatorName",
+    "ListSecurityProfileAIAgentsPaginatorName",
     "ListSecurityProfileApplicationsPaginatorName",
     "ListSecurityProfileFlowModulesPaginatorName",
     "ListSecurityProfilePermissionsPaginatorName",
@@ -221,10 +228,14 @@ __all__ = (
     "PhoneNumberWorkflowStatusType",
     "PhoneTypeType",
     "PolicyType",
+    "PreEvaluationFilterOperatorType",
+    "PreEvaluationFilterResourceTypeType",
+    "PreEvaluationFilterTypeType",
     "QuestionRuleCategoryAutomationConditionType",
     "QueueStatusType",
     "QueueTypeType",
     "QuickConnectTypeType",
+    "RealTimeContactAnalysisExtractedInformationFailureCodeType",
     "RealTimeContactAnalysisOutputTypeType",
     "RealTimeContactAnalysisPostContactSummaryFailureCodeType",
     "RealTimeContactAnalysisPostContactSummaryStatusType",
@@ -308,6 +319,7 @@ __all__ = (
 )
 
 
+AIAgentTypeType = Literal["THIRD_PARTY"]
 AccessTypeType = Literal["ALLOW"]
 ActionTypeType = Literal[
     "ASSIGN_CONTACT_CATEGORY",
@@ -317,6 +329,7 @@ ActionTypeType = Literal[
     "END_ASSOCIATED_TASKS",
     "EXTRACT_INFORMATION",
     "GENERATE_EVENTBRIDGE_EVENT",
+    "SEND_IN_APP_NOTIFICATION",
     "SEND_NOTIFICATION",
     "SUBMIT_AUTO_EVALUATION",
     "UPDATE_CASE",
@@ -353,9 +366,17 @@ BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
+ChannelWorkloadBehaviorTypeType = Literal[
+    "ROUTE_ANY_CHANNEL_ANY_WORKLOAD_TYPE",
+    "ROUTE_CURRENT_CHANNEL_ANY_WORKLOADTYPE_ONLY",
+    "ROUTE_CURRENT_CHANNEL_CURRENT_WORKLOADTYPE_ONLY",
+]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
+ConnectionTypeType = Literal[
+    "AUTHENTICATION_SESSION", "CONNECTION_CREDENTIALS", "WEBRTC_CONNECTION", "WEBSOCKET"
+]
 ContactEvaluationAttributeComparisonTypeType = Literal["EXACT"]
 ContactEvaluationAttributeKeyType = Literal["ContactAgentId"]
 ContactFieldType = Literal["ADDITIONAL_EMAIL_RECIPIENTS", "CUSTOMER_ENDPOINT", "EMAIL_SUBJECT"]
@@ -451,6 +472,7 @@ EndpointTypeType = Literal[
     "CONNECT_PHONENUMBER_ARN", "CONTACT_FLOW", "EMAIL_ADDRESS", "TELEPHONE_NUMBER", "VOIP"
 ]
 EntityTypeType = Literal["AI_AGENT", "USER"]
+EvaluationFormAIVersionStatusType = Literal["ACTIVE", "DEPRECATED", "LATEST", "PREVIEW"]
 EvaluationFormItemEnablementActionType = Literal["DISABLE", "ENABLE"]
 EvaluationFormItemEnablementOperatorType = Literal["AND", "OR"]
 EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
@@ -459,6 +481,7 @@ EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", 
 EvaluationFormLanguageCodeType = Literal[
     "de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "ja-JP", "ko-KR", "ms-MY", "pt-BR", "zh-CN"
 ]
+EvaluationFormMetricTypeType = Literal["BUSINESS_OUTCOME"]
 EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
 EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationFormQuestionTypeType = Literal[
@@ -574,6 +597,7 @@ HoursOfOperationDaysType = Literal[
 InboundMessageSourceTypeType = Literal["RAW"]
 InitiateAsType = Literal["COMPLETED", "CONNECTED_TO_USER"]
 InstanceAttributeTypeType = Literal[
+    "AUTO_MUTE_AGENT_ON_HOLD",
     "AUTO_RESOLVE_BEST_VOICES",
     "CONTACTFLOW_LOGS",
     "CONTACT_LENS",
@@ -651,6 +675,7 @@ ListDataTableValuesPaginatorName = Literal["list_data_table_values"]
 ListDataTablesPaginatorName = Literal["list_data_tables"]
 ListDefaultVocabulariesPaginatorName = Literal["list_default_vocabularies"]
 ListEntitySecurityProfilesPaginatorName = Literal["list_entity_security_profiles"]
+ListEvaluationFormAIVersionsPaginatorName = Literal["list_evaluation_form_ai_versions"]
 ListEvaluationFormVersionsPaginatorName = Literal["list_evaluation_form_versions"]
 ListEvaluationFormsPaginatorName = Literal["list_evaluation_forms"]
 ListExtractionDefinitionsPaginatorName = Literal["list_extraction_definitions"]
@@ -685,6 +710,7 @@ ListRoutingProfileQueuesPaginatorName = Literal["list_routing_profile_queues"]
 ListRoutingProfilesPaginatorName = Literal["list_routing_profiles"]
 ListRulesPaginatorName = Literal["list_rules"]
 ListSecurityKeysPaginatorName = Literal["list_security_keys"]
+ListSecurityProfileAIAgentsPaginatorName = Literal["list_security_profile_ai_agents"]
 ListSecurityProfileApplicationsPaginatorName = Literal["list_security_profile_applications"]
 ListSecurityProfileFlowModulesPaginatorName = Literal["list_security_profile_flow_modules"]
 ListSecurityProfilePermissionsPaginatorName = Literal["list_security_profile_permissions"]
@@ -1018,10 +1044,20 @@ PhoneNumberTypeType = Literal[
 PhoneNumberWorkflowStatusType = Literal["CLAIMED", "FAILED", "IN_PROGRESS"]
 PhoneTypeType = Literal["DESK_PHONE", "SOFT_PHONE"]
 PolicyType = Literal["None", "RedactedAndOriginal", "RedactedOnly"]
+PreEvaluationFilterOperatorType = Literal["EQUALS"]
+PreEvaluationFilterResourceTypeType = Literal["CONTACT"]
+PreEvaluationFilterTypeType = Literal["TAG"]
 QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]
 QuickConnectTypeType = Literal["FLOW", "PHONE_NUMBER", "QUEUE", "USER"]
+RealTimeContactAnalysisExtractedInformationFailureCodeType = Literal[
+    "FAILED_SAFETY_GUIDELINES",
+    "INSUFFICIENT_CONVERSATION_CONTENT",
+    "INTERNAL_ERROR",
+    "MAX_PACKAGE_FEATURE_ONLY",
+    "QUOTA_EXCEEDED",
+]
 RealTimeContactAnalysisOutputTypeType = Literal["Raw", "Redacted"]
 RealTimeContactAnalysisPostContactSummaryFailureCodeType = Literal[
     "FAILED_SAFETY_GUIDELINES",
@@ -1032,7 +1068,13 @@ RealTimeContactAnalysisPostContactSummaryFailureCodeType = Literal[
 ]
 RealTimeContactAnalysisPostContactSummaryStatusType = Literal["COMPLETED", "FAILED"]
 RealTimeContactAnalysisSegmentTypeType = Literal[
-    "Attachments", "Categories", "Event", "Issues", "PostContactSummary", "Transcript"
+    "Attachments",
+    "Categories",
+    "Event",
+    "ExtractedInformation",
+    "Issues",
+    "PostContactSummary",
+    "Transcript",
 ]
 RealTimeContactAnalysisSentimentLabelType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
 RealTimeContactAnalysisStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -1276,6 +1318,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -1350,6 +1393,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -1378,6 +1422,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -1472,6 +1517,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -1651,6 +1697,7 @@ PaginatorName = Literal[
     "list_data_tables",
     "list_default_vocabularies",
     "list_entity_security_profiles",
+    "list_evaluation_form_ai_versions",
     "list_evaluation_form_versions",
     "list_evaluation_forms",
     "list_extraction_definitions",
@@ -1676,6 +1723,7 @@ PaginatorName = Literal[
     "list_routing_profiles",
     "list_rules",
     "list_security_keys",
+    "list_security_profile_ai_agents",
     "list_security_profile_applications",
     "list_security_profile_flow_modules",
     "list_security_profile_permissions",

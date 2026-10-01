@@ -220,6 +220,7 @@ class ToolExecutionLogger:
         *,
         exposed_name: str | None = None,
         authorization_metadata: dict[str, Any] | None = None,
+        candidate_disposition: dict[str, Any] | None = None,
     ) -> str:
         row_id = str(uuid4())
         now = datetime.now(UTC)
@@ -275,6 +276,14 @@ class ToolExecutionLogger:
             data["metadata"] = {
                 **data["metadata"],
                 "execution_authorization": authorization_metadata,
+            }
+        if candidate_disposition:
+            # Mandate-candidate containment: how this call was decided (real /
+            # borrowed / stopped) rides the row from its INSERT, so the row is
+            # honest even if the run dies before completion.
+            data["metadata"] = {
+                **data["metadata"],
+                "mandate_candidate_disposition": candidate_disposition,
             }
         if ctx.message_id:
             data["message_id"] = ctx.message_id

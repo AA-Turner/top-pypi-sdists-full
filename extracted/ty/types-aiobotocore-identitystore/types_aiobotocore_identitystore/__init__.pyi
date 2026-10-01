@@ -15,6 +15,7 @@ Usage::
         ListGroupMembershipsForMemberPaginator,
         ListGroupMembershipsPaginator,
         ListGroupsPaginator,
+        ListIdentityStoresPaginator,
         ListUsersPaginator,
     )
 
@@ -27,6 +28,7 @@ Usage::
     list_group_memberships_for_member_paginator: ListGroupMembershipsForMemberPaginator = client.get_paginator("list_group_memberships_for_member")
     list_group_memberships_paginator: ListGroupMembershipsPaginator = client.get_paginator("list_group_memberships")
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
+    list_identity_stores_paginator: ListIdentityStoresPaginator = client.get_paginator("list_identity_stores")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     ```
 """
@@ -36,6 +38,7 @@ from .paginator import (
     ListGroupMembershipsForMemberPaginator,
     ListGroupMembershipsPaginator,
     ListGroupsPaginator,
+    ListIdentityStoresPaginator,
     ListUsersPaginator,
 )
 
@@ -47,5 +50,6 @@ __all__ = (
     "ListGroupMembershipsForMemberPaginator",
     "ListGroupMembershipsPaginator",
     "ListGroupsPaginator",
+    "ListIdentityStoresPaginator",
     "ListUsersPaginator",
 )

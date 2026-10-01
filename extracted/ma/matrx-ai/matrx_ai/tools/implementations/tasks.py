@@ -154,19 +154,9 @@ async def task_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             result = await tasks_manager_instance.list_tasks_for_project(project_id)
             tasks_key = "tasks"
         else:
-            from matrx_ai.tools.organization_hold import (
-                carried_organization_id,
-                organization_required_result,
-            )
-
-            organization_id = carried_organization_id(ctx)
-            if not organization_id:
-                return organization_required_result(
-                    what="list your tasks", tool_name="task_list", ctx=ctx, started_at=started_at
-                )
-            result = await tasks_manager_instance.list_tasks_for_user(
-                ctx.user_id, organization_id=organization_id
-            )
+            # Every task the person can reach, across all their organizations —
+            # the active organization never narrows a list.
+            result = await tasks_manager_instance.list_tasks_for_user(ctx.user_id)
             tasks_key = "tasks"
 
         if not result.get("success"):
@@ -181,9 +171,6 @@ async def task_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         rows = [_compact_task(t) for t in result.get(tasks_key, [])]
         rows, info = cap_list(rows, limit=limit)
         output: dict[str, Any] = {"tasks": rows, "count": info.total, "shown": info.shown}
-        if tasks_key == "tasks" and not project_id:
-            # Say which organization the list is filtered to.
-            output["organization_id"] = result.get("organization_id")
         if info.truncated:
             output["truncated"] = True
             output["note"] = (

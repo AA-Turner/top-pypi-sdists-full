@@ -25,6 +25,7 @@ else:
 __all__ = (
     "DataTypeType",
     "DistanceMetricType",
+    "IndexModeType",
     "ListIndexesPaginatorName",
     "ListVectorBucketsPaginatorName",
     "ListVectorsPaginatorName",
@@ -39,6 +40,7 @@ __all__ = (
 
 DataTypeType = Literal["float32"]
 DistanceMetricType = Literal["cosine", "euclidean"]
+IndexModeType = Literal["CLASSIC", "ENHANCED"]
 ListIndexesPaginatorName = Literal["list_indexes"]
 ListVectorBucketsPaginatorName = Literal["list_vector_buckets"]
 ListVectorsPaginatorName = Literal["list_vectors"]
@@ -125,6 +127,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -199,6 +202,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -227,6 +231,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -321,6 +326,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

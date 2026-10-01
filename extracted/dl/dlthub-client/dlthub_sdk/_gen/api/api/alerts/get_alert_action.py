@@ -12,6 +12,7 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.slack_alert_action_response import SlackAlertActionResponse
 from ...models.trigger_type import TriggerType
 from ...types import Response
 
@@ -37,6 +38,7 @@ def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> (
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -44,7 +46,25 @@ def _parse_response(
     | None
 ):
     if response.status_code == 200:
-        response_200 = EmailAlertActionResponse.from_dict(response.json())
+
+        def _parse_response_200(
+            data: object,
+        ) -> EmailAlertActionResponse | SlackAlertActionResponse:
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                response_200_type_0 = EmailAlertActionResponse.from_dict(data)
+
+                return response_200_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            if not isinstance(data, dict):
+                raise TypeError()
+            response_200_type_1 = SlackAlertActionResponse.from_dict(data)
+
+            return response_200_type_1
+
+        response_200 = _parse_response_200(response.json())
 
         return response_200
 
@@ -78,6 +98,7 @@ def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> Response[
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -99,6 +120,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -117,7 +139,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EmailAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
+        Response[EmailAlertActionResponse | SlackAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -140,6 +162,7 @@ def sync(
     client: AuthenticatedClient | Client,
 ) -> (
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -159,7 +182,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EmailAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
+        EmailAlertActionResponse | SlackAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -177,6 +200,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -195,7 +219,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[EmailAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
+        Response[EmailAlertActionResponse | SlackAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -216,6 +240,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> (
     EmailAlertActionResponse
+    | SlackAlertActionResponse
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
@@ -235,7 +260,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        EmailAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
+        EmailAlertActionResponse | SlackAlertActionResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
     return (
         await asyncio_detailed(

@@ -143,60 +143,87 @@ macro_rules! impl_xml_methods {
             $($extra)*
         }
 
+        impl PartialEq for $typ {
+            fn eq(&self, other: &Self) -> bool {
+                self.id == other.id
+            }
+        }
+
+        impl Eq for $typ {}
+
         impl std::hash::Hash for $typ {
             fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                let branch: &yrs::branch::Branch = self.$inner.as_ref();
-                branch.id().hash(state)
+                self.id.hash(state)
             }
         }
     };
 }
 
 #[pyclass(eq, frozen, hash)]
-#[derive(PartialEq, Eq)]
 pub struct XmlFragment {
     pub fragment: XmlFragmentRef,
+    // Keep identity available after Yrs garbage collects a deleted branch.
+    id: yrs::branch::BranchID,
 }
 
 impl From<XmlFragmentRef> for XmlFragment {
     fn from(value: XmlFragmentRef) -> Self {
-        XmlFragment { fragment: value }
+        let branch: &yrs::branch::Branch = value.as_ref();
+        XmlFragment { id: branch.id(), fragment: value }
     }
 }
 
 impl_xml_methods!(XmlFragment[fragment, fragment: fragment] {
     fn observe(&self, f: Py<PyAny>) -> Subscription {
-        self.fragment.observe(move |txn, e| {
+        let target = self.fragment.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve(key);
+        });
+        self.fragment.observe(callback.key, move |txn, e| {
             Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
                 let e = unsafe { XmlEvent::from_xml_event(e, txn, py) };
                 if let Err(err) = f.call1(py, (e,)) {
                     err.restore(py)
                 }
             });
-        }).into()
+        });
+        sub
     }
 
     fn observe_deep(&self, f: Py<PyAny>) -> Subscription {
-        self.fragment.observe_deep(move |txn, events| {
+        let target = self.fragment.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve_deep(key);
+        });
+        self.fragment.observe_deep(callback.key, move |txn, events| {
             Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
                 let events = events_into_py(py, txn, events);
                 if let Err(err) = f.call1(py, (events,)) {
                     err.restore(py);
                 }
             })
-        }).into()
+        });
+        sub
     }
 });
 
 #[pyclass(eq, frozen, hash)]
-#[derive(PartialEq, Eq)]
 pub struct XmlElement {
     pub element: XmlElementRef,
+    // Keep identity available after Yrs garbage collects a deleted branch.
+    id: yrs::branch::BranchID,
 }
 
 impl From<XmlElementRef> for XmlElement {
     fn from(value: XmlElementRef) -> Self {
-        XmlElement { element: value }
+        let branch: &yrs::branch::Branch = value.as_ref();
+        XmlElement { id: branch.id(), element: value }
     }
 }
 
@@ -206,37 +233,55 @@ impl_xml_methods!(XmlElement[element, fragment: element, xml: element] {
     }
 
     fn observe(&self, f: Py<PyAny>) -> Subscription {
-        self.element.observe(move |txn, e| {
+        let target = self.element.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve(key);
+        });
+        self.element.observe(callback.key, move |txn, e| {
             Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
                 let e = unsafe { XmlEvent::from_xml_event(e, txn, py) };
                 if let Err(err) = f.call1(py, (e,)) {
                     err.restore(py)
                 }
             });
-        }).into()
+        });
+        sub
     }
 
     fn observe_deep(&self, f: Py<PyAny>) -> Subscription {
-        self.element.observe_deep(move |txn, events| {
+        let target = self.element.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve_deep(key);
+        });
+        self.element.observe_deep(callback.key, move |txn, events| {
             Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
                 let events = events_into_py(py, txn, events);
                 if let Err(err) = f.call1(py, (events,)) {
                     err.restore(py);
                 }
             })
-        }).into()
+        });
+        sub
     }
 });
 
 #[pyclass(eq, frozen, hash)]
-#[derive(PartialEq, Eq)]
 pub struct XmlText {
     pub text: XmlTextRef,
+    // Keep identity available after Yrs garbage collects a deleted branch.
+    id: yrs::branch::BranchID,
 }
 
 impl From<XmlTextRef> for XmlText {
     fn from(value: XmlTextRef) -> Self {
-        XmlText { text: value }
+        let branch: &yrs::branch::Branch = value.as_ref();
+        XmlText { id: branch.id(), text: value }
     }
 }
 
@@ -389,18 +434,41 @@ impl_xml_methods!(XmlText[text, xml: text] {
     }
 
     fn observe(&self, f: Py<PyAny>) -> Subscription {
-        self.text.observe(move |txn, e| {
+        let target = self.text.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve(key);
+        });
+        self.text.observe(callback.key, move |txn, e| {
             Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
                 let e = unsafe { XmlEvent::from_xml_text_event(e, txn, py) };
                 if let Err(err) = f.call1(py, (e,)) {
                     err.restore(py)
                 }
             });
-        }).into()
+        });
+        sub
     }
 
     fn observe_deep(&self, f: Py<PyAny>) -> Subscription {
-        self.observe(f)
+        let target = self.text.clone();
+        let (sub, callback) = Subscription::new(f, move |key| {
+            let _ = target.unobserve_deep(key);
+        });
+        self.text.observe_deep(callback.key, move |txn, events| {
+            Python::attach(|py| {
+                let Some(f) = callback.get(py) else {
+                    return;
+                };
+                let events = events_into_py(py, txn, events);
+                if let Err(err) = f.call1(py, (events,)) {
+                    err.restore(py)
+                }
+            });
+        });
+        sub
     }
 });
 

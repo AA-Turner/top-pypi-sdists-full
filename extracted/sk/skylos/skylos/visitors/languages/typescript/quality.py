@@ -3,6 +3,8 @@ from __future__ import annotations
 import tree_sitter_typescript as tsts
 from tree_sitter import Language, Query, QueryCursor
 
+from skylos.constants import get_non_library_dir_kind
+
 from .quality_signals import scan_quality_signals
 from .type_safety import _is_generated_file, scan_type_safety
 
@@ -40,6 +42,9 @@ _LOOP_NODES: set[str] = {
 
 _FUNC_BOUNDARY_NODES: set[str] = {
     "function_declaration",
+    "function_expression",
+    "generator_function",
+    "generator_function_declaration",
     "arrow_function",
     "method_definition",
     "function",
@@ -56,12 +61,42 @@ _QUERY_CACHE: dict[tuple[int, str], Query] = {}
 
 _FUNC_PATTERN = """
 (function_declaration) @func
+(function_expression) @func
+(generator_function) @func
+(generator_function_declaration) @func
 (arrow_function) @func
 (method_definition) @func
 """
 
 _AWAIT_PATTERN = "(await_expression) @await_expr"
 _CONDITION_PREVIEW_LIMIT = 120
+_TEST_CALLBACK_CALLS = frozenset(
+    {"test", "it", "describe", "suite", "specify", "context"}
+)
+_TEST_CALLBACK_MODIFIERS = frozenset(
+    {
+        "only",
+        "skip",
+        "todo",
+        "concurrent",
+        "serial",
+        "sequential",
+        "failing",
+        "each",
+        "describe",
+    }
+)
+_TEST_FUNCTION_NODES = frozenset(
+    {
+        "arrow_function",
+        "function",
+        "function_expression",
+        "function_declaration",
+        "generator_function",
+        "generator_function_declaration",
+        "method_definition",
+    }
+)
 
 
 def _get_query(lang: Language, key: str, pattern: str) -> Query | None:
@@ -110,6 +145,8 @@ def _max_nesting(node, depth: int = 0) -> int:
     while stack:
         current, current_depth = stack.pop()
         for child in current.children:
+            if child.type in _FUNC_BOUNDARY_NODES:
+                continue
             child_depth = (
                 current_depth + 1 if child.type in NESTING_NODES else current_depth
             )
@@ -131,6 +168,110 @@ def _param_count(func_node) -> int:
     return count
 
 
+def _is_test_callback_call(callee, source: bytes) -> bool:
+    """Recognize a test DSL call, including common modifiers and `.each` calls."""
+    if callee.type == "call_expression":
+        callee = callee.child_by_field_name("function")
+        if callee is None or callee.type != "member_expression":
+            return False
+        property_node = callee.child_by_field_name("property")
+        if property_node is None or _get_text(source, property_node) != "each":
+            return False
+
+    modifiers: list[str] = []
+    while callee is not None and callee.type == "member_expression":
+        property_node = callee.child_by_field_name("property")
+        if property_node is None:
+            return False
+        modifier = _get_text(source, property_node)
+        if modifier not in _TEST_CALLBACK_MODIFIERS:
+            return False
+        modifiers.append(modifier)
+        callee = callee.child_by_field_name("object")
+
+    if callee is None or callee.type != "identifier":
+        return False
+    root = _get_text(source, callee)
+    if "describe" in modifiers and (
+        root != "test"
+        or modifiers.count("describe") != 1
+        or modifiers[-1] != "describe"
+    ):
+        return False
+    return root in _TEST_CALLBACK_CALLS
+
+
+def _is_nested_subtest_call(callee, func_node, source: bytes) -> bool:
+    """Match `t.test(...)` only when `t` is the enclosing test's context."""
+    if callee.type != "member_expression":
+        return False
+    obj = callee.child_by_field_name("object")
+    prop = callee.child_by_field_name("property")
+    if (
+        obj is None
+        or obj.type != "identifier"
+        or prop is None
+        or _get_text(source, prop) != "test"
+    ):
+        return False
+
+    enclosing = func_node.parent
+    while enclosing is not None and enclosing.type not in _TEST_FUNCTION_NODES:
+        enclosing = enclosing.parent
+    if enclosing is None or enclosing.type != "arrow_function":
+        return False
+
+    param = enclosing.child_by_field_name("parameter")
+    if param is None:
+        params = enclosing.child_by_field_name("parameters")
+        if params is None or not params.named_children:
+            return False
+        param = params.named_children[0]
+        if param.type != "identifier":
+            param = param.child_by_field_name("pattern")
+    return (
+        param is not None
+        and param.type == "identifier"
+        and _get_text(source, param) == _get_text(source, obj)
+        and _is_test_callback(enclosing, source)
+    )
+
+
+def _is_test_callback(func_node, source: bytes) -> bool:
+    """Limit the length exemption to a test or suite's direct callback."""
+    arguments = func_node.parent
+    if arguments is None or arguments.type != "arguments":
+        return False
+    call = arguments.parent
+    if call is None or call.type != "call_expression":
+        return False
+    args = arguments.named_children
+    callback_index = next(
+        (index for index, argument in enumerate(args) if argument.id == func_node.id),
+        -1,
+    )
+    if callback_index < 0:
+        return False
+    if len(args) == 1:
+        if callback_index != 0:
+            return False
+    elif (
+        args[0].type not in {"string", "template_string"}
+        or callback_index not in (1, 2)
+        or len(args) - callback_index not in (1, 2)
+        or (
+            len(args) - callback_index == 2
+            and args[-1].type in {"arrow_function", "function_expression"}
+        )
+    ):
+        return False
+    callee = call.child_by_field_name("function")
+    return callee is not None and (
+        _is_test_callback_call(callee, source)
+        or _is_nested_subtest_call(callee, func_node, source)
+    )
+
+
 def scan_quality(
     root_node,
     source: bytes,
@@ -148,6 +289,7 @@ def scan_quality(
         return []
 
     func_nodes = _get_func_nodes(root_node, lang)
+    is_test_file = get_non_library_dir_kind(file_path) == "test"
 
     for func_node in func_nodes:
         line: int = func_node.start_point[0] + 1
@@ -184,7 +326,9 @@ def scan_quality(
             )
 
         func_length: int = func_node.end_point[0] - func_node.start_point[0] + 1
-        if func_length > max_length:
+        if func_length > max_length and not (
+            is_test_file and _is_test_callback(func_node, source)
+        ):
             findings.append(
                 {
                     "rule_id": "SKY-C304",
@@ -250,26 +394,14 @@ def scan_quality(
 
 def _calc_complexity(node) -> int:
     count = 1
-    cursor = node.walk()
-    visited_children = False
-
-    while True:
-        if visited_children:
-            if cursor.node.id == node.id:
-                break
-            if cursor.goto_next_sibling():
-                visited_children = False
-            elif cursor.goto_parent():
-                visited_children = True
-            else:
-                break
-        else:
-            if cursor.node.type in COMPLEXITY_NODES:
-                count += 1
-            if cursor.goto_first_child():
-                visited_children = False
-            else:
-                visited_children = True
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if current.id != node.id and current.type in _FUNC_BOUNDARY_NODES:
+            continue
+        if current.type in COMPLEXITY_NODES:
+            count += 1
+        stack.extend(current.children)
     return count
 
 
@@ -345,7 +477,7 @@ def _enclosing_function_name(node, source: bytes) -> str | None:
 def _check_await_in_loop(
     root_node, source: bytes, file_path: str, findings: list[dict], lang: Language
 ) -> None:
-    """SKY-Q402: Detect await expressions inside for/while loops."""
+    """SKY-Q402: Review sequential awaits in loops that may be parallelizable."""
     query = _get_query(lang, "quality_await", _AWAIT_PATTERN)
     if query is None:
         return
@@ -362,10 +494,16 @@ def _check_await_in_loop(
             if current.type in _FUNC_BOUNDARY_NODES:
                 break
             if current.type in _LOOP_NODES:
+                if _is_clearly_serial_loop(current, node, source):
+                    break
                 finding = {
                     "rule_id": "SKY-Q402",
-                    "severity": "MEDIUM",
-                    "message": "await inside loop — consider using Promise.all() for parallel execution.",
+                    "severity": "LOW",
+                    "message": (
+                        "Sequential await in loop; consider bounded parallelism only "
+                        "when iterations are independent and ordering and rate "
+                        "limits allow."
+                    ),
                     "file": str(file_path),
                     "line": node.start_point[0] + 1,
                     "col": 0,
@@ -376,6 +514,80 @@ def _check_await_in_loop(
                 findings.append(finding)
                 break
             current = current.parent
+
+
+def _is_clearly_serial_loop(loop, await_node, source: bytes) -> bool:
+    """Exclude loop controls and common intentional serial or batched work."""
+    body = loop.child_by_field_name("body")
+    if body is None or not (body.start_byte <= await_node.start_byte < body.end_byte):
+        return True
+    if loop.type in {"while_statement", "do_statement"}:
+        return True
+    if loop.type == "for_in_statement" and any(
+        child.type == "await" for child in loop.children
+    ):
+        return True
+    if loop.type == "for_statement":
+        condition = loop.child_by_field_name("condition")
+        if condition is None or condition.type == "empty_statement":
+            return True
+    if _has_loop_exit(body, loop) or _is_batched_or_delayed_await(await_node, source):
+        return True
+    return False
+
+
+def _has_loop_exit(body, loop) -> bool:
+    """Find exits from this loop without attributing nested callables or loops."""
+    stack = [body]
+    while stack:
+        current = stack.pop()
+        if current.type in _FUNC_BOUNDARY_NODES:
+            continue
+        if current.type == "return_statement":
+            return True
+        if current.type in {"break_statement", "continue_statement"}:
+            ancestor = current.parent
+            while ancestor is not None and ancestor.id != loop.id:
+                if ancestor.type in _LOOP_NODES or (
+                    current.type == "break_statement"
+                    and ancestor.type == "switch_statement"
+                ):
+                    break
+                ancestor = ancestor.parent
+            if ancestor is not None and ancestor.id == loop.id:
+                return True
+        stack.extend(current.children)
+    return False
+
+
+def _is_batched_or_delayed_await(await_node, source: bytes) -> bool:
+    expression = next(iter(await_node.named_children), None)
+    while expression is not None and expression.type == "parenthesized_expression":
+        expression = next(iter(expression.named_children), None)
+    if expression is None or expression.type != "call_expression":
+        return False
+    callee = expression.child_by_field_name("function")
+    if callee is None:
+        return False
+    if callee.type == "identifier":
+        return _get_text(source, callee).lower() in {
+            "sleep",
+            "delay",
+            "backoff",
+            "pause",
+        }
+    if callee.type == "member_expression":
+        obj = callee.child_by_field_name("object")
+        prop = callee.child_by_field_name("property")
+        if obj is None or prop is None:
+            return False
+        if _get_text(source, obj) == "Promise" and _get_text(source, prop) in {
+            "all",
+            "allSettled",
+        }:
+            return True
+        return _get_text(source, prop).lower() in {"sleep", "delay", "backoff", "pause"}
+    return False
 
 
 def _check_unreachable_code(

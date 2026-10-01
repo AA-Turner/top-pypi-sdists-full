@@ -22,6 +22,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     ensure_root_marker,
     fields_from_json_schema,
     infer_schema_from_sample,
+    inject_kind_markers_into_schema,
     json_schema_from_fields,
     normalize_kind_slug,
     validate_against_schema,
@@ -190,6 +191,23 @@ def test_inferred_schema_validates_its_own_sample() -> None:
     bad = dict(sample)
     bad.pop("score")
     assert validate_against_schema(bad, schema) != []
+
+
+def test_marker_injection_keeps_nullable_arrays_valid() -> None:
+    sample = {
+        "__kind": "market_evidence",
+        "perimeter": [
+            {"__kind": "perimeter_entry", "covered_by": ["source-1"]},
+            {"__kind": "perimeter_entry", "covered_by": None},
+        ],
+    }
+    wire = infer_schema_from_sample(sample)
+    block = inject_kind_markers_into_schema(wire, sample, "market_evidence")
+    from jsonschema import Draft202012Validator
+
+    Draft202012Validator.check_schema(block)
+    assert validate_against_schema(sample, block) == []
+    assert sample["perimeter"][1]["covered_by"] is None
 
 
 def test_validate_against_schema_tolerates_the_root_marker() -> None:

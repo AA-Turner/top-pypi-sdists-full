@@ -35,6 +35,7 @@ from src.domain.user_identity import IdentityPlatform
 from src.services.board_adapter_factory import build_board_adapter, is_oauth_jira
 from src.services.identity_resolution import IdentityResolutionService
 from src.services.project_timeline_writer import add_timeline_entry
+from src.services.release_board_sync import reconcile_from_board
 from src.services.ticket_status_service import (
     GENERIC_SYNC_ERROR,
     classify_push_failure,
@@ -1017,6 +1018,29 @@ class BoardSyncService:
                     f"All {results['tickets_found']} ticket(s) failed to sync; "
                     "see the warnings above for the per-ticket errors."
                 )
+
+            if not dry_run and not everything_failed:
+                # Board releases -> InnoDay, after the tickets exist. Its own
+                # pass over the board's release membership, not per ticket:
+                # a windowed sync skips tickets that did not move, and being
+                # added to a release is not something every board counts as
+                # the ticket moving. Best-effort -- a release problem is
+                # reported, never a failed ticket sync.
+                # Inside a SAVEPOINT: on Postgres a failed statement aborts the
+                # whole transaction, and swallowing it here would turn the
+                # commit below into a rollback of every ticket just written.
+                savepoint = session.begin_nested()
+                try:
+                    results["releases"] = await reconcile_from_board(
+                        session, registration, adapter, project_id
+                    )
+                    savepoint.commit()
+                except Exception as e:
+                    savepoint.rollback()
+                    logger.warning(
+                        "Release sync failed for board %s: %s", registration.id, e
+                    )
+                    results["releases"] = {"status": "error", "message": str(e)}
 
             if not dry_run:
                 # Commit all ticket changes

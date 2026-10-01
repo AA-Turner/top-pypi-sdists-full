@@ -17,6 +17,15 @@ class ParameterDefinitionSchema(UniversalBaseModel):
     step: typing.Optional[float] = None
     file_id: typing.Optional[str] = None
     file_id_parameter: typing.Optional[str] = None
+    required: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True requires a value on manual runs. A default satisfies the requirement.
+    """
+
+    default: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    """
+    Value used when a run does not set the parameter, including trigger-fired runs and backfills. Its shape follows widget_type: a string for text and combobox, an ISO 8601 timestamp for date, a number within min and max for slider, and an object with numeric x0, y0, x1, and y1 for region.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

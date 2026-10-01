@@ -133,6 +133,19 @@ class MemorySection(ProblemLogger):
         ]
         return cvc_undefines, cvc_defines, memory_section_handling
 
+    def _get_buram(self, section):
+        cvc_undefines = ['#undef CVC_DISP_BURAM\n']
+        if section == 'START':
+            volatile_string = 'volatile' if self.use_volatile_globals else ''
+            cvc_defines = [f'#define CVC_DISP_BURAM {volatile_string}\n']
+        else:
+            cvc_defines = []
+        memory_section_handling = [
+            self.mem_map_config['projectDefines'][self._get_mem_map_section(section)]['buram'] + '\n',
+            self.mem_map_include
+        ]
+        return cvc_undefines, cvc_defines, memory_section_handling
+
     def _get_nvm(self, section):
         cvc_undefines = []
         cvc_defines = []
@@ -232,4 +245,29 @@ class MemorySection(ProblemLogger):
                     footer = self._get_footer(section_file)
                     with Path(src_dst_dir, section_file).open('w', encoding="utf-8") as header_file_handler:
                         header_file_handler.writelines(header + lines_to_write + footer)
+
         self.info('Finished generating required header files (in %4.2f s)', time.time() - start_time)
+
+    def generate_optional_header_files(self):
+        """Generate optional header files to delivery folder.
+
+        Files will only be generated if the corresponding section is present in the memory map configuration.
+        """
+        self.info('******************************************************')
+        self.info('Start generating optional header files')
+        start_time = time.time()
+        src_dst_dir = self.build_cfg.get_src_code_dst_dir()
+
+        for section_dict in build_defs.BURAM.values():
+            for section, section_file in section_dict.items():
+                section_config = self.mem_map_config['projectDefines'][self._get_mem_map_section(section)]
+                if "buram" not in section_config:
+                    continue
+                cvc_undefines, cvc_defines, memory_section_handling = self._get_buram(section)
+                header = self._get_header(section_file)
+                footer = self._get_footer(section_file)
+                lines_to_write = header + cvc_undefines + cvc_defines + memory_section_handling + footer
+                with Path(src_dst_dir, section_file).open('w', encoding="utf-8") as header_file_handler:
+                    header_file_handler.writelines(lines_to_write)
+
+        self.info('Finished generating optional header files (in %4.2f s)', time.time() - start_time)

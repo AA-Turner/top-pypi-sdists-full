@@ -8,8 +8,11 @@ from queue import Empty, Queue
 from typing import Iterator, Sequence, Tuple, Union
 
 from twisted.internet import reactor
+from twisted.internet.interfaces import IPushProducer
 from twisted.internet.protocol import Protocol
+from twisted.internet.threads import blockingCallFromThread
 from twisted.protocols.policies import ProtocolWrapper
+from twisted.python import threadable
 from twisted.python.components import proxyForInterface
 from twisted.web.http import HTTPChannel, _GenericHTTPChannelProtocol, urlparse
 from twisted.web.http_headers import Headers as TwistedHeaders
@@ -18,7 +21,7 @@ from twisted.web.server import NOT_DONE_YET, Request, Site
 from twisted.web.server import Request as TwistedRequest
 from twisted.web.wsgi import WSGIResource, _WSGIResponse, _wsgiString
 from werkzeug.datastructures import Headers
-from wsproto import ConnectionType, WSConnection, events
+from wsproto import ConnectionState, ConnectionType, WSConnection, events
 from zope.interface import implementer
 
 from rolo.gateway import Gateway
@@ -288,7 +291,9 @@ class WebsocketResourceDecorator(proxyForInterface(IResource)):
         return super().render(request)
 
     def _processWebsocket(self, request: Request):
-        channel = WebSocketChannel(request)
+        channel = WebSocketChannel(request, self.original._reactor)
+        # lets the channel know when the transport's send buffer is full
+        request.registerProducer(channel, True)
         if isinstance(request.channel.transport, ProtocolWrapper):
             request.transport.wrappedProtocol = channel
         else:
@@ -297,11 +302,12 @@ class WebsocketResourceDecorator(proxyForInterface(IResource)):
         channel.initiateUpgrade()
 
         environment = to_websocket_environment(request)
-        environment["rolo.websocket"] = TwistedWebSocketAdapter(channel)
+        environment["rolo.websocket"] = TwistedWebSocketAdapter(channel, self.original._reactor)
         # WSGIResource also dispatches requests through the threadpool
         self.original._threadpool.callInThread(self.websocketListener, environment)
 
 
+@implementer(IPushProducer)
 class WebSocketChannel(Protocol):
     """
     Websocket protocol implementation over twisted. Note this is a ``twisted.internet.Protocol``, not a
@@ -310,11 +316,25 @@ class WebSocketChannel(Protocol):
 
     eventQueue: Queue[events.Event]
 
-    def __init__(self, request: Request):
+    closeTimeout: float = 5
+    """Seconds to wait for the client's close frame after the server sent its own, before terminating the TCP
+    connection anyway. The timeout starts once the transport's send buffer is no longer full, so a slow client
+    has the time to read the messages sent before the close frame."""
+
+    closeAbortTimeout: float = 30
+    """Seconds after the server sent its close frame, after which the TCP connection is aborted if it is still
+    open, discarding any data still buffered. This bounds the close of a client that stopped reading."""
+
+    def __init__(self, request: Request, reactor=reactor):
         self.request = request
+        self.reactor = reactor
         self.wsproto = WSConnection(ConnectionType.SERVER)
         self.eventQueue = Queue()
         self.upgraded = False
+        self._closeTimeoutCall = None
+        self._closeAbortCall = None
+        self._transportPaused = False
+        self._closeTimeoutPending = False
 
     @property
     def closed(self):
@@ -330,6 +350,8 @@ class WebSocketChannel(Protocol):
                 self.close()
 
     def connectionLost(self, reason):
+        if self._closeAbortCall and self._closeAbortCall.active():
+            self._closeAbortCall.cancel()
         self.close()
 
     def dataReceived(self, data: bytes) -> None:
@@ -338,17 +360,24 @@ class WebSocketChannel(Protocol):
             if isinstance(event, events.Ping):
                 self.wsSend(events.Pong(event.payload))
                 continue
+            if self.wsproto.state == ConnectionState.LOCAL_CLOSING:
+                # the server closed the websocket already, the listener doesn't consume any more frames
+                continue
             # TODO: filter other event types that are not expected by WebSocketAdapter
+            # queue the event before ``close()`` queues its poison pill, so the consumer sees the
+            # client's close code and reason
+            self.eventQueue.put_nowait(event)
             if isinstance(event, events.CloseConnection):
                 # complete the closing handshake (RFC 6455 section 7): echo the close frame,
                 # then terminate the TCP connection, which is the server's job
                 self.wsSend(event.response())
                 self.close()
-            self.eventQueue.put_nowait(event)
 
     def wsSend(self, event: events.Event):
         request = self.request
         if request.finished:
+            return
+        if self.wsproto.state in (ConnectionState.LOCAL_CLOSING, ConnectionState.CLOSED):
             return
         data = self.wsproto.send(event)
         if isinstance(event, events.AcceptConnection):
@@ -381,14 +410,56 @@ class WebSocketChannel(Protocol):
         self.close()
 
     def wsClose(self, code: int = 1000, reason: t.Optional[str] = None):
+        if self.request.finished or self.wsproto.state == ConnectionState.LOCAL_CLOSING:
+            return
+        if self.wsproto.state != ConnectionState.OPEN:
+            self.close()
+            return
         try:
             self.wsSend(events.CloseConnection(code, reason))
-        finally:
+        except BaseException:
             self.close()
+            raise
+        # the server terminates the TCP connection once it has both sent and received a close frame (RFC 6455
+        # section 5.5.1), so ``dataReceived`` terminates it when the client echoes the close frame. terminating it
+        # right away would stop reading the client's frames, and closing a socket with unread data makes the kernel
+        # reset the connection, which discards the frames the client has not read yet (RFC 6455 section 1.4).
+        # a client that doesn't echo the close frame gets the TCP connection terminated after ``closeTimeout``.
+        if self._transportPaused:
+            self._closeTimeoutPending = True
+        else:
+            self._startCloseTimeout()
+        self._closeAbortCall = self.reactor.callLater(self.closeAbortTimeout, self._abort)
+        # special internal poison pill, the websocket is closed for the listener already
+        self.eventQueue.put_nowait(events.CloseConnection(None))
+
+    def _abort(self):
+        self.close()
+        self.request.transport.abortConnection()
+
+    def _startCloseTimeout(self):
+        self._closeTimeoutPending = False
+        self._closeTimeoutCall = self.reactor.callLater(self.closeTimeout, self.close)
+
+    def pauseProducing(self):
+        self._transportPaused = True
+
+    def resumeProducing(self):
+        self._transportPaused = False
+        if self._closeTimeoutPending:
+            self._startCloseTimeout()
+
+    def stopProducing(self):
+        pass
 
     def close(self):
+        self._closeTimeoutPending = False
+        if self._closeTimeoutCall and self._closeTimeoutCall.active():
+            self._closeTimeoutCall.cancel()
         if self.request.finished:
             return
+        if getattr(self.request, "producer", None) is self:
+            self.request.unregisterProducer()
         if self.upgraded:
             # the 101 upgrade response was written raw to the transport, so ``Request.finish()``
             # must not write its own (never started) HTTP response into the websocket stream
@@ -400,10 +471,36 @@ class WebSocketChannel(Protocol):
 
 
 class TwistedWebSocketAdapter(rolows.WebSocketAdapter):
+    """
+    Adapter between the ``WebSocketChannel``, which lives in the reactor thread, and the ``WebSocketListener``,
+    which runs in a threadpool thread. Twisted is not thread-safe, so every operation that touches the channel's
+    connection state or transport is scheduled onto the reactor thread. Writing from the listener thread directly
+    races with the reactor writing to the same transport, which loses or reorders data, and on TLS connections also
+    with the reactor processing incoming TLS records, which breaks the connection. ``send`` is scheduled without
+    waiting for the write (the reactor runs scheduled calls in order), the other operations wait for their
+    completion.
+    """
+
     channel: WebSocketChannel
 
-    def __init__(self, channel: WebSocketChannel):
+    def __init__(self, channel: WebSocketChannel, reactor=reactor):
         self.channel = channel
+        self.reactor = reactor
+
+    def _mustScheduleInReactor(self) -> bool:
+        # without a running reactor, there's no reactor thread to race with
+        return self.reactor.running and not threadable.isInIOThread()
+
+    def _callInReactor(self, f: t.Callable, *args):
+        if self._mustScheduleInReactor():
+            return blockingCallFromThread(self.reactor, f, *args)
+        return f(*args)
+
+    def _sendInReactor(self, event: events.Event):
+        if self._mustScheduleInReactor():
+            self.reactor.callFromThread(self.channel.wsSend, event)
+        else:
+            self.channel.wsSend(event)
 
     def receive(self, timeout: float = None) -> rolows.CreateConnection | rolows.Message:
         try:
@@ -420,15 +517,15 @@ class TwistedWebSocketAdapter(rolows.WebSocketAdapter):
         elif isinstance(event, events.TextMessage):
             return rolows.TextMessage(event.data)
         elif isinstance(event, events.CloseConnection):
-            raise WebSocketDisconnectedError(event.code)
+            raise WebSocketDisconnectedError(event.code, event.reason)
         else:
             raise WebSocketProtocolError(f"Unexpected event type {event.__class__.__name__}")
 
     def send(self, event: rolows.Message, timeout: float = None):
         if isinstance(event, rolows.TextMessage):
-            self.channel.wsSend(events.TextMessage(event.data))
+            self._sendInReactor(events.TextMessage(event.data))
         elif isinstance(event, rolows.BytesMessage):
-            self.channel.wsSend(events.BytesMessage(event.data))
+            self._sendInReactor(events.BytesMessage(event.data))
         else:
             raise TypeError(f"Unexpected event type {event.__class__.__name__}")
 
@@ -439,7 +536,10 @@ class TwistedWebSocketAdapter(rolows.WebSocketAdapter):
         body: t.Iterable[bytes] = None,
         timeout: float = None,
     ):
-        self.channel.wsReject(status_code, headers, body)
+        # consume the body here, so the reactor thread doesn't run arbitrary (possibly blocking) iterators
+        self._callInReactor(
+            self.channel.wsReject, status_code, headers, list(body) if body else None
+        )
 
     def accept(
         self,
@@ -457,9 +557,12 @@ class TwistedWebSocketAdapter(rolows.WebSocketAdapter):
 
         # TODO: extensions
         event = events.AcceptConnection(subprotocol, extensions=[], extra_headers=raw_headers)
-        self.channel.wsSend(event)
+        self._callInReactor(self.channel.wsSend, event)
 
     def close(self, code: int = 1001, reason: str = None, timeout: float = None):
+        self._callInReactor(self._close, code, reason)
+
+    def _close(self, code: int, reason: str | None):
         if not self.channel.closed:
             self.channel.wsClose(code, reason)
 

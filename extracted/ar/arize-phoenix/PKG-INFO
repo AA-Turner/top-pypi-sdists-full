@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 20.16.0
+Version: 20.18.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -11,12 +11,11 @@ License-File: IP_NOTICE
 License-File: LICENSE
 Keywords: Explainability,Monitoring,Observability
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: aioitertools
 Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic<2,>=1.3.0
@@ -31,6 +30,7 @@ Requires-Dist: cachetools
 Requires-Dist: email-validator
 Requires-Dist: fastapi>=0.137.0
 Requires-Dist: fastmcp-slim[client,server]<5,>=4
+Requires-Dist: graphql-core<3.3
 Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
 Requires-Dist: httpx[http2]
@@ -53,7 +53,7 @@ Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.34.0
-Requires-Dist: pydantic-monty==0.0.23
+Requires-Dist: pydantic-monty==1.0.0
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil
@@ -62,7 +62,7 @@ Requires-Dist: pyyaml
 Requires-Dist: scikit-learn
 Requires-Dist: scipy
 Requires-Dist: snowballstemmer>=3.1
-Requires-Dist: sqlalchemy[asyncio]<3,>=2.0.46
+Requires-Dist: sqlalchemy[asyncio]<3,>=2.1.1
 Requires-Dist: sqlglot==30.18.0
 Requires-Dist: starlette>=0.37.0
 Requires-Dist: strawberry-graphql==0.327.7
@@ -85,17 +85,16 @@ Requires-Dist: anthropic<2,>=1; extra == 'container'
 Requires-Dist: azure-identity>=1.18.0; extra == 'container'
 Requires-Dist: daytona-sdk>=0.140.0; extra == 'container'
 Requires-Dist: e2b-code-interpreter>=0.0.12; extra == 'container'
-Requires-Dist: google-genai; (python_version < '3.10') and extra == 'container'
-Requires-Dist: google-genai>=1.50.0; (python_version >= '3.10') and extra == 'container'
+Requires-Dist: google-genai>=1.50.0; extra == 'container'
 Requires-Dist: modal>=1.2.0; extra == 'container'
 Requires-Dist: openai<4,>=3.1.0; extra == 'container'
-Requires-Dist: opentelemetry-exporter-otlp==1.43.0; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-fastapi==0.64b0; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-grpc==0.64b0; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.64b0; extra == 'container'
-Requires-Dist: opentelemetry-proto==1.43.0; extra == 'container'
-Requires-Dist: opentelemetry-sdk==1.43.0; extra == 'container'
-Requires-Dist: opentelemetry-semantic-conventions==0.64b0; extra == 'container'
+Requires-Dist: opentelemetry-exporter-otlp==1.45.0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.66b0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-grpc==0.66b0; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.66b0; extra == 'container'
+Requires-Dist: opentelemetry-proto==1.45.0; extra == 'container'
+Requires-Dist: opentelemetry-sdk==1.45.0; extra == 'container'
+Requires-Dist: opentelemetry-semantic-conventions==0.66b0; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
 Requires-Dist: strawberry-graphql[opentelemetry]==0.327.7; extra == 'container'
@@ -367,6 +366,12 @@ Normalize and convert data across other instrumentation libraries by adding span
 |                                                                                                  | [Prompt Flow](https://arize.com/docs/phoenix/integrations/platforms/prompt-flow)                         | Microsoft's prompt flow orchestration tool                     | [Integration Guide](https://arize.com/docs/phoenix/integrations/platforms/prompt-flow)                            |
 | <img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/nvidia-color.png" height="14"> | [NVIDIA NeMo](https://arize.com/docs/phoenix/integrations/python/nvidia)                                 | NVIDIA NeMo Agent Toolkit for enterprise agents                | [Integration Guide](https://arize.com/docs/phoenix/integrations/python/nvidia)                                    |
 |                                                                                                  | [Graphite](https://arize.com/docs/phoenix/integrations/python/graphite)                                  | Multi-agent LLM workflow framework with visual builder         | [Integration Guide](https://arize.com/docs/phoenix/integrations/python/graphite)                                  |
+
+### Vector Databases
+
+| Integration                                                                         | Description                                          | Docs                                                                                    |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [Qdrant](https://arize.com/docs/phoenix/integrations/vector-databases/qdrant)       | Staged hybrid search tracing with dense, sparse, RRF | [Integration Guide](https://arize.com/docs/phoenix/integrations/vector-databases/qdrant) |
 
 ## Sandboxes
 

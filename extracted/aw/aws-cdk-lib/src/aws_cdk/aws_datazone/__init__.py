@@ -192,7 +192,8 @@ class CfnConnection(
                     cluster_name="clusterName"
                 ),
                 iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
-                    glue_lineage_sync_enabled=False
+                    glue_lineage_sync_enabled=False,
+                    role_arn="roleArn"
                 ),
                 lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
                     glue_lineage_sync_enabled=False
@@ -1351,7 +1352,8 @@ class CfnConnection(
                         cluster_name="clusterName"
                     ),
                     iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
-                        glue_lineage_sync_enabled=False
+                        glue_lineage_sync_enabled=False,
+                        role_arn="roleArn"
                     ),
                     lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
                         glue_lineage_sync_enabled=False
@@ -2182,17 +2184,22 @@ class CfnConnection(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_datazone.CfnConnection.IamPropertiesInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"glue_lineage_sync_enabled": "glueLineageSyncEnabled"},
+        name_mapping={
+            "glue_lineage_sync_enabled": "glueLineageSyncEnabled",
+            "role_arn": "roleArn",
+        },
     )
     class IamPropertiesInputProperty:
         def __init__(
             self,
             *,
             glue_lineage_sync_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The IAM properties of a connection.
 
             :param glue_lineage_sync_enabled: Specifies whether AWS Glue lineage sync is enabled for a connection.
+            :param role_arn: The ARN of the IAM role to associate with the connection as the project user role.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-iampropertiesinput.html
             :exampleMetadata: fixture=_generated
@@ -2204,15 +2211,19 @@ class CfnConnection(
                 from aws_cdk import aws_datazone as datazone
                 
                 iam_properties_input_property = datazone.CfnConnection.IamPropertiesInputProperty(
-                    glue_lineage_sync_enabled=False
+                    glue_lineage_sync_enabled=False,
+                    role_arn="roleArn"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__5fcef45bd8fc26fdf37a0281f7789bd6e0fc1105a24dd2b5148ec9b0e0c27b75)
                 check_type(argname="argument glue_lineage_sync_enabled", value=glue_lineage_sync_enabled, expected_type=type_hints["glue_lineage_sync_enabled"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if glue_lineage_sync_enabled is not None:
                 self._values["glue_lineage_sync_enabled"] = glue_lineage_sync_enabled
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
 
         @builtins.property
         def glue_lineage_sync_enabled(
@@ -2224,6 +2235,15 @@ class CfnConnection(
             '''
             result = self._values.get("glue_lineage_sync_enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the IAM role to associate with the connection as the project user role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-iampropertiesinput.html#cfn-datazone-connection-iampropertiesinput-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3881,7 +3901,8 @@ class CfnConnectionProps:
                         cluster_name="clusterName"
                     ),
                     iam_properties=datazone.CfnConnection.IamPropertiesInputProperty(
-                        glue_lineage_sync_enabled=False
+                        glue_lineage_sync_enabled=False,
+                        role_arn="roleArn"
                     ),
                     lakehouse_properties=datazone.CfnConnection.LakehousePropertiesInputProperty(
                         glue_lineage_sync_enabled=False
@@ -17043,6 +17064,7 @@ def _typecheckingstub__b2574ba013a10f07b6e0a61c5559f70c13b2de025bb4b8d00be0efcd1
 def _typecheckingstub__5fcef45bd8fc26fdf37a0281f7789bd6e0fc1105a24dd2b5148ec9b0e0c27b75(
     *,
     glue_lineage_sync_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -490,6 +490,57 @@ class DistributionTenantReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.FieldLevelEncryptionProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "field_level_encryption_profile_arn": "fieldLevelEncryptionProfileArn",
+    },
+)
+class FieldLevelEncryptionProfileReference:
+    def __init__(self, *, field_level_encryption_profile_arn: builtins.str) -> None:
+        '''A reference to a FieldLevelEncryptionProfile resource.
+
+        :param field_level_encryption_profile_arn: The Arn of the FieldLevelEncryptionProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudfront as interfaces_cloudfront
+            
+            field_level_encryption_profile_reference = interfaces_cloudfront.FieldLevelEncryptionProfileReference(
+                field_level_encryption_profile_arn="fieldLevelEncryptionProfileArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d87798158b55048e0a2dff7c057e1406f4a331cd989be036bbc2214ede45e1c)
+            check_type(argname="argument field_level_encryption_profile_arn", value=field_level_encryption_profile_arn, expected_type=type_hints["field_level_encryption_profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "field_level_encryption_profile_arn": field_level_encryption_profile_arn,
+        }
+
+    @builtins.property
+    def field_level_encryption_profile_arn(self) -> builtins.str:
+        '''The Arn of the FieldLevelEncryptionProfile resource.'''
+        result = self._values.get("field_level_encryption_profile_arn")
+        assert result is not None, "Required property 'field_level_encryption_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FieldLevelEncryptionProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.FunctionReference",
     jsii_struct_bases=[],
     name_mapping={"function_arn": "functionArn"},
@@ -908,6 +959,57 @@ class _IDistributionTenantRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDistributionTenantRef).__jsii_proxy_class__ = lambda : _IDistributionTenantRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IFieldLevelEncryptionProfileRef"
+)
+class IFieldLevelEncryptionProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FieldLevelEncryptionProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fieldLevelEncryptionProfileRef")
+    def field_level_encryption_profile_ref(
+        self,
+    ) -> "FieldLevelEncryptionProfileReference":
+        '''(experimental) A reference to a FieldLevelEncryptionProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFieldLevelEncryptionProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FieldLevelEncryptionProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudfront.IFieldLevelEncryptionProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fieldLevelEncryptionProfileRef")
+    def field_level_encryption_profile_ref(
+        self,
+    ) -> "FieldLevelEncryptionProfileReference":
+        '''(experimental) A reference to a FieldLevelEncryptionProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("FieldLevelEncryptionProfileReference", jsii.get(self, "fieldLevelEncryptionProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFieldLevelEncryptionProfileRef).__jsii_proxy_class__ = lambda : _IFieldLevelEncryptionProfileRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudfront.IFunctionRef")
@@ -2064,6 +2166,7 @@ __all__ = [
     "ContinuousDeploymentPolicyReference",
     "DistributionReference",
     "DistributionTenantReference",
+    "FieldLevelEncryptionProfileReference",
     "FunctionReference",
     "IAnycastIpListRef",
     "ICachePolicyRef",
@@ -2073,6 +2176,7 @@ __all__ = [
     "IContinuousDeploymentPolicyRef",
     "IDistributionRef",
     "IDistributionTenantRef",
+    "IFieldLevelEncryptionProfileRef",
     "IFunctionRef",
     "IKeyGroupRef",
     "IKeyValueStoreRef",
@@ -2155,6 +2259,13 @@ def _typecheckingstub__2d850f4f750196ae341c242dc801ed452e2f72f450f61ca0bec654fc3
     *,
     distribution_tenant_arn: builtins.str,
     distribution_tenant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d87798158b55048e0a2dff7c057e1406f4a331cd989be036bbc2214ede45e1c(
+    *,
+    field_level_encryption_profile_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2246,5 +2357,5 @@ def _typecheckingstub__69b032e15f12676ea4499a1b53874c8d182ed57bcf8be49701395b5cf
     """Type checking stubs"""
     pass
 
-for cls in [IAnycastIpListRef, ICachePolicyRef, ICloudFrontOriginAccessIdentityRef, IConnectionFunctionRef, IConnectionGroupRef, IContinuousDeploymentPolicyRef, IDistributionRef, IDistributionTenantRef, IFunctionRef, IKeyGroupRef, IKeyValueStoreRef, IMonitoringSubscriptionRef, IOriginAccessControlRef, IOriginRequestPolicyRef, IPublicKeyRef, IRealtimeLogConfigRef, IResponseHeadersPolicyRef, IStreamingDistributionRef, ITrustStoreRef, IVpcOriginRef]:
+for cls in [IAnycastIpListRef, ICachePolicyRef, ICloudFrontOriginAccessIdentityRef, IConnectionFunctionRef, IConnectionGroupRef, IContinuousDeploymentPolicyRef, IDistributionRef, IDistributionTenantRef, IFieldLevelEncryptionProfileRef, IFunctionRef, IKeyGroupRef, IKeyValueStoreRef, IMonitoringSubscriptionRef, IOriginAccessControlRef, IOriginRequestPolicyRef, IPublicKeyRef, IRealtimeLogConfigRef, IResponseHeadersPolicyRef, IStreamingDistributionRef, ITrustStoreRef, IVpcOriginRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

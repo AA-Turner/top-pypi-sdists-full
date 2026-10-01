@@ -81,10 +81,12 @@ from .literals import (
     OperationTypeType,
     OriginIpAddressTypeEnumType,
     OriginProtocolPolicyEnumType,
+    PartnerStatusType,
     PortAccessTypeType,
     PortInfoSourceTypeType,
     PortStateType,
     PricingUnitType,
+    ProfileTypeType,
     R53HostedZoneDeletionStateCodeType,
     RecordStateType,
     RegionNameType,
@@ -96,6 +98,7 @@ from .literals import (
     SetupStatusType,
     StatusType,
     StatusTypeType,
+    TierNameType,
     TreatMissingDataType,
     ViewerMinimumTlsProtocolVersionEnumType,
 )
@@ -278,6 +281,7 @@ __all__ = (
     "DiskSnapshotTypeDef",
     "DiskTypeDef",
     "DistributionBundleTypeDef",
+    "DistributionCustomErrorResponseTypeDef",
     "DnsRecordCreationStateTypeDef",
     "DomainEntryOutputTypeDef",
     "DomainEntryTypeDef",
@@ -400,6 +404,7 @@ __all__ = (
     "GetOperationsRequestPaginateTypeDef",
     "GetOperationsRequestTypeDef",
     "GetOperationsResultTypeDef",
+    "GetProfileResultTypeDef",
     "GetRegionsRequestTypeDef",
     "GetRegionsResultTypeDef",
     "GetRelationalDatabaseBlueprintsRequestPaginateTypeDef",
@@ -478,6 +483,7 @@ __all__ = (
     "OperationTypeDef",
     "OriginTypeDef",
     "PaginatorConfigTypeDef",
+    "PartnerInfoTypeDef",
     "PasswordDataTypeDef",
     "PeerVpcResultTypeDef",
     "PendingMaintenanceActionTypeDef",
@@ -912,6 +918,13 @@ class InstanceEntryTypeDef(TypedDict):
     userData: NotRequired[str]
 
 
+class DistributionCustomErrorResponseTypeDef(TypedDict):
+    errorCode: NotRequired[int]
+    responseCode: NotRequired[str]
+    responsePagePath: NotRequired[str]
+    errorCachingMinTTL: NotRequired[int]
+
+
 class InputOriginTypeDef(TypedDict):
     name: NotRequired[str]
     regionName: NotRequired[RegionNameType]
@@ -1331,6 +1344,12 @@ class GetOperationsRequestTypeDef(TypedDict):
     pageToken: NotRequired[str]
 
 
+class PartnerInfoTypeDef(TypedDict):
+    enrolledAt: datetime
+    status: PartnerStatusType
+    tierName: NotRequired[TierNameType]
+
+
 class GetRegionsRequestTypeDef(TypedDict):
     includeAvailabilityZones: NotRequired[bool]
     includeRelationalDatabaseAvailabilityZones: NotRequired[bool]
@@ -1496,6 +1515,7 @@ class OriginTypeDef(TypedDict):
     protocolPolicy: NotRequired[OriginProtocolPolicyEnumType]
     responseTimeout: NotRequired[int]
     ipAddressType: NotRequired[OriginIpAddressTypeEnumType]
+    isPrivateOriginAccessEnabled: NotRequired[bool]
 
 
 class LoadBalancerTlsCertificateDnsRecordCreationStateTypeDef(TypedDict):
@@ -2401,6 +2421,12 @@ class GetLoadBalancerTlsPoliciesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetProfileResultTypeDef(TypedDict):
+    profileType: ProfileTypeType
+    partner: PartnerInfoTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetRelationalDatabaseBlueprintsResultTypeDef(TypedDict):
     blueprints: list[RelationalDatabaseBlueprintTypeDef]
     nextPageToken: str
@@ -3183,6 +3209,8 @@ class LightsailDistributionTypeDef(TypedDict):
     ipAddressType: NotRequired[IpAddressTypeType]
     tags: NotRequired[list[TagTypeDef]]
     viewerMinimumTlsProtocolVersion: NotRequired[str]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[list[DistributionCustomErrorResponseTypeDef]]
 
 
 CacheSettingsUnionTypeDef = Union[CacheSettingsTypeDef, CacheSettingsOutputTypeDef]
@@ -3422,6 +3450,9 @@ class CreateDistributionRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
     certificateName: NotRequired[str]
     viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
 
 
 class UpdateDistributionRequestTypeDef(TypedDict):
@@ -3434,6 +3465,9 @@ class UpdateDistributionRequestTypeDef(TypedDict):
     viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
     certificateName: NotRequired[str]
     useDefaultCertificate: NotRequired[bool]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
 
 
 class ContainerServiceTypeDef(TypedDict):

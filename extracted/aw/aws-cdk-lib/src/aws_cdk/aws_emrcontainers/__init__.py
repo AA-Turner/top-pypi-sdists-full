@@ -1238,6 +1238,1368 @@ class CfnEndpointProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emrcontainers_6ec331d9.IJobTemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnJobTemplate(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate",
+):
+    '''Represents an Amazon EMR on EKS job template.
+
+    A job template stores the values of a StartJobRun API request in a reusable template, so they can be used to start a job run or to enforce certain values in a StartJobRun API request.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-jobtemplate.html
+    :cloudformationResource: AWS::EMRContainers::JobTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_emrcontainers as emrcontainers
+        
+        # configuration_property_: emrcontainers.CfnJobTemplate.ConfigurationProperty
+        
+        cfn_job_template = emrcontainers.CfnJobTemplate(self, "MyCfnJobTemplate",
+            job_template_data=emrcontainers.CfnJobTemplate.JobTemplateDataProperty(
+                execution_role_arn="executionRoleArn",
+                job_driver=emrcontainers.CfnJobTemplate.JobDriverProperty(
+                    spark_sql_job_driver=emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty(
+                        entry_point="entryPoint",
+                        spark_sql_parameters="sparkSqlParameters"
+                    ),
+                    spark_submit_job_driver=emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty(
+                        entry_point="entryPoint",
+        
+                        # the properties below are optional
+                        entry_point_arguments=["entryPointArguments"],
+                        spark_submit_parameters="sparkSubmitParameters"
+                    )
+                ),
+                release_label="releaseLabel",
+        
+                # the properties below are optional
+                configuration_overrides=emrcontainers.CfnJobTemplate.ParametricConfigurationOverridesProperty(
+                    application_configuration=[emrcontainers.CfnJobTemplate.ConfigurationProperty(
+                        classification="classification",
+        
+                        # the properties below are optional
+                        configurations=[configuration_property_],
+                        properties={
+                            "properties_key": "properties"
+                        }
+                    )],
+                    monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty(
+                        cloud_watch_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                            log_group_name="logGroupName",
+                            log_stream_name_prefix="logStreamNamePrefix"
+                        ),
+                        persistent_app_ui="persistentAppUi",
+                        s3_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                            log_uri="logUri"
+                        )
+                    )
+                ),
+                job_tags={
+                    "job_tags_key": "jobTags"
+                },
+                parameter_configuration={
+                    "parameter_configuration_key": emrcontainers.CfnJobTemplate.TemplateParameterConfigurationProperty(
+                        default_value="defaultValue",
+                        type="type"
+                    )
+                }
+            ),
+            name="name",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        job_template_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.JobTemplateDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::EMRContainers::JobTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param job_template_data: The values of a StartJobRun API request used in job runs started using the job template.
+        :param name: The specified name of the job template.
+        :param tags: The tags that are associated with the job template.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f6c029a2e31e8024de8be1d7d6cc3164b0c4d242cdaa1e78e8152aa39ef297d2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnJobTemplateProps(
+            job_template_data=job_template_data, name=name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForJobTemplate")
+    @builtins.classmethod
+    def arn_for_job_template(
+        cls,
+        resource: "_aws_emrcontainers_6ec331d9.IJobTemplateRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d1213684e48ba2ff226bf53a018eb8e22032bf66dc3b8fe2f7726727ccfaf17c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForJobTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnJobTemplate")
+    @builtins.classmethod
+    def is_cfn_job_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnJobTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ef61bbeea56cb835cf288985902b03d2ce3397c18d79451812a3afabe72d771b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnJobTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5fac5ed807f28c92b34b59474a24387d74ed0a6c77074e3e4da0476148fe5b99)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0561a43529d97a11acf97d0c2115c911dc5c3e4e3abbbf8b3457e4d218c1a8e5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the job template.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time when the job template was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The user who created the job template.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the job template.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "_aws_emrcontainers_6ec331d9.JobTemplateReference":
+        '''A reference to a JobTemplate resource.'''
+        return typing.cast("_aws_emrcontainers_6ec331d9.JobTemplateReference", jsii.get(self, "jobTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateData")
+    def job_template_data(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobTemplateDataProperty"]:
+        '''The values of a StartJobRun API request used in job runs started using the job template.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobTemplateDataProperty"], jsii.get(self, "jobTemplateData"))
+
+    @job_template_data.setter
+    def job_template_data(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobTemplateDataProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__32317f0a78421d5632e7bc6574dda9ffbfcb0256a5946e6ee690d70dac4c3356)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobTemplateData", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The specified name of the job template.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b7c793a65240af6e7ad92176cb6a473c8e8c548c0a0023cd5ae280287fcf21f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags that are associated with the job template.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56b41299b65ce9b702f45b330d4070751ff8c0770b49288ef2e475935df515b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "classification": "classification",
+            "configurations": "configurations",
+            "properties": "properties",
+        },
+    )
+    class ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            classification: builtins.str,
+            configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''A configuration specification to be used when provisioning virtual clusters, which can include configurations for applications and software bundled with Amazon EMR on EKS.
+
+            :param classification: The classification within a configuration.
+            :param configurations: 
+            :param properties: A set of properties specified within a configuration classification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                # configuration_property_: emrcontainers.CfnJobTemplate.ConfigurationProperty
+                
+                configuration_property = emrcontainers.CfnJobTemplate.ConfigurationProperty(
+                    classification="classification",
+                
+                    # the properties below are optional
+                    configurations=[configuration_property_],
+                    properties={
+                        "properties_key": "properties"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b22b73396a3e46a6548256a211ad34a4fca6efd9179dc495c01be7ffb9a11862)
+                check_type(argname="argument classification", value=classification, expected_type=type_hints["classification"])
+                check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
+                check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "classification": classification,
+            }
+            if configurations is not None:
+                self._values["configurations"] = configurations
+            if properties is not None:
+                self._values["properties"] = properties
+
+        @builtins.property
+        def classification(self) -> builtins.str:
+            '''The classification within a configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-configuration.html#cfn-emrcontainers-jobtemplate-configuration-classification
+            '''
+            result = self._values.get("classification")
+            assert result is not None, "Required property 'classification' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def configurations(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-configuration.html#cfn-emrcontainers-jobtemplate-configuration-configurations
+            '''
+            result = self._values.get("configurations")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ConfigurationProperty"]]]], result)
+
+        @builtins.property
+        def properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A set of properties specified within a configuration classification.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-configuration.html#cfn-emrcontainers-jobtemplate-configuration-properties
+            '''
+            result = self._values.get("properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.JobDriverProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "spark_sql_job_driver": "sparkSqlJobDriver",
+            "spark_submit_job_driver": "sparkSubmitJobDriver",
+        },
+    )
+    class JobDriverProperty:
+        def __init__(
+            self,
+            *,
+            spark_sql_job_driver: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.SparkSqlJobDriverProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spark_submit_job_driver: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.SparkSubmitJobDriverProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specify the driver that the job runs on.
+
+            Exactly one of the two available job drivers is required, either SparkSqlJobDriver or SparkSubmitJobDriver.
+
+            :param spark_sql_job_driver: The job driver for job type.
+            :param spark_submit_job_driver: The information about job driver for Spark submit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobdriver.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                job_driver_property = emrcontainers.CfnJobTemplate.JobDriverProperty(
+                    spark_sql_job_driver=emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty(
+                        entry_point="entryPoint",
+                        spark_sql_parameters="sparkSqlParameters"
+                    ),
+                    spark_submit_job_driver=emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty(
+                        entry_point="entryPoint",
+                
+                        # the properties below are optional
+                        entry_point_arguments=["entryPointArguments"],
+                        spark_submit_parameters="sparkSubmitParameters"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1c21790543c1028a1851da37b5b1f0984fe52d70bcf238cd7a5c62b7eede1793)
+                check_type(argname="argument spark_sql_job_driver", value=spark_sql_job_driver, expected_type=type_hints["spark_sql_job_driver"])
+                check_type(argname="argument spark_submit_job_driver", value=spark_submit_job_driver, expected_type=type_hints["spark_submit_job_driver"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if spark_sql_job_driver is not None:
+                self._values["spark_sql_job_driver"] = spark_sql_job_driver
+            if spark_submit_job_driver is not None:
+                self._values["spark_submit_job_driver"] = spark_submit_job_driver
+
+        @builtins.property
+        def spark_sql_job_driver(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.SparkSqlJobDriverProperty"]]:
+            '''The job driver for job type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobdriver.html#cfn-emrcontainers-jobtemplate-jobdriver-sparksqljobdriver
+            '''
+            result = self._values.get("spark_sql_job_driver")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.SparkSqlJobDriverProperty"]], result)
+
+        @builtins.property
+        def spark_submit_job_driver(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.SparkSubmitJobDriverProperty"]]:
+            '''The information about job driver for Spark submit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobdriver.html#cfn-emrcontainers-jobtemplate-jobdriver-sparksubmitjobdriver
+            '''
+            result = self._values.get("spark_submit_job_driver")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.SparkSubmitJobDriverProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JobDriverProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.JobTemplateDataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "execution_role_arn": "executionRoleArn",
+            "job_driver": "jobDriver",
+            "release_label": "releaseLabel",
+            "configuration_overrides": "configurationOverrides",
+            "job_tags": "jobTags",
+            "parameter_configuration": "parameterConfiguration",
+        },
+    )
+    class JobTemplateDataProperty:
+        def __init__(
+            self,
+            *,
+            execution_role_arn: builtins.str,
+            job_driver: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.JobDriverProperty", typing.Dict[builtins.str, typing.Any]]],
+            release_label: builtins.str,
+            configuration_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ParametricConfigurationOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            job_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            parameter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.TemplateParameterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The values of a StartJobRun API request used in job runs started using the job template.
+
+            :param execution_role_arn: The execution role ARN of the job run, or a template parameter reference.
+            :param job_driver: Specify the driver that the job runs on. Exactly one of the two available job drivers is required, either SparkSqlJobDriver or SparkSubmitJobDriver.
+            :param release_label: The release version of Amazon EMR, or a template parameter reference.
+            :param configuration_overrides: A configuration specification to be used to override existing configurations. This data type allows job template parameters to be specified within.
+            :param job_tags: The tags assigned to jobs started using the job template.
+            :param parameter_configuration: The configuration of parameters existing in the job template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                # configuration_property_: emrcontainers.CfnJobTemplate.ConfigurationProperty
+                
+                job_template_data_property = emrcontainers.CfnJobTemplate.JobTemplateDataProperty(
+                    execution_role_arn="executionRoleArn",
+                    job_driver=emrcontainers.CfnJobTemplate.JobDriverProperty(
+                        spark_sql_job_driver=emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty(
+                            entry_point="entryPoint",
+                            spark_sql_parameters="sparkSqlParameters"
+                        ),
+                        spark_submit_job_driver=emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty(
+                            entry_point="entryPoint",
+                
+                            # the properties below are optional
+                            entry_point_arguments=["entryPointArguments"],
+                            spark_submit_parameters="sparkSubmitParameters"
+                        )
+                    ),
+                    release_label="releaseLabel",
+                
+                    # the properties below are optional
+                    configuration_overrides=emrcontainers.CfnJobTemplate.ParametricConfigurationOverridesProperty(
+                        application_configuration=[emrcontainers.CfnJobTemplate.ConfigurationProperty(
+                            classification="classification",
+                
+                            # the properties below are optional
+                            configurations=[configuration_property_],
+                            properties={
+                                "properties_key": "properties"
+                            }
+                        )],
+                        monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty(
+                            cloud_watch_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                                log_group_name="logGroupName",
+                                log_stream_name_prefix="logStreamNamePrefix"
+                            ),
+                            persistent_app_ui="persistentAppUi",
+                            s3_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                                log_uri="logUri"
+                            )
+                        )
+                    ),
+                    job_tags={
+                        "job_tags_key": "jobTags"
+                    },
+                    parameter_configuration={
+                        "parameter_configuration_key": emrcontainers.CfnJobTemplate.TemplateParameterConfigurationProperty(
+                            default_value="defaultValue",
+                            type="type"
+                        )
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__795c32821cadb799a4fb4fbfd3bdce984d0531111086ba2e4f67dfbf1c2428b4)
+                check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+                check_type(argname="argument job_driver", value=job_driver, expected_type=type_hints["job_driver"])
+                check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
+                check_type(argname="argument configuration_overrides", value=configuration_overrides, expected_type=type_hints["configuration_overrides"])
+                check_type(argname="argument job_tags", value=job_tags, expected_type=type_hints["job_tags"])
+                check_type(argname="argument parameter_configuration", value=parameter_configuration, expected_type=type_hints["parameter_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "execution_role_arn": execution_role_arn,
+                "job_driver": job_driver,
+                "release_label": release_label,
+            }
+            if configuration_overrides is not None:
+                self._values["configuration_overrides"] = configuration_overrides
+            if job_tags is not None:
+                self._values["job_tags"] = job_tags
+            if parameter_configuration is not None:
+                self._values["parameter_configuration"] = parameter_configuration
+
+        @builtins.property
+        def execution_role_arn(self) -> builtins.str:
+            '''The execution role ARN of the job run, or a template parameter reference.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-executionrolearn
+            '''
+            result = self._values.get("execution_role_arn")
+            assert result is not None, "Required property 'execution_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def job_driver(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobDriverProperty"]:
+            '''Specify the driver that the job runs on.
+
+            Exactly one of the two available job drivers is required, either SparkSqlJobDriver or SparkSubmitJobDriver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-jobdriver
+            '''
+            result = self._values.get("job_driver")
+            assert result is not None, "Required property 'job_driver' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobDriverProperty"], result)
+
+        @builtins.property
+        def release_label(self) -> builtins.str:
+            '''The release version of Amazon EMR, or a template parameter reference.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-releaselabel
+            '''
+            result = self._values.get("release_label")
+            assert result is not None, "Required property 'release_label' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def configuration_overrides(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricConfigurationOverridesProperty"]]:
+            '''A configuration specification to be used to override existing configurations.
+
+            This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-configurationoverrides
+            '''
+            result = self._values.get("configuration_overrides")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricConfigurationOverridesProperty"]], result)
+
+        @builtins.property
+        def job_tags(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''The tags assigned to jobs started using the job template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-jobtags
+            '''
+            result = self._values.get("job_tags")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def parameter_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.TemplateParameterConfigurationProperty"]]]]:
+            '''The configuration of parameters existing in the job template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-jobtemplatedata.html#cfn-emrcontainers-jobtemplate-jobtemplatedata-parameterconfiguration
+            '''
+            result = self._values.get("parameter_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.TemplateParameterConfigurationProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JobTemplateDataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "log_group_name": "logGroupName",
+            "log_stream_name_prefix": "logStreamNamePrefix",
+        },
+    )
+    class ParametricCloudWatchMonitoringConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            log_group_name: typing.Optional[builtins.str] = None,
+            log_stream_name_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A configuration for CloudWatch monitoring.
+
+            This data type allows job template parameters to be specified within.
+
+            :param log_group_name: The name of the log group for log publishing, or a template parameter reference.
+            :param log_stream_name_prefix: The specified name prefix for log streams.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametriccloudwatchmonitoringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                parametric_cloud_watch_monitoring_configuration_property = emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                    log_group_name="logGroupName",
+                    log_stream_name_prefix="logStreamNamePrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c62e7a0a0f8bf638323db721f046500c4c5835ae9de13cc405a7ad3cdfe8a2c2)
+                check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+                check_type(argname="argument log_stream_name_prefix", value=log_stream_name_prefix, expected_type=type_hints["log_stream_name_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_group_name is not None:
+                self._values["log_group_name"] = log_group_name
+            if log_stream_name_prefix is not None:
+                self._values["log_stream_name_prefix"] = log_stream_name_prefix
+
+        @builtins.property
+        def log_group_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the log group for log publishing, or a template parameter reference.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametriccloudwatchmonitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametriccloudwatchmonitoringconfiguration-loggroupname
+            '''
+            result = self._values.get("log_group_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_stream_name_prefix(self) -> typing.Optional[builtins.str]:
+            '''The specified name prefix for log streams.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametriccloudwatchmonitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametriccloudwatchmonitoringconfiguration-logstreamnameprefix
+            '''
+            result = self._values.get("log_stream_name_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParametricCloudWatchMonitoringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.ParametricConfigurationOverridesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_configuration": "applicationConfiguration",
+            "monitoring_configuration": "monitoringConfiguration",
+        },
+    )
+    class ParametricConfigurationOverridesProperty:
+        def __init__(
+            self,
+            *,
+            application_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            monitoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ParametricMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A configuration specification to be used to override existing configurations.
+
+            This data type allows job template parameters to be specified within.
+
+            :param application_configuration: 
+            :param monitoring_configuration: Configuration setting for monitoring. This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricconfigurationoverrides.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                # configuration_property_: emrcontainers.CfnJobTemplate.ConfigurationProperty
+                
+                parametric_configuration_overrides_property = emrcontainers.CfnJobTemplate.ParametricConfigurationOverridesProperty(
+                    application_configuration=[emrcontainers.CfnJobTemplate.ConfigurationProperty(
+                        classification="classification",
+                
+                        # the properties below are optional
+                        configurations=[configuration_property_],
+                        properties={
+                            "properties_key": "properties"
+                        }
+                    )],
+                    monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty(
+                        cloud_watch_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                            log_group_name="logGroupName",
+                            log_stream_name_prefix="logStreamNamePrefix"
+                        ),
+                        persistent_app_ui="persistentAppUi",
+                        s3_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                            log_uri="logUri"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e1861b199e8dd763443b960028c0df4e34bb4f5294d46210e36d3637722fc7f4)
+                check_type(argname="argument application_configuration", value=application_configuration, expected_type=type_hints["application_configuration"])
+                check_type(argname="argument monitoring_configuration", value=monitoring_configuration, expected_type=type_hints["monitoring_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if application_configuration is not None:
+                self._values["application_configuration"] = application_configuration
+            if monitoring_configuration is not None:
+                self._values["monitoring_configuration"] = monitoring_configuration
+
+        @builtins.property
+        def application_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ConfigurationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricconfigurationoverrides.html#cfn-emrcontainers-jobtemplate-parametricconfigurationoverrides-applicationconfiguration
+            '''
+            result = self._values.get("application_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ConfigurationProperty"]]]], result)
+
+        @builtins.property
+        def monitoring_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricMonitoringConfigurationProperty"]]:
+            '''Configuration setting for monitoring.
+
+            This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricconfigurationoverrides.html#cfn-emrcontainers-jobtemplate-parametricconfigurationoverrides-monitoringconfiguration
+            '''
+            result = self._values.get("monitoring_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricMonitoringConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParametricConfigurationOverridesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cloud_watch_monitoring_configuration": "cloudWatchMonitoringConfiguration",
+            "persistent_app_ui": "persistentAppUi",
+            "s3_monitoring_configuration": "s3MonitoringConfiguration",
+        },
+    )
+    class ParametricMonitoringConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_monitoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            persistent_app_ui: typing.Optional[builtins.str] = None,
+            s3_monitoring_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.ParametricS3MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration setting for monitoring.
+
+            This data type allows job template parameters to be specified within.
+
+            :param cloud_watch_monitoring_configuration: A configuration for CloudWatch monitoring. This data type allows job template parameters to be specified within.
+            :param persistent_app_ui: Monitoring configurations for the persistent application UI, or a template parameter reference.
+            :param s3_monitoring_configuration: Amazon S3 configuration for monitoring log publishing. This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricmonitoringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                parametric_monitoring_configuration_property = emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty(
+                    cloud_watch_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                        log_group_name="logGroupName",
+                        log_stream_name_prefix="logStreamNamePrefix"
+                    ),
+                    persistent_app_ui="persistentAppUi",
+                    s3_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                        log_uri="logUri"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d3f8c8bf13509d313157c1a5d5cc47e5eaef673acbdcc737fbb4ab54c97f97e3)
+                check_type(argname="argument cloud_watch_monitoring_configuration", value=cloud_watch_monitoring_configuration, expected_type=type_hints["cloud_watch_monitoring_configuration"])
+                check_type(argname="argument persistent_app_ui", value=persistent_app_ui, expected_type=type_hints["persistent_app_ui"])
+                check_type(argname="argument s3_monitoring_configuration", value=s3_monitoring_configuration, expected_type=type_hints["s3_monitoring_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_monitoring_configuration is not None:
+                self._values["cloud_watch_monitoring_configuration"] = cloud_watch_monitoring_configuration
+            if persistent_app_ui is not None:
+                self._values["persistent_app_ui"] = persistent_app_ui
+            if s3_monitoring_configuration is not None:
+                self._values["s3_monitoring_configuration"] = s3_monitoring_configuration
+
+        @builtins.property
+        def cloud_watch_monitoring_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty"]]:
+            '''A configuration for CloudWatch monitoring.
+
+            This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricmonitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametricmonitoringconfiguration-cloudwatchmonitoringconfiguration
+            '''
+            result = self._values.get("cloud_watch_monitoring_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty"]], result)
+
+        @builtins.property
+        def persistent_app_ui(self) -> typing.Optional[builtins.str]:
+            '''Monitoring configurations for the persistent application UI, or a template parameter reference.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricmonitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametricmonitoringconfiguration-persistentappui
+            '''
+            result = self._values.get("persistent_app_ui")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_monitoring_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricS3MonitoringConfigurationProperty"]]:
+            '''Amazon S3 configuration for monitoring log publishing.
+
+            This data type allows job template parameters to be specified within.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametricmonitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametricmonitoringconfiguration-s3monitoringconfiguration
+            '''
+            result = self._values.get("s3_monitoring_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.ParametricS3MonitoringConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParametricMonitoringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_uri": "logUri"},
+    )
+    class ParametricS3MonitoringConfigurationProperty:
+        def __init__(self, *, log_uri: typing.Optional[builtins.str] = None) -> None:
+            '''Amazon S3 configuration for monitoring log publishing.
+
+            This data type allows job template parameters to be specified within.
+
+            :param log_uri: Amazon S3 destination URI for log publishing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametrics3monitoringconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                parametric_s3_monitoring_configuration_property = emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                    log_uri="logUri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__aded8a9f274f5fe815114276681a17f8ec3ecfcfe12cabde3177611d95292001)
+                check_type(argname="argument log_uri", value=log_uri, expected_type=type_hints["log_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_uri is not None:
+                self._values["log_uri"] = log_uri
+
+        @builtins.property
+        def log_uri(self) -> typing.Optional[builtins.str]:
+            '''Amazon S3 destination URI for log publishing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-parametrics3monitoringconfiguration.html#cfn-emrcontainers-jobtemplate-parametrics3monitoringconfiguration-loguri
+            '''
+            result = self._values.get("log_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParametricS3MonitoringConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entry_point": "entryPoint",
+            "spark_sql_parameters": "sparkSqlParameters",
+        },
+    )
+    class SparkSqlJobDriverProperty:
+        def __init__(
+            self,
+            *,
+            entry_point: typing.Optional[builtins.str] = None,
+            spark_sql_parameters: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The job driver for job type.
+
+            :param entry_point: 
+            :param spark_sql_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksqljobdriver.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                spark_sql_job_driver_property = emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty(
+                    entry_point="entryPoint",
+                    spark_sql_parameters="sparkSqlParameters"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d7cd0fb159db94a8f48f1d6bb8768b53612b8bf72d17ed12757c43cf6b2d534c)
+                check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
+                check_type(argname="argument spark_sql_parameters", value=spark_sql_parameters, expected_type=type_hints["spark_sql_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if entry_point is not None:
+                self._values["entry_point"] = entry_point
+            if spark_sql_parameters is not None:
+                self._values["spark_sql_parameters"] = spark_sql_parameters
+
+        @builtins.property
+        def entry_point(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksqljobdriver.html#cfn-emrcontainers-jobtemplate-sparksqljobdriver-entrypoint
+            '''
+            result = self._values.get("entry_point")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def spark_sql_parameters(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksqljobdriver.html#cfn-emrcontainers-jobtemplate-sparksqljobdriver-sparksqlparameters
+            '''
+            result = self._values.get("spark_sql_parameters")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SparkSqlJobDriverProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "entry_point": "entryPoint",
+            "entry_point_arguments": "entryPointArguments",
+            "spark_submit_parameters": "sparkSubmitParameters",
+        },
+    )
+    class SparkSubmitJobDriverProperty:
+        def __init__(
+            self,
+            *,
+            entry_point: builtins.str,
+            entry_point_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+            spark_submit_parameters: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The information about job driver for Spark submit.
+
+            :param entry_point: 
+            :param entry_point_arguments: 
+            :param spark_submit_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksubmitjobdriver.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                spark_submit_job_driver_property = emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty(
+                    entry_point="entryPoint",
+                
+                    # the properties below are optional
+                    entry_point_arguments=["entryPointArguments"],
+                    spark_submit_parameters="sparkSubmitParameters"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__29459080c432b9a9ebd709ae414b163871b5d34f30f0cd30d0bf5d90e14f12c4)
+                check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
+                check_type(argname="argument entry_point_arguments", value=entry_point_arguments, expected_type=type_hints["entry_point_arguments"])
+                check_type(argname="argument spark_submit_parameters", value=spark_submit_parameters, expected_type=type_hints["spark_submit_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "entry_point": entry_point,
+            }
+            if entry_point_arguments is not None:
+                self._values["entry_point_arguments"] = entry_point_arguments
+            if spark_submit_parameters is not None:
+                self._values["spark_submit_parameters"] = spark_submit_parameters
+
+        @builtins.property
+        def entry_point(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksubmitjobdriver.html#cfn-emrcontainers-jobtemplate-sparksubmitjobdriver-entrypoint
+            '''
+            result = self._values.get("entry_point")
+            assert result is not None, "Required property 'entry_point' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def entry_point_arguments(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksubmitjobdriver.html#cfn-emrcontainers-jobtemplate-sparksubmitjobdriver-entrypointarguments
+            '''
+            result = self._values.get("entry_point_arguments")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def spark_submit_parameters(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-sparksubmitjobdriver.html#cfn-emrcontainers-jobtemplate-sparksubmitjobdriver-sparksubmitparameters
+            '''
+            result = self._values.get("spark_submit_parameters")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SparkSubmitJobDriverProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplate.TemplateParameterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"default_value": "defaultValue", "type": "type"},
+    )
+    class TemplateParameterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            default_value: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration of a job template parameter.
+
+            :param default_value: The default value for the job template parameter.
+            :param type: The type of the job template parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-templateparameterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrcontainers as emrcontainers
+                
+                template_parameter_configuration_property = emrcontainers.CfnJobTemplate.TemplateParameterConfigurationProperty(
+                    default_value="defaultValue",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cf4b4e0e699e8b16d67c152a60c3cc26a460376cfe5eaa8f1394dde60fd2d1f5)
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if default_value is not None:
+                self._values["default_value"] = default_value
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''The default value for the job template parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-templateparameterconfiguration.html#cfn-emrcontainers-jobtemplate-templateparameterconfiguration-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of the job template parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-jobtemplate-templateparameterconfiguration.html#cfn-emrcontainers-jobtemplate-templateparameterconfiguration-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TemplateParameterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emrcontainers.CfnJobTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "job_template_data": "jobTemplateData",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnJobTemplateProps:
+    def __init__(
+        self,
+        *,
+        job_template_data: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnJobTemplate.JobTemplateDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnJobTemplate``.
+
+        :param job_template_data: The values of a StartJobRun API request used in job runs started using the job template.
+        :param name: The specified name of the job template.
+        :param tags: The tags that are associated with the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-jobtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emrcontainers as emrcontainers
+            
+            # configuration_property_: emrcontainers.CfnJobTemplate.ConfigurationProperty
+            
+            cfn_job_template_props = emrcontainers.CfnJobTemplateProps(
+                job_template_data=emrcontainers.CfnJobTemplate.JobTemplateDataProperty(
+                    execution_role_arn="executionRoleArn",
+                    job_driver=emrcontainers.CfnJobTemplate.JobDriverProperty(
+                        spark_sql_job_driver=emrcontainers.CfnJobTemplate.SparkSqlJobDriverProperty(
+                            entry_point="entryPoint",
+                            spark_sql_parameters="sparkSqlParameters"
+                        ),
+                        spark_submit_job_driver=emrcontainers.CfnJobTemplate.SparkSubmitJobDriverProperty(
+                            entry_point="entryPoint",
+            
+                            # the properties below are optional
+                            entry_point_arguments=["entryPointArguments"],
+                            spark_submit_parameters="sparkSubmitParameters"
+                        )
+                    ),
+                    release_label="releaseLabel",
+            
+                    # the properties below are optional
+                    configuration_overrides=emrcontainers.CfnJobTemplate.ParametricConfigurationOverridesProperty(
+                        application_configuration=[emrcontainers.CfnJobTemplate.ConfigurationProperty(
+                            classification="classification",
+            
+                            # the properties below are optional
+                            configurations=[configuration_property_],
+                            properties={
+                                "properties_key": "properties"
+                            }
+                        )],
+                        monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricMonitoringConfigurationProperty(
+                            cloud_watch_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty(
+                                log_group_name="logGroupName",
+                                log_stream_name_prefix="logStreamNamePrefix"
+                            ),
+                            persistent_app_ui="persistentAppUi",
+                            s3_monitoring_configuration=emrcontainers.CfnJobTemplate.ParametricS3MonitoringConfigurationProperty(
+                                log_uri="logUri"
+                            )
+                        )
+                    ),
+                    job_tags={
+                        "job_tags_key": "jobTags"
+                    },
+                    parameter_configuration={
+                        "parameter_configuration_key": emrcontainers.CfnJobTemplate.TemplateParameterConfigurationProperty(
+                            default_value="defaultValue",
+                            type="type"
+                        )
+                    }
+                ),
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98f248117f09ba0f9c281be5d42a29508083a37a5fbe109b20ee6cde5ff705a3)
+            check_type(argname="argument job_template_data", value=job_template_data, expected_type=type_hints["job_template_data"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_template_data": job_template_data,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def job_template_data(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobTemplateDataProperty"]:
+        '''The values of a StartJobRun API request used in job runs started using the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-jobtemplate.html#cfn-emrcontainers-jobtemplate-jobtemplatedata
+        '''
+        result = self._values.get("job_template_data")
+        assert result is not None, "Required property 'job_template_data' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnJobTemplate.JobTemplateDataProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The specified name of the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-jobtemplate.html#cfn-emrcontainers-jobtemplate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags that are associated with the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-jobtemplate.html#cfn-emrcontainers-jobtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnJobTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_emrcontainers_6ec331d9.ISecurityConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSecurityConfiguration(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3631,6 +4993,8 @@ class CfnVirtualClusterProps:
 __all__ = [
     "CfnEndpoint",
     "CfnEndpointProps",
+    "CfnJobTemplate",
+    "CfnJobTemplateProps",
     "CfnSecurityConfiguration",
     "CfnSecurityConfigurationProps",
     "CfnVirtualCluster",
@@ -3794,6 +5158,154 @@ def _typecheckingstub__cdf3149ecf1698607ceb24e9bbca6c307d3e7ef064cb79d95651abb2c
     configuration_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEndpoint.ConfigurationOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     session_idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6c029a2e31e8024de8be1d7d6cc3164b0c4d242cdaa1e78e8152aa39ef297d2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    job_template_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.JobTemplateDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1213684e48ba2ff226bf53a018eb8e22032bf66dc3b8fe2f7726727ccfaf17c(
+    resource: _aws_emrcontainers_6ec331d9.IJobTemplateRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef61bbeea56cb835cf288985902b03d2ce3397c18d79451812a3afabe72d771b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fac5ed807f28c92b34b59474a24387d74ed0a6c77074e3e4da0476148fe5b99(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0561a43529d97a11acf97d0c2115c911dc5c3e4e3abbbf8b3457e4d218c1a8e5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32317f0a78421d5632e7bc6574dda9ffbfcb0256a5946e6ee690d70dac4c3356(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnJobTemplate.JobTemplateDataProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b7c793a65240af6e7ad92176cb6a473c8e8c548c0a0023cd5ae280287fcf21f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56b41299b65ce9b702f45b330d4070751ff8c0770b49288ef2e475935df515b8(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b22b73396a3e46a6548256a211ad34a4fca6efd9179dc495c01be7ffb9a11862(
+    *,
+    classification: builtins.str,
+    configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c21790543c1028a1851da37b5b1f0984fe52d70bcf238cd7a5c62b7eede1793(
+    *,
+    spark_sql_job_driver: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.SparkSqlJobDriverProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spark_submit_job_driver: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.SparkSubmitJobDriverProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__795c32821cadb799a4fb4fbfd3bdce984d0531111086ba2e4f67dfbf1c2428b4(
+    *,
+    execution_role_arn: builtins.str,
+    job_driver: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.JobDriverProperty, typing.Dict[builtins.str, typing.Any]]],
+    release_label: builtins.str,
+    configuration_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ParametricConfigurationOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    parameter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.TemplateParameterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c62e7a0a0f8bf638323db721f046500c4c5835ae9de13cc405a7ad3cdfe8a2c2(
+    *,
+    log_group_name: typing.Optional[builtins.str] = None,
+    log_stream_name_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1861b199e8dd763443b960028c0df4e34bb4f5294d46210e36d3637722fc7f4(
+    *,
+    application_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    monitoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ParametricMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3f8c8bf13509d313157c1a5d5cc47e5eaef673acbdcc737fbb4ab54c97f97e3(
+    *,
+    cloud_watch_monitoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ParametricCloudWatchMonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    persistent_app_ui: typing.Optional[builtins.str] = None,
+    s3_monitoring_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.ParametricS3MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aded8a9f274f5fe815114276681a17f8ec3ecfcfe12cabde3177611d95292001(
+    *,
+    log_uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7cd0fb159db94a8f48f1d6bb8768b53612b8bf72d17ed12757c43cf6b2d534c(
+    *,
+    entry_point: typing.Optional[builtins.str] = None,
+    spark_sql_parameters: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29459080c432b9a9ebd709ae414b163871b5d34f30f0cd30d0bf5d90e14f12c4(
+    *,
+    entry_point: builtins.str,
+    entry_point_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+    spark_submit_parameters: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf4b4e0e699e8b16d67c152a60c3cc26a460376cfe5eaa8f1394dde60fd2d1f5(
+    *,
+    default_value: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98f248117f09ba0f9c281be5d42a29508083a37a5fbe109b20ee6cde5ff705a3(
+    *,
+    job_template_data: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnJobTemplate.JobTemplateDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

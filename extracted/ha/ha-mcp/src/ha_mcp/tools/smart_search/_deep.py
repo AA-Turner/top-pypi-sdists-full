@@ -8,11 +8,11 @@ from typing import Any
 from ha_mcp._vendor.fastmcp import Context
 from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
-from ...client.rest_client import HomeAssistantAPIError
+from ...client.rest_client import NON_ADMIN_TOKEN_WARNING, HomeAssistantAPIError
 from ...errors import get_error_code, get_error_message
 from ..component_api import component_supports, get_component_caps
 from ..config_entry_flow import FLOW_HELPER_TYPES
-from ..helpers import exception_to_structured_error, safe_info, safe_progress
+from ..helpers import exception_to_structured_error, safe_progress
 from ..tools_config_dashboards import (
     _dashboards_via_component,
     fetch_dashboards_list,
@@ -180,9 +180,7 @@ class DeepSearchMixin(SceneSearchMixin):
             query_lower = query.lower().strip()
 
             total_phases = len(search_types) + 1  # +1 for initial state fetch
-            await safe_info(
-                ctx, f"deep_search starting: query={query!r} types={search_types}"
-            )
+            logger.debug(f"deep_search starting: types={search_types}")
             await safe_progress(
                 ctx,
                 progress=0,
@@ -1349,6 +1347,15 @@ class DeepSearchMixin(SceneSearchMixin):
             graph_surfaces_skipped=graph_surfaces_skipped,
             graph_unavailable=graph_unavailable,
         )
+        # Keyed on the client, not the failure sample, which names only the
+        # first error.
+        if (
+            automation_failed
+            or script_failed
+            or scene_stats.get("failed")
+            or helper_failed
+        ) and self.client.admin_route_refused is True:
+            response.setdefault("warnings", []).append(NON_ADMIN_TOKEN_WARNING)
         return response
 
     @staticmethod

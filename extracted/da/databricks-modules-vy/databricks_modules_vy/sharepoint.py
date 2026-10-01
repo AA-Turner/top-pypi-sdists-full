@@ -70,13 +70,16 @@ def _execute_query_with_backoff(
 
 
 def df_from_sharepoint_masterdata(
-    list_name, row_limit=5000, site_name="VyMasterdata", internal_name=True
+    list_name, row_limit=5000, site_name="VyMasterdata", internal_name=True, get_by_id=False
 ) -> DataFrame:
     # Connect and fetch data
     ctx = _get_sharepoint_ctx(site_name)
 
     # Get the list and metadata
-    s_list = ctx.web.lists.get_by_title(list_name)
+    if get_by_id:
+        s_list = ctx.web.lists.get_by_id(list_name)
+    else:
+        s_list = ctx.web.lists.get_by_title(list_name)
     s_list_fields = s_list.fields
     ctx.load(s_list_fields)
     _execute_query_with_backoff(ctx)
